@@ -4,9 +4,10 @@ import { createInterface } from 'node:readline/promises';
 import { realpathSync } from 'node:fs';
 import { stdin, stdout } from 'node:process';
 import { detectAgents, doctor, findRoot, install, uninstall } from '../src/install.js';
+import { configureRoles } from '../src/wizard.js';
 
 async function question(prompt) {
-  if (!stdin.isTTY || !stdout.isTTY) throw new Error('Interactive input is unavailable; use init --agent claude --agent codex, or uninstall without --delete-config');
+  if (!stdin.isTTY || !stdout.isTTY) throw new Error('Interactive input is unavailable; configure requires a terminal. For init use --agent; for uninstall omit --delete-config.');
   const reader = createInterface({ input: stdin, output: stdout });
   try { return await reader.question(prompt); } finally { reader.close(); }
 }
@@ -23,9 +24,9 @@ try {
   });
   const [command] = positionals;
   if (values.help || !command) {
-    console.log('Usage: agent-profiles <init|doctor|uninstall> [--root <directory>]\n  init [--agent claude] [--agent codex]\n  uninstall [--delete-config]  (deletion requires interactive confirmation)');
+    console.log('Usage: agent-profiles <init|configure|doctor|uninstall> [--root <directory>]\n  init [--agent claude] [--agent codex]\n  configure  (interactive roles and local skills)\n  uninstall [--delete-config]  (deletion requires interactive confirmation)');
   } else {
-    if (positionals.length !== 1 || !['init', 'doctor', 'uninstall'].includes(command)) throw new Error('Choose one command: init, doctor, uninstall');
+    if (positionals.length !== 1 || !['init', 'configure', 'doctor', 'uninstall'].includes(command)) throw new Error('Choose one command: init, configure, doctor, uninstall');
     if (values.agent && command !== 'init') throw new Error('--agent is only supported by init');
     if (values['delete-config'] && command !== 'uninstall') throw new Error('--delete-config is only supported by uninstall');
     if (values.root !== undefined && !values.root.trim()) throw new Error('--root requires a directory');
@@ -46,9 +47,10 @@ try {
       for (const file of result.modified) console.log(`Updated ${file}`);
       if (!result.modified.length) console.log('Already installed. No changes required.');
       console.log(`Configuration validated. Default profile: ${result.profile}; default role: ${result.role}.\nRun agent-profiles doctor to inspect the installation.`);
+    } else if (command === 'configure') {
+      await configureRoles({ root, ask: question });
     } else if (command === 'doctor') {
       const result = doctor(root);
-      console.log(`Repository: ${result.root}`);
       if (result.profile) console.log(`Default profile: ${result.profile}; default role: ${result.role}`);
       for (const agent of result.agents) console.log(`${agent.name}: ${agent.installed ? 'bootstrap installed' : 'not installed'} (${agent.file})`);
       for (const error of result.errors) console.error(`Error: ${error}`);

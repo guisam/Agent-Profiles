@@ -53,6 +53,7 @@ schema contract, enforced by [the resolver](../src/resolve.js).
 | `families` | Mapping | Required, may be `{}`; exact family identity to `{profile: <profile-id>}` |
 | `roles` | Mapping | Required; role ID to role definition |
 | `roles.<id>.file` | String | Required path to that role's Markdown instructions |
+| `roles.<id>.description` | String | Optional human-readable summary for role selection; role instructions remain in the Markdown file |
 | `roles.<id>.skills.required` | List of skill IDs | Required; use `[]` for none |
 | `roles.<id>.skills.available` | List of skill IDs | Required; use `[]` for none |
 | `skills` | Mapping | Optional; skill ID to `{file: <repository-relative Markdown path>}` for existing local resources |
@@ -100,6 +101,10 @@ The user or calling tool explicitly selects a role. If no role is supplied,
 use `default_role`. An explicitly requested but undeclared role is an error,
 not a request to fall back. Role selection never changes model routing, and
 model routing never selects a role.
+
+The [configuration wizard](configure.md) edits this same role schema. It can
+create a minimal instruction file, but does not rewrite an existing file when
+its description or skill assignments change.
 
 After resolution, compose context in this order:
 
@@ -174,6 +179,14 @@ help decide relevance. Metadata must be within the first 64 KiB and use `---`
 delimiter lines. Existing skills without metadata need this small header added
 to their authoritative source. Other local formats can have readers added later.
 
+Wizard discovery is separate from runtime exposure: it scans the supported
+Agent Profiles and Claude-local directories for a human to select from, while
+bootstrap still exposes only the selected role's lists. If two sources have the
+same ID, selecting an alternative creates or reuses an explicit source alias,
+such as `testing-2`, in the existing top-level `skills` map. No existing binding
+is overwritten, and no other role's meaning changes. The resolver continues to
+reject ambiguous IDs without explicit aliases.
+
 Validation reads headers incrementally, stopping after the closing delimiter
 (a read chunk may include a prefix of the body). Unselected bodies never enter
 the returned instruction context. Required skills and explicitly requested
@@ -204,8 +217,8 @@ filenames belong in the adapter, not in the core profile format.
 The core does not choose a model, spawn agents, orchestrate tasks, execute skill
 files, benchmark capability, or distribute optimal prompts. Local skill files
 are sufficient; this schema does not define a universal skill ecosystem.
-Configuration wizards, remote registries, downloads, shareable
+Remote registries, downloads, shareable
 presets, machine-local environments, hosted services, and synchronization are
 outside the initial architecture, routing, and installer work. A local debugging
 command is available as `npm run resolve`; the installer exposes `init`, `doctor`,
-and `uninstall`. The role/skill wizard remains future work.
+and `uninstall`; `configure` provides the role/skill wizard.

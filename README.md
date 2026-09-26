@@ -185,11 +185,13 @@ request does not duplicate its instructions.
 
 ## CLI
 
-The CLI now supports `init`, `doctor`, and `uninstall` for Claude Code and Codex.
+The CLI supports `init`, `configure`, `doctor`, and `uninstall`, with installer
+integrations for Claude Code and Codex.
 From this checkout, after `npm ci`:
 
 ```sh
 node bin/agent-profiles.js init --root /path/to/your/repository
+node bin/agent-profiles.js configure --root /path/to/your/repository
 node bin/agent-profiles.js doctor --root /path/to/your/repository
 node bin/agent-profiles.js uninstall --root /path/to/your/repository
 ```
@@ -211,8 +213,13 @@ to test a local package with `npx` before release.
 
 Uninstall removes only managed bootstrap blocks and keeps `.agent-profiles/`.
 Deleting that directory requires `uninstall --delete-config` and an explicit
-interactive confirmation. The `configure` wizard and additional agent adapters
-are future work.
+interactive confirmation. Additional agent adapters are future work.
+
+`configure` creates, edits, and deletes roles, and assigns required and available
+skills through a paginated, filterable selection list. It discovers Agent Profiles
+and Claude-local skills, plus explicitly mapped local resources. Every change
+is previewed and validated before saving; existing role instructions remain
+user-owned. See the [role and skill wizard guide](docs/configure.md).
 
 ## Presets
 
@@ -338,8 +345,8 @@ Early development. The architecture, local examples, bootstrap protocol, and
 tested resolver and installer are available. See [docs/architecture.md](docs/architecture.md),
 [docs/bootstrap.md](docs/bootstrap.md), and [.agent-profiles/](.agent-profiles/).
 
-Claude Code and Codex integrations are implemented. The configuration wizard and
-npm publication remain future work. Commands, configuration, and file formats
+Claude Code and Codex integrations and the role/skill wizard are implemented.
+npm publication remains future work. Commands, configuration, and file formats
 may change before the first release.
 
 ## License
