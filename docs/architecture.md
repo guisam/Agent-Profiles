@@ -1,4 +1,4 @@
-# Initial architecture (version 1)
+# Architecture (configuration version 1)
 
 Agent Profiles is a repository-local instruction and configuration layer.
 It describes which instructions an existing agent tool should load. This
@@ -6,6 +6,30 @@ architecture defines the contract. The [bootstrap protocol](bootstrap.md) and
 resolver implement validation and loading of additional instruction layers.
 The [installer](installer.md) adds portable instructions through small
 agent-specific adapters.
+
+## Implementation flow
+
+`bin/agent-profiles.js` parses commands and owns terminal input. It passes an
+explicit repository root to the synchronous installer and configuration APIs.
+
+- `resolve.js` parses YAML using `yaml`, rejects duplicate keys and invalid
+  schema, validates local references, then resolves the model profile, role,
+  and skill lists. Only selected instruction bodies enter its result.
+- `integrations.js` describes host instruction targets and precedence. The
+  [adapter contract](installer.md#integration-contract) keeps host differences
+  out of routing.
+- `install.js` discovers integrations, validates configuration, plans scaffold
+  and bootstrap changes, then checks the resulting installation with doctor.
+  Uninstall removes managed spans even if routing configuration is broken.
+- `files.js` checks mutation paths and snapshots, writes temporary sibling files,
+  and rolls completed writes back after reported failures. Existing user files
+  are preserved; configuration deletion requires separate explicit confirmation.
+- `wizard.js` gathers a proposed role edit using local discovery from `skills.js`.
+  `configure.js` builds an in-memory YAML edit, validates through the same resolver,
+  previews the outcome, and applies it only after confirmation and stale-edit checks.
+
+There is no build step, network resolution, or agent runtime. The only runtime
+dependency is `yaml`; Node supplies file, path, argument, and terminal APIs.
 
 ## Instruction layers
 
@@ -83,6 +107,8 @@ The host integration supplies a model identity and, when known, one family
 identity. Identity discovery may report the model's name, but may not infer its
 capability or select its own profile. Family membership comes from explicit
 host metadata or a user-supplied identity, never a guessed prefix or substring.
+
+**Models may identify themselves. Models do not grade themselves.**
 
 Resolve the profile in this order:
 

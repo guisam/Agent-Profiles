@@ -115,6 +115,7 @@ test('doctor reuses routing validation for broken profiles, roles, and skills wi
       const report = doctor(root);
       assert.equal(report.valid, false);
       assert.ok(report.errors.some(error => error.includes(file)));
+      assert.match(report.errors.join('\n'), /restore the file or correct this reference.*agent-profiles doctor/);
       assert.throws(() => install({ root, agents: ['claude'] }), /cannot access/);
       assert.deepEqual(snapshot(root), before);
       uninstall({ root }); // Invalid configuration does not prevent integration removal.
@@ -195,8 +196,15 @@ test('CLI supports explicit agents, root detection, doctor exit codes, and safe 
   const root = repository(t);
   fs.mkdirSync(path.join(root, 'nested'));
   const run = (...args) => spawnSync(process.execPath, [path.join(project, 'bin/agent-profiles.js'), ...args], { cwd: path.join(root, 'nested'), encoding: 'utf8' });
-  assert.equal(run('--help').status, 0);
-  assert.equal(run('doctor').status, 1);
+  const help = run('--help');
+  assert.equal(help.status, 0);
+  for (const command of ['init', 'configure', 'doctor', 'uninstall']) {
+    assert.match(help.stdout, new RegExp(`  ${command} +[A-Z]`));
+    assert.equal(run(command, '--help').status, 0);
+  }
+  const missing = run('doctor');
+  assert.equal(missing.status, 1);
+  assert.match(missing.stderr, /agents.yaml.*run agent-profiles init/);
   const fresh = run('init', '--agent', 'claude', '--agent', 'codex');
   assert.equal(fresh.status, 0, fresh.stderr);
   assert.match(fresh.stdout, /Configuration validated/);

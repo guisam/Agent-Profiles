@@ -1,21 +1,43 @@
 {
   "name": "agent-profiles",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Repository-local instruction routing for coding agents",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/guisam/Agent-Profiles.git"
+  },
+  "homepage": "https://github.com/guisam/Agent-Profiles#readme",
+  "bugs": "https://github.com/guisam/Agent-Profiles/issues",
+  "keywords": ["agents", "instructions", "profiles", "claude", "codex"],
   "type": "module",
   "bin": {
     "agent-profiles": "bin/agent-profiles.js"
   },
-  "files": ["bin/", "src/", "scripts/resolve.js", ".agent-profiles/", "docs/"],
+  "files": [
+    "bin/",
+    "src/",
+    "scripts/resolve.js",
+    ".agent-profiles/",
+    "docs/",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md"
+  ],
   "engines": {
     "node": ">=22"
   },
   "scripts": {
+    "typecheck": "tsc",
+    "lint": "tsc --noUnusedLocals --noUnusedParameters --allowUnreachableCode false --allowUnusedLabels false --noFallthroughCasesInSwitch",
     "test": "node --test",
+    "test:package": "node scripts/package-smoke.js",
     "resolve": "node scripts/resolve.js"
   },
   "dependencies": {
     "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "typescript": "5.9"
   }
 }

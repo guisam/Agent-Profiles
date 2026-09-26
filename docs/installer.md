@@ -22,7 +22,7 @@ need a build step. To test the package before publishing:
 
 ```sh
 npm pack
-npx --yes --package /absolute/path/agent-profiles-0.0.0.tgz agent-profiles init --root /path/to/repository
+npx --yes --package /absolute/path/agent-profiles-0.1.0.tgz agent-profiles init --root /path/to/repository
 ```
 
 After a separate publication step, the entry point will be
@@ -71,6 +71,37 @@ and instruction size limits still apply. Restart the host session after install.
 The portable bootstrap preserves repository rules and directs agents to read
 root `AGENTS.md` once if it was not supplied by the host. It then follows the
 configuration routing protocol; it does not run an agent or execute skill tools.
+
+## Integration contract
+
+An adapter is one record in `integrations` with a unique `id`, display `name`,
+repository-relative detection `hint`, ordered instruction `files`, and a pure
+`select(records)` function returning one of those paths. Each record supplied
+to `select` contains `file`, `before` (a Buffer or null), and `span` (the managed
+block range or null). Missing targets must have a deterministic default. Path
+precedence belongs here, not in the resolver or shared bootstrap.
+
+| Conceptual operation | Implementation |
+| --- | --- |
+| `detect()` | `integrationState` checks known files and the adapter's hint |
+| `instructionTarget()` | Adapter `select(records)` chooses the host-readable path |
+| `isInstalled()` | `managedSpan` plus duplicate/shadow checks in `integrationState` |
+| `installBootstrap()` | Shared `install` validates, plans, writes, then runs doctor |
+| `removeBootstrap()` | Shared `uninstall` visits every adapter path and removes only managed spans |
+
+To add a host, verify its official instruction-loading rules, add the record,
+document its precedence, and test fresh files, existing files, reruns, overrides,
+and uninstall. Agent choices and detection derive from this table. The current
+contract assumes local Markdown instruction files; a host requiring a different
+mechanism needs a separately designed adapter extension, not shared-bootstrap
+workarounds. No routing changes should be necessary.
+
+The shared bootstrap deliberately contains no host commands or assumed model
+identity. The installed protocol can be followed by reading local files without
+a global CLI. It preserves host instruction precedence, separates model identity
+from role assignment, and keeps available skill bodies out of initial context.
+See the [release checklist](release.md) for live-session verification: automated
+tests prove file and resolver behavior, not host compliance with instructions.
 
 ## Managed blocks and failure safety
 

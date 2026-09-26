@@ -41,7 +41,7 @@ export function localFile(base, file, entry, scope = '.agent-profiles', allowMis
     return resolved;
   } catch (error) {
     if (allowMissing && error.code === 'ENOENT') return safePath(base, file);
-    if (error.code) fail(entry, `cannot access ${file} (${error.code})`);
+    if (error.code) fail(entry, `cannot access ${file} (${error.code}); restore the file or correct this reference in .agent-profiles/agents.yaml, then run agent-profiles doctor`);
     throw error;
   }
 }
@@ -110,7 +110,12 @@ function skillFiles(ids, entry, resolveSkill) {
   });
 }
 
-/** Validate all configuration, then load only the selected additional layers. */
+/**
+ * Validate all configuration, then load only the selected additional layers.
+ * @param {{root?: string, model?: string, family?: string, role?: string,
+ *   skills?: string[], configuration?: Map<string, any>,
+ *   newRoleFile?: {path: string, content: string}}} options
+ */
 export function resolveInstructions({ root = process.cwd(), model, family, role, skills = [], configuration, newRoleFile } = {}) {
   for (const [name, value] of Object.entries({ model, family, role })) {
     if (value !== undefined && (typeof value !== 'string' || !value.trim())) {
@@ -126,7 +131,7 @@ export function resolveInstructions({ root = process.cwd(), model, family, role,
     base = realpathSync(path.join(repository, '.agent-profiles'));
     config = configuration === undefined ? parseYaml(readFileSync(path.join(base, 'agents.yaml'), 'utf8')) : configuration;
   } catch (error) {
-    fail('.agent-profiles/agents.yaml', error.message);
+    fail('.agent-profiles/agents.yaml', `${error.message}; run agent-profiles init for a new installation, or repair the existing configuration and run agent-profiles doctor`);
   }
   if (newRoleFile !== undefined) {
     if (typeof newRoleFile?.content !== 'string') fail('newRoleFile', 'expected path and text content');
@@ -192,7 +197,7 @@ export function resolveInstructions({ root = process.cwd(), model, family, role,
   const profile = matchedBy === 'model' ? models.get(model).get('profile') :
     matchedBy === 'family' ? families.get(family).get('profile') : defaultProfile;
   const selectedRole = role ?? defaultRole;
-  if (!roles.has(selectedRole)) fail('role', `${selectedRole} is not declared in roles`);
+  if (!roles.has(selectedRole)) fail('role', `${selectedRole} is not declared in roles; choose ${[...roles.keys()].join(', ')} or run agent-profiles configure to create it`);
   const { required, available } = roleSkills.get(selectedRole);
   const permitted = new Map([...required, ...available].map(skill => [skill.id, skill]));
   for (const id of skills) {

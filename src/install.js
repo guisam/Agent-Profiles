@@ -72,10 +72,11 @@ function templateFiles(directory, prefix = '') {
 
 export function install({ root, agents }) {
   root = realpathSync(root);
-  if (!Array.isArray(agents) || !agents.length) throw new Error('Select at least one agent: claude, codex');
+  const choices = integrations.map(adapter => adapter.id).join(', ');
+  if (!Array.isArray(agents) || !agents.length) throw new Error(`Select at least one agent: ${choices}`);
   const selected = [...new Set(agents)].map(id => {
     const adapter = integrations.find(item => item.id === id);
-    if (!adapter) throw new Error(`Unknown agent ${id}; choose claude or codex`);
+    if (!adapter) throw new Error(`Unknown agent ${id}; choose ${choices}`);
     return integrationState(root, adapter);
   });
   const changes = [];

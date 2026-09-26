@@ -5,6 +5,9 @@ import { realpathSync } from 'node:fs';
 import { stdin, stdout } from 'node:process';
 import { detectAgents, doctor, findRoot, install, uninstall } from '../src/install.js';
 import { configureRoles } from '../src/wizard.js';
+import { integrations } from '../src/integrations.js';
+
+const agentChoices = integrations.map(adapter => adapter.id).join(', ');
 
 async function question(prompt) {
   if (!stdin.isTTY || !stdout.isTTY) throw new Error('Interactive input is unavailable; configure requires a terminal. For init use --agent; for uninstall omit --delete-config.');
@@ -24,7 +27,24 @@ try {
   });
   const [command] = positionals;
   if (values.help || !command) {
-    console.log('Usage: agent-profiles <init|configure|doctor|uninstall> [--root <directory>]\n  init [--agent claude] [--agent codex]\n  configure  (interactive roles and local skills)\n  uninstall [--delete-config]  (deletion requires interactive confirmation)');
+    console.log(`Usage: agent-profiles <command> [--root <directory>]
+
+Commands:
+  init        Install bootstrap integrations and example configuration
+  configure   Create, edit, or delete roles and select local skills (interactive)
+  doctor      Validate configuration and report integration status (read-only)
+  uninstall   Remove managed bootstrap blocks; retain configuration
+
+Options:
+  --root <directory>  Target repository (default: nearest Git root)
+  --agent <id>        Select ${agentChoices} for init; repeat for multiple agents
+  --delete-config     Also delete .agent-profiles during uninstall; asks to confirm
+  -h, --help          Show this help
+
+Examples:
+  agent-profiles init --agent claude --agent codex
+  agent-profiles configure
+  agent-profiles doctor`);
   } else {
     if (positionals.length !== 1 || !['init', 'configure', 'doctor', 'uninstall'].includes(command)) throw new Error('Choose one command: init, configure, doctor, uninstall');
     if (values.agent && command !== 'init') throw new Error('--agent is only supported by init');
@@ -40,7 +60,7 @@ try {
           console.log('Existing integrations: ' + detected.filter(agent => agent.installed).map(agent => agent.id).join(', '));
         }
         const defaults = detected.filter(agent => agent.detected).map(agent => agent.id);
-        const answer = await question(`Which coding agents? claude, codex${defaults.length ? ` [${defaults.join(', ')}]` : ''}: `);
+        const answer = await question(`Which coding agents? ${agentChoices}${defaults.length ? ` [${defaults.join(', ')}]` : ''}: `);
         agents = answer.trim() ? answer.trim().split(/[\s,]+/) : defaults;
       }
       const result = install({ root, agents });

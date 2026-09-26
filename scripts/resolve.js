@@ -17,8 +17,8 @@ try {
     console.log('Usage: npm run resolve -- [--root <repo>] [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...] [--contents]');
   } else {
     const result = resolveInstructions({ ...values, skills: values.skill });
-    if (!values.contents) result.loaded = result.loaded.map(({ path }) => ({ path }));
-    console.log(JSON.stringify(result, null, 2));
+    const loaded = values.contents ? result.loaded : result.loaded.map(({ path }) => ({ path }));
+    console.log(JSON.stringify({ ...result, loaded }, null, 2));
   }
 } catch (error) {
   console.error(`Agent Profiles: ${error.message}`);

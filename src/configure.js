@@ -1,6 +1,6 @@
 import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
-import { isAlias, visit } from 'yaml';
+import { isNode, visit } from 'yaml';
 import { applyChanges, readLocal, safePath } from './files.js';
 import { identifier, localFile, parseYaml, parseYamlDocument, resolveInstructions, skillMetadata } from './resolve.js';
 
@@ -16,7 +16,12 @@ export function readConfiguration(root) {
   return { root, before, document, configuration };
 }
 
-/** Build a validated, reviewable plan; this function never writes files. */
+/**
+ * Build a validated, reviewable plan; this function never writes files.
+ * @param {{root: string, action: string, id: string, file?: string, description?: string,
+ *   required?: (string | {id: string, path: string})[], available?: (string | {id: string, path: string})[],
+ *   defaultRole?: string, expectedConfiguration?: Buffer}} options
+ */
 export function planRoleChange({ root, action, id, file, description, required, available, defaultRole, expectedConfiguration }) {
   const state = readConfiguration(root);
   ({ root } = state);
@@ -29,9 +34,11 @@ export function planRoleChange({ root, action, id, file, description, required, 
   if (action !== 'create' && !roles.has(id)) throw new Error(`Role ${id} does not exist`);
   const node = document.getIn(['roles', id], true);
   let shared = false;
-  visit(node, (_, item) => {
-    if (item?.anchor) throw new Error(`Role ${id} defines a YAML anchor; edit shared anchors manually`);
-    if (isAlias(item)) shared = true;
+  if (isNode(node)) visit(node, {
+    Value(_, item) {
+      if (item.anchor) throw new Error(`Role ${id} defines a YAML anchor; edit shared anchors manually`);
+    },
+    Alias() { shared = true; },
   });
   const aliases = [];
   const changes = [];
