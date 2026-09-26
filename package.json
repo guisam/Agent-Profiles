@@ -1,0 +1,18 @@
+{
+  "name": "agent-profiles",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Repository-local instruction routing for coding agents",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test",
+    "resolve": "node scripts/resolve.js"
+  },
+  "dependencies": {
+    "yaml": "^2.9.1"
+  }
+}

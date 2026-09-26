@@ -2,7 +2,9 @@
 
 Agent Profiles is a repository-local instruction and configuration layer.
 It describes which instructions an existing agent tool should load. This
-scaffold defines the contract; it does not implement a loader or installer.
+architecture defines the contract. The [bootstrap protocol](bootstrap.md) and
+resolver implement validation and loading of additional instruction layers;
+agent-specific injection and installation remain separate work.
 
 ## Instruction layers
 
@@ -38,7 +40,7 @@ skills/<skill-id>/SKILL.md
 ```
 
 Version 1 uses plain YAML mappings and lists. The following table is the initial
-schema contract; no runtime validator is supplied yet.
+schema contract, enforced by [the resolver](../src/resolve.js).
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -64,7 +66,7 @@ URLs, and `..` path segments are invalid. All referenced files must exist;
 available skill contents can remain unloaded while their existence is checked.
 Skill lists contain no duplicates and must not overlap within a role.
 
-A future loader must reject duplicate mapping keys, unknown fields, unsupported
+The resolver rejects duplicate mapping keys, unknown fields, unsupported
 versions, incorrect types, and invalid references with a clear error. A broken
 configuration is not an unknown model: do not silently substitute another
 profile or skip a missing required skill.
@@ -125,7 +127,7 @@ For any row, a role such as `undeclared-role` must produce an error.
 
 ## Integration boundary and scope
 
-A future agent-specific bootstrap connects the host instruction mechanism to
+A future agent-specific adapter connects the host instruction mechanism to
 this contract. It supplies identity and role inputs, reads and validates the
 local configuration, resolves the profile independently from the role, and
 loads the applicable files using the host's context mechanisms. Preserve
@@ -138,5 +140,6 @@ files, benchmark capability, or distribute optimal prompts. Local skill files
 are sufficient; this schema does not define a universal skill ecosystem.
 Installers, configuration wizards, remote registries, downloads, shareable
 presets, machine-local environments, hosted services, and synchronization are
-outside issue #1. No CLI commands described in the README are implemented by
-this scaffold.
+outside the initial architecture and bootstrap work. A local debugging command
+is available as `npm run resolve`; the installer and other planned CLI commands
+remain unimplemented.

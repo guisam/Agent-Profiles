@@ -90,9 +90,21 @@ three model profiles, three independent roles, and two local skills. Unknown
 models without a matching family receive its `constrained` default profile.
 
 To explore the scaffold, start with `agents.yaml`, then follow the architecture
-document's resolution examples to the referenced Markdown files. No installation
-or runtime is needed to inspect the design; automatic loading is not implemented
-yet. The schema may evolve during initial development.
+document's resolution examples to the referenced Markdown files. The
+[bootstrap protocol](docs/bootstrap.md) documents the runnable resolver and a
+reusable instruction block. The schema may evolve during initial development.
+
+With Node.js 22 or newer, inspect the selected instruction layers locally:
+
+```sh
+npm ci
+npm test
+npm run resolve -- --model example-model --role reviewer
+```
+
+Add `--contents` to include loaded instruction text. Available skills are listed
+without their contents. This command validates configuration and resolves
+instructions; agent-specific integrations will supply them to an agent session.
 
 ## Model routing
 
@@ -319,11 +331,11 @@ The initial work is split into a small set of issues:
 
 ## Status
 
-Early development. The initial architecture and repository-local examples are
-available in [docs/architecture.md](docs/architecture.md) and
-[.agent-profiles/](.agent-profiles/).
+Early development. The architecture, local examples, bootstrap protocol, and
+tested resolver are available. See [docs/architecture.md](docs/architecture.md),
+[docs/bootstrap.md](docs/bootstrap.md), and [.agent-profiles/](.agent-profiles/).
 
-The CLI, bootstrap, and automatic instruction loading are planned. Commands,
+The installer CLI and agent-specific integrations are planned. Commands,
 configuration, and file formats may change before the first release.
 
 ## License
