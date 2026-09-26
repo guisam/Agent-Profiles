@@ -103,7 +103,8 @@ npm run resolve -- --model example-model --role reviewer
 ```
 
 Add `--contents` to include loaded instruction text. Available skills are listed
-without their contents. This command validates configuration and resolves
+with names, descriptions, and paths; their bodies stay unloaded until requested
+with `--skill <id>`. This command validates configuration and resolves
 instructions; agent-specific integrations will supply them to an agent session.
 
 ## Model routing
@@ -165,6 +166,21 @@ A reviewer always gets the `code-review` instructions.
 It knows that `testing`, `security-review`, and `typescript` are available, but those instructions are not loaded unless they are relevant to the task.
 
 This is intended to keep agent context smaller.
+
+Skills can live in `.agent-profiles/skills/<id>/SKILL.md` or be referenced from
+elsewhere in the repository. Their own YAML frontmatter supplies `name` and
+`description`; no metadata copy is needed in the configuration. See the
+[local skill schema](docs/architecture.md#local-skills) for path mappings and
+validation rules.
+
+To load a skill explicitly for the current task:
+
+```sh
+npm run resolve -- --role reviewer --skill testing --contents
+```
+
+Only skills declared by the selected role can be requested. Repeating a skill
+request does not duplicate its instructions.
 
 ## CLI
 

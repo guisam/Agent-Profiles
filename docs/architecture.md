@@ -53,17 +53,20 @@ schema contract, enforced by [the resolver](../src/resolve.js).
 | `roles.<id>.file` | String | Required path to that role's Markdown instructions |
 | `roles.<id>.skills.required` | List of skill IDs | Required; use `[]` for none |
 | `roles.<id>.skills.available` | List of skill IDs | Required; use `[]` for none |
+| `skills` | Mapping | Optional; skill ID to `{file: <repository-relative Markdown path>}` for existing local resources |
 
 Profile, role, and skill IDs use lowercase ASCII letters, digits, and hyphens,
 starting with a letter or digit. A profile ID resolves to
-`profiles/<id>.md`; a skill ID resolves to `skills/<id>/SKILL.md`.
+`profiles/<id>.md`; a skill ID normally resolves to `skills/<id>/SKILL.md`.
+The optional top-level `skills` map references resources elsewhere in the
+repository without copying or moving them. See [Local skills](#local-skills).
 Model and family keys are nonempty, case-sensitive identity strings, not paths,
 patterns, or capability labels. Quote YAML keys when needed to keep them strings.
 
 Role file paths must be relative, use `/` separators, end in `.md`, and remain
 inside `.agent-profiles/`, including after resolving symlinks. Absolute paths,
 URLs, and `..` path segments are invalid. All referenced files must exist;
-available skill contents can remain unloaded while their existence is checked.
+available skill bodies remain unloaded while their metadata is checked.
 Skill lists contain no duplicates and must not overlap within a role.
 
 The resolver rejects duplicate mapping keys, unknown fields, unsupported
@@ -102,8 +105,9 @@ After resolution, compose context in this order:
 2. The resolved profile's contents.
 3. The selected role's contents.
 4. That role's required skills, in declaration order.
-5. An inventory of that role's available skill IDs and local paths. Load their
-   contents only when the task needs them, once per skill in the active context.
+5. An inventory of that role's available skill IDs, names, descriptions, and
+   local paths. Load their contents only when explicitly requested for the task,
+   once per skill in the returned context.
 
 Do not eagerly load other profiles, other roles, or available skill contents.
 If the role changes, recompute the role and skill context rather than carrying
@@ -124,6 +128,67 @@ For the first row, load `AGENTS.md`, `profiles/autonomous.md`,
 `roles/reviewer.md`, and `skills/code-review/SKILL.md`. Advertise
 `skills/testing/SKILL.md` without loading its contents until testing is relevant.
 For any row, a role such as `undeclared-role` must produce an error.
+
+## Local skills
+
+The default source is `.agent-profiles/skills/<id>/SKILL.md`. To reference an
+existing Markdown skill elsewhere, add an optional top-level mapping:
+
+```yaml
+skills:
+  security-review:
+    file: team-skills/security/SKILL.md
+```
+
+This file path is relative to the **repository root**, unlike role file paths.
+It must remain inside the repository after resolving symlinks. Absolute paths,
+URLs, backslashes, and `..` segments are rejected. No folders are scanned, no
+files are downloaded, and a mapping alone does not expose a skill to any role.
+Add its ID to a role's `required` or `available` list to expose it there.
+
+There must be one authoritative resource for each skill ID. If both a mapped
+file and the conventional file exist and resolve to different files, validation
+reports an ambiguous skill instead of choosing a winner. A mapping to the same
+canonical file is allowed. Duplicate YAML IDs are rejected. Multiple roles can
+reference the same ID; metadata is read once per resolution, and instructions
+remain in their original file.
+
+The initial local reader supports Markdown with YAML frontmatter:
+
+```markdown
+---
+name: Security Review
+description: Review changes for common application security risks.
+---
+
+Skill instructions go here.
+```
+
+`name` and `description` must be nonempty strings. The stable ID comes from the
+configuration or conventional directory, not the display name. Other frontmatter
+fields are retained in the source and ignored by this reader; Agent Profiles
+does not maintain a second copy of metadata. Keep descriptions short enough to
+help decide relevance. Metadata must be within the first 64 KiB and use `---`
+delimiter lines. Existing skills without metadata need this small header added
+to their authoritative source. Other local formats can have readers added later.
+
+Validation reads headers incrementally, stopping after the closing delimiter
+(a read chunk may include a prefix of the body). Unselected bodies never enter
+the returned instruction context. Required skills and explicitly requested
+available skills load their complete source text, including frontmatter.
+
+The resolution output includes `required` and `available` metadata lists, each
+containing `id`, `name`, `description`, and repository-relative `path`. The
+`loaded` list contains only selected instructions. Request an available skill
+through `skills: ['security-review']` in the API or `--skill security-review` in
+the debug command. Requests outside the selected role's lists fail even if a
+file exists. Required skills load first; requested skills follow in request
+order, with repeated IDs loaded once. The available index remains unchanged.
+See [bootstrap.md](bootstrap.md) for runnable examples.
+
+Roles, skill exposure, and on-demand requests do not change model routing.
+This is instruction routing, not permission enforcement or a tool execution
+sandbox. The host remains responsible for its own permissions and context.
 
 ## Integration boundary and scope
 

@@ -8,14 +8,15 @@ try {
       model: { type: 'string' },
       family: { type: 'string' },
       role: { type: 'string' },
+      skill: { type: 'string', multiple: true },
       contents: { type: 'boolean', default: false },
       help: { type: 'boolean', default: false },
     },
   });
   if (values.help) {
-    console.log('Usage: npm run resolve -- [--root <repo>] [--model <id>] [--family <id>] [--role <id>] [--contents]');
+    console.log('Usage: npm run resolve -- [--root <repo>] [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...] [--contents]');
   } else {
-    const result = resolveInstructions(values);
+    const result = resolveInstructions({ ...values, skills: values.skill });
     if (!values.contents) result.loaded = result.loaded.map(({ path }) => ({ path }));
     console.log(JSON.stringify(result, null, 2));
   }

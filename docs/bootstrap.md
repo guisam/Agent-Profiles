@@ -10,13 +10,15 @@ family membership from a name prefix.
 2. Resolve one profile: exact model, then supplied family, then default.
 3. Resolve one role: explicitly assigned role, otherwise `default_role`.
 4. Load the profile, role, and all required skills in that order.
-5. Advertise only the selected role's available skill IDs and paths. Load their
-   contents later only when relevant. Do not discover or load other skills.
+5. Advertise only the selected role's available skill IDs, names, descriptions,
+   and paths. Load their contents later only on an explicit request relevant to
+   the task. Do not discover or load other skills.
 
 On a configuration error, stop bootstrap and report the offending entry. Unknown
 models are valid and use the fallback rules; invalid references are errors.
 Validation checks all declared references, including available skills and
-inactive roles, without reading their instruction contents. Missing available
+inactive roles, and reads skill metadata without loading unselected bodies into
+context. Explicit source mappings are validated even if unused. Missing available
 skills therefore fail this resolver's validation; the YAML remains directly
 inspectable even when resolution fails.
 
@@ -40,7 +42,8 @@ known; never select a profile by judging your own capabilities.
 Resolve exactly one profile (exact model, then family, then default) and your
 assigned role (or `default_role`). Keep existing repository instructions and
 load only the resolved profile, role, and required skills. Expose available
-skill IDs and paths without loading their contents until relevant; do not
+skill IDs, names, descriptions, and paths without loading their bodies until
+explicitly needed; do not
 load skills outside that role's lists. Report configuration errors rather
 than silently substituting instructions.
 ```
@@ -55,6 +58,7 @@ npm test
 npm run resolve -- --model example-model --family example-family --role reviewer
 npm run resolve -- --model unknown-model
 npm run resolve -- --role reviewer --contents
+npm run resolve -- --role reviewer --skill testing --contents
 ```
 
 The first resolution selects `autonomous` via the exact model mapping, loads
@@ -65,9 +69,12 @@ Flags must be explicit: missing values and unknown flags are errors.
 
 The JSON output reports `model`, `family`, `matchedBy` (`model`, `family`, or
 `default`), `profile`, `role`, host-owned `repository` instructions, `loaded`
-paths, and the `available` skill index. All output paths are repository-relative.
-Use `--contents` to include the selected instruction texts. Available skill
-contents are never included. Errors go to stderr with exit status 1 and no
+paths, and `required` and `available` skill metadata lists. All output paths are
+repository-relative. Use `--contents` to include the selected instruction texts.
+`--skill testing` explicitly adds that available skill to `loaded`; repeat the
+flag for multiple skills. Merely passing `--contents` does not select available
+skills. Requests outside the selected role's skill lists fail. Errors go to
+stderr with exit status 1 and no
 partial resolution on stdout.
 
 ## Integration API
@@ -80,6 +87,7 @@ const result = resolveInstructions({
   model: 'example-model',
   family: 'example-family',
   role: 'reviewer',
+  skills: ['testing'], // Omit this to load only required skills during bootstrap.
 });
 ```
 
@@ -88,6 +96,11 @@ The synchronous API returns the same result with `loaded` entries containing
 role values rather than supplying empty strings. Invalid input or configuration
 throws an error identifying the entry. The caller supplies repository context,
 inserts `loaded` contents, and exposes the available index using its host APIs.
+`skills` is an optional list of requested IDs. Required skills are already loaded;
+repeated requests for the same ID do not duplicate content. Each call returns a
+complete resolved context, not a delta: hosts should replace the previous result
+or deduplicate by path instead of appending it again. When roles change, drop any
+previous skill requests that the new role does not permit.
 The resolver does not inject prompts into an agent or execute skill files.
 
 See [architecture.md](architecture.md) for the schema and ownership boundaries.

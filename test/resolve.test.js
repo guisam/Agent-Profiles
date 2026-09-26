@@ -62,7 +62,8 @@ test('exact, family, and default routing; roles and identities remain independen
 
 test('only selected instructions load, with required skills ordered and available skills indexed', t => {
   const repo = repository(t);
-  writeFileSync(path.join(repo.root, '.agent-profiles/skills/testing/SKILL.md'), 'AVAILABLE-CONTENT-SENTINEL');
+  const testingFile = path.join(repo.root, '.agent-profiles/skills/testing/SKILL.md');
+  writeFileSync(testingFile, readFileSync(testingFile, 'utf8') + '\nAVAILABLE-CONTENT-SENTINEL');
   const result = resolveInstructions({ root: repo.root, model: 'example-model', role: 'reviewer' });
   assert.deepEqual(result.repository, { path: 'AGENTS.md', suppliedBy: 'host' });
   assert.deepEqual(result.loaded.map(item => item.path), [
@@ -73,7 +74,12 @@ test('only selected instructions load, with required skills ordered and availabl
   for (const item of result.loaded) {
     assert.equal(item.content, readFileSync(path.join(repo.root, item.path), 'utf8'));
   }
-  assert.deepEqual(result.available, [{ id: 'testing', path: '.agent-profiles/skills/testing/SKILL.md' }]);
+  assert.deepEqual(result.available, [{
+    id: 'testing', name: 'Testing',
+    description: 'Verify changed behavior with focused checks and failure cases.',
+    path: '.agent-profiles/skills/testing/SKILL.md',
+  }]);
+  assert.deepEqual(result.required.map(skill => skill.id), ['code-review']);
   assert.ok(!JSON.stringify(result).includes('AVAILABLE-CONTENT-SENTINEL'));
   const researcher = resolveInstructions({ root: repo.root, role: 'researcher' });
   assert.equal(researcher.loaded.length, 2);
@@ -117,6 +123,7 @@ test('schema errors and unsafe paths are rejected', async t => {
     [config => { config.default_profile = '../outside'; }, /default_profile: expected an ID/],
     [config => { config.roles.reviewer.skills.required = 'code-review'; }, /skills.required: expected a list/],
     [config => { config.roles.reviewer.skills.required = ['code-review', 'code-review']; }, /duplicate skill/],
+    [config => { config.roles.reviewer.skills.available = ['testing', 'testing']; }, /duplicate skill/],
     [config => { config.roles.reviewer.skills.available = ['code-review']; }, /also required/],
     [config => { config.roles.reviewer.skills.available = ['../testing']; }, /expected an ID/],
     [config => { config.roles.reviewer.file = '../README.md'; }, /roles.reviewer.file: expected a relative/],
@@ -176,7 +183,10 @@ test('debug command emits inspectable JSON, optional contents, and actionable fa
   const contents = JSON.parse(run('--role', 'reviewer', '--contents').stdout);
   assert.ok(contents.loaded.every(item => typeof item.content === 'string'));
   assert.ok(contents.available.every(item => !Object.hasOwn(item, 'content')));
-  for (const args of [['--role', 'missing'], ['--model'], ['--capability', 'autonomous']]) {
+  const requested = run('--role', 'reviewer', '--skill', 'testing', '--skill', 'testing', '--contents');
+  assert.equal(requested.status, 0, requested.stderr);
+  assert.equal(JSON.parse(requested.stdout).loaded.length, 4);
+  for (const args of [['--role', 'missing'], ['--model'], ['--capability', 'autonomous'], ['--skill'], ['--role', 'researcher', '--skill', 'testing']]) {
     const failure = run(...args);
     assert.equal(failure.status, 1);
     assert.equal(failure.stdout, '');
@@ -185,4 +195,123 @@ test('debug command emits inspectable JSON, optional contents, and actionable fa
   const help = run('--help');
   assert.equal(help.status, 0);
   assert.match(help.stdout, /Usage:/);
+});
+
+test('on-demand skills are role-scoped, deduplicated, and do not change model resolution', t => {
+  const repo = repository(t);
+  const initial = resolveInstructions({ root: repo.root, model: 'example-model', role: 'reviewer' });
+  const requested = resolveInstructions({ root: repo.root, model: 'example-model', role: 'reviewer', skills: ['testing', 'testing', 'code-review'] });
+  assert.equal(requested.profile, initial.profile);
+  assert.deepEqual(requested.available, initial.available);
+  assert.equal(requested.loaded.length, initial.loaded.length + 1);
+  assert.equal(requested.loaded.at(-1).path, '.agent-profiles/skills/testing/SKILL.md');
+  assert.equal(requested.loaded.at(-1).content, readFileSync(path.join(repo.root, requested.loaded.at(-1).path), 'utf8'));
+  assert.deepEqual(resolveInstructions({ root: repo.root }).available, initial.available);
+  assert.throws(() => resolveInstructions({ root: repo.root, role: 'researcher', skills: ['testing'] }), /role researcher: skill testing is not required or available/);
+  assert.throws(() => resolveInstructions({ root: repo.root, skills: ['missing'] }), /role implementer: skill missing/);
+  for (const skills of ['testing', null, [1], ['../testing']]) {
+    assert.throws(() => resolveInstructions({ root: repo.root, skills }), /skills/);
+  }
+});
+
+test('external repository-local resources retain their own metadata and are not discovered globally', t => {
+  const repo = repository(t);
+  mkdirSync(path.join(repo.root, 'team-skills'));
+  const file = 'team-skills/research.md';
+  const content = '---\nname: Research\ndescription: Check source quality.\nlicense: MIT\n---\nPRIVATE-BODY';
+  writeFileSync(path.join(repo.root, file), content);
+  repo.change(config => {
+    config.skills = { research: { file } };
+    config.roles.researcher.skills.available = ['research'];
+  });
+  const result = resolveInstructions({ root: repo.root, role: 'researcher' });
+  assert.deepEqual(result.available, [{ id: 'research', name: 'Research', description: 'Check source quality.', path: file }]);
+  assert.ok(!JSON.stringify(result).includes('PRIVATE-BODY'));
+  assert.ok(!JSON.stringify(resolveInstructions({ root: repo.root })).includes('team-skills'));
+  const loaded = resolveInstructions({ root: repo.root, role: 'researcher', skills: ['research'] });
+  assert.equal(loaded.loaded.at(-1).content, content);
+  assert.equal(loaded.loaded.at(-1).path, file);
+});
+
+test('ambiguous sources and duplicate YAML identifiers fail instead of picking a winner', t => {
+  const repo = repository(t);
+  const original = readFileSync(repo.configPath, 'utf8');
+  repo.change(config => {
+    config.skills = { testing: { file: '.agent-profiles/skills/code-review/SKILL.md' } };
+  });
+  assert.throws(() => resolveInstructions({ root: repo.root }), /roles.implementer.skills.available\[0\]: ambiguous skill testing/);
+  repo.change(config => {
+    config.skills.testing.file = '.agent-profiles/skills/testing/SKILL.md';
+  });
+  assert.equal(resolveInstructions({ root: repo.root }).available.length, 1);
+  for (const text of [
+    original.replace('  reviewer:', '  implementer: {}\n  reviewer:'),
+    original + '\nskills:\n  testing: {}\n  testing: {}\n',
+  ]) {
+    writeFileSync(repo.configPath, text);
+    assert.throws(() => resolveInstructions({ root: repo.root }), /agents.yaml:.*unique/);
+  }
+});
+
+test('skill source configuration stays inside the repository and validates unused entries', async t => {
+  const cases = [
+    [null, /skills: expected a mapping/],
+    [{ external: {} }, /skills.external.file: required/],
+    [{ external: { file: 'missing.md' } }, /skills.external.file: cannot access/],
+    [{ testing: { file: '../outside.md' } }, /roles.implementer.skills.available\[0\]: expected a relative/],
+    [{ testing: { file: 'https://example.com/SKILL.md' } }, /expected a relative/],
+    [{ testing: { file: 'C:\\outside.md' } }, /expected a relative/],
+  ];
+  for (const [sources, error] of cases) {
+    await t.test(error.source, t => {
+      const repo = repository(t);
+      repo.change(config => { config.skills = sources; });
+      assert.throws(() => resolveInstructions({ root: repo.root }), error);
+    });
+  }
+  const repo = repository(t);
+  // Use a real file beyond this repository without creating or deleting anything there.
+  const outside = path.join(project, 'README.md');
+  symlinkSync(path.dirname(outside), path.join(repo.root, 'project'), process.platform === 'win32' ? 'junction' : 'dir');
+  repo.change(config => { config.skills = { testing: { file: 'project/README.md' } }; });
+  assert.throws(() => resolveInstructions({ root: repo.root }), /outside repository/);
+});
+
+test('malformed skill frontmatter identifies the role, skill path, and metadata problem', async t => {
+  const cases = [
+    '# No metadata',
+    '---\nname: Testing\n---\nBody',
+    '---\nname: 123\ndescription: Test.\n---\nBody',
+    '---\nname: Testing\ndescription: " "\n---\nBody',
+    '---\nname: [\n---\nBody',
+    '---\nname: A\nname: B\ndescription: Test.\n---\nBody',
+    '---\nname: A\ndescription: ' + 'x'.repeat(65536) + '\n---\nBody',
+  ];
+  for (const [index, content] of cases.entries()) {
+    await t.test(`metadata case ${index + 1}`, t => {
+      const repo = repository(t);
+      writeFileSync(path.join(repo.root, '.agent-profiles/skills/testing/SKILL.md'), content);
+      assert.throws(() => resolveInstructions({ root: repo.root }), /roles.implementer.skills.available\[0\]:.*testing.*(?:frontmatter|unique|Flow sequence)/s);
+    });
+  }
+});
+
+test('metadata handles CRLF, BOM, UTF-8, folded descriptions, and chunk boundaries', t => {
+  const repo = repository(t);
+  const file = path.join(repo.root, '.agent-profiles/skills/testing/SKILL.md');
+  const header = '\uFEFF---\r\nname: Vérification\r\ndescription: >-\r\n  Check behavior\r\n  and failures.\r\n---\r\n';
+  writeFileSync(file, header + 'BODY-SENTINEL'.repeat(10000));
+  const result = resolveInstructions({ root: repo.root });
+  assert.equal(result.available[0].name, 'Vérification');
+  assert.equal(result.available[0].description, 'Check behavior and failures.');
+  assert.ok(!JSON.stringify(result).includes('BODY-SENTINEL'));
+  const start = '---\nname: Testing\ndescription: Test.\n#';
+  const boundary = start + 'x'.repeat(1020 - Buffer.byteLength(start)) + '\n---';
+  assert.equal(Buffer.byteLength(boundary), 1024);
+  writeFileSync(file, boundary + '\nBody');
+  assert.equal(resolveInstructions({ root: repo.root }).available[0].name, 'Testing');
+  writeFileSync(file, boundary);
+  assert.equal(resolveInstructions({ root: repo.root }).available[0].name, 'Testing');
+  writeFileSync(file, boundary + 'not-a-delimiter\nBody');
+  assert.throws(() => resolveInstructions({ root: repo.root }), /expected YAML frontmatter/);
 });
