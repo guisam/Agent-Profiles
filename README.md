@@ -84,34 +84,15 @@ AGENTS.md
 
 `agents.yaml` maps models to profiles and defines the roles and skills available in the project.
 
-For example:
+See the complete [example configuration](.agent-profiles/agents.yaml) and the
+[version 1 architecture and schema](docs/architecture.md). The example includes
+three model profiles, three independent roles, and two local skills. Unknown
+models without a matching family receive its `constrained` default profile.
 
-```yaml
-version: 1
-
-default_profile: scaffolded
-default_role: implementer
-
-models:
-  example-model:
-    profile: autonomous
-
-families:
-  example-local-family:
-    profile: constrained
-
-roles:
-  reviewer:
-    file: roles/reviewer.md
-    skills:
-      required:
-        - code-review
-      available:
-        - testing
-        - security-review
-```
-
-The exact schema is still being developed.
+To explore the scaffold, start with `agents.yaml`, then follow the architecture
+document's resolution examples to the referenced Markdown files. No installation
+or runtime is needed to inspect the design; automatic loading is not implemented
+yet. The schema may evolve during initial development.
 
 ## Model routing
 
@@ -338,9 +319,12 @@ The initial work is split into a small set of issues:
 
 ## Status
 
-Early development.
+Early development. The initial architecture and repository-local examples are
+available in [docs/architecture.md](docs/architecture.md) and
+[.agent-profiles/](.agent-profiles/).
 
-The README currently describes the intended design. Commands, configuration, and file formats may change before the first release.
+The CLI, bootstrap, and automatic instruction loading are planned. Commands,
+configuration, and file formats may change before the first release.
 
 ## License
 

@@ -1,0 +1,35 @@
+# Illustrative names only; these mappings do not rank real models.
+version: 1
+
+default_profile: constrained
+default_role: implementer
+
+models:
+  example-model:
+    profile: autonomous
+
+families:
+  example-family:
+    profile: scaffolded
+
+roles:
+  implementer:
+    file: roles/implementer.md
+    skills:
+      required: []
+      available:
+        - testing
+
+  reviewer:
+    file: roles/reviewer.md
+    skills:
+      required:
+        - code-review
+      available:
+        - testing
+
+  researcher:
+    file: roles/researcher.md
+    skills:
+      required: []
+      available: []
