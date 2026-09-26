@@ -3,8 +3,9 @@
 Agent Profiles is a repository-local instruction and configuration layer.
 It describes which instructions an existing agent tool should load. This
 architecture defines the contract. The [bootstrap protocol](bootstrap.md) and
-resolver implement validation and loading of additional instruction layers;
-agent-specific injection and installation remain separate work.
+resolver implement validation and loading of additional instruction layers.
+The [installer](installer.md) adds portable instructions through small
+agent-specific adapters.
 
 ## Instruction layers
 
@@ -34,6 +35,7 @@ below are relative to `.agent-profiles/`:
 
 ```text
 agents.yaml
+BOOTSTRAP.md
 profiles/<profile-id>.md
 roles/<role-id>.md
 skills/<skill-id>/SKILL.md
@@ -192,19 +194,18 @@ sandbox. The host remains responsible for its own permissions and context.
 
 ## Integration boundary and scope
 
-A future agent-specific adapter connects the host instruction mechanism to
-this contract. It supplies identity and role inputs, reads and validates the
-local configuration, resolves the profile independently from the role, and
-loads the applicable files using the host's context mechanisms. Preserve
-existing repository instructions and avoid loading them twice if the host
-already supplies them. Agent-specific filenames and APIs belong in that adapter,
-not in the core profile format.
+The installer adapters select host instruction files and insert a managed block
+pointing to `.agent-profiles/BOOTSTRAP.md`. The host agent follows that protocol
+using its runtime identity and assigned role. The resolver API remains available
+for integrations that supply instruction text programmatically. Existing
+repository instructions are preserved and should be read only once. Agent-specific
+filenames belong in the adapter, not in the core profile format.
 
 The core does not choose a model, spawn agents, orchestrate tasks, execute skill
 files, benchmark capability, or distribute optimal prompts. Local skill files
 are sufficient; this schema does not define a universal skill ecosystem.
-Installers, configuration wizards, remote registries, downloads, shareable
+Configuration wizards, remote registries, downloads, shareable
 presets, machine-local environments, hosted services, and synchronization are
-outside the initial architecture and bootstrap work. A local debugging command
-is available as `npm run resolve`; the installer and other planned CLI commands
-remain unimplemented.
+outside the initial architecture, routing, and installer work. A local debugging
+command is available as `npm run resolve`; the installer exposes `init`, `doctor`,
+and `uninstall`. The role/skill wizard remains future work.

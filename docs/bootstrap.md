@@ -1,8 +1,9 @@
 # Bootstrap protocol
 
 The host supplies repository instructions using its normal instruction hierarchy.
-Agent Profiles resolves only the additional layers; it does not replace, reread,
-or edit `AGENTS.md`. Model and family identities come from runtime metadata or
+The resolver supplies only the additional layers; it does not replace, reread,
+or edit `AGENTS.md`. The installer adds a managed bootstrap block while preserving
+existing instructions. Model and family identities come from runtime metadata or
 explicit user input. Omit unknown identities; never guess capability or infer
 family membership from a name prefix.
 
@@ -29,23 +30,25 @@ invariants or host permissions.
 
 ## Reusable instruction block
 
-The following block is ready for a future installer or integration to insert.
-This issue does not modify any agent-specific instruction file.
+The installer inserts a small managed block pointing to the portable
+[routing protocol](../.agent-profiles/BOOTSTRAP.md), which is copied into the
+target repository. Its wording is maintained in
+[integrations.js](../src/integrations.js). It does not depend on this project's
+`docs/` directory or a globally installed CLI.
 
 ```markdown
+<!-- agent-profiles:start -->
+
 ## Agent Profiles
 
 Before beginning work, read `.agent-profiles/agents.yaml` and follow
-`docs/bootstrap.md`. Use runtime-provided model and family identities when
-known; never select a profile by judging your own capabilities.
+`.agent-profiles/BOOTSTRAP.md` from the repository root. Keep existing
+repository instructions. Resolve one model profile and an independent role;
+load only that profile, role, and required skills. Expose available skill
+metadata and load their bodies only when needed. Never select a profile
+by assessing your own capabilities. Report configuration errors.
 
-Resolve exactly one profile (exact model, then family, then default) and your
-assigned role (or `default_role`). Keep existing repository instructions and
-load only the resolved profile, role, and required skills. Expose available
-skill IDs, names, descriptions, and paths without loading their bodies until
-explicitly needed; do not
-load skills outside that role's lists. Report configuration errors rather
-than silently substituting instructions.
+<!-- agent-profiles:end -->
 ```
 
 ## Try the resolver
@@ -104,4 +107,4 @@ previous skill requests that the new role does not permit.
 The resolver does not inject prompts into an agent or execute skill files.
 
 See [architecture.md](architecture.md) for the schema and ownership boundaries.
-Agent-specific adapters and installation remain separate work.
+See [installer.md](installer.md) for installation, adapters, and safe removal.

@@ -105,7 +105,8 @@ npm run resolve -- --model example-model --role reviewer
 Add `--contents` to include loaded instruction text. Available skills are listed
 with names, descriptions, and paths; their bodies stay unloaded until requested
 with `--skill <id>`. This command validates configuration and resolves
-instructions; agent-specific integrations will supply them to an agent session.
+instructions. The installer adds bootstrap instructions for Claude Code and Codex
+to apply the same routing protocol in an agent session.
 
 ## Model routing
 
@@ -184,48 +185,34 @@ request does not duplicate its instructions.
 
 ## CLI
 
-The planned basic workflow is:
+The CLI now supports `init`, `doctor`, and `uninstall` for Claude Code and Codex.
+From this checkout, after `npm ci`:
 
-```text
+```sh
+node bin/agent-profiles.js init --root /path/to/your/repository
+node bin/agent-profiles.js doctor --root /path/to/your/repository
+node bin/agent-profiles.js uninstall --root /path/to/your/repository
+```
+
+The installer asks which agents to enable, creates the minimal scaffold, preserves
+existing instruction files, and validates the result. To skip the prompt, pass
+`--agent claude --agent codex`. Repeated installs preserve user edits and do not
+duplicate managed blocks. Without `--root`, the CLI finds the nearest Git root.
+
+The package exposes the `agent-profiles` executable. After npm publication, the
+intended entry point is:
+
+```sh
 npx agent-profiles init
 ```
 
-The installer creates the Agent Profiles scaffold and asks which coding agents you use.
+Publication is a separate release step. See the [installer guide](docs/installer.md)
+to test a local package with `npx` before release.
 
-For example:
-
-```text
-Which coding agents do you use?
-
-[x] Claude Code
-[x] OpenAI Codex
-[ ] Gemini CLI
-[ ] OpenCode
-```
-
-Agent Profiles then adds a small bootstrap instruction to the appropriate agent instruction files.
-
-Existing instructions are preserved.
-
-Roles and skills can be configured with:
-
-```text
-agent-profiles configure
-```
-
-Configuration can be checked with:
-
-```text
-agent-profiles doctor
-```
-
-And Agent Profiles integration can be removed with:
-
-```text
-agent-profiles uninstall
-```
-
-These interfaces are planned and may change during initial development.
+Uninstall removes only managed bootstrap blocks and keeps `.agent-profiles/`.
+Deleting that directory requires `uninstall --delete-config` and an explicit
+interactive confirmation. The `configure` wizard and additional agent adapters
+are future work.
 
 ## Presets
 
@@ -348,11 +335,12 @@ The initial work is split into a small set of issues:
 ## Status
 
 Early development. The architecture, local examples, bootstrap protocol, and
-tested resolver are available. See [docs/architecture.md](docs/architecture.md),
+tested resolver and installer are available. See [docs/architecture.md](docs/architecture.md),
 [docs/bootstrap.md](docs/bootstrap.md), and [.agent-profiles/](.agent-profiles/).
 
-The installer CLI and agent-specific integrations are planned. Commands,
-configuration, and file formats may change before the first release.
+Claude Code and Codex integrations are implemented. The configuration wizard and
+npm publication remain future work. Commands, configuration, and file formats
+may change before the first release.
 
 ## License
 
