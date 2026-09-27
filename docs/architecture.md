@@ -270,3 +270,11 @@ outside the initial architecture, routing, and installer work. A local debugging
 command is available as `npm run resolve`; the installer exposes `init`, `doctor`,
 and `uninstall`; `configure` provides the role/skill wizard. The [preset format](presets.md)
 adds local inspect/import/export without adding a runtime concept of preset roles.
+
+The [local visualizer](visualize.md) exposes validated selection lists through
+`readConfiguration` and delegates every projection to `resolveInstructions`.
+Its browser UI renders those results without parsing YAML, routing models, or
+recalculating context sizes. A Node HTTP server binds to loopback with a random
+session URL, fixed assets, same-origin restrictions, and read-only endpoints.
+Model/role choices, skill requests, and comparison snapshots remain in page memory;
+they never write configuration. Imported presets need no separate visualizer logic.

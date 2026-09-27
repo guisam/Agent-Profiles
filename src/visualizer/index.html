@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Context explorer · Agent Profiles</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header><span class="brand">AP / AGENT PROFILES</span><span class="badge">LOCAL · READ ONLY</span></header>
+  <main>
+    <div class="intro"><p class="eyebrow">CONTEXT EXPLORER</p><h1>A clear view of every layer.</h1>
+      <p>Explore what your agent receives. Model profiles and roles compose independently; skills load when needed.</p></div>
+    <form id="selectors" class="selectors" aria-label="Resolution selection">
+      <label>Model<select id="model" name="model"></select></label>
+      <label>Family fallback<select id="family" name="family"></select></label>
+      <label>Role<select id="role" name="role"></select></label>
+      <button type="button" id="refresh">Refresh files</button>
+    </form>
+    <p id="status" role="status" aria-live="polite">Loading configuration…</p>
+    <div id="error" role="alert" hidden></div>
+    <div id="view" hidden>
+      <section class="metrics" aria-label="Context totals">
+        <div class="metric primary"><span>Managed instruction context</span><strong id="total"></strong><small id="total-chars"></small></div>
+        <div class="metric"><span>Available, not loaded</span><strong id="available-total"></strong><small>Potential additional instruction context</small></div>
+        <div class="metric"><span>Host / bench context</span><strong class="unknown">Unobserved</strong><small>Outside Agent Profiles accounting</small></div>
+      </section>
+      <div class="workspace">
+        <section class="composition" aria-labelledby="composition-title">
+          <div class="section-heading"><h2 id="composition-title">Instruction composition</h2><button type="button" id="pin">Pin for comparison</button></div>
+          <p id="routing" class="muted"></p>
+          <div id="layers" class="layers"></div>
+          <div class="branch" aria-hidden="true">↓</div>
+          <div class="skill-columns">
+            <section><h3>Required <span class="pill">LOADED</span></h3><div id="required"></div></section>
+            <section><h3>On demand <span class="pill outlined">PREVIEW</span></h3><p class="muted">Select a skill to project its context. No configuration is changed.</p><div id="available"></div></section>
+          </div>
+        </section>
+        <aside aria-label="Accounting boundaries">
+          <p class="eyebrow">OUTSIDE THE MANAGED TOTAL</p>
+          <h2>Project</h2><p><strong>AGENTS.md</strong><br>Supplied by host · not measured</p><p class="muted">Other project instructions and injection behavior are host controlled.</p>
+          <hr><h2>Host / bench</h2><dl><dt>System instructions</dt><dd>Unobserved</dd><dt>Built-in tools</dt><dd>Unobserved</dd><dt>Built-in skills</dt><dd>Unobserved</dd><dt>Other runtime context</dt><dd>Unobserved</dd></dl>
+          <hr><p class="muted">Unknown does not mean zero. This view measures additional instruction bodies, not the agent’s complete context window.</p>
+        </aside>
+      </div>
+      <section id="comparison" hidden><div class="section-heading"><h2>Compare resolutions</h2><button type="button" id="clear">Clear comparison</button></div><p id="comparison-label" class="muted"></p><div class="table-scroll"><table><thead><tr><th>Layer</th><th>Pinned</th><th>Current</th><th>Change</th></tr></thead><tbody id="comparison-rows"></tbody></table></div><p class="muted">The pinned resolution is a snapshot from this browser session.</p></section>
+    </div>
+    <footer>Exact UTF-8 bytes · Unicode code points · Tokens not calculated<br>Excludes bootstrap instructions, inventory rendering, and output formatting. No telemetry, uploads, or configuration writes.</footer>
+  </main>
+</body>
+</html>

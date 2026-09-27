@@ -35,7 +35,8 @@ try {
   for (const file of ['LICENSE', 'README.md', 'CHANGELOG.md', 'package.json', 'bin/agent-profiles.js', 'src/configure.js', 'src/files.js',
     'src/integrations.js', 'src/install.js', 'src/resolve.js', 'src/skills.js', 'src/wizard.js', 'scripts/resolve.js',
     '.agent-profiles/agents.yaml', '.agent-profiles/BOOTSTRAP.md', 'docs/configure.md', 'src/presets.js',
-    'src/preset-wizard.js', 'src/diagnostics.js', 'docs/proof.md', 'examples/presets/release-review/preset.yaml']) assert.ok(files.has(file), `Missing package file: ${file}`);
+    'src/preset-wizard.js', 'src/diagnostics.js', 'docs/proof.md', 'src/visualize.js', 'src/visualizer/index.html',
+    'src/visualizer/app.js', 'src/visualizer/style.css', 'docs/visualize.md', 'examples/presets/release-review/preset.yaml']) assert.ok(files.has(file), `Missing package file: ${file}`);
   for (const file of files) {
     assert.ok(/^(bin\/|src\/|docs\/|examples\/presets\/|\.agent-profiles\/|scripts\/resolve\.js$|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(file), `Unexpected package file: ${file}`);
   }
@@ -50,9 +51,10 @@ try {
   assert.deepEqual(Object.keys(installedManifest.dependencies), ['yaml']);
   assert.equal(fs.existsSync(path.join(consumer, 'node_modules/typescript')), false);
   const cli = (...args) => run(process.execPath, [npm, 'exec', '--offline', '--', 'agent-profiles', ...args], consumer);
-  for (const command of ['init', 'configure', 'doctor', 'uninstall']) assert.match(cli(command, '--help'), new RegExp(command));
+  for (const command of ['init', 'configure', 'doctor', 'uninstall', 'visualize']) assert.match(cli(command, '--help'), new RegExp(command));
   const { configureRoles } = await import(pathToFileURL(path.join(installed, 'src/wizard.js')).href);
   const { resolveInstructions } = await import(pathToFileURL(path.join(installed, 'src/resolve.js')).href);
+  const { startVisualizer } = await import(pathToFileURL(path.join(installed, 'src/visualize.js')).href);
   const { planPresetExport, applyPresetExport, planPresetImport, applyPresetImport } = await import(pathToFileURL(path.join(installed, 'src/presets.js')).href);
   assert.match(cli('preset', 'inspect', path.join(installed, 'examples/presets/release-review')), /Release Review/);
 
@@ -124,7 +126,15 @@ try {
     assert.equal(requested.diagnostics.availableNotLoaded.files, 0);
     assert.ok(proof.loaded.every(entry => !Object.hasOwn(entry, 'content') && typeof entry.characters === 'number'));
     assert.match(cli('proof', '--root', root, '--role', 'preset-reviewer'), /Host context:.*unobserved/);
-    console.log(`Packed workflow passed: ${scenario} (including presets and context proof)`);
+    const visualizer = await startVisualizer({ root, role: 'preset-reviewer' });
+    try {
+      for (const asset of ['', 'app.js', 'style.css']) assert.equal((await fetch(visualizer.url + asset)).status, 200);
+      const visual = await (await fetch(visualizer.url + 'api/resolve?role=preset-reviewer&skill=testing')).json();
+      assert.deepEqual(visual, requested);
+    } finally {
+      await new Promise(resolve => { visualizer.server.close(resolve); visualizer.server.closeAllConnections(); });
+    }
+    console.log(`Packed workflow passed: ${scenario} (including presets, context proof, and visualizer)`);
   }
   console.log(`Verified ${artifact.name}@${artifact.version}: ${files.size} package files, ${artifact.size} bytes compressed.`);
 } finally {

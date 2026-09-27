@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — local visualizer
+
+- Added `visualize`: a local, read-only context explorer with model/family/role
+  selection, temporary skill requests, file provenance and loaded text inspection,
+  and a pinned comparison. It reuses resolver diagnostics and explicit host/project
+  accounting boundaries.
+- Bundled a responsive browser UI and loopback-only server with private session
+  URLs, fixed assets, and same-origin access checks. No new dependencies, remote
+  services, telemetry, or configuration writes.
+- Added HTTP/CLI and package checks plus a visualizer guide and README examples.
+
 ## Unreleased — context diagnostics
 
 - Added `proof` with human-readable and JSON output, exact UTF-8 byte and Unicode

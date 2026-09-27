@@ -20,6 +20,7 @@ node bin/agent-profiles.js init --root /path/to/project
 node bin/agent-profiles.js configure --root /path/to/project
 node bin/agent-profiles.js doctor --root /path/to/project
 node bin/agent-profiles.js proof --root /path/to/project --role reviewer
+node bin/agent-profiles.js visualize --root /path/to/project
 ```
 
 After publication, from your Git repository, the same workflow will be:
@@ -29,6 +30,7 @@ npx agent-profiles init
 npx agent-profiles configure
 npx agent-profiles doctor
 npx agent-profiles proof --role reviewer
+npx agent-profiles visualize
 ```
 
 `init` asks which agents to enable and adds a small bootstrap block to their
@@ -43,6 +45,7 @@ integration status. Use `--help` for options; scripts can initialize with
 | `configure` | Create/edit/delete roles and select required or available skills |
 | `doctor` | Validate configuration, local references, and integration status |
 | `proof` | Measure selected instruction bytes/characters and available context not loaded |
+| `visualize` | Explore model/role composition, project skill requests, and compare context locally |
 | `preset inspect/import/export` | Review and share local configurations with explicit conflict handling |
 | `uninstall` | Remove managed bootstrap blocks while retaining user configuration |
 
@@ -122,6 +125,22 @@ rendering are outside the measured total. Tokens are explicitly **not calculated
 and unloaded context is not labeled as savings without a comparison baseline.
 See [context proof](docs/proof.md) for the accounting contract.
 
+## Explore context visually
+
+```sh
+node bin/agent-profiles.js visualize --model example-model --role reviewer
+```
+
+Open the printed local URL. Select a model, family fallback, and role to see
+their instruction layers. Check an available skill to preview its contribution;
+expand an entry to inspect its path, measurements, and loaded source text.
+Pin a resolution to compare it with another selection. The numbers come directly
+from the same resolver used by `proof`.
+
+The visualizer is read-only, stays on your machine, and makes no configuration
+changes. Stop the server with **Ctrl+C**. See the [visualizer guide](docs/visualize.md)
+for refresh behavior, accounting boundaries, and the local JSON endpoints.
+
 ## Share a configuration
 
 Local presets can share roles, profiles, and skill assignments across projects:
@@ -145,8 +164,8 @@ import, and their origins are recorded separately.
 ## Scope and status
 
 The local workflow now includes deterministic routing, Claude Code/Codex setup,
-role and skill configuration, shareable presets, and context diagnostics. No
-runtime dependencies were added for presets or accounting; YAML handling remains
+role and skill configuration, shareable presets, context diagnostics, and a local
+visualizer. No runtime dependencies were added for these features; YAML handling remains
 the CLI's single runtime dependency. See the [release checklist](docs/release.md)
 for platform and live-host verification before publication.
 
@@ -156,13 +175,14 @@ model router, prompt marketplace, benchmark, collection of universally optimal
 prompts, replacement for `AGENTS.md`, or skill registry. It does not choose or
 launch models, score their capabilities, or run multi-agent workflows.
 
-Local environment profiles, token accounting, and visualization remain future work.
+Local environment profiles and token accounting remain future work.
 
 ## Further reading
 
 - [Role and skill configuration](docs/configure.md)
 - [Shareable presets](docs/presets.md)
 - [Context proof and accounting boundaries](docs/proof.md)
+- [Local context visualizer](docs/visualize.md)
 - [Architecture and schema](docs/architecture.md)
 - [Bootstrap protocol and resolver examples](docs/bootstrap.md)
 - [Contributing and development checks](CONTRIBUTING.md)
