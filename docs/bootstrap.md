@@ -72,7 +72,10 @@ Flags must be explicit: missing values and unknown flags are errors.
 
 The JSON output reports `model`, `family`, `matchedBy` (`model`, `family`, or
 `default`), `profile`, `role`, host-owned `repository` instructions, `loaded`
-paths, and `required` and `available` skill metadata lists. All output paths are
+paths, and `required` and `available` skill metadata lists. Loaded entries also
+identify their kind/ID and exact byte/character counts; selected skill metadata
+includes counts, and `diagnostics` reports category totals and accounting boundaries.
+All output paths are
 repository-relative. Use `--contents` to include the selected instruction texts.
 `--skill testing` explicitly adds that available skill to `loaded`; repeat the
 flag for multiple skills. Merely passing `--contents` does not select available
@@ -95,7 +98,7 @@ const result = resolveInstructions({
 ```
 
 The synchronous API returns the same result with `loaded` entries containing
-`path` and `content`. All arguments are optional; omit unavailable identity or
+`path`, `content`, `kind`, `id`, `bytes`, and `characters`. All arguments are optional; omit unavailable identity or
 role values rather than supplying empty strings. Invalid input or configuration
 throws an error identifying the entry. The caller supplies repository context,
 inserts `loaded` contents, and exposes the available index using its host APIs.
@@ -105,6 +108,9 @@ complete resolved context, not a delta: hosts should replace the previous result
 or deduplicate by path instead of appending it again. When roles change, drop any
 previous skill requests that the new role does not permit.
 The resolver does not inject prompts into an agent or execute skill files.
+Selected-role available skills are scanned for diagnostics without including
+their bodies in the returned context. [Context proof](proof.md) documents exact
+measurement semantics and the user-facing `agent-profiles proof` command.
 
 See [architecture.md](architecture.md) for the schema and ownership boundaries.
 See [installer.md](installer.md) for installation, adapters, and safe removal.

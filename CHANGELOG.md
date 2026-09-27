@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — context diagnostics
+
+- Added `proof` with human-readable and JSON output, exact UTF-8 byte and Unicode
+  code-point counts, loaded-entry classifications, category totals, and separate
+  accounting for available context not loaded.
+- Resolver output retains diagnostic fields with or without instruction contents.
+  Repository/host context is explicitly outside managed instruction-body totals;
+  token counts are marked not calculated. No additional runtime dependencies.
+- Updated the README around installation, configuration, presets, and proof.
+
 ## Unreleased — presets
 
 - Added local `preset inspect`, `preset import`, and `preset export` workflows

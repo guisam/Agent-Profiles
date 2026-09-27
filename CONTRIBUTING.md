@@ -25,6 +25,8 @@ The CI matrix runs these checks on Windows, macOS, and Linux with Node 22 and 24
 ## Where things live
 
 - `src/resolve.js`: YAML validation and deterministic instruction composition.
+- `src/diagnostics.js`: exact resolved-text accounting, streaming available-skill
+  measurement, and proof/JSON presentation with explicit host boundaries.
 - `src/integrations.js`: agent instruction targets and managed bootstrap text.
 - `src/install.js`, `src/files.js`: installer lifecycle and guarded file writes.
 - `src/configure.js`, `src/skills.js`, `src/wizard.js`: validated role edits, local

@@ -35,7 +35,7 @@ try {
   for (const file of ['LICENSE', 'README.md', 'CHANGELOG.md', 'package.json', 'bin/agent-profiles.js', 'src/configure.js', 'src/files.js',
     'src/integrations.js', 'src/install.js', 'src/resolve.js', 'src/skills.js', 'src/wizard.js', 'scripts/resolve.js',
     '.agent-profiles/agents.yaml', '.agent-profiles/BOOTSTRAP.md', 'docs/configure.md', 'src/presets.js',
-    'src/preset-wizard.js', 'examples/presets/release-review/preset.yaml']) assert.ok(files.has(file), `Missing package file: ${file}`);
+    'src/preset-wizard.js', 'src/diagnostics.js', 'docs/proof.md', 'examples/presets/release-review/preset.yaml']) assert.ok(files.has(file), `Missing package file: ${file}`);
   for (const file of files) {
     assert.ok(/^(bin\/|src\/|docs\/|examples\/presets\/|\.agent-profiles\/|scripts\/resolve\.js$|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(file), `Unexpected package file: ${file}`);
   }
@@ -118,7 +118,13 @@ try {
     const decisions = new Map([['roles.release-reviewer', 'rename:preset-reviewer'], ['skills.code-review', 'keep'], ['skills.testing', 'keep']]);
     applyPresetImport(planPresetImport({ root, source: destination, decisions }), true);
     assert.deepEqual(resolveInstructions({ root, role: 'preset-reviewer' }).required.map(skill => skill.id), ['code-review']);
-    console.log(`Packed workflow passed: ${scenario} (including preset inspect/export/import)`);
+    const proof = JSON.parse(cli('proof', '--root', root, '--role', 'preset-reviewer', '--json'));
+    const requested = JSON.parse(cli('proof', '--root', root, '--role', 'preset-reviewer', '--skill', 'testing', '--json', '--contents'));
+    assert.equal(requested.diagnostics.managed.total.bytes - proof.diagnostics.managed.total.bytes, proof.diagnostics.availableNotLoaded.bytes);
+    assert.equal(requested.diagnostics.availableNotLoaded.files, 0);
+    assert.ok(proof.loaded.every(entry => !Object.hasOwn(entry, 'content') && typeof entry.characters === 'number'));
+    assert.match(cli('proof', '--root', root, '--role', 'preset-reviewer'), /Host context:.*unobserved/);
+    console.log(`Packed workflow passed: ${scenario} (including presets and context proof)`);
   }
   console.log(`Verified ${artifact.name}@${artifact.version}: ${files.size} package files, ${artifact.size} bytes compressed.`);
 } finally {

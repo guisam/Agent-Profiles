@@ -1,5 +1,6 @@
 import { parseArgs } from 'node:util';
 import { resolveInstructions } from '../src/resolve.js';
+import { resolutionOutput } from '../src/diagnostics.js';
 
 try {
   const { values } = parseArgs({
@@ -17,8 +18,7 @@ try {
     console.log('Usage: npm run resolve -- [--root <repo>] [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...] [--contents]');
   } else {
     const result = resolveInstructions({ ...values, skills: values.skill });
-    const loaded = values.contents ? result.loaded : result.loaded.map(({ path }) => ({ path }));
-    console.log(JSON.stringify({ ...result, loaded }, null, 2));
+    console.log(JSON.stringify(resolutionOutput(result, values.contents), null, 2));
   }
 } catch (error) {
   console.error(`Agent Profiles: ${error.message}`);

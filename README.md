@@ -19,6 +19,7 @@ now with `npm ci`, then run these commands with the path to your project:
 node bin/agent-profiles.js init --root /path/to/project
 node bin/agent-profiles.js configure --root /path/to/project
 node bin/agent-profiles.js doctor --root /path/to/project
+node bin/agent-profiles.js proof --root /path/to/project --role reviewer
 ```
 
 After publication, from your Git repository, the same workflow will be:
@@ -27,6 +28,7 @@ After publication, from your Git repository, the same workflow will be:
 npx agent-profiles init
 npx agent-profiles configure
 npx agent-profiles doctor
+npx agent-profiles proof --role reviewer
 ```
 
 `init` asks which agents to enable and adds a small bootstrap block to their
@@ -34,6 +36,15 @@ instruction files. `configure` creates, edits, or deletes roles and lets you
 select required and available local skills. `doctor` checks configuration and
 integration status. Use `--help` for options; scripts can initialize with
 `--agent claude --agent codex`. Use `--root` for a directory outside Git.
+
+| Command | Purpose |
+| --- | --- |
+| `init` | Select agents, preserve their existing instructions, and install the local scaffold |
+| `configure` | Create/edit/delete roles and select required or available skills |
+| `doctor` | Validate configuration, local references, and integration status |
+| `proof` | Measure selected instruction bytes/characters and available context not loaded |
+| `preset inspect/import/export` | Review and share local configurations with explicit conflict handling |
+| `uninstall` | Remove managed bootstrap blocks while retaining user configuration |
 
 ```text
 your-project/
@@ -92,13 +103,26 @@ These are instructions for the host to follow, not a context or permission
 sandbox. Built-in host skills, global instructions, and host-managed context
 remain outside Agent Profiles' control.
 
-## Scope
+## Measure the selected context
 
-Agent Profiles is a small convention and CLI for composing additional instruction
-layers around repository instructions. It is not an agent framework, orchestrator,
-model router, prompt marketplace, benchmark, collection of universally optimal
-prompts, replacement for `AGENTS.md`, or skill registry. It does not choose or
-launch models, score their capabilities, or run multi-agent workflows.
+```sh
+node bin/agent-profiles.js proof --model example-model --role reviewer
+node bin/agent-profiles.js proof --model example-model --role reviewer --skill testing
+```
+
+`proof` shows each profile, role, required skill, and requested skill with exact
+UTF-8 byte and Unicode character counts. Requesting `testing` moves its size from
+**available, not loaded** into the managed total. Add `--json` for machine-readable
+output; the same diagnostics are available through the resolver API.
+
+These totals cover resolved instruction bodies, not the complete agent context.
+Repository instructions remain host-supplied; hidden system prompts, built-in
+skills, and other host context remain unobserved. Bootstrap text and metadata
+rendering are outside the measured total. Tokens are explicitly **not calculated**,
+and unloaded context is not labeled as savings without a comparison baseline.
+See [context proof](docs/proof.md) for the accounting contract.
+
+## Share a configuration
 
 Local presets can share roles, profiles, and skill assignments across projects:
 
@@ -111,13 +135,34 @@ node bin/agent-profiles.js preset export /path/to/new-preset --root /path/to/pro
 Imports preview changes, require explicit conflict choices and confirmation,
 and leave ordinary editable configuration. See [presets](docs/presets.md) for
 the local format, dependency handling, provenance, and the small example.
-Local environment profiles, context-weight estimates, and visualization remain
-future work.
+
+Try the included [release-review preset](examples/presets/release-review/preset.yaml)
+with `preset inspect examples/presets/release-review --contents`. Presets may
+include Markdown skills or declare exact local dependencies; imports never
+download missing skills. Roles remain editable through the same wizard after
+import, and their origins are recorded separately.
+
+## Scope and status
+
+The local workflow now includes deterministic routing, Claude Code/Codex setup,
+role and skill configuration, shareable presets, and context diagnostics. No
+runtime dependencies were added for presets or accounting; YAML handling remains
+the CLI's single runtime dependency. See the [release checklist](docs/release.md)
+for platform and live-host verification before publication.
+
+Agent Profiles is a small convention and CLI for composing additional instruction
+layers around repository instructions. It is not an agent framework, orchestrator,
+model router, prompt marketplace, benchmark, collection of universally optimal
+prompts, replacement for `AGENTS.md`, or skill registry. It does not choose or
+launch models, score their capabilities, or run multi-agent workflows.
+
+Local environment profiles, token accounting, and visualization remain future work.
 
 ## Further reading
 
 - [Role and skill configuration](docs/configure.md)
 - [Shareable presets](docs/presets.md)
+- [Context proof and accounting boundaries](docs/proof.md)
 - [Architecture and schema](docs/architecture.md)
 - [Bootstrap protocol and resolver examples](docs/bootstrap.md)
 - [Contributing and development checks](CONTRIBUTING.md)

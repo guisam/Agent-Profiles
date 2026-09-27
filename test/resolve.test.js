@@ -78,6 +78,8 @@ test('only selected instructions load, with required skills ordered and availabl
     id: 'testing', name: 'Testing',
     description: 'Verify changed behavior with focused checks and failure cases.',
     path: '.agent-profiles/skills/testing/SKILL.md',
+    bytes: Buffer.byteLength(readFileSync(testingFile, 'utf8'), 'utf8'),
+    characters: [...readFileSync(testingFile, 'utf8')].length,
   }]);
   assert.deepEqual(result.required.map(skill => skill.id), ['code-review']);
   assert.ok(!JSON.stringify(result).includes('AVAILABLE-CONTENT-SENTINEL'));
@@ -225,7 +227,8 @@ test('external repository-local resources retain their own metadata and are not 
     config.roles.researcher.skills.available = ['research'];
   });
   const result = resolveInstructions({ root: repo.root, role: 'researcher' });
-  assert.deepEqual(result.available, [{ id: 'research', name: 'Research', description: 'Check source quality.', path: file }]);
+  assert.deepEqual(result.available, [{ id: 'research', name: 'Research', description: 'Check source quality.', path: file,
+    bytes: Buffer.byteLength(content, 'utf8'), characters: [...content].length }]);
   assert.ok(!JSON.stringify(result).includes('PRIVATE-BODY'));
   assert.ok(!JSON.stringify(resolveInstructions({ root: repo.root })).includes('team-skills'));
   const loaded = resolveInstructions({ root: repo.root, role: 'researcher', skills: ['research'] });

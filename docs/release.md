@@ -25,6 +25,9 @@ malformed configuration, linked paths, marker errors, failed writes, and rollbac
 For releases including preset support, the packed workflow also inspects the
 bundled example and exports/imports selected roles. Preset tests cover conflicts,
 missing local skills, editable provenance, round trips, stale plans, and rollback.
+Context-proof checks verify the packed CLI's human/JSON output and requested-skill
+delta. Accounting tests cover Unicode, line endings, previews, aliases, and the
+host boundary; no tokenizer or live-host introspection is used.
 
 ## Live-host checks
 

@@ -1,7 +1,8 @@
 # Installer CLI
 
 Agent Profiles requires Node.js 22 or newer. The CLI exposes `init`, `configure`,
-`doctor`, and `uninstall`. The [configure guide](configure.md) covers the role/skill
+`doctor`, and `uninstall`, plus [presets](presets.md) and [context proof](proof.md).
+The [configure guide](configure.md) covers the role/skill
 wizard; this guide covers installation and removal.
 
 ## Run from a checkout or local package

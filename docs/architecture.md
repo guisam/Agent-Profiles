@@ -36,6 +36,23 @@ explicit repository root to the synchronous installer and configuration APIs.
 There is no build step, network resolution, or agent runtime. The only runtime
 dependency is `yaml`; Node supplies file, path, argument, and terminal APIs.
 
+## Context accounting
+
+A context proof measures the marginal instruction context managed by Agent
+Profiles. It is not necessarily a measurement of the agent's complete context
+window. `diagnostics.js` counts UTF-8 bytes and Unicode code points from the exact
+resolved instruction text, classifies loaded entries, and summarizes profile,
+role, required-skill, and requested-skill totals. Available skill bodies are scanned
+in bounded chunks to measure potential context without exposing that text in the
+result. Routing and ID deduplication semantics remain unchanged.
+
+The resolver returns these diagnostics for CLI, preset, and external consumers.
+`proof` formats that result; it does not route independently. The data model marks
+repository instructions as host-supplied and host internals as unobserved, and
+excludes them from managed totals. Bootstrap instructions, inventory rendering,
+and output wrappers are also explicitly excluded. Tokens are not calculated.
+See [proof.md](proof.md) for the output contract and encoding details.
+
 ## Instruction layers
 
 | Layer | Responsibility | Loaded when |
@@ -218,7 +235,7 @@ such as `testing-2`, in the existing top-level `skills` map. No existing binding
 is overwritten, and no other role's meaning changes. The resolver continues to
 reject ambiguous IDs without explicit aliases.
 
-Validation reads headers incrementally, stopping after the closing delimiter
+Metadata validation reads headers incrementally, stopping after the closing delimiter
 (a read chunk may include a prefix of the body). Unselected bodies never enter
 the returned instruction context. Required skills and explicitly requested
 available skills load their complete source text, including frontmatter.

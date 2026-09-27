@@ -7,6 +7,8 @@ import { detectAgents, doctor, findRoot, install, uninstall } from '../src/insta
 import { configureRoles } from '../src/wizard.js';
 import { integrations } from '../src/integrations.js';
 import { runPreset } from '../src/preset-wizard.js';
+import { resolveInstructions } from '../src/resolve.js';
+import { formatProof, resolutionOutput } from '../src/diagnostics.js';
 
 const agentChoices = integrations.map(adapter => adapter.id).join(', ');
 
@@ -26,6 +28,10 @@ try {
       help: { type: 'boolean', short: 'h' },
       role: { type: 'string', multiple: true },
       contents: { type: 'boolean', default: false },
+      model: { type: 'string' },
+      family: { type: 'string' },
+      skill: { type: 'string', multiple: true },
+      json: { type: 'boolean', default: false },
     },
   });
   const [command] = positionals;
@@ -38,6 +44,11 @@ Commands:
   doctor      Validate configuration and report integration status (read-only)
   uninstall   Remove managed bootstrap blocks; retain configuration
   preset      Inspect, import, or export a local preset directory
+  proof       Measure resolved instruction bytes and characters (read-only)
+
+Context proof:
+  proof [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...]
+        [--json [--contents]]
 
 Presets:
   preset inspect <directory> [--contents] [--role <id> ...]
@@ -57,11 +68,13 @@ Examples:
   } else {
     if (command === 'preset') {
       if (positionals.length !== 3 || !['inspect', 'import', 'export'].includes(positionals[1])) throw new Error('Usage: agent-profiles preset <inspect|import|export> <directory>');
-    } else if (positionals.length !== 1 || !['init', 'configure', 'doctor', 'uninstall'].includes(command)) throw new Error('Choose one command: init, configure, doctor, uninstall, preset');
+    } else if (positionals.length !== 1 || !['init', 'configure', 'doctor', 'uninstall', 'proof'].includes(command)) throw new Error('Choose one command: init, configure, doctor, uninstall, preset, proof');
     if (values.agent && command !== 'init') throw new Error('--agent is only supported by init');
     if (values['delete-config'] && command !== 'uninstall') throw new Error('--delete-config is only supported by uninstall');
-    if (values.role && command !== 'preset') throw new Error('--role is only supported by preset');
-    if (values.contents && !(command === 'preset' && positionals[1] === 'inspect')) throw new Error('--contents is only supported by preset inspect');
+    if (values.role && !['preset', 'proof'].includes(command)) throw new Error('--role is only supported by preset or proof');
+    if (command === 'proof' && values.role?.length > 1) throw new Error('proof accepts one --role; run it separately to compare roles');
+    if ((values.model !== undefined || values.family !== undefined || values.skill || values.json) && command !== 'proof') throw new Error('--model, --family, --skill, and --json are only supported by proof');
+    if (values.contents && !(command === 'preset' && positionals[1] === 'inspect') && !(command === 'proof' && values.json)) throw new Error('--contents requires preset inspect or proof --json');
     if (values.root !== undefined && !values.root.trim()) throw new Error('--root requires a directory');
     let target = values.root;
     if (target === undefined) {
@@ -71,8 +84,11 @@ Examples:
       }
     }
     const root = realpathSync(target);
-    console.log(`Agent Profiles\nRepository: ${root}`);
-    if (command === 'preset') {
+    if (!(command === 'proof' && values.json)) console.log(`Agent Profiles\nRepository: ${root}`);
+    if (command === 'proof') {
+      const result = resolveInstructions({ root, model: values.model, family: values.family, role: values.role?.[0], skills: values.skill });
+      console.log(values.json ? JSON.stringify(resolutionOutput(result, values.contents), null, 2) : formatProof(result));
+    } else if (command === 'preset') {
       await runPreset({ command: positionals[1], location: positionals[2], root, roles: values.role, contents: values.contents, ask: question });
     } else if (command === 'init') {
       let agents = values.agent;

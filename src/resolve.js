@@ -2,6 +2,7 @@ import { closeSync, existsSync, openSync, readFileSync, readSync, realpathSync, 
 import path from 'node:path';
 import { parseDocument } from 'yaml';
 import { safePath } from './files.js';
+import { contextDiagnostics, measureFile, measureText } from './diagnostics.js';
 
 function fail(entry, message) {
   throw new Error(`${entry}: ${message}`);
@@ -206,18 +207,34 @@ export function resolveInstructions({ root = process.cwd(), model, family, role,
   }
   const selectedSkills = [...new Set([...required.map(skill => skill.id), ...skills])].map(id => permitted.get(id));
   const files = [
-    `.agent-profiles/profiles/${profile}.md`,
-    `.agent-profiles/${roles.get(selectedRole).get('file')}`,
-    ...selectedSkills.map(skill => skill.path),
+    { path: `.agent-profiles/profiles/${profile}.md`, kind: 'profile', id: profile },
+    { path: `.agent-profiles/${roles.get(selectedRole).get('file')}`, kind: 'role', id: selectedRole },
+    ...selectedSkills.map(skill => ({ path: skill.path, id: skill.id, kind: required.some(item => item.id === skill.id) ? 'required-skill' : 'requested-skill' })),
   ];
-  const loaded = files.map(file => {
+  const loaded = files.map(entry => {
+    const file = entry.path;
     try {
-      if (newRoleFile && file === `.agent-profiles/${newRoleFile.path}`) return { path: file, content: newRoleFile.content };
-      const resolved = localFile(repository, file, file, 'repository', false, preview);
-      return { path: file, content: (preview.get(resolved) ?? readFileSync(resolved)).toString('utf8') };
+      let content;
+      if (newRoleFile && file === `.agent-profiles/${newRoleFile.path}`) content = newRoleFile.content;
+      else {
+        const resolved = localFile(repository, file, file, 'repository', false, preview);
+        content = (preview.get(resolved) ?? readFileSync(resolved)).toString('utf8');
+      }
+      return { ...entry, content, ...measureText(content) };
     } catch (error) {
       fail(file, `cannot load instructions: ${error.message}`);
     }
+  });
+  const measuredSkills = new Map(loaded.filter(entry => entry.kind.endsWith('-skill')).map(entry => [entry.id, { bytes: entry.bytes, characters: entry.characters }]));
+  const measuredAvailable = available.map(skill => {
+    try {
+      let measured = measuredSkills.get(skill.id);
+      if (!measured) {
+        const file = localFile(repository, skill.path, skill.path, 'repository', false, preview);
+        measured = preview.has(file) ? measureText(preview.get(file).toString('utf8')) : measureFile(file);
+      }
+      return { ...skill, ...measured };
+    } catch (error) { fail(skill.path, `cannot measure available instructions: ${error.message}`); }
   });
 
   return {
@@ -228,7 +245,8 @@ export function resolveInstructions({ root = process.cwd(), model, family, role,
     role: selectedRole,
     repository: { path: 'AGENTS.md', suppliedBy: 'host' },
     loaded,
-    required,
-    available,
+    required: required.map(skill => ({ ...skill, ...measuredSkills.get(skill.id) })),
+    available: measuredAvailable,
+    diagnostics: contextDiagnostics(loaded, measuredAvailable),
   };
 }
