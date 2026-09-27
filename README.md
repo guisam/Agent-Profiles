@@ -100,12 +100,24 @@ model router, prompt marketplace, benchmark, collection of universally optimal
 prompts, replacement for `AGENTS.md`, or skill registry. It does not choose or
 launch models, score their capabilities, or run multi-agent workflows.
 
-Presets, local environment profiles, context-weight estimates, and visualization
-are future work, outside v0.1.0.
+Local presets can share roles, profiles, and skill assignments across projects:
+
+```sh
+node bin/agent-profiles.js preset inspect /path/to/preset --contents
+node bin/agent-profiles.js preset import /path/to/preset --root /path/to/project
+node bin/agent-profiles.js preset export /path/to/new-preset --root /path/to/project
+```
+
+Imports preview changes, require explicit conflict choices and confirmation,
+and leave ordinary editable configuration. See [presets](docs/presets.md) for
+the local format, dependency handling, provenance, and the small example.
+Local environment profiles, context-weight estimates, and visualization remain
+future work.
 
 ## Further reading
 
 - [Role and skill configuration](docs/configure.md)
+- [Shareable presets](docs/presets.md)
 - [Architecture and schema](docs/architecture.md)
 - [Bootstrap protocol and resolver examples](docs/bootstrap.md)
 - [Contributing and development checks](CONTRIBUTING.md)

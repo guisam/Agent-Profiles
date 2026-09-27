@@ -6,11 +6,12 @@ import { stdin, stdout } from 'node:process';
 import { detectAgents, doctor, findRoot, install, uninstall } from '../src/install.js';
 import { configureRoles } from '../src/wizard.js';
 import { integrations } from '../src/integrations.js';
+import { runPreset } from '../src/preset-wizard.js';
 
 const agentChoices = integrations.map(adapter => adapter.id).join(', ');
 
 async function question(prompt) {
-  if (!stdin.isTTY || !stdout.isTTY) throw new Error('Interactive input is unavailable; configure requires a terminal. For init use --agent; for uninstall omit --delete-config.');
+  if (!stdin.isTTY || !stdout.isTTY) throw new Error('Interactive input is unavailable; configure requires a terminal, as do preset import/export. For init use --agent; for uninstall omit --delete-config.');
   const reader = createInterface({ input: stdin, output: stdout });
   try { return await reader.question(prompt); } finally { reader.close(); }
 }
@@ -23,6 +24,8 @@ try {
       agent: { type: 'string', multiple: true },
       'delete-config': { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h' },
+      role: { type: 'string', multiple: true },
+      contents: { type: 'boolean', default: false },
     },
   });
   const [command] = positionals;
@@ -34,6 +37,12 @@ Commands:
   configure   Create, edit, or delete roles and select local skills (interactive)
   doctor      Validate configuration and report integration status (read-only)
   uninstall   Remove managed bootstrap blocks; retain configuration
+  preset      Inspect, import, or export a local preset directory
+
+Presets:
+  preset inspect <directory> [--contents] [--role <id> ...]
+  preset import <directory> [--role <id> ...]  (interactive confirmation)
+  preset export <new-directory> [--role <id> ...]  (interactive selection)
 
 Options:
   --root <directory>  Target repository (default: nearest Git root)
@@ -46,13 +55,26 @@ Examples:
   agent-profiles configure
   agent-profiles doctor`);
   } else {
-    if (positionals.length !== 1 || !['init', 'configure', 'doctor', 'uninstall'].includes(command)) throw new Error('Choose one command: init, configure, doctor, uninstall');
+    if (command === 'preset') {
+      if (positionals.length !== 3 || !['inspect', 'import', 'export'].includes(positionals[1])) throw new Error('Usage: agent-profiles preset <inspect|import|export> <directory>');
+    } else if (positionals.length !== 1 || !['init', 'configure', 'doctor', 'uninstall'].includes(command)) throw new Error('Choose one command: init, configure, doctor, uninstall, preset');
     if (values.agent && command !== 'init') throw new Error('--agent is only supported by init');
     if (values['delete-config'] && command !== 'uninstall') throw new Error('--delete-config is only supported by uninstall');
+    if (values.role && command !== 'preset') throw new Error('--role is only supported by preset');
+    if (values.contents && !(command === 'preset' && positionals[1] === 'inspect')) throw new Error('--contents is only supported by preset inspect');
     if (values.root !== undefined && !values.root.trim()) throw new Error('--root requires a directory');
-    const root = realpathSync(values.root ?? findRoot());
+    let target = values.root;
+    if (target === undefined) {
+      try { target = findRoot(); } catch (error) {
+        if (command !== 'preset' || positionals[1] !== 'inspect') throw error;
+        target = process.cwd();
+      }
+    }
+    const root = realpathSync(target);
     console.log(`Agent Profiles\nRepository: ${root}`);
-    if (command === 'init') {
+    if (command === 'preset') {
+      await runPreset({ command: positionals[1], location: positionals[2], root, roles: values.role, contents: values.contents, ask: question });
+    } else if (command === 'init') {
       let agents = values.agent;
       if (!agents) {
         const detected = detectAgents(root);

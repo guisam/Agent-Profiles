@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — presets
+
+- Added local `preset inspect`, `preset import`, and `preset export` workflows
+  with a versioned data-only manifest, role selection, bundled/local skills,
+  explicit conflict choices, opt-in defaults, and editable provenance records.
+- Added in-memory validation of proposed instruction files, source/target stale
+  checks, and shared rollback for preset application.
+- Added a small release-review preset and documentation. No remote sources,
+  executable hooks, automatic updates, or conditional role/profile routing.
+
 ## 0.1.0 — Unreleased
 
 - Deterministic exact-model, family, and fallback profile resolution, independent

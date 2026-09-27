@@ -1,0 +1,28 @@
+schema_version: 1
+preset:
+  name: release-review
+  display_name: Release Review
+  description: A small example of release review instructions and skill composition.
+  author: Agent Profiles contributors
+  version: 1.0.0
+  license: Apache-2.0
+  repository: https://github.com/guisam/Agent-Profiles
+roles:
+  release-reviewer:
+    file: roles/release-reviewer.md
+    description: Review a release for readiness.
+    skills:
+      required: [release-checklist]
+      available: [testing]
+profiles:
+  release-scaffolded:
+    file: profiles/release-scaffolded.md
+models: {}
+families:
+  example-release-family:
+    profile: release-scaffolded
+skills:
+  requires: [testing]
+  includes:
+    release-checklist:
+      file: skills/release-checklist/SKILL.md

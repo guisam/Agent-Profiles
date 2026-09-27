@@ -22,6 +22,9 @@ required versus available skill loading, wizard edits, preservation of customize
 files on reinitialization, doctor, and uninstall. It uses a target path containing
 spaces and fixtures with CRLF, BOMs, and missing final newlines. Unit tests cover
 malformed configuration, linked paths, marker errors, failed writes, and rollback.
+For releases including preset support, the packed workflow also inspects the
+bundled example and exports/imports selected roles. Preset tests cover conflicts,
+missing local skills, editable provenance, round trips, stale plans, and rollback.
 
 ## Live-host checks
 

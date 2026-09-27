@@ -27,6 +27,11 @@ explicit repository root to the synchronous installer and configuration APIs.
 - `wizard.js` gathers a proposed role edit using local discovery from `skills.js`.
   `configure.js` builds an in-memory YAML edit, validates through the same resolver,
   previews the outcome, and applies it only after confirmation and stale-edit checks.
+- `presets.js` validates a separate versioned preset manifest, then composes import
+  plans into the ordinary configuration. A resolver preview map supplies proposed
+  Markdown bytes without writing them. Apply rechecks snapshots and uses the shared
+  writer. `preset-wizard.js` reuses selection and configuration prompts. Export
+  copies selected instruction files into a new local preset directory.
 
 There is no build step, network resolution, or agent runtime. The only runtime
 dependency is `yaml`; Node supplies file, path, argument, and terminal APIs.
@@ -243,8 +248,8 @@ filenames belong in the adapter, not in the core profile format.
 The core does not choose a model, spawn agents, orchestrate tasks, execute skill
 files, benchmark capability, or distribute optimal prompts. Local skill files
 are sufficient; this schema does not define a universal skill ecosystem.
-Remote registries, downloads, shareable
-presets, machine-local environments, hosted services, and synchronization are
+Remote registries, downloads, machine-local environments, hosted services, and synchronization are
 outside the initial architecture, routing, and installer work. A local debugging
 command is available as `npm run resolve`; the installer exposes `init`, `doctor`,
-and `uninstall`; `configure` provides the role/skill wizard.
+and `uninstall`; `configure` provides the role/skill wizard. The [preset format](presets.md)
+adds local inspect/import/export without adding a runtime concept of preset roles.

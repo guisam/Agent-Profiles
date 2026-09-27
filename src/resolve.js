@@ -7,7 +7,7 @@ function fail(entry, message) {
   throw new Error(`${entry}: ${message}`);
 }
 
-function mapping(value, entry, fields, optional = []) {
+export function mapping(value, entry, fields, optional = []) {
   if (!(value instanceof Map)) fail(entry, 'expected a mapping');
   for (const key of value.keys()) {
     if (typeof key !== 'string' || !key.trim()) fail(entry, 'keys must be nonempty strings');
@@ -26,11 +26,12 @@ export function identifier(value, entry) {
   return value;
 }
 
-export function localFile(base, file, entry, scope = '.agent-profiles', allowMissing = false) {
+export function localFile(base, file, entry, scope = '.agent-profiles', allowMissing = false, preview = new Map()) {
   if (typeof file !== 'string' || !file.endsWith('.md') ||
       /[:\\]/.test(file) || path.posix.isAbsolute(file) || file.split('/').includes('..')) {
     fail(entry, `expected a relative Markdown path inside ${scope} (no .., URLs, or backslashes)`);
   }
+  if (preview.has(path.resolve(base, file))) return safePath(base, file);
   try {
     const resolved = realpathSync(path.resolve(base, file));
     const relative = path.relative(base, resolved);
@@ -46,10 +47,10 @@ export function localFile(base, file, entry, scope = '.agent-profiles', allowMis
   }
 }
 
-function profileFile(base, id, entry) {
+function profileFile(base, id, entry, preview) {
   identifier(id, entry);
   const file = `profiles/${id}.md`;
-  localFile(base, file, entry);
+  localFile(base, file, entry, '.agent-profiles', false, preview);
   return file;
 }
 
@@ -65,15 +66,15 @@ export function parseYaml(text) {
   return parseYamlDocument(text).toJS({ mapAsMap: true, maxAliasCount: 100 });
 }
 
-export function skillMetadata(file, entry) {
+export function skillMetadata(file, entry, content) {
   let descriptor;
   try {
-    descriptor = openSync(file, 'r');
+    if (content === undefined) descriptor = openSync(file, 'r');
     const chunks = [];
     // ponytail: frontmatter is capped at 64 KiB; raise the limit if a local format needs more.
     for (let size = 0; size < 65536;) {
       const buffer = Buffer.alloc(1024);
-      const count = readSync(descriptor, buffer, 0, buffer.length, null);
+      const count = content === undefined ? readSync(descriptor, buffer, 0, buffer.length, null) : content.copy(buffer, 0, size, Math.min(size + buffer.length, content.length));
       chunks.push(buffer.subarray(0, count));
       size += count;
       const text = Buffer.concat(chunks).toString('utf8').replace(/^\uFEFF/, '');
@@ -114,9 +115,9 @@ function skillFiles(ids, entry, resolveSkill) {
  * Validate all configuration, then load only the selected additional layers.
  * @param {{root?: string, model?: string, family?: string, role?: string,
  *   skills?: string[], configuration?: Map<string, any>,
- *   newRoleFile?: {path: string, content: string}}} options
+ *   newRoleFile?: {path: string, content: string}, preview?: Map<string, Buffer>}} options
  */
-export function resolveInstructions({ root = process.cwd(), model, family, role, skills = [], configuration, newRoleFile } = {}) {
+export function resolveInstructions({ root = process.cwd(), model, family, role, skills = [], configuration, newRoleFile, preview = new Map() } = {}) {
   for (const [name, value] of Object.entries({ model, family, role })) {
     if (value !== undefined && (typeof value !== 'string' || !value.trim())) {
       fail(name, 'expected a nonempty string or an omitted value');
@@ -141,13 +142,13 @@ export function resolveInstructions({ root = process.cwd(), model, family, role,
   mapping(config, 'agents.yaml', ['version', 'default_profile', 'default_role', 'models', 'families', 'roles'], ['skills']);
   if (config.get('version') !== 1) fail('version', 'only version 1 is supported');
   const defaultProfile = config.get('default_profile');
-  profileFile(base, defaultProfile, 'default_profile');
+  profileFile(base, defaultProfile, 'default_profile', preview);
   const defaultRole = identifier(config.get('default_role'), 'default_role');
   for (const section of ['models', 'families']) {
     for (const [identity, value] of mapping(config.get(section), section)) {
       const entry = `${section}.${identity}`;
       mapping(value, entry, ['profile']);
-      profileFile(base, value.get('profile'), `${entry}.profile`);
+      profileFile(base, value.get('profile'), `${entry}.profile`, preview);
     }
   }
 
@@ -163,12 +164,12 @@ export function resolveInstructions({ root = process.cwd(), model, family, role,
     if (catalog.has(id)) return catalog.get(id);
     const conventional = `.agent-profiles/skills/${id}/SKILL.md`;
     const file = sources.has(id) ? sources.get(id).get('file') : conventional;
-    const resolved = localFile(repository, file, entry, 'repository');
-    if (sources.has(id) && existsSync(path.join(repository, conventional)) &&
-        localFile(repository, conventional, entry, 'repository') !== resolved) {
+    const resolved = localFile(repository, file, entry, 'repository', false, preview);
+    if (sources.has(id) && (existsSync(path.join(repository, conventional)) || preview.has(path.join(repository, conventional))) &&
+        localFile(repository, conventional, entry, 'repository', false, preview) !== resolved) {
       fail(entry, `ambiguous skill ${id}: both ${conventional} and ${file} exist`);
     }
-    const skill = { id, ...skillMetadata(resolved, entry), path: file };
+    const skill = { id, ...skillMetadata(resolved, entry, preview.get(resolved)), path: file };
     catalog.set(id, skill);
     return skill;
   }
@@ -178,7 +179,7 @@ export function resolveInstructions({ root = process.cwd(), model, family, role,
     identifier(id, entry);
     mapping(value, entry, ['file', 'skills'], ['description']);
     if (value.has('description') && typeof value.get('description') !== 'string') fail(`${entry}.description`, 'expected a string');
-    localFile(base, value.get('file'), `${entry}.file`, '.agent-profiles', newRoleFile?.path === value.get('file'));
+    localFile(base, value.get('file'), `${entry}.file`, '.agent-profiles', newRoleFile?.path === value.get('file'), preview);
     const skills = mapping(value.get('skills'), `${entry}.skills`, ['required', 'available']);
     const required = skillFiles(skills.get('required'), `${entry}.skills.required`, resolveSkill);
     const available = skillFiles(skills.get('available'), `${entry}.skills.available`, resolveSkill);
@@ -212,7 +213,8 @@ export function resolveInstructions({ root = process.cwd(), model, family, role,
   const loaded = files.map(file => {
     try {
       if (newRoleFile && file === `.agent-profiles/${newRoleFile.path}`) return { path: file, content: newRoleFile.content };
-      return { path: file, content: readFileSync(localFile(repository, file, file, 'repository'), 'utf8') };
+      const resolved = localFile(repository, file, file, 'repository', false, preview);
+      return { path: file, content: (preview.get(resolved) ?? readFileSync(resolved)).toString('utf8') };
     } catch (error) {
       fail(file, `cannot load instructions: ${error.message}`);
     }

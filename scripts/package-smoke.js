@@ -34,9 +34,10 @@ try {
   const files = new Set(artifact.files.map(file => file.path));
   for (const file of ['LICENSE', 'README.md', 'CHANGELOG.md', 'package.json', 'bin/agent-profiles.js', 'src/configure.js', 'src/files.js',
     'src/integrations.js', 'src/install.js', 'src/resolve.js', 'src/skills.js', 'src/wizard.js', 'scripts/resolve.js',
-    '.agent-profiles/agents.yaml', '.agent-profiles/BOOTSTRAP.md', 'docs/configure.md']) assert.ok(files.has(file), `Missing package file: ${file}`);
+    '.agent-profiles/agents.yaml', '.agent-profiles/BOOTSTRAP.md', 'docs/configure.md', 'src/presets.js',
+    'src/preset-wizard.js', 'examples/presets/release-review/preset.yaml']) assert.ok(files.has(file), `Missing package file: ${file}`);
   for (const file of files) {
-    assert.ok(/^(bin\/|src\/|docs\/|\.agent-profiles\/|scripts\/resolve\.js$|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(file), `Unexpected package file: ${file}`);
+    assert.ok(/^(bin\/|src\/|docs\/|examples\/presets\/|\.agent-profiles\/|scripts\/resolve\.js$|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(file), `Unexpected package file: ${file}`);
   }
   const consumer = path.join(temporary, 'consumer with spaces');
   fs.mkdirSync(consumer);
@@ -52,6 +53,8 @@ try {
   for (const command of ['init', 'configure', 'doctor', 'uninstall']) assert.match(cli(command, '--help'), new RegExp(command));
   const { configureRoles } = await import(pathToFileURL(path.join(installed, 'src/wizard.js')).href);
   const { resolveInstructions } = await import(pathToFileURL(path.join(installed, 'src/resolve.js')).href);
+  const { planPresetExport, applyPresetExport, planPresetImport, applyPresetImport } = await import(pathToFileURL(path.join(installed, 'src/presets.js')).href);
+  assert.match(cli('preset', 'inspect', path.join(installed, 'examples/presets/release-review')), /Release Review/);
 
   for (const scenario of ['empty', 'existing instructions', 'alternate targets']) {
     const root = path.join(temporary, scenario);
@@ -106,7 +109,16 @@ try {
     assert.deepEqual(snapshot(path.join(root, '.agent-profiles')), customized);
     for (const [file, content] of Object.entries(originals)) assert.deepEqual(fs.readFileSync(path.join(root, file)), content);
     for (const file of targets) assert.ok(!fs.readFileSync(path.join(root, file), 'utf8').includes('<!-- agent-profiles:start -->'));
-    console.log(`Packed workflow passed: ${scenario}`);
+    const destination = path.join(temporary, `preset ${scenario}`);
+    applyPresetExport(planPresetExport({ root, destination, roles: ['release-reviewer'], profiles: [],
+      includeSkills: ['code-review', 'testing'],
+      metadata: { name: 'smoke', display_name: 'Smoke', description: 'Package test', author: 'Test', version: '1', license: 'Apache-2.0' },
+    }), true);
+    assert.match(cli('preset', 'inspect', destination, '--root', root), /Conflict: roles.release-reviewer/);
+    const decisions = new Map([['roles.release-reviewer', 'rename:preset-reviewer'], ['skills.code-review', 'keep'], ['skills.testing', 'keep']]);
+    applyPresetImport(planPresetImport({ root, source: destination, decisions }), true);
+    assert.deepEqual(resolveInstructions({ root, role: 'preset-reviewer' }).required.map(skill => skill.id), ['code-review']);
+    console.log(`Packed workflow passed: ${scenario} (including preset inspect/export/import)`);
   }
   console.log(`Verified ${artifact.name}@${artifact.version}: ${files.size} package files, ${artifact.size} bytes compressed.`);
 } finally {

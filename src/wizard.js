@@ -3,7 +3,7 @@ import { applyRoleChange, planRoleChange, readConfiguration } from './configure.
 import { discoverSkills } from './skills.js';
 import { resolveInstructions } from './resolve.js';
 
-const display = text => stripVTControlCharacters(String(text)).replace(/[\x00-\x1f\x7f]/g, ' ');
+export const display = text => stripVTControlCharacters(String(text)).replace(/[\x00-\x1f\x7f]/g, ' ');
 const keyOf = skill => `${skill.id}\0${skill.path}`;
 
 export async function selectSkills({ choices, initial = [], label, ask, write }) {

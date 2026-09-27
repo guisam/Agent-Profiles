@@ -20,6 +20,7 @@
     "scripts/resolve.js",
     ".agent-profiles/",
     "docs/",
+    "examples/presets/",
     "CHANGELOG.md",
     "CONTRIBUTING.md"
   ],
