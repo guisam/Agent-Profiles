@@ -62,6 +62,8 @@ try {
     const root = path.join(temporary, scenario);
     fs.mkdirSync(root);
     fs.writeFileSync(path.join(root, 'package.json'), '{"private":true}\n');
+    // Like a user, install the package into the target so its bootstrap command can run there.
+    run(process.execPath, [npm, 'install', '--save-dev', '--ignore-scripts', '--no-audit', '--no-fund', '--prefer-offline', path.join(temporary, artifact.filename)], root);
     const originals = { 'package.json': fs.readFileSync(path.join(root, 'package.json')) };
     if (scenario !== 'empty') {
       originals['AGENTS.md'] = Buffer.from('\uFEFF# Repository invariants\r\nPreserve these rules.');

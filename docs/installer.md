@@ -144,9 +144,22 @@ integrations, and each host-native skill's verification state (`verified-local`,
 integration is not installed. It also flags older `file` mappings to a Claude skill
 (for example `testing-2: {file: .claude/skills/testing/SKILL.md}` from earlier
 wizard versions), which inject the skill as text; replace them with `{host: claude, scope: project}`.
-These notes are informational, not errors. Missing protocol files, malformed blocks,
-shadowed integrations, and a configuration with no active integration produce
-actionable errors and exit status 1. Unselected agents are simply reported as
+These notes are informational, not errors. Findings fall into three categories,
+and any of them makes doctor exit with status 1:
+
+- **Configuration**: missing protocol files, malformed blocks, shadowed
+  integrations, invalid references, or no active integration.
+- **Bootstrap availability**: `agent-profiles` is not installed in the repository,
+  or is installed at a different version, so `npx --no agent-profiles resolve` would
+  fail or run older code; or Claude Code settings do not allow the command.
+- **Host capability**: a role requires a host skill that an installed host cannot
+  invoke.
+
+`init` blocks only on configuration errors. It writes the integration even when the
+bootstrap is not yet runnable, then reports what is missing and exits 1. With
+`--package <spec>` (or an interactive answer), it runs `npm install --save-dev <spec>`
+in the repository. A local tarball or directory path is resolved from the current
+directory. Unselected agents are simply reported as
 not installed. Doctor never modifies files.
 
 ## Uninstall

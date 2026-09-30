@@ -52,11 +52,15 @@ by someone else.
 
 ## Host setup
 
-1. Install the package in the repository: `npm install --save-dev agent-profiles`
-   (until v0.1.0 is published, install a packed tarball; see [installer.md](installer.md)).
-   The command then resolves from `node_modules/.bin` without a network request.
-2. Allow the command so the agent is not blocked on a permission prompt. In
-   Claude Code, add both rules; on Windows, models often choose PowerShell:
+1. Install the package in the repository: `npm install --save-dev agent-profiles`,
+   or `init --package <spec>` (a packed tarball until v0.1.0 is published). The
+   command then resolves from `node_modules/.bin`. `init` exits nonzero while the
+   package is missing, and `doctor` reports it under **Bootstrap availability**. The
+   installed version must match the CLI that checked the configuration.
+2. Allow the command so the agent is not blocked on a permission prompt. For
+   Claude Code, `init` adds exactly these rules to `.claude/settings.json`, and
+   `uninstall` removes them. Both shells are allowed because models on Windows
+   often choose PowerShell:
 
    ```json
    {
@@ -69,8 +73,14 @@ by someone else.
    }
    ```
 
-3. Run `agent-profiles doctor`. It reports configuration errors, host skill
-   verification, and the observed capabilities of each installed integration.
+3. Run `agent-profiles doctor`. It reports three independent results:
+   - **Configuration**: schema, references, and managed markers.
+   - **Bootstrap availability**: whether each installed block's command can run,
+     meaning the package is installed at the matching version and permissions allow it.
+   - **Host capability**: whether each installed host can satisfy each role's
+     required host skills.
+
+   Host skill verification and each integration's observed behavior are listed as notes.
 
 ## Identity
 

@@ -8,7 +8,7 @@ import test from 'node:test';
 import { parse, stringify } from 'yaml';
 import { applyRoleChange, planRoleChange, readConfiguration } from '../src/configure.js';
 import { formatContext, formatProof } from '../src/diagnostics.js';
-import { doctor, install } from '../src/install.js';
+import { bootstrapAvailability, doctor, install, installPackage, uninstall } from '../src/install.js';
 import { bootstrapBlock, END, START } from '../src/integrations.js';
 import { applyPresetImport, planPresetExport, planPresetImport } from '../src/presets.js';
 import { resolveInstructions } from '../src/resolve.js';
@@ -36,6 +36,14 @@ function repository(t) {
       fs.writeFileSync(path.join(root, file), content);
     },
   };
+}
+
+// Simulates `npm install --save-dev agent-profiles` so the bootstrap command is runnable.
+function withPackage(root, version = JSON.parse(fs.readFileSync(path.join(project, 'package.json'), 'utf8')).version) {
+  fs.writeFileSync(path.join(root, 'package.json'), '{"private":true}\n');
+  fs.mkdirSync(path.join(root, 'node_modules/agent-profiles'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'node_modules/agent-profiles/package.json'), JSON.stringify({ name: 'agent-profiles', version }));
+  return root;
 }
 
 const claudeFamilies = config => {
@@ -230,7 +238,7 @@ test('init replaces an outdated managed block in place and stays idempotent acro
   repo.write('CLAUDE.md', old);
   repo.write('AGENTS.md', '# Repository\n');
   const result = install({ root: repo.root, agents: ['claude', 'codex'] });
-  assert.deepEqual(result.modified.sort(), ['AGENTS.md', 'CLAUDE.md']);
+  assert.deepEqual(result.modified.sort(), ['.claude/settings.json', 'AGENTS.md', 'CLAUDE.md']);
   const claude = fs.readFileSync(path.join(repo.root, 'CLAUDE.md'), 'utf8');
   assert.equal(claude, `# Rules\n\n${bootstrapBlock('claude').toString('utf8')}\n\nAfter the block.\n`);
   assert.deepEqual(install({ root: repo.root, agents: ['claude', 'codex'] }).modified, []);
@@ -246,7 +254,7 @@ test('doctor reports host skill verification and integration capabilities separa
     config.skills = { 'release-notes': { host: 'claude', scope: 'project' }, lint: { host: 'claude', scope: 'plugin', id: 'toolkit:lint' } };
     config.roles.researcher.skills.available = ['release-notes', 'lint'];
   });
-  install({ root: repo.root, agents: ['codex'] });
+  install({ root: withPackage(repo.root), agents: ['codex'] });
   const report = doctor(repo.root);
   assert.equal(report.valid, true, report.errors.join('\n'));
   assert.ok(report.notes.includes('Skill release-notes is Claude Code skill release-notes: verified at .claude/skills/release-notes/SKILL.md; the Claude Code integration is not installed'));
@@ -331,7 +339,7 @@ test('doctor flags older file mappings that inject a Claude skill as text', t =>
     config.skills = { 'testing-2': { file: '.claude/skills/testing/SKILL.md' } };
     config.roles.researcher.skills.available = ['testing-2'];
   });
-  install({ root: repo.root, agents: ['claude'] });
+  install({ root: withPackage(repo.root), agents: ['claude'] });
   const report = doctor(repo.root);
   assert.equal(report.valid, true, report.errors.join('\n'));
   assert.ok(report.notes.includes('Skill testing-2 maps .claude/skills/testing/SKILL.md as injected text; replace it with {host: claude, scope: project, id: testing} so Claude Code invokes it'));
@@ -386,4 +394,75 @@ test('host skill scope is explicit: project skills must exist, user and plugin s
   });
   const result = resolveInstructions({ root: repo.root, role: 'researcher' });
   assert.deepEqual(result.available.map(skill => [skill.id, skill.scope, skill.verification]), [['mine', 'user', 'host-provided'], ['kit', 'plugin', 'host-provided']]);
+});
+
+test('doctor separates configuration validity, bootstrap availability, and host capability', t => {
+  const repo = repository(t);
+  const version = JSON.parse(fs.readFileSync(path.join(project, 'package.json'), 'utf8')).version;
+  install({ root: repo.root, agents: ['claude'] });
+  const missing = doctor(repo.root);
+  assert.deepEqual([missing.errors, missing.capabilities, missing.valid], [[], [], false]);
+  assert.deepEqual(missing.bootstrap, ['Claude Code: agent-profiles is not installed in this repository, so the bootstrap command fails; run init with --package, or npm install --save-dev agent-profiles']);
+  withPackage(repo.root, '0.0.1');
+  assert.match(doctor(repo.root).bootstrap[0], /runs installed agent-profiles 0\.0\.1, but this configuration was checked with /);
+  withPackage(repo.root);
+  assert.deepEqual(bootstrapAvailability(repo.root), { runnable: true, version, reason: null });
+  assert.equal(doctor(repo.root).valid, true);
+  // Removing the permission rules makes the bootstrap wait on a prompt; doctor says so.
+  fs.writeFileSync(path.join(repo.root, '.claude/settings.json'), '{"permissions":{"allow":["Bash(npx --no agent-profiles resolve:*)"]}}');
+  assert.deepEqual(doctor(repo.root).bootstrap, ['Claude Code: .claude/settings.json does not allow PowerShell(npx --no agent-profiles resolve:*); run init to add the rules']);
+  repo.write('.claude/settings.local.json', '{"permissions":{"allow":["PowerShell(npx --no agent-profiles resolve:*)"]}}');
+  assert.deepEqual(doctor(repo.root).bootstrap, []);
+});
+
+test('init adds only the exact permission rules, preserves other settings, and uninstall removes them', t => {
+  const repo = repository(t);
+  const custom = '{\n  "model": "opus",\n  "permissions": {\n    "allow": ["Read(*)"]\n  }\n}\n';
+  repo.write('.claude/settings.json', custom);
+  install({ root: repo.root, agents: ['claude'] });
+  const settings = JSON.parse(fs.readFileSync(path.join(repo.root, '.claude/settings.json'), 'utf8'));
+  assert.deepEqual(settings, { model: 'opus', permissions: { allow: ['Read(*)', 'Bash(npx --no agent-profiles resolve:*)', 'PowerShell(npx --no agent-profiles resolve:*)'] } });
+  const installed = fs.readFileSync(path.join(repo.root, '.claude/settings.json'));
+  assert.deepEqual(install({ root: repo.root, agents: ['claude'] }).modified, []);
+  assert.deepEqual(fs.readFileSync(path.join(repo.root, '.claude/settings.json')), installed);
+  uninstall({ root: repo.root });
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(repo.root, '.claude/settings.json'), 'utf8')), { model: 'opus', permissions: { allow: ['Read(*)'] } });
+  repo.write('.claude/settings.json', '{ not json');
+  assert.throws(() => install({ root: repo.root, agents: ['claude'] }), /\.claude\/settings\.json: .*repair it before Agent Profiles can check or add its permission rules/);
+});
+
+test('installPackage makes the bootstrap runnable from a local package directory', t => {
+  const repo = repository(t);
+  const version = JSON.parse(fs.readFileSync(path.join(project, 'package.json'), 'utf8')).version;
+  const local = path.join(repo.root, 'vendor/agent-profiles');
+  fs.mkdirSync(local, { recursive: true });
+  fs.writeFileSync(path.join(local, 'package.json'), JSON.stringify({ name: 'agent-profiles', version }));
+  fs.writeFileSync(path.join(repo.root, 'package.json'), '{"name":"fixture","private":true}\n');
+  assert.equal(bootstrapAvailability(repo.root).runnable, false);
+  assert.deepEqual(installPackage(repo.root, local), { runnable: true, version, reason: null });
+  assert.equal(JSON.parse(fs.readFileSync(path.join(repo.root, 'package.json'), 'utf8')).devDependencies['agent-profiles'].startsWith('file:'), true);
+});
+
+test('init exits nonzero while the bootstrap cannot run', t => {
+  const repo = repository(t);
+  fs.mkdirSync(path.join(repo.root, '.git'));
+  const run = (...args) => spawnSync(process.execPath, [path.join(project, 'bin/agent-profiles.js'), ...args, '--root', repo.root], { encoding: 'utf8' });
+  const blocked = run('init', '--agent', 'claude');
+  assert.equal(blocked.status, 1);
+  assert.match(blocked.stderr, /Bootstrap: Claude Code: agent-profiles is not installed in this repository/);
+  withPackage(repo.root);
+  const ready = run('init', '--agent', 'claude');
+  assert.equal(ready.status, 0, ready.stderr);
+  assert.match(ready.stdout, /Bootstrap runnable with agent-profiles /);
+  const report = run('doctor');
+  assert.equal(report.status, 0, report.stderr);
+  assert.match(report.stdout, /Configuration: valid\n[\s\S]*Bootstrap availability: runnable[\s\S]*Host capability: every role is satisfiable/);
+});
+
+test('uninstall removes a settings file that only held the bootstrap permission rules', t => {
+  const repo = repository(t);
+  install({ root: repo.root, agents: ['claude'] });
+  assert.ok(fs.existsSync(path.join(repo.root, '.claude/settings.json')));
+  uninstall({ root: repo.root });
+  assert.equal(fs.existsSync(path.join(repo.root, '.claude/settings.json')), false);
 });

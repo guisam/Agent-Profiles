@@ -17,6 +17,12 @@ export const integrations = [
       user: { id: /^[a-z0-9][a-z0-9-]*$/ },
       plugin: { id: /^[a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*$/ },
     },
+    // Without these, the bootstrap command waits on a permission prompt (or is denied non-interactively).
+    // Models on Windows often choose PowerShell, so both shells are allowed; nothing else is.
+    permissions: {
+      file: '.claude/settings.json', also: ['.claude/settings.local.json'],
+      rules: [`Bash(${resolveCommand}:*)`, `PowerShell(${resolveCommand}:*)`],
+    },
     capabilities: {
       mode: 'bootstrap', verified: 'Claude Code 2.1.283',
       identity: 'exact model ID stated to the model; hooks cannot see it',

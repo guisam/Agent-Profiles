@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, readdirSync, realpathSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveInstructions } from './resolve.js';
@@ -39,6 +40,58 @@ function integrationState(root, adapter) {
 export function detectAgents(root) {
   root = realpathSync(root);
   return integrations.map(adapter => integrationState(root, adapter));
+}
+
+const ownVersion = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8')).version;
+
+/**
+ * Whether `npx --no agent-profiles` can run from this repository without a download,
+ * mirroring npm: the local prefix is the nearest directory with package.json.
+ * @param {string} root
+ */
+export function bootstrapAvailability(root) {
+  let prefix = root;
+  while (!existsSync(path.join(prefix, 'package.json')) && path.dirname(prefix) !== prefix) prefix = path.dirname(prefix);
+  if (!existsSync(path.join(prefix, 'package.json'))) prefix = root;
+  const project = existsSync(path.join(prefix, 'package.json')) ? JSON.parse(readFileSync(path.join(prefix, 'package.json'), 'utf8')) : {};
+  const manifest = path.join(prefix, 'node_modules/agent-profiles/package.json');
+  const version = project.name === 'agent-profiles' ? project.version : existsSync(manifest) ? JSON.parse(readFileSync(manifest, 'utf8')).version : null;
+  if (version === null) return { runnable: false, version, reason: 'agent-profiles is not installed in this repository, so the bootstrap command fails; run init with --package, or npm install --save-dev agent-profiles' };
+  // An older or newer copy may not understand this configuration or print this protocol.
+  if (version !== ownVersion) return { runnable: false, version, reason: `the bootstrap runs installed agent-profiles ${version}, but this configuration was checked with ${ownVersion}; install ${ownVersion}` };
+  return { runnable: true, version, reason: null };
+}
+
+function readSettings(root, file) {
+  const before = readLocal(root, file);
+  if (before === null) return { before, settings: null };
+  try { return { before, settings: JSON.parse(before.toString('utf8')) }; }
+  catch (error) { throw new Error(`${file}: ${error.message}; repair it before Agent Profiles can check or add its permission rules`); }
+}
+
+/** Missing permission rules for an adapter's bootstrap command, across its settings files. */
+function missingPermissions(root, adapter) {
+  if (!adapter.permissions) return [];
+  const allowed = new Set([adapter.permissions.file, ...adapter.permissions.also]
+    .flatMap(file => readSettings(root, file).settings?.permissions?.allow ?? []));
+  return adapter.permissions.rules.filter(rule => !allowed.has(rule));
+}
+
+function permissionChange(root, adapter, add) {
+  const { file, rules } = adapter.permissions;
+  const { before, settings } = readSettings(root, file);
+  if (!add && settings === null) return null;
+  const next = settings ?? {};
+  if (typeof next !== 'object' || Array.isArray(next)) throw new Error(`${file}: expected a JSON object`);
+  next.permissions ??= {};
+  const allow = next.permissions.allow ?? [];
+  if (!Array.isArray(allow)) throw new Error(`${file}: permissions.allow must be a list`);
+  next.permissions.allow = add ? [...allow, ...rules.filter(rule => !allow.includes(rule))] : allow.filter(rule => !rules.includes(rule));
+  // Untouched when nothing changes, so an existing file keeps its exact bytes.
+  if (add ? rules.every(rule => allow.includes(rule)) : !rules.some(rule => allow.includes(rule))) return null;
+  // A settings file that held only these rules is removed rather than left empty.
+  const emptied = !add && JSON.stringify(next) === JSON.stringify({ permissions: { allow: [] } });
+  return { file, before, after: emptied ? null : Buffer.from(`${JSON.stringify(next, null, 2)}\n`) };
 }
 
 export function doctor(root) {
@@ -93,11 +146,24 @@ export function doctor(root) {
     notes.push(`Skill ${skill.id} is ${adapter.name} skill ${skill.hostId}: ${state}${unreadable}${agent && !agent.installed ? `; the ${adapter.name} integration is not installed` : ''}`);
   }
   notes.push(...legacy);
+  // Bootstrap availability: can each installed block's command actually run here?
+  const availability = bootstrapAvailability(root);
+  const bootstrap = [];
   for (const agent of agents.filter(item => item.installed)) {
-    const { mode, verified, ...limits } = integrations.find(item => item.id === agent.id).capabilities;
+    const adapter = integrations.find(item => item.id === agent.id);
+    if (!availability.runnable) bootstrap.push(`${agent.name}: ${availability.reason}`);
+    try {
+      const missing = missingPermissions(root, adapter);
+      if (missing.length) bootstrap.push(`${agent.name}: ${adapter.permissions.file} does not allow ${missing.join(' or ')}; run init to add the rules`);
+    } catch (error) { bootstrap.push(`${agent.name}: ${error.message}`); }
+    const { mode, verified, ...limits } = adapter.capabilities;
     notes.push([`${agent.name}: ${mode} mode (observed: ${verified})`, ...Object.entries(limits).map(([key, value]) => `  ${key}: ${value}`)].join('\n'));
   }
-  return { root, valid: errors.length === 0 && capabilities.length === 0, profile: resolution?.profile, role: resolution?.role, agents, errors, capabilities, notes };
+  return {
+    root, valid: errors.length === 0 && bootstrap.length === 0 && capabilities.length === 0,
+    profile: resolution?.profile, role: resolution?.role, agents, availability, ownVersion,
+    errors, bootstrap, capabilities, notes,
+  };
 }
 
 function templateFiles(directory, prefix = '') {
@@ -144,6 +210,11 @@ export function install({ root, agents }) {
       ? Buffer.concat([before.subarray(0, span.start), block, before.subarray(span.end)])
       : Buffer.concat([before ?? Buffer.alloc(0), block]) });
   }
+  for (const agent of selected) {
+    const adapter = integrations.find(item => item.id === agent.id);
+    const change = adapter.permissions && permissionChange(root, adapter, true);
+    if (change) changes.push(change);
+  }
   // Preflight every target before the first write, including unselected integrations.
   detectAgents(root);
   for (const change of changes) safePath(root, change.file);
@@ -153,6 +224,29 @@ export function install({ root, agents }) {
     if (report.errors.length) throw new Error(report.errors.join('\n'));
   });
   return { ...doctor(root), modified };
+}
+
+function npmCli() {
+  const node = path.dirname(process.execPath);
+  const cli = [process.env.npm_execpath, path.join(node, 'node_modules/npm/bin/npm-cli.js'), path.join(node, '../lib/node_modules/npm/bin/npm-cli.js')]
+    .find(candidate => candidate?.endsWith('.js') && existsSync(candidate));
+  if (!cli) throw new Error('npm was not found beside this Node.js; run npm install --save-dev <package> in the repository');
+  return cli;
+}
+
+/**
+ * Install the package the bootstrap runs, as a dev dependency of the repository.
+ * @param {string} root
+ * @param {string} spec npm package spec, such as agent-profiles@0.1.0 or a tarball path
+ */
+export function installPackage(root, spec) {
+  root = realpathSync(root);
+  if (typeof spec !== 'string' || !spec.trim()) throw new Error('--package requires an npm package spec or tarball path');
+  // A local tarball or directory is resolved from the caller's directory, not the repository.
+  const target = existsSync(path.resolve(spec)) ? path.resolve(spec) : spec;
+  const result = spawnSync(process.execPath, [npmCli(), 'install', '--save-dev', '--no-audit', '--no-fund', target], { cwd: root, stdio: 'inherit' });
+  if (result.status !== 0) throw new Error(`npm install --save-dev ${target} failed in ${root}`);
+  return bootstrapAvailability(root);
 }
 
 export function uninstall({ root, deleteConfig = false, confirmed = false }) {
@@ -171,6 +265,11 @@ export function uninstall({ root, deleteConfig = false, confirmed = false }) {
     // Verify the exact recursive-delete target and reject linked descendants before removal.
     for (const file of templateFiles(config)) safePath(root, `.agent-profiles/${file}`);
     if (realpathSync(config) !== path.join(root, '.agent-profiles')) throw new Error('Unsafe configuration deletion target');
+  }
+  // Remove only the exact permission rules init added; other settings are untouched.
+  for (const adapter of integrations.filter(item => item.permissions)) {
+    const change = permissionChange(root, adapter, false);
+    if (change) changes.push(change);
   }
   const modified = applyChanges(root, changes);
   if (deleteConfig && existsSync(config)) {

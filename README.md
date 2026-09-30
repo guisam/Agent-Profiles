@@ -13,10 +13,12 @@ in local, reviewable files, with a small CLI for setup and configuration.
 Requires **Node.js 22 or newer**. Supports **Claude Code and OpenAI Codex**.
 
 **v0.1.0 is being prepared; it has not been published to npm.** Try this checkout
-now with `npm ci`, then run these commands with the path to your project:
+now with `npm ci` and `npm pack`, then run these commands with the path to your
+project. `--package` installs the packed tarball into the project so the bootstrap
+command can run there:
 
 ```sh
-node bin/agent-profiles.js init --root /path/to/project
+node bin/agent-profiles.js init --root /path/to/project --package ./agent-profiles-0.1.0.tgz
 node bin/agent-profiles.js configure --root /path/to/project
 node bin/agent-profiles.js doctor --root /path/to/project
 node bin/agent-profiles.js proof --root /path/to/project --role reviewer
@@ -26,6 +28,7 @@ node bin/agent-profiles.js visualize --root /path/to/project
 After publication, from your Git repository, the same workflow will be:
 
 ```sh
+npm install --save-dev agent-profiles
 npx agent-profiles init
 npx agent-profiles configure
 npx agent-profiles doctor
@@ -36,10 +39,13 @@ npx agent-profiles visualize
 `init` asks which agents to enable and adds a small bootstrap block to their
 instruction files. The block asks the agent to run `npx --no agent-profiles resolve`
 with the exact model ID its host states. Code does all routing, and the agent
-follows the printed result. Install the package as a dev dependency and allow that
-command in your agent (see [bootstrap setup](docs/bootstrap.md#host-setup)). `configure` creates, edits, or deletes roles and lets you
-select required and available local skills. `doctor` checks configuration and
-integration status. Use `--help` for options; scripts can initialize with
+follows the printed result. For Claude Code, `init` also allows exactly that command
+in `.claude/settings.json`. It exits nonzero until the package is installed in the
+repository, so the bootstrap never points at a command that cannot run (see
+[bootstrap setup](docs/bootstrap.md#host-setup)). `configure` creates, edits, or deletes
+roles and lets you select required and available local skills. `doctor` answers three
+separate questions: is the configuration valid, can the bootstrap run here, and can
+every installed host satisfy every role. Use `--help` for options; scripts can initialize with
 `--agent claude --agent codex`. Use `--root` for a directory outside Git.
 
 | Command | Purpose |

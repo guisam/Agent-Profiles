@@ -22,6 +22,15 @@ function repository(t) {
   return root;
 }
 
+// Simulates `npm install --save-dev agent-profiles` so the bootstrap command is runnable.
+function withPackage(root) {
+  const { version } = JSON.parse(fs.readFileSync(path.join(project, 'package.json'), 'utf8'));
+  fs.writeFileSync(path.join(root, 'package.json'), '{"private":true}\n');
+  fs.mkdirSync(path.join(root, 'node_modules/agent-profiles'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'node_modules/agent-profiles/package.json'), JSON.stringify({ name: 'agent-profiles', version }));
+  return root;
+}
+
 function snapshot(root) {
   return fs.readdirSync(root, { recursive: true, withFileTypes: true })
     .filter(entry => entry.isFile())
@@ -36,11 +45,13 @@ test('fresh multi-agent installation validates, detects the root, and is idempot
   fs.mkdirSync(path.join(root, 'src/deep'), { recursive: true });
   assert.equal(findRoot(path.join(root, 'src/deep')), fs.realpathSync(root));
   assert.ok(detectAgents(root).every(agent => !agent.detected));
+  withPackage(root);
   const result = install({ root, agents: ['claude', 'codex'] });
-  assert.equal(result.valid, true);
+  assert.equal(result.valid, true, [...result.errors, ...result.bootstrap].join('\n'));
   assert.equal(result.profile, 'constrained');
   assert.equal(result.role, 'implementer');
-  assert.equal(result.modified.length, 12);
+  assert.equal(result.modified.length, 13);
+  assert.ok(result.modified.includes('.claude/settings.json'));
   assert.ok(result.agents.every(agent => agent.installed));
   assert.equal(doctor(root).valid, true);
   const before = snapshot(root);
@@ -84,7 +95,7 @@ test('user-edited configuration and profiles survive reinstallation and integrat
 });
 
 test('adapters honor existing alternate files and Codex override precedence', t => {
-  const root = repository(t);
+  const root = withPackage(repository(t));
   fs.mkdirSync(path.join(root, '.claude'));
   fs.writeFileSync(path.join(root, '.claude/CLAUDE.md'), 'Claude rules');
   fs.writeFileSync(path.join(root, 'AGENTS.override.md'), 'Codex override');
@@ -193,7 +204,7 @@ test('a write failure rolls back completed changes and preserves original instru
 });
 
 test('CLI supports explicit agents, root detection, doctor exit codes, and safe noninteractive removal', t => {
-  const root = repository(t);
+  const root = withPackage(repository(t));
   fs.mkdirSync(path.join(root, 'nested'));
   const run = (...args) => spawnSync(process.execPath, [path.join(project, 'bin/agent-profiles.js'), ...args], { cwd: path.join(root, 'nested'), encoding: 'utf8' });
   const help = run('--help');
@@ -242,6 +253,7 @@ test('root detection accepts Git worktree files and explicit roots support non-G
   fs.writeFileSync(path.join(root, '.git'), 'gitdir: /example/worktree');
   assert.equal(findRoot(root), fs.realpathSync(root));
   fs.unlinkSync(path.join(root, '.git'));
+  withPackage(root);
   const result = install({ root, agents: ['codex'] });
   assert.equal(result.valid, true);
   assert.equal(fs.existsSync(path.join(root, '.git')), false);
