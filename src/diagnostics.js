@@ -76,7 +76,7 @@ export function formatProof(result) {
   const lines = ['Context proof', '', `Model       ${clean(result.model ?? '(unknown)')}`,
     `Canonical   ${clean(result.identity.canonical ?? '(none)')}`, `Source      ${clean(result.identity.source ?? '(unspecified)')}`,
     `Family      ${clean(result.family ?? '(unknown)')}${result.familySource ? ` (${result.familySource})` : ''}`, `Matched by  ${result.matchedBy}`,
-    `Profile     ${clean(result.profile)}`, `Role        ${clean(result.role)}`, '', 'Loaded by Agent Profiles (instruction bodies)'];
+    `Profile     ${clean(result.profile)}`, `Role        ${clean(result.role)}`, '', 'Injected by Agent Profiles (instruction bodies)'];
   for (const [kind, label] of [['profile', 'Profile'], ['role', 'Role'], ['required-skill', 'Required skills'], ['requested-skill', 'Requested skills']]) {
     lines.push('', label);
     const entries = result.loaded.filter(entry => entry.kind === kind);
@@ -84,11 +84,11 @@ export function formatProof(result) {
     for (const entry of entries) lines.push(`  ${clean(entry.path)}  ${size(entry)}`);
   }
   const loadedIDs = new Set(result.loaded.filter(entry => entry.kind.endsWith('-skill')).map(entry => entry.id));
-  lines.push('', `Agent Profiles managed context: ${size(result.diagnostics.managed.total)}`, '', 'Available, not loaded');
+  lines.push('', `Agent Profiles managed context: ${size(result.diagnostics.managed.total)}`, '', 'Available, not injected');
   const remaining = result.available.filter(entry => entry.type !== 'host' && !loadedIDs.has(entry.id));
   if (!remaining.length) lines.push('  (none)');
   for (const entry of remaining) lines.push(`  ${clean(entry.id)} (${clean(entry.path)})  ${size(entry)}`);
-  lines.push(`Available context not loaded: ${size(result.diagnostics.availableNotLoaded)}`, '', 'Host-native skills (invoked through the host; bytes not counted)');
+  lines.push(`Available context not injected: ${size(result.diagnostics.availableNotLoaded)}`, '', 'Host-native skills (invoked through the host; bytes not counted)');
   if (!result.diagnostics.hostSkills.length) lines.push('  (none)');
   for (const entry of result.diagnostics.hostSkills) lines.push(`  ${clean(entry.id)} (${clean(entry.host)}: ${clean(entry.hostId)})  ${entry.requirement}; ${entry.verification}`);
   lines.push('', `Bootstrap block per host instruction surface: ${size(result.diagnostics.bootstrap)} (bootstrap mode only; not in the managed total)`, '',

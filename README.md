@@ -48,7 +48,7 @@ integration status. Use `--help` for options; scripts can initialize with
 | `configure` | Create/edit/delete roles and select required or available skills |
 | `doctor` | Validate configuration, local references, host skills, and integration capabilities |
 | `resolve` | Print the resolved instructions an agent follows; `--json` for integrations |
-| `proof` | Measure selected instruction bytes/characters and available context not loaded |
+| `proof` | Measure selected instruction bytes/characters and available context not injected |
 | `visualize` | Explore model/role composition, project skill requests, and compare context locally |
 | `preset inspect/import/export` | Review and share local configurations with explicit conflict handling |
 | `uninstall` | Remove managed bootstrap blocks while retaining user configuration |
@@ -129,7 +129,7 @@ node bin/agent-profiles.js proof --model example-model --role reviewer --skill t
 
 `proof` shows each profile, role, required skill, and requested skill with exact
 UTF-8 byte and Unicode character counts. Requesting `testing` moves its size from
-**available, not loaded** into the managed total. Add `--json` for machine-readable
+**available, not injected** into the managed total. Add `--json` for machine-readable
 output; the same diagnostics are available through the resolver API.
 
 These totals cover resolved instruction bodies, not the complete agent context.

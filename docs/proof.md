@@ -25,7 +25,7 @@ request available skills. Unknown roles or skills are errors, not substitutions.
 
 The human report shows the selected model, its canonical ID and identity source,
 the family and how it was found, the match rule, profile and role, injected paths
-grouped by kind, byte/character totals, available context not loaded, host-native
+grouped by kind, byte/character totals, available context not injected, host-native
 skills, and the bootstrap block size.
 `--json` produces only JSON on stdout. `--contents` requires `--json` and adds
 selected instruction text; it never adds unrequested skill bodies. JSON errors
@@ -45,7 +45,7 @@ the same resolver and diagnostics as any other local role.
 | `loaded[].characters` | Unicode code points in that text |
 | `required[]`, `available[]` | Existing skill metadata plus byte/character counts |
 | `diagnostics.managed` | `profile`, `role`, `requiredSkills`, `requestedSkills`, and combined `total` |
-| `diagnostics.availableNotLoaded` | Selected-role available skills whose IDs were not loaded |
+| `diagnostics.availableNotLoaded` | Selected-role available instruction skills not injected (key name kept for compatibility) |
 | `diagnostics.tokens` | `{value: null, kind: "not-calculated", method: null}` |
 
 Each category and total contains `files`, `bytes`, and `characters`. Empty
@@ -123,7 +123,7 @@ CLI/JSON formatting, separators, and other wrappers. Those bytes are not in
 `loaded[].content`. This measures the instruction payload, not complete Agent
 Profiles-related overhead or total context-window usage.
 
-Use **available context not loaded**, not **savings**, unless comparing with an
+Use **available context not injected**, not **savings**, unless comparing with an
 explicit baseline that would have loaded those instructions. The proof shows
 what was selected and what could additionally be loaded without assuming what
 another setup would do.

@@ -50,7 +50,7 @@ function compare() {
   byId('comparison-label').textContent = `${label(pinned)} → ${label(current)}`;
   const rows = byId('comparison-rows');
   rows.replaceChildren();
-  for (const [key, title] of [['profile', 'Profile'], ['role', 'Role'], ['requiredSkills', 'Required skills'], ['requestedSkills', 'Requested skills'], ['total', 'Managed total'], ['availableNotLoaded', 'Available, not loaded']]) {
+  for (const [key, title] of [['profile', 'Profile'], ['role', 'Role'], ['requiredSkills', 'Required skills'], ['requestedSkills', 'Requested skills'], ['total', 'Managed total'], ['availableNotLoaded', 'Available, not injected']]) {
     const before = key === 'availableNotLoaded' ? pinned.diagnostics[key] : pinned.diagnostics.managed[key];
     const after = key === 'availableNotLoaded' ? current.diagnostics[key] : current.diagnostics.managed[key];
     const row = element('tr');
@@ -112,7 +112,7 @@ function render(result) {
       if (checkbox.checked) requested.add(entry.id); else requested.delete(entry.id);
       update(checkbox.id);
     });
-    label.append(checkbox, document.createTextNode(`${entry.id} · ${loaded ? 'Requested, loaded' : 'Available, not loaded'}`));
+    label.append(checkbox, document.createTextNode(`${entry.id} · ${loaded ? 'Requested, injected' : 'Available, not injected'}`));
     card.append(label, inspect(loaded ?? entry, `${loaded ? 'Requested for' : 'Available to'} role: ${result.role}`));
     available.append(card);
   }

@@ -109,6 +109,7 @@ installed as a dev dependency and the managed block asking only for
 | Custom agent whose definition only names the role | Haiku agent never ran `resolve` |
 | Custom agent whose definition contains the exact `resolve --role reviewer` command | Haiku agent ran it with its own dated ID and the reviewer role |
 | `init` over the previous managed block | Replaced the block in place; a second `init` made no changes |
+| Claude and Codex blocks both installed | Haiku and Opus each ran `resolve` once, then read `AGENTS.md` without running it again |
 | Alias `claude-opus-5-5[1m]` in a YAML flow list | YAML error until quoted: `aliases: ["claude-opus-5-5[1m]"]` |
 
 Model-side identity copying was reliable in every run. Re-resolution after a
