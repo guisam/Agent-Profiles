@@ -46,7 +46,8 @@ test('exact profile, role, skill and category totals use resolved text and exclu
     files: result.loaded.length, bytes: result.loaded.reduce((sum, entry) => sum + entry.bytes, 0), characters: result.loaded.reduce((sum, entry) => sum + entry.characters, 0),
   });
   fs.writeFileSync(path.join(root, 'AGENTS.md'), 'HOST-ONLY-CONTENT'.repeat(1000));
-  assert.deepEqual(resolveInstructions({ root, model: 'example-model', role: 'reviewer' }), result);
+  // Host instructions change only the existence flag, never managed context or measurements.
+  assert.deepEqual(resolveInstructions({ root, model: 'example-model', role: 'reviewer' }), { ...result, repository: { ...result.repository, exists: true } });
   assert.equal(result.diagnostics.repository.bytes, null);
   assert.equal(result.diagnostics.repository.injection, 'host-controlled');
   assert.ok(Object.values(result.diagnostics.host).every(entry => entry.status === 'unobserved' && !Object.hasOwn(entry, 'bytes')));
@@ -117,7 +118,7 @@ test('proof human/JSON output and debug contents mode agree; invalid flags and r
   const full = run('--model', 'example-model', '--role', 'reviewer', '--json', '--contents');
   assert.equal(full.status, 0, full.stderr);
   assert.deepEqual(JSON.parse(full.stdout).diagnostics, json.diagnostics);
-  const debug = spawnSync(process.execPath, [path.join(project, 'scripts/resolve.js'), '--root', root, '--model', 'example-model', '--role', 'reviewer'], { encoding: 'utf8' });
+  const debug = spawnSync(process.execPath, [path.join(project, 'bin/agent-profiles.js'), 'resolve', '--json', '--root', root, '--model', 'example-model', '--role', 'reviewer'], { encoding: 'utf8' });
   assert.equal(debug.status, 0, debug.stderr);
   assert.deepEqual(JSON.parse(debug.stdout), json);
   const human = run('--model', 'example-model', '--role', 'reviewer');

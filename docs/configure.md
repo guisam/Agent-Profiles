@@ -33,10 +33,12 @@ its replacement. The only/default role cannot be deleted until another exists.
 
 ## Selecting skills
 
-The first list selects **required** skills, loaded whenever the role is active.
-Keep this list small. The second selects **available** skills, whose metadata is
-exposed until the task explicitly needs their instructions. Required skills are
-excluded from the available list.
+The first list selects **required** skills, which apply to all work in the role:
+instruction skills are injected and Claude Code skills invoked. Keep this list
+small. The second selects **available** skills, listed for the role and used only
+when a task falls within the skill's description. Required skills are excluded from
+the available list. Selecting a skill routes it; it does not hide other host skills,
+which Claude Code lists to every role.
 
 Each entry shows its identifier, name, short description, and source path.
 The list is paginated rather than assuming all skills fit on one screen:
@@ -63,22 +65,29 @@ Discovery inspects only these known resources:
 - `.claude/skills/<id>/SKILL.md`;
 - explicit paths in the top-level `skills` map.
 
-The directory sources inspect one level of skill directories. The existing
-metadata reader extracts YAML `name` and `description` from each resource's
-frontmatter. Full instruction bodies are not displayed or included in the
+The directory sources inspect one level of skill directories. Skills under
+`.claude/skills/` are **host-native**: selecting one saves a reference such as
+`release-notes: {host: claude, scope: project}`, and agents invoke it through Claude Code instead of
+receiving its text. The metadata reader extracts YAML `name` and `description` from
+each resource's frontmatter; when `name` is absent, the directory name is used, as in
+Claude Code. Host skills may omit `description`. Full instruction bodies are not displayed or included in the
 catalog. Invalid unconfigured candidates are skipped with an explanation;
 invalid configured references fail normal validation. Missing source directories
 are normal. A repository with no skills can still create roles with empty lists.
 
 Duplicate IDs appear as separate entries with their source paths. The wizard
 does not silently pick a source or overwrite a binding used by another role.
-For example, if `testing` already refers to the conventional Agent Profiles
-skill, selecting Claude's `testing` creates this explicit alias:
+A Claude skill keeps its host identity. If `testing` already names the conventional
+Agent Profiles skill, selecting Claude's `testing` fails and asks you to rename one
+of them; it is never renamed to a second ID.
+
+A mapped repository file (not a host skill) can instead receive an explicit alias.
+If `testing` is already bound, selecting `team-skills/testing/SKILL.md` creates:
 
 ```yaml
 skills:
   testing-2:
-    file: .claude/skills/testing/SKILL.md
+    file: team-skills/testing/SKILL.md
 
 roles:
   qa:
@@ -95,7 +104,10 @@ never copied, rewritten, or deleted. Unused source mappings are retained.
 
 Additional layouts can be added through the small source adapter table in
 [skills.js](../src/skills.js). This version does not scan home directories or
-remote registries. To use a resource outside the automatic locations, add its
+remote registries. A user-level or plugin Claude skill can be referenced by editing
+`agents.yaml` (`personal: {host: claude, scope: user}` or `lint: {host: claude, scope: plugin, id: toolkit:lint}`); doctor reports it as
+host-provided, since Agent Profiles cannot verify it. Editing a role keeps such
+references selectable. To use a resource outside the automatic locations, add its
 repository-local path to the existing `skills` map; it then appears in the wizard.
 
 ## Safe configuration changes
@@ -131,7 +143,7 @@ const plan = planRoleChange({
   id: 'qa',
   description: 'Verify release readiness.',
   required: ['code-review'],
-  available: [{ id: 'testing', path: '.claude/skills/testing/SKILL.md' }],
+  available: [{ id: 'release-notes', host: 'claude', hostId: 'release-notes', path: '.claude/skills/release-notes/SKILL.md' }],
 });
 // Show plan.changes, plan.aliases, and plan.resolution, then obtain confirmation.
 const result = applyRoleChange(plan);

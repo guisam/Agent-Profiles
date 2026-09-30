@@ -4,6 +4,8 @@ import { stringify } from 'yaml';
 import { readConfiguration } from './configure.js';
 import { applyChanges, readLocal, safePath } from './files.js';
 import { identifier, localFile, mapping, parseYaml, resolveInstructions, skillMetadata } from './resolve.js';
+import { integrations } from './integrations.js';
+import { detectAgents } from './install.js';
 
 const configFile = '.agent-profiles/agents.yaml';
 const originFile = '.agent-profiles/preset-origins.yaml';
@@ -19,6 +21,14 @@ function ids(value, entry) {
   if (new Set(value).size !== value.length) throw new Error(`${entry}: duplicate IDs`);
   return value;
 }
+
+function strings(value, entry) {
+  if (!Array.isArray(value) || value.some(item => typeof item !== 'string' || !item.trim())) throw new Error(`${entry}: expected a list of nonempty strings`);
+  return value;
+}
+
+const same = (a, b) => JSON.stringify(a, (_, value) => value instanceof Map ? Object.fromEntries(value) : value) ===
+  JSON.stringify(b, (_, value) => value instanceof Map ? Object.fromEntries(value) : value);
 
 function selected(requested, choices, entry) {
   const result = requested === undefined ? [...choices] : ids(requested, entry);
@@ -37,12 +47,23 @@ function parsePreset(manifest, read) {
   const roles = mapping(data.get('roles'), 'roles');
   if (!roles.size) throw new Error('roles: include at least one role');
   const profiles = mapping(data.get('profiles') ?? new Map(), 'profiles');
-  const skills = mapping(data.get('skills') ?? new Map().set('requires', []).set('includes', new Map()), 'skills', ['requires', 'includes']);
+  const skills = mapping(data.get('skills') ?? new Map().set('requires', []).set('includes', new Map()), 'skills', ['requires', 'includes'], ['host']);
   const requires = ids(skills.get('requires'), 'skills.requires');
   const includes = mapping(skills.get('includes'), 'skills.includes');
   for (const id of includes.keys()) {
     identifier(id, 'skills.includes');
     if (requires.includes(id)) throw new Error(`skills.${id}: cannot be both included and required locally`);
+  }
+  // Host-native references travel as references; their implementation stays with the host.
+  const hostSkills = mapping(skills.get('host') ?? new Map(), 'skills.host');
+  for (const [id, value] of hostSkills) {
+    identifier(id, 'skills.host');
+    if (requires.includes(id) || includes.has(id)) throw new Error(`skills.host.${id}: declare a skill in only one of requires, includes, or host`);
+    mapping(value, `skills.host.${id}`, ['host', 'scope'], ['id']);
+    const adapter = integrations.find(item => item.id === value.get('host') && item.skills);
+    if (!adapter) throw new Error(`skills.host.${id}.host: expected a host with native skills`);
+    if (!Object.hasOwn(adapter.skills, value.get('scope'))) throw new Error(`skills.host.${id}.scope: expected one of ${Object.keys(adapter.skills).join(', ')}`);
+    if (!adapter.skills[value.get('scope')].id.test(value.get('id') ?? id)) throw new Error(`skills.host.${id}.id: expected a ${adapter.name} ${value.get('scope')} skill identifier`);
   }
   const payload = new Map();
   // ponytail: payloads are Markdown-only; supporting assets need an explicit resource manifest later.
@@ -72,21 +93,25 @@ function parsePreset(manifest, read) {
     const required = ids(lists.get('required'), `roles.${id}.skills.required`);
     const available = ids(lists.get('available'), `roles.${id}.skills.available`);
     for (const skill of [...required, ...available]) {
-      if (!requires.includes(skill) && !includes.has(skill)) throw new Error(`roles.${id}: declare skill ${skill} in skills.requires or skills.includes`);
+      if (!requires.includes(skill) && !includes.has(skill) && !hostSkills.has(skill)) throw new Error(`roles.${id}: declare skill ${skill} in skills.requires, skills.includes, or skills.host`);
     }
     if (available.some(skill => required.includes(skill))) throw new Error(`roles.${id}: a skill is both required and available`);
   }
   for (const section of ['models', 'families']) {
     const entries = mapping(data.get(section) ?? new Map(), section);
     for (const [key, value] of entries) {
-      mapping(value, `${section}.${key}`, ['profile']);
-      identifier(value.get('profile'), `${section}.${key}.profile`);
+      // Same shape as agents.yaml; collisions are checked by the resolver against the target at import.
+      const entry = `${section}.${key}`;
+      mapping(value, entry, ['profile'], [section === 'models' ? 'aliases' : 'match']);
+      identifier(value.get('profile'), `${entry}.profile`);
+      if (value.has('aliases')) strings(value.get('aliases'), `${entry}.aliases`);
+      if (value.has('match')) strings(mapping(value.get('match'), `${entry}.match`, ['prefixes']).get('prefixes'), `${entry}.match.prefixes`);
     }
   }
   const defaults = mapping(data.get('defaults') ?? new Map(), 'defaults', [], ['profile', 'role']);
   for (const [key, value] of defaults) identifier(value, `defaults.${key}`);
   if (defaults.has('role') && !roles.has(defaults.get('role'))) throw new Error('defaults.role: must name a preset role');
-  return { data, metadata, roles, profiles, requires, includes, payload };
+  return { data, metadata, roles, profiles, requires, includes, hostSkills, payload };
 }
 
 export function readPreset(source) {
@@ -120,6 +145,7 @@ export function planPresetImport({ root, source, roles, decisions = new Map(), u
   const changes = [];
   const conflicts = [];
   const missing = [];
+  const notices = [];
   const actions = [];
   const names = new Map();
   const originsBefore = observe(originFile);
@@ -173,6 +199,29 @@ export function planPresetImport({ root, source, roles, decisions = new Map(), u
         document.setIn(['skills', target.id], document.createNode({ file }));
         origin('skills', target.id, id);
       }
+    } else if (preset.hostSkills.has(id)) {
+      const reference = preset.hostSkills.get(id);
+      const host = integrations.find(item => item.id === reference.get('host'));
+      const hostId = reference.get('id') ?? id;
+      const current = configuration.get('skills')?.get(id);
+      if (current?.get('host') !== host.id || current.get('scope') !== reference.get('scope') || (current.get('id') ?? id) !== hostId) {
+        if (current || observe(fileFor('skills', id)) !== null) {
+          missing.push(`Skill ${id}: the preset references ${host.name} skill ${hostId}, but ${id} already names another local skill. Rename one before importing; host skills are never renamed automatically.`);
+        } else {
+          document.setIn(['skills', id], document.createNode(Object.fromEntries(reference)));
+          actions.push(`Add skills.${id} -> ${host.name} skill ${hostId}`);
+          origin('skills', id, id);
+        }
+      }
+      let installed;
+      try { installed = detectAgents(root).find(agent => agent.id === host.id).installed; }
+      catch (error) { notices.push(`Could not check the ${host.name} integration (${error.message}); run doctor.`); }
+      if (installed === false) {
+        notices.push(`Preset skill ${id} is ${host.name} skill ${hostId}; the ${host.name} integration is not installed in this repository. The reference is kept as is.`);
+      }
+      skillNames.set(id, id);
+    } else if (configuration.get('skills')?.get(id)?.has('host')) {
+      skillNames.set(id, id); // Satisfied by an existing host-native reference.
     } else {
       const file = configuration.get('skills')?.get(id)?.get('file') ?? fileFor('skills', id);
       try {
@@ -207,13 +256,16 @@ export function planPresetImport({ root, source, roles, decisions = new Map(), u
     for (const [id, value] of preset.data.get(section) ?? []) {
       const key = `${section}.${id}`;
       const profile = profileNames.get(value.get('profile')) ?? value.get('profile');
-      const previous = configuration.get(section).get(id)?.get('profile');
-      if (previous === profile) continue;
+      // The whole entry travels, including aliases and family prefixes, not just the profile.
+      const incoming = new Map(value).set('profile', profile);
+      const current = configuration.get(section).get(id);
+      if (current && same(current, incoming)) continue;
+      const previous = current?.get('profile');
       const decision = decisions.get(key);
       if (decision !== undefined && !['keep', 'replace'].includes(decision)) throw new Error(`${key}: choose keep or replace`);
       if (previous !== undefined && decision === undefined) { conflicts.push({ key, file: configFile, rename: false }); continue; }
       if (decision === 'keep') { actions.push(`Keep ${key}`); continue; }
-      document.setIn([section, id], document.createNode({ profile }));
+      document.setIn([section, id], document.createNode(incoming));
       actions.push(`${previous === undefined ? 'Add' : 'Replace'} ${key} -> ${profile}`);
       origin(section, id, id);
     }
@@ -242,7 +294,7 @@ export function planPresetImport({ root, source, roles, decisions = new Map(), u
     try { resolveInstructions({ root, configuration: proposed, preview }); }
     catch (error) { errors.push(error.message); }
   }
-  return { root, preset, changes, snapshots, proposed, preview, conflicts, errors, actions, ready: !conflicts.length && !errors.length };
+  return { root, preset, changes, snapshots, proposed, preview, conflicts, errors, notices, actions, ready: !conflicts.length && !errors.length };
 }
 
 export function applyPresetImport(plan, confirmed = false) {
@@ -292,7 +344,10 @@ export function planPresetExport({ root, destination, metadata, roles, profiles,
     const resolved = resolveInstructions({ root, role: id });
     for (const skill of [...resolved.required, ...resolved.available]) needed.set(skill.id, skill);
   }
-  selected(includeSkills, new Set(needed.keys()), 'includeSkills');
+  // Host skills export as references; only instruction skills can be copied into a preset.
+  const hostSkills = new Map([...needed.values()].filter(skill => skill.type === 'host')
+    .map(skill => [skill.id, new Map(Object.entries({ host: skill.host, scope: skill.scope, ...(skill.hostId === skill.id ? {} : { id: skill.hostId }) }))]));
+  selected(includeSkills, new Set([...needed.keys()].filter(id => !hostSkills.has(id))), 'includeSkills');
   const includes = new Map();
   for (const id of includeSkills) {
     const file = `skills/${id}/SKILL.md`;
@@ -307,7 +362,8 @@ export function planPresetExport({ root, destination, metadata, roles, profiles,
   }
   const data = new Map([
     ['schema_version', 1], ['preset', metadata], ['roles', outputRoles], ['profiles', outputProfiles],
-    ['skills', new Map().set('requires', [...needed.keys()].filter(id => !includes.has(id))).set('includes', includes)],
+    ['skills', new Map().set('requires', [...needed.keys()].filter(id => !includes.has(id) && !hostSkills.has(id))).set('includes', includes)
+      .set('host', hostSkills)],
   ]);
   for (const section of ['models', 'families']) data.set(section, new Map([...config.get(section)].filter(([, value]) => chosenProfiles.includes(value.get('profile')))));
   const defaults = new Map();

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { parseDocument } from 'yaml';
 import { safePath } from './files.js';
 import { contextDiagnostics, measureFile, measureText } from './diagnostics.js';
+import { integrations, managedSurface } from './integrations.js';
 
 function fail(entry, message) {
   throw new Error(`${entry}: ${message}`);
@@ -67,7 +68,7 @@ export function parseYaml(text) {
   return parseYamlDocument(text).toJS({ mapAsMap: true, maxAliasCount: 100 });
 }
 
-export function skillMetadata(file, entry, content) {
+export function skillMetadata(file, entry, content, display = file, requireDescription = true) {
   let descriptor;
   try {
     if (content === undefined) descriptor = openSync(file, 'r');
@@ -82,22 +83,31 @@ export function skillMetadata(file, entry, content) {
       const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
       if (match && (!count || match[0].endsWith('\n'))) {
         const metadata = mapping(parseYaml(match[1]), 'frontmatter');
-        for (const key of ['name', 'description']) {
-          if (typeof metadata.get(key) !== 'string' || !metadata.get(key).trim()) {
-            fail(`frontmatter.${key}`, 'expected a nonempty string');
-          }
-        }
-        return { name: metadata.get('name').trim(), description: metadata.get('description').trim() };
+        const text = key => {
+          if (!metadata.has(key) && (key === 'name' || !requireDescription)) return null;
+          if (typeof metadata.get(key) !== 'string' || !metadata.get(key).trim()) fail(`frontmatter.${key}`, 'expected a nonempty string');
+          return metadata.get(key).trim();
+        };
+        const name = text('name');
+        return name === null
+          ? { name: path.basename(path.dirname(display)), nameSource: 'directory', description: text('description') }
+          : { name, nameSource: 'frontmatter', description: text('description') };
       }
       if (!text.startsWith('---\n') && !text.startsWith('---\r\n')) break;
       if (!count) break;
     }
     throw new Error('expected YAML frontmatter delimited by --- within 64 KiB');
   } catch (error) {
-    fail(entry, `${file}: ${error.message}`);
+    fail(entry, `${display}: ${error.message}`);
   } finally {
     if (descriptor !== undefined) closeSync(descriptor);
   }
+}
+
+function strings(value, entry) {
+  if (!Array.isArray(value) || value.some(item => typeof item !== 'string' || !item.trim())) fail(entry, 'expected a list of nonempty strings');
+  if (new Set(value).size !== value.length) fail(entry, 'duplicate entries');
+  return value;
 }
 
 function skillFiles(ids, entry, resolveSkill) {
@@ -114,16 +124,22 @@ function skillFiles(ids, entry, resolveSkill) {
 
 /**
  * Validate all configuration, then load only the selected additional layers.
- * @param {{root?: string, model?: string, family?: string, role?: string,
+ * Identity matching is exact and case-sensitive: model key, alias, supplied family,
+ * longest configured family prefix, then default_profile.
+ * `host` names the integration consuming the result; host-native skills of another host
+ * are unusable there, and required ones are reported as unsatisfied.
+ * @param {{root?: string, host?: string, model?: string, family?: string, identitySource?: 'host' | 'host-stated' | 'user', role?: string,
  *   skills?: string[], configuration?: Map<string, any>,
  *   newRoleFile?: {path: string, content: string}, preview?: Map<string, Buffer>}} options
  */
-export function resolveInstructions({ root = process.cwd(), model, family, role, skills = [], configuration, newRoleFile, preview = new Map() } = {}) {
+export function resolveInstructions({ root = process.cwd(), host, model, family, identitySource, role, skills = [], configuration, newRoleFile, preview = new Map() } = {}) {
+  if (host !== undefined && !integrations.some(adapter => adapter.id === host)) fail('host', `expected one of ${integrations.map(adapter => adapter.id).join(', ')} or an omitted value`);
   for (const [name, value] of Object.entries({ model, family, role })) {
     if (value !== undefined && (typeof value !== 'string' || !value.trim())) {
       fail(name, 'expected a nonempty string or an omitted value');
     }
   }
+  if (identitySource !== undefined && !['host', 'host-stated', 'user'].includes(identitySource)) fail('identitySource', 'expected host, host-stated, user, or an omitted value');
   if (!Array.isArray(skills)) fail('skills', 'expected a list of requested skill IDs');
   skills.forEach((id, index) => identifier(id, `skills[${index}]`));
 
@@ -145,32 +161,82 @@ export function resolveInstructions({ root = process.cwd(), model, family, role,
   const defaultProfile = config.get('default_profile');
   profileFile(base, defaultProfile, 'default_profile', preview);
   const defaultRole = identifier(config.get('default_role'), 'default_role');
-  for (const section of ['models', 'families']) {
-    for (const [identity, value] of mapping(config.get(section), section)) {
-      const entry = `${section}.${identity}`;
-      mapping(value, entry, ['profile']);
-      profileFile(base, value.get('profile'), `${entry}.profile`, preview);
+  const models = mapping(config.get('models'), 'models');
+  const aliases = new Map();
+  for (const [identity, value] of models) {
+    const entry = `models.${identity}`;
+    mapping(value, entry, ['profile'], ['aliases']);
+    profileFile(base, value.get('profile'), `${entry}.profile`, preview);
+    for (const alias of value.has('aliases') ? strings(value.get('aliases'), `${entry}.aliases`) : []) {
+      if (alias === identity) continue; // Redundant but harmless.
+      if (models.has(alias)) fail(`${entry}.aliases`, `alias ${alias} shadows the configured model ${alias}`);
+      if (aliases.has(alias)) fail(`${entry}.aliases`, `alias ${alias} is also an alias of models.${aliases.get(alias)}`);
+      aliases.set(alias, identity);
+    }
+  }
+  const families = mapping(config.get('families'), 'families');
+  const prefixes = new Map();
+  for (const [name, value] of families) {
+    const entry = `families.${name}`;
+    mapping(value, entry, ['profile'], ['match']);
+    profileFile(base, value.get('profile'), `${entry}.profile`, preview);
+    if (!value.has('match')) continue;
+    const match = mapping(value.get('match'), `${entry}.match`, ['prefixes']);
+    for (const prefix of strings(match.get('prefixes'), `${entry}.match.prefixes`)) {
+      // Distinct prefixes of one identity differ in length, so only an identical prefix can tie.
+      if (prefixes.has(prefix)) fail(`${entry}.match.prefixes`, `prefix ${prefix} is also used by families.${prefixes.get(prefix)}; equally specific rules are ambiguous`);
+      prefixes.set(prefix, name);
     }
   }
 
   const roles = mapping(config.get('roles'), 'roles');
   if (!roles.has(defaultRole)) fail('default_role', `role ${defaultRole} is not declared in roles`);
   const sources = mapping(config.has('skills') ? config.get('skills') : new Map(), 'skills');
+  const hosts = integrations.filter(adapter => adapter.skills);
+  const hostOf = source => hosts.find(adapter => adapter.id === source.get('host'));
   for (const [id, source] of sources) {
     identifier(id, `skills.${id}`);
-    mapping(source, `skills.${id}`, ['file']);
+    if (!(source instanceof Map && source.has('host'))) { mapping(source, `skills.${id}`, ['file']); continue; }
+    mapping(source, `skills.${id}`, ['host', 'scope'], ['id']);
+    const adapter = hostOf(source);
+    if (!adapter) fail(`skills.${id}.host`, `expected a host with native skills: ${hosts.map(item => item.id).join(', ')}`);
+    const scope = adapter.skills[source.get('scope')];
+    if (!Object.hasOwn(adapter.skills, source.get('scope'))) fail(`skills.${id}.scope`, `expected one of ${Object.keys(adapter.skills).join(', ')}`);
+    const hostId = source.has('id') ? source.get('id') : id;
+    if (typeof hostId !== 'string' || !scope.id.test(hostId)) fail(`skills.${id}.id`, `expected a ${adapter.name} ${source.get('scope')} skill identifier`);
   }
   const catalog = new Map();
   function resolveSkill(id, entry) {
     if (catalog.has(id)) return catalog.get(id);
     const conventional = `.agent-profiles/skills/${id}/SKILL.md`;
-    const file = sources.has(id) ? sources.get(id).get('file') : conventional;
+    const exists = file => existsSync(path.join(repository, file)) || preview.has(path.join(repository, file));
+    const source = sources.get(id);
+    if (source?.has('host')) {
+      if (exists(conventional)) fail(entry, `ambiguous skill ${id}: ${conventional} exists and skills.${id} names a host skill`);
+      const adapter = hostOf(source);
+      const hostId = source.get('id') ?? id;
+      const scope = source.get('scope');
+      // User and plugin skills live outside the repository: host-provided, never verified here.
+      let skill = { id, type: 'host', host: adapter.id, hostId, scope, delivery: 'invoke', name: hostId, nameSource: 'host', description: null, path: null, verification: 'host-provided' };
+      if (scope === 'project') {
+        // A declared project skill must exist, so a misspelled ID fails like any missing file.
+        const file = adapter.skills.project.path(hostId);
+        const resolved = localFile(repository, file, entry, 'repository', false, preview);
+        skill = { ...skill, path: file, verification: 'verified-local' };
+        // The host owns this file's format; unreadable metadata is reported, not fatal to every role.
+        try { skill = { ...skill, ...skillMetadata(resolved, entry, preview.get(resolved), file, false) }; }
+        catch (error) { skill.metadataError = error.message.slice(error.message.indexOf(`${file}: `) + file.length + 2); }
+      }
+      catalog.set(id, skill);
+      return skill;
+    }
+    const file = source ? source.get('file') : conventional;
     const resolved = localFile(repository, file, entry, 'repository', false, preview);
-    if (sources.has(id) && (existsSync(path.join(repository, conventional)) || preview.has(path.join(repository, conventional))) &&
+    if (source && exists(conventional) &&
         localFile(repository, conventional, entry, 'repository', false, preview) !== resolved) {
       fail(entry, `ambiguous skill ${id}: both ${conventional} and ${file} exist`);
     }
-    const skill = { id, ...skillMetadata(resolved, entry, preview.get(resolved)), path: file };
+    const skill = { id, type: 'instruction', delivery: 'inject', ...skillMetadata(resolved, entry, preview.get(resolved), file), path: file };
     catalog.set(id, skill);
     return skill;
   }
@@ -193,11 +259,13 @@ export function resolveInstructions({ root = process.cwd(), model, family, role,
   }
   for (const id of sources.keys()) resolveSkill(id, `skills.${id}.file`);
 
-  const models = config.get('models');
-  const families = config.get('families');
-  const matchedBy = models.has(model) ? 'model' : families.has(family) ? 'family' : 'default';
-  const profile = matchedBy === 'model' ? models.get(model).get('profile') :
-    matchedBy === 'family' ? families.get(family).get('profile') : defaultProfile;
+  const canonical = models.has(model) ? model : aliases.get(model) ?? null;
+  const prefix = model === undefined ? undefined : [...prefixes.keys()].filter(item => model.startsWith(item)).sort((a, b) => b.length - a.length)[0];
+  const matchedBy = models.has(model) ? 'model' : canonical ? 'alias' : families.has(family) ? 'family' : prefix !== undefined ? 'family-prefix' : 'default';
+  const resolvedFamily = matchedBy === 'family-prefix' ? prefixes.get(prefix) : family ?? null;
+  const familySource = matchedBy === 'family-prefix' ? 'configured-prefix' : family === undefined ? null : 'supplied';
+  const profile = canonical ? models.get(canonical).get('profile') :
+    matchedBy.startsWith('family') ? families.get(resolvedFamily).get('profile') : defaultProfile;
   const selectedRole = role ?? defaultRole;
   if (!roles.has(selectedRole)) fail('role', `${selectedRole} is not declared in roles; choose ${[...roles.keys()].join(', ')} or run agent-profiles configure to create it`);
   const { required, available } = roleSkills.get(selectedRole);
@@ -209,7 +277,7 @@ export function resolveInstructions({ root = process.cwd(), model, family, role,
   const files = [
     { path: `.agent-profiles/profiles/${profile}.md`, kind: 'profile', id: profile },
     { path: `.agent-profiles/${roles.get(selectedRole).get('file')}`, kind: 'role', id: selectedRole },
-    ...selectedSkills.map(skill => ({ path: skill.path, id: skill.id, kind: required.some(item => item.id === skill.id) ? 'required-skill' : 'requested-skill' })),
+    ...selectedSkills.filter(skill => skill.type === 'instruction').map(skill => ({ path: skill.path, id: skill.id, kind: required.some(item => item.id === skill.id) ? 'required-skill' : 'requested-skill' })),
   ];
   const loaded = files.map(entry => {
     const file = entry.path;
@@ -226,8 +294,13 @@ export function resolveInstructions({ root = process.cwd(), model, family, role,
     }
   });
   const measuredSkills = new Map(loaded.filter(entry => entry.kind.endsWith('-skill')).map(entry => [entry.id, { bytes: entry.bytes, characters: entry.characters }]));
+  // null when the consuming host is unknown; otherwise whether that host can invoke the skill.
+  const usable = skill => ({ bytes: null, characters: null, usable: host === undefined ? null : skill.host === host });
+  const unsatisfied = host === undefined ? [] : required.filter(skill => skill.type === 'host' && skill.host !== host)
+    .map(({ id, host: skillHost, hostId }) => ({ id, host: skillHost, hostId, reason: `${integrations.find(item => item.id === skillHost).name} skill ${hostId} cannot be invoked by ${integrations.find(item => item.id === host).name}` }));
   const measuredAvailable = available.map(skill => {
     try {
+      if (skill.type === 'host') return { ...skill, ...usable(skill) };
       let measured = measuredSkills.get(skill.id);
       if (!measured) {
         const file = localFile(repository, skill.path, skill.path, 'repository', false, preview);
@@ -237,16 +310,22 @@ export function resolveInstructions({ root = process.cwd(), model, family, role,
     } catch (error) { fail(skill.path, `cannot measure available instructions: ${error.message}`); }
   });
 
+  const requiredOut = required.map(skill => ({ ...skill, ...(skill.type === 'host' ? usable(skill) : measuredSkills.get(skill.id)) }));
   return {
+    host: host ?? null,
     model: model ?? null,
-    family: family ?? null,
+    family: resolvedFamily,
+    familySource,
     matchedBy,
+    identity: { raw: model ?? null, canonical, source: model === undefined ? null : identitySource ?? null, matchedBy },
     profile,
     role: selectedRole,
-    repository: { path: 'AGENTS.md', suppliedBy: 'host' },
+    roleSource: role === undefined ? 'default' : 'assigned',
+    repository: { path: 'AGENTS.md', suppliedBy: 'host', exists: existsSync(path.join(repository, 'AGENTS.md')) },
     loaded,
-    required: required.map(skill => ({ ...skill, ...measuredSkills.get(skill.id) })),
+    required: requiredOut,
     available: measuredAvailable,
-    diagnostics: contextDiagnostics(loaded, measuredAvailable),
+    unsatisfied,
+    diagnostics: contextDiagnostics(loaded, measuredAvailable, requiredOut, host, host === undefined ? null : managedSurface(repository, host)),
   };
 }

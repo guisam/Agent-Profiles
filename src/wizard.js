@@ -4,6 +4,7 @@ import { discoverSkills } from './skills.js';
 import { resolveInstructions } from './resolve.js';
 
 export const display = text => stripVTControlCharacters(String(text)).replace(/[\x00-\x1f\x7f]/g, ' ');
+const where = skill => skill.host ? `${skill.host} skill ${skill.hostId}${skill.path ? ` at ${skill.path}` : ' (host-provided)'}` : skill.path;
 const keyOf = skill => `${skill.id}\0${skill.path}`;
 
 export async function selectSkills({ choices, initial = [], label, ask, write }) {
@@ -21,7 +22,7 @@ export async function selectSkills({ choices, initial = [], label, ask, write })
     write(`${label} — page ${page + 1}/${pages}; ${selected.size} selected`);
     visible.forEach((skill, index) => write(
       `${index + 1}. [${selected.has(keyOf(skill)) ? 'x' : ' '}] ${display(skill.id)} — ${display(skill.name)}\n` +
-      `   ${display(skill.description)}\n   ${display(skill.source)}: ${display(skill.path)}`,
+      `   ${display(skill.description ?? '(no description)')}\n   ${display(skill.source)}: ${display(where(skill))}`,
     ));
     const answer = (await ask('Toggle numbers; n/p pages; /text filter; clear; Enter to accept; q to cancel: ')).trim();
     if (!answer || answer === 'done') return [...selected.values()];
@@ -56,7 +57,7 @@ function summary(plan, write) {
   } else {
     write(`Role: ${plan.id}\nInstructions: ${display(plan.instructionFile)}`);
     for (const group of ['required', 'available']) {
-      write(`${group}: ${plan.resolution[group].map(skill => `${skill.id} (${display(skill.path)})`).join(', ') || '(none)'}`);
+      write(`${group}: ${plan.resolution[group].map(skill => `${skill.id} (${display(where(skill))})`).join(', ') || '(none)'}`);
     }
     for (const alias of plan.aliases) write(`Source alias: ${alias.originalId} -> ${alias.id} (${display(alias.path)})`);
     if (plan.newRoleFile) write(`Create minimal instruction file: ${display(plan.instructionFile)}`);
@@ -99,14 +100,18 @@ export async function configureRoles({ root, ask, write = console.log }) {
         if (!found.skills.length) write('No local skills were discovered. Create the role now and add skills later.');
         if (found.duplicates.length) write(`Duplicate IDs: ${found.duplicates.join(', ')}. Select the intended source; choosing another source replaces that selection.`);
         const existing = previous ? resolveInstructions({ root, role: id }) : { required: [], available: [] };
+        // Host-provided skills (user-level, plugins) cannot be discovered; keep them selectable instead of dropping them.
+        for (const skill of [...existing.required, ...existing.available]) {
+          if (skill.type === 'host' && !found.skills.some(choice => choice.id === skill.id)) found.skills.push({ ...skill, source: 'configured' });
+        }
         input.required = await selectSkills({
           choices: found.skills, initial: existing.required,
-          label: 'Required: loaded whenever this role is active; keep this list small', ask, write,
+          label: 'Required: injected or invoked for all work in this role; keep this list small', ask, write,
         });
         const choices = found.skills.filter(skill => !input.required.some(required => required.id === skill.id || required.path === skill.path));
         input.available = await selectSkills({
           choices, initial: existing.available.filter(skill => choices.some(choice => keyOf(choice) === keyOf(skill))),
-          label: 'Available: metadata only until relevant to the task', ask, write,
+          label: 'Available: listed for the role; used only when a task falls within the skill description', ask, write,
         });
       }
       const plan = planRoleChange(input);

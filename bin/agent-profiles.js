@@ -3,12 +3,12 @@ import { parseArgs } from 'node:util';
 import { createInterface } from 'node:readline/promises';
 import { realpathSync } from 'node:fs';
 import { stdin, stdout } from 'node:process';
-import { detectAgents, doctor, findRoot, install, uninstall } from '../src/install.js';
+import { detectAgents, doctor, findRoot, install, installPackage, uninstall } from '../src/install.js';
 import { configureRoles } from '../src/wizard.js';
 import { integrations } from '../src/integrations.js';
 import { runPreset } from '../src/preset-wizard.js';
 import { resolveInstructions } from '../src/resolve.js';
-import { formatProof, resolutionOutput } from '../src/diagnostics.js';
+import { formatContext, formatProof, resolutionOutput } from '../src/diagnostics.js';
 import { startVisualizer } from '../src/visualize.js';
 
 const agentChoices = integrations.map(adapter => adapter.id).join(', ');
@@ -31,6 +31,9 @@ try {
       contents: { type: 'boolean', default: false },
       model: { type: 'string' },
       family: { type: 'string' },
+      'identity-source': { type: 'string' },
+      host: { type: 'string' },
+      package: { type: 'string' },
       skill: { type: 'string', multiple: true },
       json: { type: 'boolean', default: false },
       port: { type: 'string' },
@@ -42,6 +45,7 @@ try {
 
 Commands:
   init        Install bootstrap integrations and example configuration
+  resolve     Print the resolved instructions for an agent to follow (read-only)
   configure   Create, edit, or delete roles and select local skills (interactive)
   doctor      Validate configuration and report integration status (read-only)
   uninstall   Remove managed bootstrap blocks; retain configuration
@@ -49,8 +53,12 @@ Commands:
   proof       Measure resolved instruction bytes and characters (read-only)
   visualize   Serve a local context explorer (read-only; Ctrl+C to stop)
 
+Agent context:
+  resolve [--host <id>] [--model <id>] [--family <id>] [--identity-source host|host-stated|user]
+          [--role <id>] [--skill <id> ...] [--json [--contents]]
+
 Context proof:
-  proof [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...]
+  proof [--host <id>] [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...]
         [--json [--contents]]
 
 Visualizer:
@@ -65,6 +73,8 @@ Presets:
 Options:
   --root <directory>  Target repository (default: nearest Git root)
   --agent <id>        Select ${agentChoices} for init; repeat for multiple agents
+  --package <spec>    For init: install this agent-profiles package or tarball as a
+                      dev dependency so the bootstrap command can run
   --delete-config     Also delete .agent-profiles during uninstall; asks to confirm
   -h, --help          Show this help
 
@@ -75,15 +85,19 @@ Examples:
   } else {
     if (command === 'preset') {
       if (positionals.length !== 3 || !['inspect', 'import', 'export'].includes(positionals[1])) throw new Error('Usage: agent-profiles preset <inspect|import|export> <directory>');
-    } else if (positionals.length !== 1 || !['init', 'configure', 'doctor', 'uninstall', 'proof', 'visualize'].includes(command)) throw new Error('Choose one command: init, configure, doctor, uninstall, preset, proof, visualize');
+    } else if (positionals.length !== 1 || !['init', 'configure', 'doctor', 'uninstall', 'resolve', 'proof', 'visualize'].includes(command)) throw new Error('Choose one command: init, configure, doctor, uninstall, resolve, preset, proof, visualize');
+    if (values.package !== undefined && command !== 'init') throw new Error('--package is only supported by init');
     if (values.agent && command !== 'init') throw new Error('--agent is only supported by init');
     if (values['delete-config'] && command !== 'uninstall') throw new Error('--delete-config is only supported by uninstall');
-    if (values.role && !['preset', 'proof', 'visualize'].includes(command)) throw new Error('--role is only supported by preset, proof, or visualize');
-    if (['proof', 'visualize'].includes(command) && values.role?.length > 1) throw new Error(`${command} accepts one --role`);
-    if ((values.model !== undefined || values.family !== undefined || values.skill) && !['proof', 'visualize'].includes(command)) throw new Error('--model, --family, and --skill are only supported by proof or visualize');
-    if (values.json && command !== 'proof') throw new Error('--json is only supported by proof');
+    const resolving = ['resolve', 'proof', 'visualize'].includes(command);
+    if (values.role && !resolving && command !== 'preset') throw new Error('--role is only supported by preset, resolve, proof, or visualize');
+    if (resolving && values.role?.length > 1) throw new Error(`${command} accepts one --role`);
+    if ((values.model !== undefined || values.family !== undefined || values.skill) && !resolving) throw new Error('--model, --family, and --skill are only supported by resolve, proof, or visualize');
+    if (values.host !== undefined && !['resolve', 'proof'].includes(command)) throw new Error('--host is only supported by resolve or proof');
+    if (values['identity-source'] !== undefined && command !== 'resolve') throw new Error('--identity-source is only supported by resolve');
+    if (values.json && !['resolve', 'proof'].includes(command)) throw new Error('--json is only supported by resolve or proof');
     if (values.port !== undefined && (command !== 'visualize' || !/^\d+$/.test(values.port))) throw new Error('--port requires an integer from 0 to 65535 and is only supported by visualize');
-    if (values.contents && !(command === 'preset' && positionals[1] === 'inspect') && !(command === 'proof' && values.json)) throw new Error('--contents requires preset inspect or proof --json');
+    if (values.contents && !(command === 'preset' && positionals[1] === 'inspect') && !(['resolve', 'proof'].includes(command) && values.json)) throw new Error('--contents requires preset inspect, or resolve or proof with --json');
     if (values.root !== undefined && !values.root.trim()) throw new Error('--root requires a directory');
     let target = values.root;
     if (target === undefined) {
@@ -93,15 +107,18 @@ Examples:
       }
     }
     const root = realpathSync(target);
-    if (!(command === 'proof' && values.json)) console.log(`Agent Profiles\nRepository: ${root}`);
+    if (!(command === 'proof' && values.json) && command !== 'resolve') console.log(`Agent Profiles\nRepository: ${root}`);
     if (command === 'visualize') {
       const { server, url } = await startVisualizer({ root, port: values.port === undefined ? 0 : Number(values.port), model: values.model, family: values.family, role: values.role?.[0], skills: values.skill });
       console.log(`Context explorer: ${url}\nOpen this local URL in your browser. Read-only; press Ctrl+C to stop.`);
       const stop = () => { server.close(); server.closeAllConnections(); };
       process.once('SIGINT', stop);
       process.once('SIGTERM', stop);
+    } else if (command === 'resolve') {
+      const result = resolveInstructions({ root, host: values.host, model: values.model, family: values.family, identitySource: /** @type {any} */ (values['identity-source']), role: values.role?.[0], skills: values.skill });
+      console.log(values.json ? JSON.stringify(resolutionOutput(result, values.contents), null, 2) : formatContext(result));
     } else if (command === 'proof') {
-      const result = resolveInstructions({ root, model: values.model, family: values.family, role: values.role?.[0], skills: values.skill });
+      const result = resolveInstructions({ root, host: values.host, model: values.model, family: values.family, role: values.role?.[0], skills: values.skill });
       console.log(values.json ? JSON.stringify(resolutionOutput(result, values.contents), null, 2) : formatProof(result));
     } else if (command === 'preset') {
       await runPreset({ command: positionals[1], location: positionals[2], root, roles: values.role, contents: values.contents, ask: question });
@@ -119,15 +136,39 @@ Examples:
       const result = install({ root, agents });
       for (const file of result.modified) console.log(`Updated ${file}`);
       if (!result.modified.length) console.log('Already installed. No changes required.');
-      console.log(`Configuration validated. Default profile: ${result.profile}; default role: ${result.role}.\nRun agent-profiles doctor to inspect the installation.`);
+      console.log(`Configuration validated. Default profile: ${result.profile}; default role: ${result.role}.`);
+      // The block is only useful once its command runs; install the package when asked to.
+      // An explicit --package always installs: a matching version string does not prove matching code.
+      let { availability } = result;
+      let spec = values.package;
+      if (spec === undefined && !availability.runnable && stdin.isTTY && stdout.isTTY) {
+        console.log(`The bootstrap cannot run yet: ${availability.reason}.`);
+        spec = (await question(`Install agent-profiles as a dev dependency now? Package spec or tarball [agent-profiles@${result.ownVersion}], or "skip": `)).trim() || `agent-profiles@${result.ownVersion}`;
+        if (spec === 'skip') spec = undefined;
+      }
+      if (spec !== undefined) availability = installPackage(root, spec);
+      const report = doctor(root);
+      for (const problem of report.bootstrap) console.error(`Bootstrap: ${problem}`);
+      if (report.bootstrap.length) {
+        console.error('The bootstrap is not runnable yet. Fix the items above, then run agent-profiles doctor.');
+        process.exitCode = 1;
+      } else console.log(`Bootstrap runnable with agent-profiles ${availability.version}. Run agent-profiles doctor to inspect the installation.`);
     } else if (command === 'configure') {
       await configureRoles({ root, ask: question });
     } else if (command === 'doctor') {
       const result = doctor(root);
       if (result.profile) console.log(`Default profile: ${result.profile}; default role: ${result.role}`);
       for (const agent of result.agents) console.log(`${agent.name}: ${agent.installed ? 'bootstrap installed' : 'not installed'} (${agent.file})`);
-      for (const error of result.errors) console.error(`Error: ${error}`);
-      console.log(result.valid ? 'Configuration and all profile, role, and skill references are valid.' : 'Installation needs attention.');
+      for (const note of result.notes) console.log(note);
+      // Three independent questions: is the configuration valid, can the bootstrap run, can each host satisfy each role?
+      const section = (title, problems, ok) => {
+        console.log(`\n${title}: ${problems.length ? `${problems.length} problem${problems.length === 1 ? '' : 's'}` : ok}`);
+        for (const problem of problems) console.error(`  ${problem}`);
+      };
+      section('Configuration', result.errors, 'valid');
+      section('Bootstrap availability', result.bootstrap, `runnable (agent-profiles ${result.availability.version})`);
+      section('Host capability', result.capabilities, 'every role is satisfiable in every installed host');
+      console.log(result.valid ? '\nInstallation is ready.' : '\nInstallation needs attention.');
       if (!result.valid) process.exitCode = 1;
     } else {
       let confirmed = false;

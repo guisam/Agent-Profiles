@@ -19,20 +19,26 @@ Root discovery matches the other CLI commands: nearest Git root, or `--root`.
 - **Model** lists configured exact model IDs. The unspecified choice exercises
   fallback routing. An explicit CLI `--model` is also selectable, even if it is
   not configured.
-- **Family fallback** is supplied independently; it is not inferred from a model
-  name. An exact model mapping takes precedence, then the supplied family, then
-  the configured default profile.
+- **Family fallback** is supplied independently. Routing follows the resolver:
+  exact model, alias, supplied family, the longest configured family prefix, then
+  the default profile. The routing line names the rule used, and the canonical
+  model for an alias.
 - **Role** lists configured roles and starts with the default or CLI `--role`.
   Changing a role clears temporary skill requests. Changing model or family
   retains requests for the same role.
-- **Required skills** always load. **On demand** checkboxes request available
-  skills temporarily. Each change calls the existing resolver, which classifies
+- **Required skills** are injected for all work in the role. Checkboxes request
+  available instruction skills temporarily. Host-native skills appear with their
+  host skill ID and verification state, marked as invoked through the host, with
+  no checkbox and no byte count. Each change calls the existing resolver, which classifies
   requested entries and produces the new totals.
 - Expand an entry to inspect its repository-relative path, bytes, Unicode code
   points, and why it is included. Loaded entries also expose their instruction
   text as plain text. Unrequested skill bodies are not sent to the browser.
 - **Pin for comparison** keeps one resolution in memory and compares its category
   byte totals with the current selection. Pin again to replace it, or clear it.
+
+The visualizer resolves without a host, so host-skill usability is shown as unknown
+and no requirement is marked unsatisfied; use `proof --host <id>` for that view.
 
 Selections and pins belong to the current page session; they are not saved to
 disk or browser storage. Reloading the page returns to the launch selections.
@@ -51,8 +57,8 @@ The view uses the [context proof contract](proof.md). Managed totals contain onl
 resolved profile, role, required-skill, and requested-skill instruction bodies.
 Available-but-unloaded context is separate; it is not a savings claim without
 a baseline. Byte counts use UTF-8 and characters are Unicode code points.
-Tokens are explicitly not calculated. Bootstrap instructions, inventory rendering,
-and output formatting are outside the totals.
+Tokens are explicitly not calculated. Bootstrap instructions, host-native skills,
+inventory rendering, and output formatting are outside the totals.
 
 Project instructions such as `AGENTS.md` remain host-supplied and unmeasured.
 System instructions, built-in tools/skills, and other host context remain

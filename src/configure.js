@@ -69,16 +69,29 @@ export function planRoleChange({ root, action, id, file, description, required, 
       changes.push({ file: roleFile, before: null, after: Buffer.from(newRoleFile.content) });
     }
     const sources = new Map(configuration.get('skills') ?? []);
-    const binding = skillId => sources.get(skillId)?.get('file') ?? `.agent-profiles/skills/${skillId}/SKILL.md`;
+    const binding = skillId => sources.has(skillId) ? sources.get(skillId).get('file') ?? null : `.agent-profiles/skills/${skillId}/SKILL.md`;
     const targetOf = skillId => {
       const candidate = binding(skillId);
-      return existsSync(path.join(root, candidate)) ? localFile(root, candidate, skillId, 'repository') : null;
+      return candidate && existsSync(path.join(root, candidate)) ? localFile(root, candidate, skillId, 'repository') : null;
     };
     const bind = (selection, entry) => {
       const skillId = identifier(typeof selection === 'string' ? selection : selection?.id, entry);
+      if (typeof selection === 'string' && sources.get(skillId)?.has('host')) return skillId;
+      if (typeof selection !== 'string' && selection.host) {
+        // Host skills keep the host's own identity: a conflict is reported, never renamed to an alias.
+        const current = sources.get(skillId);
+        if (current?.get('host') === selection.host && current.get('scope') === selection.scope && (current.get('id') ?? skillId) === selection.hostId) return skillId;
+        if (current || existsSync(path.join(root, `.agent-profiles/skills/${skillId}/SKILL.md`))) {
+          throw new Error(`${entry}: ${skillId} already names another skill, so the ${selection.host} skill ${selection.hostId} cannot use it; rename one of them first`);
+        }
+        const reference = new Map(Object.entries({ host: selection.host, scope: selection.scope, ...(selection.hostId === skillId ? {} : { id: selection.hostId }) }));
+        sources.set(skillId, reference);
+        document.setIn(['skills', skillId], document.createNode(Object.fromEntries(reference)));
+        return skillId;
+      }
       const selectedPath = typeof selection === 'string' ? binding(skillId) : selection.path;
       const target = localFile(root, selectedPath, entry, 'repository');
-      skillMetadata(target, entry);
+      skillMetadata(target, entry, undefined, selectedPath);
       if (targetOf(skillId) === target) return skillId;
       for (const existingId of sources.keys()) {
         if (targetOf(existingId) === target) return existingId;

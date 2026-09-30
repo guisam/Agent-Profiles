@@ -62,17 +62,30 @@ Conflicts never imply approval to overwrite:
   updating references within incoming definitions. Local references are unchanged.
 - **cancel** leaves the repository untouched.
 
-Model/family mapping conflicts support keep, replace, or cancel. IDs and files
+Model/family mapping conflicts support keep, replace, or cancel. Mappings travel whole: a
+model's `aliases` and a family's `match.prefixes` are exported and imported with its
+profile. A local entry that differs in any field, even with the same profile, is a
+conflict. Imported aliases and prefixes are validated against the target
+configuration, and a collision blocks the import. IDs and files
 that exist only on disk also count as conflicts. Changed role definitions use
 `roles/<id>.md`; included skills use `.agent-profiles/skills/<id>/SKILL.md`. Older
 custom-path files are retained when their mappings are replaced. Missing skills,
 invalid references, and occupied rename destinations block application.
 
-Local skill requirements use an exact existing top-level `skills` mapping, or
-the conventional `.agent-profiles/skills/<id>/SKILL.md`. The importer does not
-guess from similarly named Claude skills or search other directories. Use the
-existing wizard to bind such a resource explicitly first. Both required and
-available role skills must resolve; missing dependencies are never dropped.
+Local skill requirements use an exact existing top-level `skills` mapping, a
+host-native reference, or the conventional `.agent-profiles/skills/<id>/SKILL.md`.
+The importer does not guess from similarly named Claude skills or search other
+directories. Use the existing wizard to bind such a resource explicitly first. Both
+required and available role skills must resolve; missing dependencies are never dropped.
+
+A preset may also declare host-native skills under `skills.host`
+(`release-notes: {host: claude, scope: project}`). Import adds the same reference to `agents.yaml`;
+it never converts a host skill into injected Markdown or drops it. A `project` skill must
+exist in the target repository, or import stops with the missing path. If the target
+repository lacks that host's integration, the preview shows a note and the reference
+is kept. If the ID already names a different local skill, import stops until one is
+renamed. Export writes the host skills of selected roles to `skills.host`; they
+cannot be included as files.
 
 After a successful import, an optional prompt opens the existing role/skill
 wizard. These are subsequent edits with their own previews and confirmations;
@@ -126,6 +139,7 @@ skills:
   includes:
     review-checklist:
       file: skills/review-checklist/SKILL.md
+  host: {}             # optional: skill ID -> {host: claude, scope, id?: host skill ID}
 defaults:
   role: reviewer
 ```
