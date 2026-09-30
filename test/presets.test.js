@@ -15,9 +15,10 @@ import { applyRoleChange, planRoleChange } from '../src/configure.js';
 const project = fileURLToPath(new URL('../', import.meta.url));
 const metadata = { name: 'team', display_name: 'Team', description: 'Example team.', author: 'A team', version: '1.0.0', license: 'Apache-2.0' };
 function fixture(t) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-profiles-presets-'));
+  // Canonical, like the implementation: macOS temp directories are reached through /var -> /private/var.
+  const directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agent-profiles-presets-')));
   t.after(() => {
-    assert.equal(path.dirname(directory), path.resolve(os.tmpdir()));
+    assert.equal(path.dirname(directory), fs.realpathSync(os.tmpdir()));
     assert.ok(path.basename(directory).startsWith('agent-profiles-presets-'));
     fs.rmSync(directory, { recursive: true, force: true });
   });
