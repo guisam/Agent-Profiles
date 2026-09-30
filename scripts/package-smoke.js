@@ -33,12 +33,12 @@ try {
   assert.equal(artifact.version, manifest.version);
   const files = new Set(artifact.files.map(file => file.path));
   for (const file of ['LICENSE', 'README.md', 'CHANGELOG.md', 'package.json', 'bin/agent-profiles.js', 'src/configure.js', 'src/files.js',
-    'src/integrations.js', 'src/install.js', 'src/resolve.js', 'src/skills.js', 'src/wizard.js', 'scripts/resolve.js',
+    'src/integrations.js', 'src/install.js', 'src/resolve.js', 'src/skills.js', 'src/wizard.js',
     '.agent-profiles/agents.yaml', '.agent-profiles/BOOTSTRAP.md', 'docs/configure.md', 'src/presets.js',
     'src/preset-wizard.js', 'src/diagnostics.js', 'docs/proof.md', 'src/visualize.js', 'src/visualizer/index.html',
     'src/visualizer/app.js', 'src/visualizer/style.css', 'docs/visualize.md', 'examples/presets/release-review/preset.yaml']) assert.ok(files.has(file), `Missing package file: ${file}`);
   for (const file of files) {
-    assert.ok(/^(bin\/|src\/|docs\/|examples\/presets\/|\.agent-profiles\/|scripts\/resolve\.js$|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(file), `Unexpected package file: ${file}`);
+    assert.ok(/^(bin\/|src\/|docs\/|examples\/presets\/|\.agent-profiles\/|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(file), `Unexpected package file: ${file}`);
   }
   const consumer = path.join(temporary, 'consumer with spaces');
   fs.mkdirSync(consumer);
@@ -51,7 +51,7 @@ try {
   assert.deepEqual(Object.keys(installedManifest.dependencies), ['yaml']);
   assert.equal(fs.existsSync(path.join(consumer, 'node_modules/typescript')), false);
   const cli = (...args) => run(process.execPath, [npm, 'exec', '--offline', '--', 'agent-profiles', ...args], consumer);
-  for (const command of ['init', 'configure', 'doctor', 'uninstall', 'visualize']) assert.match(cli(command, '--help'), new RegExp(command));
+  for (const command of ['init', 'resolve', 'configure', 'doctor', 'uninstall', 'visualize']) assert.match(cli(command, '--help'), new RegExp(command));
   const { configureRoles } = await import(pathToFileURL(path.join(installed, 'src/wizard.js')).href);
   const { resolveInstructions } = await import(pathToFileURL(path.join(installed, 'src/resolve.js')).href);
   const { startVisualizer } = await import(pathToFileURL(path.join(installed, 'src/visualize.js')).href);
@@ -77,8 +77,11 @@ try {
     for (const file of targets) {
       const text = fs.readFileSync(path.join(root, file), 'utf8');
       assert.equal(text.split('<!-- agent-profiles:start -->').length, 2);
-      assert.ok(text.includes('.agent-profiles/agents.yaml') && text.includes('.agent-profiles/BOOTSTRAP.md'));
+      assert.ok(text.includes('npx --no agent-profiles resolve --model'));
     }
+    // The exact bootstrap command must work from the installed package without downloading anything.
+    const context = run(process.execPath, [npm, 'exec', '--no', '--offline', '--', 'agent-profiles', 'resolve', '--root', root, '--model', 'example-model', '--role', 'reviewer'], consumer);
+    assert.ok(context.startsWith('# Agent Profiles context') && context.includes('## Required skill: code-review'));
     const initial = snapshot(root);
     cli('init', '--root', root, '--agent', 'codex', '--agent', 'claude');
     assert.deepEqual(snapshot(root), initial);

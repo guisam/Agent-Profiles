@@ -33,8 +33,11 @@ function options(select, choices, empty, selected) {
 
 function inspect(entry, provenance) {
   const details = document.createElement('details');
-  details.append(element('summary', `${entry.id} · ${bytes(entry.bytes)}`), element('p', size(entry), 'size'),
-    element('p', provenance, 'muted'), element('code', entry.path));
+  // Host-native skills are invoked by the host; Agent Profiles never injects or measures them.
+  const host = entry.type === 'host';
+  details.append(element('summary', `${entry.id} · ${host ? 'host skill' : bytes(entry.bytes)}`),
+    element('p', host ? `${entry.host} skill ${entry.hostId} · ${entry.verification} · bytes not counted` : size(entry), 'size'),
+    element('p', provenance, 'muted'), element('code', entry.path ?? `${entry.host}: ${entry.hostId}`));
   if (entry.description) details.append(element('p', entry.description, 'muted'));
   if (entry.content !== undefined) details.append(element('pre', entry.content));
   return details;
@@ -63,7 +66,7 @@ function render(result) {
   byId('total').textContent = bytes(managed.total.bytes);
   byId('total-chars').textContent = `${managed.total.characters.toLocaleString('en-US')} characters · ${managed.total.files} instruction entries`;
   byId('available-total').textContent = bytes(availableNotLoaded.bytes);
-  byId('routing').textContent = `${result.model ?? 'Unspecified model'} → ${result.profile} (matched by ${result.matchedBy}${result.matchedBy === 'family' ? ': ' + result.family : ''}) · Role: ${result.role}`;
+  byId('routing').textContent = `${result.model ?? 'Unspecified model'} → ${result.profile} (matched by ${result.matchedBy}${result.matchedBy.startsWith('family') ? ': ' + result.family : result.matchedBy === 'alias' ? ' of ' + result.identity.canonical : ''}) · Role: ${result.role}`;
   const layers = byId('layers');
   layers.replaceChildren();
   for (const kind of ['profile', 'role']) {
@@ -83,10 +86,21 @@ function render(result) {
     card.append(inspect(entry, `Required by role: ${result.role}`));
     required.append(card);
   }
+  for (const entry of result.required.filter(item => item.type === 'host')) {
+    const card = element('div', '', 'entry');
+    card.append(inspect(entry, `Required by role ${result.role}; invoked through the host`));
+    required.append(card);
+  }
   if (!result.required.length) required.append(element('p', 'No required skills.', 'muted'));
   const available = byId('available');
   available.replaceChildren(element('p', `Requested: ${size(managed.requestedSkills)}`, 'muted'));
   for (const entry of result.available) {
+    if (entry.type === 'host') {
+      const card = element('div', '', 'entry');
+      card.append(inspect(entry, `Available to role ${result.role}; invoked through the host, never injected`));
+      available.append(card);
+      continue;
+    }
     const loaded = result.loaded.find(item => item.kind === 'requested-skill' && item.id === entry.id);
     const card = element('div', '', `entry${loaded ? ' requested' : ''}`);
     const label = document.createElement('label');

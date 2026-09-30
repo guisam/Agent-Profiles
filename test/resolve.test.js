@@ -75,7 +75,7 @@ test('only selected instructions load, with required skills ordered and availabl
     assert.equal(item.content, readFileSync(path.join(repo.root, item.path), 'utf8'));
   }
   assert.deepEqual(result.available, [{
-    id: 'testing', name: 'Testing',
+    id: 'testing', type: 'instruction', delivery: 'inject', name: 'Testing', nameSource: 'frontmatter',
     description: 'Verify changed behavior with focused checks and failure cases.',
     path: '.agent-profiles/skills/testing/SKILL.md',
     bytes: Buffer.byteLength(readFileSync(testingFile, 'utf8'), 'utf8'),
@@ -173,9 +173,9 @@ test('symlink escapes and directories masquerading as instruction files fail', t
   assert.throws(() => resolveInstructions({ root: repo.root }), /roles.reviewer.file:.*not a file/);
 });
 
-test('debug command emits inspectable JSON, optional contents, and actionable failures', t => {
+test('resolve --json emits inspectable JSON, optional contents, and actionable failures', t => {
   const repo = repository(t);
-  const run = (...args) => spawnSync(process.execPath, [path.join(project, 'scripts/resolve.js'), '--root', repo.root, ...args], { encoding: 'utf8' });
+  const run = (...args) => spawnSync(process.execPath, [path.join(project, 'bin/agent-profiles.js'), 'resolve', '--root', repo.root, '--json', ...args], { encoding: 'utf8' });
   const output = run('--model', 'example-model', '--role', 'reviewer');
   assert.equal(output.status, 0, output.stderr);
   const result = JSON.parse(output.stdout);
@@ -194,7 +194,7 @@ test('debug command emits inspectable JSON, optional contents, and actionable fa
     assert.equal(failure.stdout, '');
     assert.match(failure.stderr, /Agent Profiles:/);
   }
-  const help = run('--help');
+  const help = spawnSync(process.execPath, [path.join(project, 'bin/agent-profiles.js'), '--help'], { encoding: 'utf8' });
   assert.equal(help.status, 0);
   assert.match(help.stdout, /Usage:/);
 });
@@ -227,7 +227,7 @@ test('external repository-local resources retain their own metadata and are not 
     config.roles.researcher.skills.available = ['research'];
   });
   const result = resolveInstructions({ root: repo.root, role: 'researcher' });
-  assert.deepEqual(result.available, [{ id: 'research', name: 'Research', description: 'Check source quality.', path: file,
+  assert.deepEqual(result.available, [{ id: 'research', type: 'instruction', delivery: 'inject', name: 'Research', nameSource: 'frontmatter', description: 'Check source quality.', path: file,
     bytes: Buffer.byteLength(content, 'utf8'), characters: [...content].length }]);
   assert.ok(!JSON.stringify(result).includes('PRIVATE-BODY'));
   assert.ok(!JSON.stringify(resolveInstructions({ root: repo.root })).includes('team-skills'));

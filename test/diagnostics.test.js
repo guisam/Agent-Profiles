@@ -116,7 +116,7 @@ test('proof human/JSON output and debug contents mode agree; invalid flags and r
   const full = run('--model', 'example-model', '--role', 'reviewer', '--json', '--contents');
   assert.equal(full.status, 0, full.stderr);
   assert.deepEqual(JSON.parse(full.stdout).diagnostics, json.diagnostics);
-  const debug = spawnSync(process.execPath, [path.join(project, 'scripts/resolve.js'), '--root', root, '--model', 'example-model', '--role', 'reviewer'], { encoding: 'utf8' });
+  const debug = spawnSync(process.execPath, [path.join(project, 'bin/agent-profiles.js'), 'resolve', '--json', '--root', root, '--model', 'example-model', '--role', 'reviewer'], { encoding: 'utf8' });
   assert.equal(debug.status, 0, debug.stderr);
   assert.deepEqual(JSON.parse(debug.stdout), json);
   const human = run('--model', 'example-model', '--role', 'reviewer');

@@ -8,7 +8,7 @@ import { configureRoles } from '../src/wizard.js';
 import { integrations } from '../src/integrations.js';
 import { runPreset } from '../src/preset-wizard.js';
 import { resolveInstructions } from '../src/resolve.js';
-import { formatProof, resolutionOutput } from '../src/diagnostics.js';
+import { formatContext, formatProof, resolutionOutput } from '../src/diagnostics.js';
 import { startVisualizer } from '../src/visualize.js';
 
 const agentChoices = integrations.map(adapter => adapter.id).join(', ');
@@ -31,6 +31,7 @@ try {
       contents: { type: 'boolean', default: false },
       model: { type: 'string' },
       family: { type: 'string' },
+      'identity-source': { type: 'string' },
       skill: { type: 'string', multiple: true },
       json: { type: 'boolean', default: false },
       port: { type: 'string' },
@@ -42,12 +43,17 @@ try {
 
 Commands:
   init        Install bootstrap integrations and example configuration
+  resolve     Print the resolved instructions for an agent to follow (read-only)
   configure   Create, edit, or delete roles and select local skills (interactive)
   doctor      Validate configuration and report integration status (read-only)
   uninstall   Remove managed bootstrap blocks; retain configuration
   preset      Inspect, import, or export a local preset directory
   proof       Measure resolved instruction bytes and characters (read-only)
   visualize   Serve a local context explorer (read-only; Ctrl+C to stop)
+
+Agent context:
+  resolve [--model <id>] [--family <id>] [--identity-source host|user]
+          [--role <id>] [--skill <id> ...] [--json [--contents]]
 
 Context proof:
   proof [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...]
@@ -75,15 +81,17 @@ Examples:
   } else {
     if (command === 'preset') {
       if (positionals.length !== 3 || !['inspect', 'import', 'export'].includes(positionals[1])) throw new Error('Usage: agent-profiles preset <inspect|import|export> <directory>');
-    } else if (positionals.length !== 1 || !['init', 'configure', 'doctor', 'uninstall', 'proof', 'visualize'].includes(command)) throw new Error('Choose one command: init, configure, doctor, uninstall, preset, proof, visualize');
+    } else if (positionals.length !== 1 || !['init', 'configure', 'doctor', 'uninstall', 'resolve', 'proof', 'visualize'].includes(command)) throw new Error('Choose one command: init, configure, doctor, uninstall, resolve, preset, proof, visualize');
     if (values.agent && command !== 'init') throw new Error('--agent is only supported by init');
     if (values['delete-config'] && command !== 'uninstall') throw new Error('--delete-config is only supported by uninstall');
-    if (values.role && !['preset', 'proof', 'visualize'].includes(command)) throw new Error('--role is only supported by preset, proof, or visualize');
-    if (['proof', 'visualize'].includes(command) && values.role?.length > 1) throw new Error(`${command} accepts one --role`);
-    if ((values.model !== undefined || values.family !== undefined || values.skill) && !['proof', 'visualize'].includes(command)) throw new Error('--model, --family, and --skill are only supported by proof or visualize');
-    if (values.json && command !== 'proof') throw new Error('--json is only supported by proof');
+    const resolving = ['resolve', 'proof', 'visualize'].includes(command);
+    if (values.role && !resolving && command !== 'preset') throw new Error('--role is only supported by preset, resolve, proof, or visualize');
+    if (resolving && values.role?.length > 1) throw new Error(`${command} accepts one --role`);
+    if ((values.model !== undefined || values.family !== undefined || values.skill) && !resolving) throw new Error('--model, --family, and --skill are only supported by resolve, proof, or visualize');
+    if (values['identity-source'] !== undefined && command !== 'resolve') throw new Error('--identity-source is only supported by resolve');
+    if (values.json && !['resolve', 'proof'].includes(command)) throw new Error('--json is only supported by resolve or proof');
     if (values.port !== undefined && (command !== 'visualize' || !/^\d+$/.test(values.port))) throw new Error('--port requires an integer from 0 to 65535 and is only supported by visualize');
-    if (values.contents && !(command === 'preset' && positionals[1] === 'inspect') && !(command === 'proof' && values.json)) throw new Error('--contents requires preset inspect or proof --json');
+    if (values.contents && !(command === 'preset' && positionals[1] === 'inspect') && !(['resolve', 'proof'].includes(command) && values.json)) throw new Error('--contents requires preset inspect, or resolve or proof with --json');
     if (values.root !== undefined && !values.root.trim()) throw new Error('--root requires a directory');
     let target = values.root;
     if (target === undefined) {
@@ -93,13 +101,16 @@ Examples:
       }
     }
     const root = realpathSync(target);
-    if (!(command === 'proof' && values.json)) console.log(`Agent Profiles\nRepository: ${root}`);
+    if (!(command === 'proof' && values.json) && command !== 'resolve') console.log(`Agent Profiles\nRepository: ${root}`);
     if (command === 'visualize') {
       const { server, url } = await startVisualizer({ root, port: values.port === undefined ? 0 : Number(values.port), model: values.model, family: values.family, role: values.role?.[0], skills: values.skill });
       console.log(`Context explorer: ${url}\nOpen this local URL in your browser. Read-only; press Ctrl+C to stop.`);
       const stop = () => { server.close(); server.closeAllConnections(); };
       process.once('SIGINT', stop);
       process.once('SIGTERM', stop);
+    } else if (command === 'resolve') {
+      const result = resolveInstructions({ root, model: values.model, family: values.family, identitySource: /** @type {any} */ (values['identity-source']), role: values.role?.[0], skills: values.skill });
+      console.log(values.json ? JSON.stringify(resolutionOutput(result, values.contents), null, 2) : formatContext(result));
     } else if (command === 'proof') {
       const result = resolveInstructions({ root, model: values.model, family: values.family, role: values.role?.[0], skills: values.skill });
       console.log(values.json ? JSON.stringify(resolutionOutput(result, values.contents), null, 2) : formatProof(result));
@@ -126,6 +137,7 @@ Examples:
       const result = doctor(root);
       if (result.profile) console.log(`Default profile: ${result.profile}; default role: ${result.role}`);
       for (const agent of result.agents) console.log(`${agent.name}: ${agent.installed ? 'bootstrap installed' : 'not installed'} (${agent.file})`);
+      for (const note of result.notes) console.log(note);
       for (const error of result.errors) console.error(`Error: ${error}`);
       console.log(result.valid ? 'Configuration and all profile, role, and skill references are valid.' : 'Installation needs attention.');
       if (!result.valid) process.exitCode = 1;

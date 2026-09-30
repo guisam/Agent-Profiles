@@ -109,7 +109,7 @@ test('editing preserves unrelated mappings, YAML comments, newline style, and ha
 
 test('ambiguous source selection creates a deterministic alias without rebinding other roles', t => {
   const root = repository(t);
-  const claudeTesting = skill(root, 'testing');
+  const claudeTesting = skill(root, 'testing', 'team-skills');
   const before = fs.readFileSync(path.join(root, claudeTesting.path));
   const plan = planRoleChange({ root, action: 'create', id: 'qa', required: [claudeTesting] });
   assert.deepEqual(plan.aliases, [{ id: 'testing-2', originalId: 'testing', path: claudeTesting.path }]);
@@ -242,7 +242,7 @@ test('configure fails clearly without an interactive terminal and never changes 
 test('source aliases skip reserved IDs and disappearing skill files fail before saving', t => {
   const root = repository(t);
   skill(root, 'testing-2', '.agent-profiles/skills');
-  const external = skill(root, 'testing');
+  const external = skill(root, 'testing', 'team-skills');
   const plan = planRoleChange({ root, action: 'create', id: 'qa', required: [external] });
   assert.equal(plan.aliases[0].id, 'testing-3');
   fs.unlinkSync(path.join(root, external.path));

@@ -35,6 +35,7 @@ function preview(plan, write) {
   for (const action of plan.actions) write(display(action));
   for (const conflict of plan.conflicts) write(`Conflict: ${display(conflict.key)} (${display(conflict.file)})`);
   for (const error of plan.errors) write(`Unresolved: ${display(error)}`);
+  for (const notice of plan.notices ?? []) write(`Note: ${display(notice)}`);
   for (const change of plan.changes) write(`${change.before === null ? 'Create' : 'Update'} ${display(change.file)}`);
   write('Replacements affect every local role/model referring to that ID. Renaming changes only imported references.');
 }

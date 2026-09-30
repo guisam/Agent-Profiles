@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, realpathSync, rmSync } from 'nod
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveInstructions } from './resolve.js';
+import { readConfiguration } from './configure.js';
 import { safePath, readLocal, applyChanges } from './files.js';
 import { bootstrapBlock, integrations, managedSpan } from './integrations.js';
 
@@ -43,9 +44,15 @@ export function detectAgents(root) {
 export function doctor(root) {
   root = realpathSync(root);
   const errors = [];
+  const notes = [];
+  const hostSkills = new Map();
   let resolution;
   try {
     resolution = resolveInstructions({ root });
+    for (const role of readConfiguration(root).configuration.get('roles').keys()) {
+      const { required, available } = resolveInstructions({ root, role });
+      for (const skill of [...required, ...available]) if (skill.type === 'host') hostSkills.set(skill.id, skill);
+    }
     if (readLocal(root, '.agent-profiles/BOOTSTRAP.md') === null) {
       errors.push('.agent-profiles/BOOTSTRAP.md is missing; run init to add the routing protocol');
     }
@@ -58,7 +65,16 @@ export function doctor(root) {
     } catch (error) { errors.push(error.message); }
   }
   if (!agents.some(agent => agent.installed)) errors.push('No active Agent Profiles integration; run init to select an agent');
-  return { root, valid: errors.length === 0, profile: resolution?.profile, role: resolution?.role, agents, errors };
+  for (const skill of hostSkills.values()) {
+    const agent = agents.find(item => item.id === skill.host);
+    const state = skill.verification === 'verified-local' ? `verified at ${skill.path}` : 'host-provided; Agent Profiles cannot verify it';
+    notes.push(`Skill ${skill.id} is ${agent.name} skill ${skill.hostId}: ${state}${agent.installed ? '' : `; the ${agent.name} integration is not installed`}`);
+  }
+  for (const agent of agents.filter(item => item.installed)) {
+    const { mode, verified, ...limits } = integrations.find(item => item.id === agent.id).capabilities;
+    notes.push([`${agent.name}: ${mode} mode (observed: ${verified})`, ...Object.entries(limits).map(([key, value]) => `  ${key}: ${value}`)].join('\n'));
+  }
+  return { root, valid: errors.length === 0, profile: resolution?.profile, role: resolution?.role, agents, errors, notes };
 }
 
 function templateFiles(directory, prefix = '') {
@@ -97,10 +113,13 @@ export function install({ root, agents }) {
     if (readLocal(root, file) === null) changes.push({ file, before: null, after: readFileSync(path.join(packageRoot, file)) });
   }
   for (const agent of selected) {
-    if (agent.installed) continue;
-    const { file, before } = agent.records.find(record => record.file === agent.file);
+    const { file, before, span } = agent.records.find(record => record.file === agent.file);
     const block = bootstrapBlock(before?.includes(Buffer.from('\r\n')) ? '\r\n' : '\n');
-    changes.push({ file, before, after: Buffer.concat([before ?? Buffer.alloc(0), block]) });
+    // An outdated managed block is replaced in place; bytes outside the markers are preserved.
+    if (agent.installed && before.subarray(span.start, span.end).equals(block)) continue;
+    changes.push({ file, before, after: agent.installed
+      ? Buffer.concat([before.subarray(0, span.start), block, before.subarray(span.end)])
+      : Buffer.concat([before ?? Buffer.alloc(0), block]) });
   }
   // Preflight every target before the first write, including unselected integrations.
   detectAgents(root);
