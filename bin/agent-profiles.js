@@ -138,16 +138,15 @@ Examples:
       if (!result.modified.length) console.log('Already installed. No changes required.');
       console.log(`Configuration validated. Default profile: ${result.profile}; default role: ${result.role}.`);
       // The block is only useful once its command runs; install the package when asked to.
+      // An explicit --package always installs: a matching version string does not prove matching code.
       let { availability } = result;
-      if (!availability.runnable) {
-        let spec = values.package;
-        if (spec === undefined && stdin.isTTY && stdout.isTTY) {
-          console.log(`The bootstrap cannot run yet: ${availability.reason}.`);
-          spec = (await question(`Install agent-profiles as a dev dependency now? Package spec or tarball [agent-profiles@${result.ownVersion}], or "skip": `)).trim() || `agent-profiles@${result.ownVersion}`;
-          if (spec === 'skip') spec = undefined;
-        }
-        if (spec !== undefined) availability = installPackage(root, spec);
+      let spec = values.package;
+      if (spec === undefined && !availability.runnable && stdin.isTTY && stdout.isTTY) {
+        console.log(`The bootstrap cannot run yet: ${availability.reason}.`);
+        spec = (await question(`Install agent-profiles as a dev dependency now? Package spec or tarball [agent-profiles@${result.ownVersion}], or "skip": `)).trim() || `agent-profiles@${result.ownVersion}`;
+        if (spec === 'skip') spec = undefined;
       }
+      if (spec !== undefined) availability = installPackage(root, spec);
       const report = doctor(root);
       for (const problem of report.bootstrap) console.error(`Bootstrap: ${problem}`);
       if (report.bootstrap.length) {

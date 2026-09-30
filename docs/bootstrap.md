@@ -70,7 +70,10 @@ by someone else.
 2. Allow the command so the agent is not blocked on a permission prompt. For
    Claude Code, `init` adds exactly these rules to `.claude/settings.json`, and
    `uninstall` removes them. Both shells are allowed because models on Windows
-   often choose PowerShell:
+   often choose PowerShell. Claude Code applies project allow rules only after the
+   workspace has been trusted in an interactive session; until then every run of
+   the command asks for approval. That is host state, so doctor can confirm only that
+   the rules are present:
 
    ```json
    {

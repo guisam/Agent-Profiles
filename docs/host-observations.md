@@ -112,6 +112,23 @@ installed as a dev dependency and the managed block asking only for
 | Claude and Codex blocks both installed | Haiku and Opus each ran `resolve` once, then read `AGENTS.md` without running it again |
 | Alias `claude-opus-5-5[1m]` in a YAML flow list | YAML error until quoted: `aliases: ["claude-opus-5-5[1m]"]` |
 
+### Protocol 2 block (host-specific, with provenance)
+
+The block later gained `--host claude --identity-source host-stated`, and `init`
+started writing the two allow rules to `.claude/settings.json`.
+
+| Check | Observed |
+| --- | --- |
+| Rules written by `init`, in a workspace never opened interactively | Claude Code ignored them: "Ignoring 2 permissions.allow entries from .claude/settings.json: this workspace has not been trusted." Both models were denied |
+| The same rule strings passed with `--allowedTools` | Haiku and Opus each ran the full command with their own ID and routed correctly |
+| Command denied, Opus | Reported the failure and did not route by hand |
+| Command denied, Haiku | Read `agents.yaml` and profile files and routed by hand, contrary to the block |
+| `init --package` over a copy with the same version string | Skipped the install before the fix; an explicit `--package` now always installs |
+
+A file-level permission check cannot show whether the host applies the rules.
+Workspace trust is host state, so doctor reports the rules as present and lists
+the trust requirement among Claude Code's capabilities.
+
 Model-side identity copying was reliable in every run. Re-resolution after a
 model change without a related prompt was not, so it remains a bootstrap
 expectation rather than a guarantee.

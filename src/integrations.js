@@ -60,6 +60,7 @@ export const integrations = [
       roleChange: 'clean only in a new session or custom agent',
       subagents: 'custom agents receive the bootstrap; built-in Explore does not',
       hostSkills: 'every host skill stays visible regardless of role',
+      permissions: 'project allow rules apply only after the workspace is trusted in an interactive session; until then resolve needs approval',
     },
   },
   {
