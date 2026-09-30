@@ -42,13 +42,17 @@ export function managedSpan(content, file) {
   return { start, end: end + Buffer.byteLength(END) };
 }
 
-export function bootstrapBlock(newline = '\n') {
+export function bootstrapBlock(host, newline = '\n') {
+  const adapter = integrations.find(item => item.id === host);
+  if (!adapter) throw new Error(`Unknown integration ${host}`);
   // All added whitespace is inside the markers, so removal preserves every other byte.
+  // Each block names its host: an agent may read another host's instruction file too.
   return Buffer.from([
     START, '', '## Agent Profiles', '',
-    'At the start of every new or compacted context, and after a model change,',
-    'run this exact command (no `cd` or other prefix) and follow its output:', '',
-    `    ${resolveCommand} --model "<exact model ID>"`, '',
+    `This block is for ${adapter.name}; agents in other hosts skip it. At the start`,
+    'of every new or compacted context, and after a model change, run this exact',
+    'command (no `cd` or other prefix) and follow its output:', '',
+    `    ${resolveCommand} --host ${host} --model "<exact model ID>"`, '',
     'Use the exact model ID your host states for you (for example, "The exact',
     'model ID is ..."): not a display name, another model\'s ID, or your own',
     'recollection. If the host states none, omit `--model`. Add `--role <id>` only',

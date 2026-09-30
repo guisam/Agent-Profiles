@@ -227,7 +227,7 @@ test('an existing managed block is left untouched and older configuration can ac
   const root = repository(t);
   install({ root, agents: ['codex'] });
   const file = path.join(root, 'AGENTS.md');
-  const custom = Buffer.concat([Buffer.from('Rules\n'), bootstrapBlock(), Buffer.from('\nMore rules')]);
+  const custom = Buffer.concat([Buffer.from('Rules\n'), bootstrapBlock('codex'), Buffer.from('\nMore rules')]);
   fs.writeFileSync(file, custom);
   fs.unlinkSync(path.join(root, '.agent-profiles/BOOTSTRAP.md'));
   assert.match(doctor(root).errors.join('\n'), /BOOTSTRAP.md is missing/);

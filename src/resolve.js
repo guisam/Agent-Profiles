@@ -126,17 +126,20 @@ function skillFiles(ids, entry, resolveSkill) {
  * Validate all configuration, then load only the selected additional layers.
  * Identity matching is exact and case-sensitive: model key, alias, supplied family,
  * longest configured family prefix, then default_profile.
- * @param {{root?: string, model?: string, family?: string, identitySource?: 'host' | 'user', role?: string,
+ * `host` names the integration consuming the result; host-native skills of another host
+ * are unusable there, and required ones are reported as unsatisfied.
+ * @param {{root?: string, host?: string, model?: string, family?: string, identitySource?: 'host' | 'host-stated' | 'user', role?: string,
  *   skills?: string[], configuration?: Map<string, any>,
  *   newRoleFile?: {path: string, content: string}, preview?: Map<string, Buffer>}} options
  */
-export function resolveInstructions({ root = process.cwd(), model, family, identitySource, role, skills = [], configuration, newRoleFile, preview = new Map() } = {}) {
+export function resolveInstructions({ root = process.cwd(), host, model, family, identitySource, role, skills = [], configuration, newRoleFile, preview = new Map() } = {}) {
+  if (host !== undefined && !integrations.some(adapter => adapter.id === host)) fail('host', `expected one of ${integrations.map(adapter => adapter.id).join(', ')} or an omitted value`);
   for (const [name, value] of Object.entries({ model, family, role })) {
     if (value !== undefined && (typeof value !== 'string' || !value.trim())) {
       fail(name, 'expected a nonempty string or an omitted value');
     }
   }
-  if (identitySource !== undefined && !['host', 'user'].includes(identitySource)) fail('identitySource', 'expected host, user, or an omitted value');
+  if (identitySource !== undefined && !['host', 'host-stated', 'user'].includes(identitySource)) fail('identitySource', 'expected host, host-stated, user, or an omitted value');
   if (!Array.isArray(skills)) fail('skills', 'expected a list of requested skill IDs');
   skills.forEach((id, index) => identifier(id, `skills[${index}]`));
 
@@ -287,9 +290,13 @@ export function resolveInstructions({ root = process.cwd(), model, family, ident
     }
   });
   const measuredSkills = new Map(loaded.filter(entry => entry.kind.endsWith('-skill')).map(entry => [entry.id, { bytes: entry.bytes, characters: entry.characters }]));
+  // null when the consuming host is unknown; otherwise whether that host can invoke the skill.
+  const usable = skill => ({ bytes: null, characters: null, usable: host === undefined ? null : skill.host === host });
+  const unsatisfied = host === undefined ? [] : required.filter(skill => skill.type === 'host' && skill.host !== host)
+    .map(({ id, host: skillHost, hostId }) => ({ id, host: skillHost, hostId, reason: `${integrations.find(item => item.id === skillHost).name} skill ${hostId} cannot be invoked by ${integrations.find(item => item.id === host).name}` }));
   const measuredAvailable = available.map(skill => {
     try {
-      if (skill.type === 'host') return { ...skill, bytes: null, characters: null };
+      if (skill.type === 'host') return { ...skill, ...usable(skill) };
       let measured = measuredSkills.get(skill.id);
       if (!measured) {
         const file = localFile(repository, skill.path, skill.path, 'repository', false, preview);
@@ -299,7 +306,9 @@ export function resolveInstructions({ root = process.cwd(), model, family, ident
     } catch (error) { fail(skill.path, `cannot measure available instructions: ${error.message}`); }
   });
 
+  const requiredOut = required.map(skill => ({ ...skill, ...(skill.type === 'host' ? usable(skill) : measuredSkills.get(skill.id)) }));
   return {
+    host: host ?? null,
     model: model ?? null,
     family: resolvedFamily,
     familySource,
@@ -310,8 +319,9 @@ export function resolveInstructions({ root = process.cwd(), model, family, ident
     roleSource: role === undefined ? 'default' : 'assigned',
     repository: { path: 'AGENTS.md', suppliedBy: 'host', exists: existsSync(path.join(repository, 'AGENTS.md')) },
     loaded,
-    required: required.map(skill => ({ ...skill, ...(skill.type === 'host' ? { bytes: null, characters: null } : measuredSkills.get(skill.id)) })),
+    required: requiredOut,
     available: measuredAvailable,
-    diagnostics: contextDiagnostics(loaded, measuredAvailable, required),
+    unsatisfied,
+    diagnostics: contextDiagnostics(loaded, measuredAvailable, requiredOut, host),
   };
 }

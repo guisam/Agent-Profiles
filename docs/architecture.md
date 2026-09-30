@@ -28,9 +28,26 @@ Every behavioral statement in this documentation has one of these levels:
 | Resolution runs again after compaction or a model change | — | Yes, where the host reports the event | Expectation. Observed after compaction; skipped after a model change on an unrelated task |
 | The agent uses its host-stated model ID, not a guess | — | The host supplies it | Expectation. Observed reliably on Claude Code |
 | A host-native skill behaves as the host defines it | — | Host-dependent | Host-dependent: Agent Profiles asks the agent to invoke it and never injects its file |
+| A host skill is offered only to the host that can invoke it | Yes, when the host is supplied | Yes: the host passes itself | Yes: each managed block passes its own `--host` |
+| A role whose required host skill the running host cannot invoke is reported, not silently degraded | Yes: `unsatisfied` in the resolution and a doctor capability error per installed host | Yes | The `resolve` output tells the agent to inform the user |
 
 Observed host behavior, with versions, is recorded in [host-observations.md](host-observations.md).
 Integration capabilities are also printed by `agent-profiles doctor`.
+
+## Host in the resolution contract
+
+Every resolution may name the host that consumes it (`host`: an integration ID such
+as `claude` or `codex`). Host-native skills carry `usable`: `true` or `false` for the
+given host, `null` when no host is given. For a known host:
+
+- another host's available skills are not exposed to the agent;
+- another host's required skills are listed in `unsatisfied` with a reason, and the
+  `resolve` output tells the agent to inform the user instead of substituting;
+- `doctor` reports each unsatisfied role and installed host as a capability error,
+  separate from configuration errors. It does not block installing the integration.
+
+Without `host`, usability is unknown and nothing is marked unsatisfied; callers that
+consume host skills should always pass it.
 
 ## Terms
 

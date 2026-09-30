@@ -148,6 +148,7 @@ import { resolveInstructions } from './src/resolve.js';
 
 const result = resolveInstructions({
   root: process.cwd(),
+  host: 'claude',         // the consuming integration
   model: 'claude-opus-5-5[1m]',
   identitySource: 'host', // or 'user'; omit when unknown
   role: 'reviewer',
@@ -160,12 +161,15 @@ The synchronous result contains:
 - `model`, `family`, and `familySource` (`supplied` or `configured-prefix`).
 - `matchedBy` (`model`, `alias`, `family`, `family-prefix`, or `default`), and
   `identity` (`raw`, `canonical`, `source`, `matchedBy`) for provenance.
+- `host`: the consuming integration, or `null`.
 - `profile`, `role`, and `roleSource` (`assigned` or `default`).
 - `repository` (host-supplied `AGENTS.md` and whether it exists).
 - `loaded`: the injected entries, with `path`, `content`, `kind`, `id`, `bytes`,
   and `characters`.
 - `required` and `available`: skill metadata with `type`, `delivery`, and
-  `nameSource`. Host skills also carry `host`, `hostId`, and `verification`.
+  `nameSource`. Host skills also carry `host`, `hostId`, `verification`, and `usable`
+  for the consuming host.
+- `unsatisfied`: required host skills the consuming host cannot invoke, with reasons.
 - `diagnostics`.
 
 Each call returns a complete resolution, not a delta. A native host should

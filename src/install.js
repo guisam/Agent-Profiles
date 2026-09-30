@@ -45,13 +45,15 @@ export function doctor(root) {
   root = realpathSync(root);
   const errors = [];
   const notes = [];
+  const capabilities = [];
   const hostSkills = new Map();
   const legacy = [];
-  let resolution;
+  let resolution, roleIDs = [];
   try {
     resolution = resolveInstructions({ root });
     const { configuration } = readConfiguration(root);
-    for (const role of configuration.get('roles').keys()) {
+    roleIDs = [...configuration.get('roles').keys()];
+    for (const role of roleIDs) {
       const { required, available } = resolveInstructions({ root, role });
       for (const skill of [...required, ...available]) if (skill.type === 'host') hostSkills.set(skill.id, skill);
     }
@@ -74,6 +76,14 @@ export function doctor(root) {
     } catch (error) { errors.push(error.message); }
   }
   if (!agents.some(agent => agent.installed)) errors.push('No active Agent Profiles integration; run init to select an agent');
+  // A required host skill that an installed host cannot invoke makes that role unsatisfiable there.
+  if (resolution) {
+    for (const agent of agents.filter(item => item.installed)) {
+      for (const role of roleIDs) {
+        for (const entry of resolveInstructions({ root, role, host: agent.id }).unsatisfied) capabilities.push(`Role ${role} in ${agent.name}: required skill ${entry.id} is unsatisfied (${entry.reason})`);
+      }
+    }
+  }
   for (const skill of hostSkills.values()) {
     // An integration whose state failed is already reported as an error and has no agent record.
     const adapter = integrations.find(item => item.id === skill.host);
@@ -87,7 +97,7 @@ export function doctor(root) {
     const { mode, verified, ...limits } = integrations.find(item => item.id === agent.id).capabilities;
     notes.push([`${agent.name}: ${mode} mode (observed: ${verified})`, ...Object.entries(limits).map(([key, value]) => `  ${key}: ${value}`)].join('\n'));
   }
-  return { root, valid: errors.length === 0, profile: resolution?.profile, role: resolution?.role, agents, errors, notes };
+  return { root, valid: errors.length === 0 && capabilities.length === 0, profile: resolution?.profile, role: resolution?.role, agents, errors, capabilities, notes };
 }
 
 function templateFiles(directory, prefix = '') {
@@ -127,7 +137,7 @@ export function install({ root, agents }) {
   }
   for (const agent of selected) {
     const { file, before, span } = agent.records.find(record => record.file === agent.file);
-    const block = bootstrapBlock(before?.includes(Buffer.from('\r\n')) ? '\r\n' : '\n');
+    const block = bootstrapBlock(agent.id, before?.includes(Buffer.from('\r\n')) ? '\r\n' : '\n');
     // An outdated managed block is replaced in place; bytes outside the markers are preserved.
     if (agent.installed && before.subarray(span.start, span.end).equals(block)) continue;
     changes.push({ file, before, after: agent.installed
@@ -139,7 +149,8 @@ export function install({ root, agents }) {
   for (const change of changes) safePath(root, change.file);
   const modified = applyChanges(root, changes, () => {
     const report = doctor(root);
-    if (!report.valid) throw new Error(report.errors.join('\n'));
+    // Host capability gaps are reported by doctor but do not block installing an integration.
+    if (report.errors.length) throw new Error(report.errors.join('\n'));
   });
   return { ...doctor(root), modified };
 }

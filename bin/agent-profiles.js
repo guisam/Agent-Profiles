@@ -32,6 +32,7 @@ try {
       model: { type: 'string' },
       family: { type: 'string' },
       'identity-source': { type: 'string' },
+      host: { type: 'string' },
       skill: { type: 'string', multiple: true },
       json: { type: 'boolean', default: false },
       port: { type: 'string' },
@@ -52,11 +53,11 @@ Commands:
   visualize   Serve a local context explorer (read-only; Ctrl+C to stop)
 
 Agent context:
-  resolve [--model <id>] [--family <id>] [--identity-source host|user]
+  resolve [--host <id>] [--model <id>] [--family <id>] [--identity-source host|host-stated|user]
           [--role <id>] [--skill <id> ...] [--json [--contents]]
 
 Context proof:
-  proof [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...]
+  proof [--host <id>] [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...]
         [--json [--contents]]
 
 Visualizer:
@@ -88,6 +89,7 @@ Examples:
     if (values.role && !resolving && command !== 'preset') throw new Error('--role is only supported by preset, resolve, proof, or visualize');
     if (resolving && values.role?.length > 1) throw new Error(`${command} accepts one --role`);
     if ((values.model !== undefined || values.family !== undefined || values.skill) && !resolving) throw new Error('--model, --family, and --skill are only supported by resolve, proof, or visualize');
+    if (values.host !== undefined && !['resolve', 'proof'].includes(command)) throw new Error('--host is only supported by resolve or proof');
     if (values['identity-source'] !== undefined && command !== 'resolve') throw new Error('--identity-source is only supported by resolve');
     if (values.json && !['resolve', 'proof'].includes(command)) throw new Error('--json is only supported by resolve or proof');
     if (values.port !== undefined && (command !== 'visualize' || !/^\d+$/.test(values.port))) throw new Error('--port requires an integer from 0 to 65535 and is only supported by visualize');
@@ -109,10 +111,10 @@ Examples:
       process.once('SIGINT', stop);
       process.once('SIGTERM', stop);
     } else if (command === 'resolve') {
-      const result = resolveInstructions({ root, model: values.model, family: values.family, identitySource: /** @type {any} */ (values['identity-source']), role: values.role?.[0], skills: values.skill });
+      const result = resolveInstructions({ root, host: values.host, model: values.model, family: values.family, identitySource: /** @type {any} */ (values['identity-source']), role: values.role?.[0], skills: values.skill });
       console.log(values.json ? JSON.stringify(resolutionOutput(result, values.contents), null, 2) : formatContext(result));
     } else if (command === 'proof') {
-      const result = resolveInstructions({ root, model: values.model, family: values.family, role: values.role?.[0], skills: values.skill });
+      const result = resolveInstructions({ root, host: values.host, model: values.model, family: values.family, role: values.role?.[0], skills: values.skill });
       console.log(values.json ? JSON.stringify(resolutionOutput(result, values.contents), null, 2) : formatProof(result));
     } else if (command === 'preset') {
       await runPreset({ command: positionals[1], location: positionals[2], root, roles: values.role, contents: values.contents, ask: question });
@@ -139,6 +141,7 @@ Examples:
       for (const agent of result.agents) console.log(`${agent.name}: ${agent.installed ? 'bootstrap installed' : 'not installed'} (${agent.file})`);
       for (const note of result.notes) console.log(note);
       for (const error of result.errors) console.error(`Error: ${error}`);
+      for (const error of result.capabilities) console.error(`Capability: ${error}`);
       console.log(result.valid ? 'Configuration and all profile, role, and skill references are valid.' : 'Installation needs attention.');
       if (!result.valid) process.exitCode = 1;
     } else {

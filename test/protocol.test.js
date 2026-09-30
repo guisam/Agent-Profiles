@@ -127,7 +127,7 @@ test('host-native skills resolve as host capabilities, are never injected, and a
   assert.deepEqual(notes, {
     id: 'release-notes', type: 'host', host: 'claude', hostId: 'release-notes', delivery: 'invoke',
     name: 'release-notes', nameSource: 'directory', description: 'Check release notes.',
-    path: '.claude/skills/release-notes/SKILL.md', verification: 'verified-local', bytes: null, characters: null,
+    path: '.claude/skills/release-notes/SKILL.md', verification: 'verified-local', bytes: null, characters: null, usable: null,
   });
   // Host metadata rules: no name falls back to the directory, and description is optional.
   assert.deepEqual(result.available.find(skill => skill.id === 'bare').description, null);
@@ -193,10 +193,12 @@ test('Claude skill discovery and configuration keep host identity instead of cre
 });
 
 test('bootstrap block routes through the resolver and never asks the model to route by hand', () => {
-  const block = bootstrapBlock().toString('utf8');
+  const block = bootstrapBlock('claude').toString('utf8');
   assert.ok(block.startsWith(START) && block.endsWith(END));
-  assert.match(block, /npx --no agent-profiles resolve --model "<exact model ID>"/);
+  assert.match(block, /npx --no agent-profiles resolve --host claude --model "<exact model ID>"/);
+  assert.match(block, /This block is for Claude Code; agents in other hosts skip it/);
   assert.match(block, /new or compacted context, and after a model change/);
+  assert.match(bootstrapBlock('codex').toString('utf8'), /resolve --host codex --model/);
   assert.match(block, /not a display name, another model's ID, or your own\nrecollection/);
   assert.match(block, /do not read `\.agent-profiles\/` to route by hand/);
   assert.doesNotMatch(block, /run once|BOOTSTRAP\.md|agents\.yaml/);
@@ -230,7 +232,7 @@ test('init replaces an outdated managed block in place and stays idempotent acro
   const result = install({ root: repo.root, agents: ['claude', 'codex'] });
   assert.deepEqual(result.modified.sort(), ['AGENTS.md', 'CLAUDE.md']);
   const claude = fs.readFileSync(path.join(repo.root, 'CLAUDE.md'), 'utf8');
-  assert.equal(claude, `# Rules\n\n${bootstrapBlock().toString('utf8')}\n\nAfter the block.\n`);
+  assert.equal(claude, `# Rules\n\n${bootstrapBlock('claude').toString('utf8')}\n\nAfter the block.\n`);
   assert.deepEqual(install({ root: repo.root, agents: ['claude', 'codex'] }).modified, []);
   for (const file of ['CLAUDE.md', 'AGENTS.md']) {
     assert.equal(fs.readFileSync(path.join(repo.root, file), 'utf8').split(START).length, 2);
@@ -332,4 +334,30 @@ test('doctor flags older file mappings that inject a Claude skill as text', t =>
   const report = doctor(repo.root);
   assert.equal(report.valid, true, report.errors.join('\n'));
   assert.ok(report.notes.includes('Skill testing-2 maps .claude/skills/testing/SKILL.md as injected text; replace it with {host: claude, id: testing} so Claude Code invokes it'));
+});
+
+test('resolution knows its host: other hosts\' skills are unusable and required ones unsatisfied', t => {
+  const repo = repository(t);
+  repo.write('.claude/skills/notes/SKILL.md', '---\ndescription: Notes.\n---\nBody\n');
+  repo.write('.claude/skills/lint/SKILL.md', '---\ndescription: Lint.\n---\nBody\n');
+  repo.change(config => {
+    config.skills = { notes: { host: 'claude' }, lint: { host: 'claude' } };
+    config.roles.researcher.skills = { required: ['notes'], available: ['lint'] };
+  });
+  const unknown = resolveInstructions({ root: repo.root, role: 'researcher' });
+  assert.deepEqual([unknown.host, unknown.required[0].usable, unknown.unsatisfied], [null, null, []]);
+  const claude = resolveInstructions({ root: repo.root, role: 'researcher', host: 'claude' });
+  assert.deepEqual([claude.required[0].usable, claude.available[0].usable, claude.unsatisfied], [true, true, []]);
+  assert.match(formatContext(claude), /## Required host skills\n\nUse each for all work in this role:\n- notes: Invoke the claude skill `notes`/);
+  assert.match(formatContext(claude), /Command: `npx --no agent-profiles resolve --host claude --role researcher`/);
+  const codex = resolveInstructions({ root: repo.root, role: 'researcher', host: 'codex' });
+  assert.deepEqual(codex.unsatisfied, [{ id: 'notes', host: 'claude', hostId: 'notes', reason: 'Claude Code skill notes cannot be invoked by OpenAI Codex' }]);
+  assert.equal(codex.available[0].usable, false);
+  assert.deepEqual(codex.diagnostics.hostSkills.map(skill => skill.usable), [false, false]);
+  const context = formatContext(codex);
+  assert.match(context, /## Unsatisfied requirements\n\nThis role requires capabilities your host cannot provide\. Tell the user before doing role work, and do not substitute another skill:\n- notes: Claude Code skill notes cannot be invoked by OpenAI Codex\./);
+  assert.doesNotMatch(context, /Invoke the claude skill/);
+  assert.throws(() => resolveInstructions({ root: repo.root, host: 'cursor' }), /host: expected one of claude, codex/);
+  install({ root: repo.root, agents: ['codex'] });
+  assert.ok(doctor(repo.root).capabilities.includes('Role researcher in OpenAI Codex: required skill notes is unsatisfied (Claude Code skill notes cannot be invoked by OpenAI Codex)'));
 });
