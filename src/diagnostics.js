@@ -115,7 +115,8 @@ export function formatContext(result) {
   const skill = entry => entry.type === 'host'
     ? `Invoke the ${entry.host} skill \`${entry.hostId}\` through your host's skill mechanism.`
     : `Read \`${entry.path}\`.`;
-  const rerun = `${resolveCommand}${result.host ? ` --host ${result.host}` : ''}${result.model ? ` --model "${result.model}"` : ''}${result.roleSource === 'assigned' ? ` --role ${result.role}` : ''}`;
+  const source = result.identity.source ? ` --identity-source ${result.identity.source}` : '';
+  const rerun = `${resolveCommand}${result.host ? ` --host ${result.host}` : ''}${source}${result.model ? ` --model "${result.model}"` : ''}${result.roleSource === 'assigned' ? ` --role ${result.role}` : ''}`;
   const lines = ['# Agent Profiles context', '',
     `Profile: ${result.profile} (model ${result.model ?? 'not stated'}; matched by ${result.matchedBy}). Role: ${result.role}.`,
     'These instructions add to the repository instructions and never override them or host permissions.',

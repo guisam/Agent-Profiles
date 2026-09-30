@@ -229,7 +229,8 @@ prefix. Only the direct Claude Code identities in
 Vertex forms are unverified.
 
 The output records provenance: `identity.raw`, `identity.canonical`,
-`identity.source` (`host`, `user`, or `null`), `matchedBy`, `family`, and
+`identity.source` (`host` when a native host supplied it, `host-stated` when the
+agent relayed the host's statement in bootstrap mode, `user`, or `null`), `matchedBy`, `family`, and
 `familySource` (`supplied` or `configured-prefix`).
 
 ## Role selection and skill composition

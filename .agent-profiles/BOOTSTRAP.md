@@ -15,9 +15,9 @@ run the resolver, which performs every routing decision in code.
 
 ## Protocol
 
-1. The agent runs `npx --no agent-profiles resolve --model "<exact model ID>"`,
-   copying the model ID its host states for it. It omits `--model` when the host
-   states none, and never uses a display name, another model's ID, or recollection.
+1. The agent runs `npx --no agent-profiles resolve --host <host> --identity-source host-stated --model "<exact model ID>"`,
+   copying the model ID its host states for it. It omits `--identity-source` and
+   `--model` when the host states none, and never uses a display name, another model's ID, or recollection.
    It adds `--role <id>` only when the user or its agent definition assigns one.
 2. The resolver validates the whole configuration and resolves one profile:
    exact model key, then configured alias, then supplied family, then the longest

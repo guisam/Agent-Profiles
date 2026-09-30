@@ -91,11 +91,13 @@ export function bootstrapBlock(host, newline = '\n') {
     `This block is for ${adapter.name}; agents in other hosts skip it. At the start`,
     'of every new or compacted context, and after a model change, run this exact',
     'command (no `cd` or other prefix) and follow its output:', '',
-    `    ${resolveCommand} --host ${host} --model "<exact model ID>"`, '',
+    `    ${resolveCommand} --host ${host} --identity-source host-stated --model "<exact model ID>"`, '',
     'Use the exact model ID your host states for you (for example, "The exact',
     'model ID is ..."): not a display name, another model\'s ID, or your own',
-    'recollection. If the host states none, omit `--model`. Add `--role <id>` only',
-    'when the user or your agent definition assigns a role. If the command fails,',
-    'report its error; do not read `.agent-profiles/` to route by hand.', '', END,
+    'recollection. If the host states none, omit `--identity-source` and `--model`.',
+    // host-stated records provenance honestly: the host stated it, the agent relayed it.
+    'Add `--role <id>` only when the user or your agent definition assigns a role.',
+    'If the command fails, report its error; do not read `.agent-profiles/` to',
+    'route by hand.', '', END,
   ].join(newline));
 }

@@ -203,12 +203,13 @@ test('Claude skill discovery and configuration keep host identity instead of cre
 test('bootstrap block routes through the resolver and never asks the model to route by hand', () => {
   const block = bootstrapBlock('claude').toString('utf8');
   assert.ok(block.startsWith(START) && block.endsWith(END));
-  assert.match(block, /npx --no agent-profiles resolve --host claude --model "<exact model ID>"/);
+  assert.match(block, /npx --no agent-profiles resolve --host claude --identity-source host-stated --model "<exact model ID>"/);
   assert.match(block, /This block is for Claude Code; agents in other hosts skip it/);
   assert.match(block, /new or compacted context, and after a model change/);
-  assert.match(bootstrapBlock('codex').toString('utf8'), /resolve --host codex --model/);
+  assert.match(bootstrapBlock('codex').toString('utf8'), /resolve --host codex --identity-source host-stated --model/);
   assert.match(block, /not a display name, another model's ID, or your own\nrecollection/);
-  assert.match(block, /do not read `\.agent-profiles\/` to route by hand/);
+  assert.match(block, /omit `--identity-source` and `--model`/);
+  assert.match(block, /do not read `\.agent-profiles\/` to\nroute by hand/);
   assert.doesNotMatch(block, /run once|BOOTSTRAP\.md|agents\.yaml/);
 });
 
@@ -540,4 +541,18 @@ test('bootstrap accounting measures the block actually installed, including CRLF
   assert.deepEqual([installed.scope, installed.file, installed.bytes], ['installed-managed-block', 'CLAUDE.md', written]);
   assert.ok(installed.bytes > bootstrapBlock('claude').length);
   assert.match(formatProof(resolveInstructions({ root: repo.root, host: 'claude' })), new RegExp(`Bootstrap block in CLAUDE.md: ${written} B`));
+});
+
+test('bootstrap mode records host-stated identity provenance and keeps it on re-run', t => {
+  const repo = repository(t);
+  const run = (...args) => spawnSync(process.execPath, [path.join(project, 'bin/agent-profiles.js'), 'resolve', '--root', repo.root, ...args], { encoding: 'utf8' });
+  // Exactly the command the managed block asks for, with an identity filled in.
+  const command = bootstrapBlock('claude').toString('utf8').match(/npx --no agent-profiles resolve (.*)/)[1]
+    .replace('"<exact model ID>"', 'example-model').split(' ');
+  const json = JSON.parse(run(...command, '--json').stdout);
+  assert.deepEqual(json.identity, { raw: 'example-model', canonical: 'example-model', source: 'host-stated', matchedBy: 'model' });
+  assert.match(run(...command).stdout, /Command: `npx --no agent-profiles resolve --host claude --identity-source host-stated --model "example-model"`/);
+  assert.match(formatProof(resolveInstructions({ root: repo.root, model: 'example-model', identitySource: 'host-stated' })), /Source {6}host-stated/);
+  // Without a stated identity the block omits both flags, and nothing is claimed.
+  assert.deepEqual(JSON.parse(run('--host', 'claude', '--json').stdout).identity, { raw: null, canonical: null, source: null, matchedBy: 'default' });
 });

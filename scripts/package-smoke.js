@@ -79,7 +79,7 @@ try {
     for (const file of targets) {
       const text = fs.readFileSync(path.join(root, file), 'utf8');
       assert.equal(text.split('<!-- agent-profiles:start -->').length, 2);
-      assert.ok(text.includes(`npx --no agent-profiles resolve --host ${file.includes('CLAUDE') ? 'claude' : 'codex'} --model`));
+      assert.ok(text.includes(`npx --no agent-profiles resolve --host ${file.includes('CLAUDE') ? 'claude' : 'codex'} --identity-source host-stated --model`));
     }
     // The exact bootstrap command must work from the installed package without downloading anything.
     const context = run(process.execPath, [npm, 'exec', '--no', '--offline', '--', 'agent-profiles', 'resolve', '--root', root, '--host', 'claude', '--model', 'example-model', '--role', 'reviewer'], consumer);
