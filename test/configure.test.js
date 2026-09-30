@@ -16,9 +16,10 @@ const project = fileURLToPath(new URL('../', import.meta.url));
 const configFile = '.agent-profiles/agents.yaml';
 
 function repository(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-profiles-configure-'));
+  // Canonical, like the implementation: macOS temp directories are reached through /var -> /private/var.
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agent-profiles-configure-')));
   t.after(() => {
-    assert.equal(path.dirname(root), path.resolve(os.tmpdir()));
+    assert.equal(path.dirname(root), fs.realpathSync(os.tmpdir()));
     assert.ok(path.basename(root).startsWith('agent-profiles-configure-'));
     fs.rmSync(root, { recursive: true, force: true });
   });
@@ -88,7 +89,7 @@ test('a role is validated before writing, then created with a short description 
 test('editing preserves unrelated mappings, YAML comments, newline style, and hand-authored instructions', t => {
   const root = repository(t);
   const configPath = path.join(root, configFile);
-  fs.writeFileSync(configPath, '\uFEFF' + fs.readFileSync(configPath, 'utf8').replace('models:', '# Keep this model comment\nmodels:').replace(/\n/g, '\r\n'));
+  fs.writeFileSync(configPath, '\uFEFF' + fs.readFileSync(configPath, 'utf8').replace('models:', '# Keep this model comment\nmodels:').replace(/\r?\n/g, '\r\n'));
   const before = readConfiguration(root).configuration;
   const rolePath = path.join(root, '.agent-profiles/roles/reviewer.md');
   fs.writeFileSync(rolePath, '# Hand-written role\nKeep this exact content.');
