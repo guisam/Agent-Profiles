@@ -12,9 +12,10 @@ import { bootstrapBlock, END, START } from '../src/integrations.js';
 const project = fileURLToPath(new URL('../', import.meta.url));
 
 function repository(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-profiles-install-'));
+  // Canonical, like the implementation: macOS temp directories are reached through /var -> /private/var.
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agent-profiles-install-')));
   t.after(() => {
-    assert.equal(path.dirname(root), path.resolve(os.tmpdir()));
+    assert.equal(path.dirname(root), fs.realpathSync(os.tmpdir()));
     assert.ok(path.basename(root).startsWith('agent-profiles-install-'));
     fs.rmSync(root, { recursive: true, force: true });
   });
