@@ -161,7 +161,7 @@ Version 1 uses plain YAML mappings and lists, enforced by [the resolver](../src/
 | `roles.<id>.description` | String | Optional human-readable summary |
 | `roles.<id>.skills.required` | List of skill IDs | Required; use `[]` for none |
 | `roles.<id>.skills.available` | List of skill IDs | Required; use `[]` for none |
-| `skills` | Mapping | Optional; skill ID to `{file: <repository path>}` or `{host: <host>, id?: <host skill ID>}` |
+| `skills` | Mapping | Optional; skill ID to `{file: <repository path>}` or `{host: <host>, scope: project | user | plugin, id?: <host skill ID>}` |
 
 **Compatibility decision.** The new optional fields (`aliases`, `match`, and host
 skill entries) stay in version 1. No release of Agent Profiles has been
@@ -283,23 +283,28 @@ A **host-native skill** belongs to the host and is invoked, never injected:
 skills:
   release-notes:
     host: claude            # Claude Code
+    scope: project          # .claude/skills/release-notes/SKILL.md
+  personal-style:
+    host: claude
+    scope: user             # ~/.claude/skills; outside the repository
   lint:
     host: claude
-    id: toolkit:lint        # plugin skill; defaults to the key
+    scope: plugin
+    id: toolkit:lint        # defaults to the key
 ```
 
-Host skill identifiers follow the host's rules (Claude Code allows
-`plugin:skill`), not the Agent Profiles ID grammar used for keys. Each reference
-has a verification state:
+`scope` is required, and it decides what validation can enforce:
 
-- `verified-local`: the skill exists in the repository (`.claude/skills/<id>/SKILL.md`),
-  and its metadata was read.
-- `host-provided`: the skill is outside Agent Profiles' view, for example a
-  user-level or plugin skill. It is neither verified nor reported missing.
+| Scope | Identifier | Validation (core) | Verification |
+| --- | --- | --- | --- |
+| `project` | `name` | `.claude/skills/<id>/SKILL.md` must exist; a misspelled ID fails like any missing file | `verified-local`; metadata is read |
+| `user` | `name` | Identifier only; the file is outside the repository | `host-provided` |
+| `plugin` | `plugin:name` | Identifier only | `host-provided` |
 
-Initial support is project-local Claude Code skills. User-level and plugin skills
-can be referenced, but Agent Profiles cannot confirm them. Codex host skills are
-not supported yet.
+Identifiers follow the host's rules, not the Agent Profiles ID grammar used for keys.
+A `host-provided` skill is neither verified nor reported missing. That is a stated
+limit of what can be checked, not a fallback, because the scope was declared
+explicitly. Codex host skills are not supported yet.
 
 There is one authoritative resource per ID. If a mapped file or host reference
 coexists with a different conventional `.agent-profiles/skills/<id>/SKILL.md`,

@@ -11,8 +11,12 @@ export const integrations = [
     files: ['CLAUDE.md', '.claude/CLAUDE.md'],
     select: records => records.find(record => record.span)?.file ??
       records.find(record => record.before !== null)?.file ?? 'CLAUDE.md',
-    // Project-local skills live in the repository; plugin skills (plugin:skill) are host-provided only.
-    skills: { id: /^[a-z0-9][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)?$/, path: id => id.includes(':') ? null : `.claude/skills/${id}/SKILL.md` },
+    // Only project skills live in the repository and can be verified; user and plugin skills cannot.
+    skills: {
+      project: { id: /^[a-z0-9][a-z0-9-]*$/, path: id => `.claude/skills/${id}/SKILL.md` },
+      user: { id: /^[a-z0-9][a-z0-9-]*$/ },
+      plugin: { id: /^[a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*$/ },
+    },
     capabilities: {
       mode: 'bootstrap', verified: 'Claude Code 2.1.283',
       identity: 'exact model ID stated to the model; hooks cannot see it',

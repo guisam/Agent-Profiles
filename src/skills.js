@@ -10,7 +10,7 @@ function directorySkills(root, directory, host) {
   if (!existsSync(target)) return [];
   return readdirSync(target, { withFileTypes: true })
     .filter(entry => entry.isDirectory() || entry.isSymbolicLink())
-    .map(entry => ({ id: entry.name, path: `${directory}/${entry.name}/SKILL.md`, ...(host && { host, hostId: entry.name }) }))
+    .map(entry => ({ id: entry.name, path: `${directory}/${entry.name}/SKILL.md`, ...(host && { host, hostId: entry.name, scope: 'project' }) }))
     .filter(skill => existsSync(path.join(root, skill.path)));
 }
 
@@ -39,8 +39,9 @@ export function discoverSkills(root, configuration) {
   for (const [id, value] of configuration.get('skills') ?? []) {
     if (!value.has('host')) { add({ id, path: value.get('file') }, 'configured'); continue; }
     const hostId = value.get('id') ?? id;
-    const file = integrations.find(adapter => adapter.id === value.get('host'))?.skills?.path(hostId);
-    if (file && existsSync(path.join(root, file))) add({ id, path: file, host: value.get('host'), hostId }, 'configured');
+    if (value.get('scope') !== 'project') continue; // User and plugin skills are not in the repository.
+    const file = integrations.find(adapter => adapter.id === value.get('host'))?.skills?.project.path(hostId);
+    if (file && existsSync(path.join(root, file))) add({ id, path: file, host: value.get('host'), hostId, scope: 'project' }, 'configured');
   }
   for (const source of skillSources) {
     try {

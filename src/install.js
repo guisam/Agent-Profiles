@@ -61,8 +61,8 @@ export function doctor(root) {
     for (const [id, source] of configuration.get('skills') ?? []) {
       const file = source.get('file');
       const hostId = file?.split('/')[2];
-      const adapter = integrations.find(item => item.skills && hostId && item.skills.path(hostId) === file);
-      if (adapter) legacy.push(`Skill ${id} maps ${file} as injected text; replace it with {host: ${adapter.id}${hostId === id ? '' : `, id: ${hostId}`}} so ${adapter.name} invokes it`);
+      const adapter = integrations.find(item => item.skills && hostId && item.skills.project.path(hostId) === file);
+      if (adapter) legacy.push(`Skill ${id} maps ${file} as injected text; replace it with {host: ${adapter.id}, scope: project${hostId === id ? '' : `, id: ${hostId}`}} so ${adapter.name} invokes it`);
     }
     if (readLocal(root, '.agent-profiles/BOOTSTRAP.md') === null) {
       errors.push('.agent-profiles/BOOTSTRAP.md is missing; run init to add the routing protocol');

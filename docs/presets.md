@@ -75,8 +75,9 @@ directories. Use the existing wizard to bind such a resource explicitly first. B
 required and available role skills must resolve; missing dependencies are never dropped.
 
 A preset may also declare host-native skills under `skills.host`
-(`release-notes: {host: claude}`). Import adds the same reference to `agents.yaml`;
-it never converts a host skill into injected Markdown or drops it. If the target
+(`release-notes: {host: claude, scope: project}`). Import adds the same reference to `agents.yaml`;
+it never converts a host skill into injected Markdown or drops it. A `project` skill must
+exist in the target repository, or import stops with the missing path. If the target
 repository lacks that host's integration, the preview shows a note and the reference
 is kept. If the ID already names a different local skill, import stops until one is
 renamed. Export writes the host skills of selected roles to `skills.host`; they
@@ -134,7 +135,7 @@ skills:
   includes:
     review-checklist:
       file: skills/review-checklist/SKILL.md
-  host: {}             # optional: skill ID -> {host: claude, id?: host skill ID}
+  host: {}             # optional: skill ID -> {host: claude, scope, id?: host skill ID}
 defaults:
   role: reviewer
 ```

@@ -51,10 +51,11 @@ function parsePreset(manifest, read) {
   for (const [id, value] of hostSkills) {
     identifier(id, 'skills.host');
     if (requires.includes(id) || includes.has(id)) throw new Error(`skills.host.${id}: declare a skill in only one of requires, includes, or host`);
-    mapping(value, `skills.host.${id}`, ['host'], ['id']);
+    mapping(value, `skills.host.${id}`, ['host', 'scope'], ['id']);
     const adapter = integrations.find(item => item.id === value.get('host') && item.skills);
     if (!adapter) throw new Error(`skills.host.${id}.host: expected a host with native skills`);
-    if (!adapter.skills.id.test(value.get('id') ?? id)) throw new Error(`skills.host.${id}.id: expected a ${adapter.name} skill identifier`);
+    if (!Object.hasOwn(adapter.skills, value.get('scope'))) throw new Error(`skills.host.${id}.scope: expected one of ${Object.keys(adapter.skills).join(', ')}`);
+    if (!adapter.skills[value.get('scope')].id.test(value.get('id') ?? id)) throw new Error(`skills.host.${id}.id: expected a ${adapter.name} ${value.get('scope')} skill identifier`);
   }
   const payload = new Map();
   // ponytail: payloads are Markdown-only; supporting assets need an explicit resource manifest later.
@@ -191,7 +192,7 @@ export function planPresetImport({ root, source, roles, decisions = new Map(), u
       const host = integrations.find(item => item.id === reference.get('host'));
       const hostId = reference.get('id') ?? id;
       const current = configuration.get('skills')?.get(id);
-      if (current?.get('host') !== host.id || (current.get('id') ?? id) !== hostId) {
+      if (current?.get('host') !== host.id || current.get('scope') !== reference.get('scope') || (current.get('id') ?? id) !== hostId) {
         if (current || observe(fileFor('skills', id)) !== null) {
           missing.push(`Skill ${id}: the preset references ${host.name} skill ${hostId}, but ${id} already names another local skill. Rename one before importing; host skills are never renamed automatically.`);
         } else {
@@ -330,7 +331,7 @@ export function planPresetExport({ root, destination, metadata, roles, profiles,
   }
   // Host skills export as references; only instruction skills can be copied into a preset.
   const hostSkills = new Map([...needed.values()].filter(skill => skill.type === 'host')
-    .map(skill => [skill.id, new Map(Object.entries(skill.hostId === skill.id ? { host: skill.host } : { host: skill.host, id: skill.hostId }))]));
+    .map(skill => [skill.id, new Map(Object.entries({ host: skill.host, scope: skill.scope, ...(skill.hostId === skill.id ? {} : { id: skill.hostId }) }))]));
   selected(includeSkills, new Set([...needed.keys()].filter(id => !hostSkills.has(id))), 'includeSkills');
   const includes = new Map();
   for (const id of includeSkills) {

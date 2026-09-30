@@ -197,11 +197,13 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
   for (const [id, source] of sources) {
     identifier(id, `skills.${id}`);
     if (!(source instanceof Map && source.has('host'))) { mapping(source, `skills.${id}`, ['file']); continue; }
-    mapping(source, `skills.${id}`, ['host'], ['id']);
+    mapping(source, `skills.${id}`, ['host', 'scope'], ['id']);
     const adapter = hostOf(source);
     if (!adapter) fail(`skills.${id}.host`, `expected a host with native skills: ${hosts.map(item => item.id).join(', ')}`);
+    const scope = adapter.skills[source.get('scope')];
+    if (!Object.hasOwn(adapter.skills, source.get('scope'))) fail(`skills.${id}.scope`, `expected one of ${Object.keys(adapter.skills).join(', ')}`);
     const hostId = source.has('id') ? source.get('id') : id;
-    if (typeof hostId !== 'string' || !adapter.skills.id.test(hostId)) fail(`skills.${id}.id`, `expected a ${adapter.name} skill identifier`);
+    if (typeof hostId !== 'string' || !scope.id.test(hostId)) fail(`skills.${id}.id`, `expected a ${adapter.name} ${source.get('scope')} skill identifier`);
   }
   const catalog = new Map();
   function resolveSkill(id, entry) {
@@ -213,10 +215,12 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
       if (exists(conventional)) fail(entry, `ambiguous skill ${id}: ${conventional} exists and skills.${id} names a host skill`);
       const adapter = hostOf(source);
       const hostId = source.get('id') ?? id;
-      const file = adapter.skills.path(hostId);
-      // Skills outside the repository (user-level, plugins) are host-provided and cannot be verified here.
-      let skill = { id, type: 'host', host: adapter.id, hostId, delivery: 'invoke', name: hostId, nameSource: 'host', description: null, path: null, verification: 'host-provided' };
-      if (file && exists(file)) {
+      const scope = source.get('scope');
+      // User and plugin skills live outside the repository: host-provided, never verified here.
+      let skill = { id, type: 'host', host: adapter.id, hostId, scope, delivery: 'invoke', name: hostId, nameSource: 'host', description: null, path: null, verification: 'host-provided' };
+      if (scope === 'project') {
+        // A declared project skill must exist, so a misspelled ID fails like any missing file.
+        const file = adapter.skills.project.path(hostId);
         const resolved = localFile(repository, file, entry, 'repository', false, preview);
         skill = { ...skill, path: file, verification: 'verified-local' };
         // The host owns this file's format; unreadable metadata is reported, not fatal to every role.

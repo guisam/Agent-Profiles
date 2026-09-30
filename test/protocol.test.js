@@ -116,7 +116,7 @@ test('host-native skills resolve as host capabilities, are never injected, and a
   repo.write('.claude/skills/release-notes/SKILL.md', '---\ndescription: Check release notes.\n---\nHOST-SKILL-BODY\n');
   repo.write('.claude/skills/bare/SKILL.md', '---\nallowed-tools: Read\n---\nBARE-BODY\n');
   repo.change(config => {
-    config.skills = { 'release-notes': { host: 'claude' }, bare: { host: 'claude' }, lint: { host: 'claude', id: 'toolkit:lint' } };
+    config.skills = { 'release-notes': { host: 'claude', scope: 'project' }, bare: { host: 'claude', scope: 'project' }, lint: { host: 'claude', scope: 'plugin', id: 'toolkit:lint' } };
     config.roles.reviewer.skills.required.push('release-notes');
     config.roles.reviewer.skills.available.push('bare', 'lint');
   });
@@ -125,7 +125,7 @@ test('host-native skills resolve as host capabilities, are never injected, and a
   assert.deepEqual(result.loaded.map(entry => entry.id), ['constrained', 'reviewer', 'code-review']);
   const notes = result.required.find(skill => skill.id === 'release-notes');
   assert.deepEqual(notes, {
-    id: 'release-notes', type: 'host', host: 'claude', hostId: 'release-notes', delivery: 'invoke',
+    id: 'release-notes', type: 'host', host: 'claude', hostId: 'release-notes', scope: 'project', delivery: 'invoke',
     name: 'release-notes', nameSource: 'directory', description: 'Check release notes.',
     path: '.claude/skills/release-notes/SKILL.md', verification: 'verified-local', bytes: null, characters: null, usable: null,
   });
@@ -145,10 +145,10 @@ test('host-native skills resolve as host capabilities, are never injected, and a
 
 test('host skill references validate host, identifier, and conflicts with local skills', async t => {
   const cases = [
-    [config => { config.skills = { x: { host: 'codex' } }; }, /skills.x.host: expected a host with native skills: claude/],
-    [config => { config.skills = { x: { host: 'claude', id: 'Bad Name' } }; }, /skills.x.id: expected a Claude Code skill identifier/],
+    [config => { config.skills = { x: { host: 'codex', scope: 'project' } }; }, /skills.x.host: expected a host with native skills: claude/],
+    [config => { config.skills = { x: { host: 'claude', scope: 'project', id: 'Bad Name' } }; }, /skills.x.id: expected a Claude Code project skill identifier/],
     [config => { config.skills = { x: { host: 'claude', file: 'a.md' } }; }, /skills.x.file: unknown field/],
-    [config => { config.skills = { testing: { host: 'claude' } }; }, /ambiguous skill testing: .agent-profiles\/skills\/testing\/SKILL.md exists and skills.testing names a host skill/],
+    [config => { config.skills = { testing: { host: 'claude', scope: 'project' } }; }, /ambiguous skill testing: .agent-profiles\/skills\/testing\/SKILL.md exists and skills.testing names a host skill/],
   ];
   for (const [index, [edit, error]] of cases.entries()) {
     await t.test(`host reference case ${index + 1}`, t => {
@@ -183,7 +183,7 @@ test('Claude skill discovery and configuration keep host identity instead of cre
   const plan = planRoleChange({ root: repo.root, action: 'create', id: 'writer', available: [notes] });
   assert.deepEqual(plan.aliases, []);
   applyRoleChange(plan);
-  assert.deepEqual(parse(fs.readFileSync(path.join(repo.root, '.agent-profiles/agents.yaml'), 'utf8')).skills, { 'release-notes': { host: 'claude' } });
+  assert.deepEqual(parse(fs.readFileSync(path.join(repo.root, '.agent-profiles/agents.yaml'), 'utf8')).skills, { 'release-notes': { host: 'claude', scope: 'project' } });
   assert.equal(resolveInstructions({ root: repo.root, role: 'writer' }).available[0].type, 'host');
   // Editing the role again keeps the same reference.
   applyRoleChange(planRoleChange({ root: repo.root, action: 'edit', id: 'writer' }));
@@ -243,7 +243,7 @@ test('doctor reports host skill verification and integration capabilities separa
   const repo = repository(t);
   repo.write('.claude/skills/release-notes/SKILL.md', '---\ndescription: Check release notes.\n---\nBody\n');
   repo.change(config => {
-    config.skills = { 'release-notes': { host: 'claude' }, lint: { host: 'claude', id: 'toolkit:lint' } };
+    config.skills = { 'release-notes': { host: 'claude', scope: 'project' }, lint: { host: 'claude', scope: 'plugin', id: 'toolkit:lint' } };
     config.roles.researcher.skills.available = ['release-notes', 'lint'];
   });
   install({ root: repo.root, agents: ['codex'] });
@@ -258,7 +258,7 @@ test('presets carry host skills as references and surface a missing host integra
   const repo = repository(t);
   repo.write('.claude/skills/release-notes/SKILL.md', '---\ndescription: Check release notes.\n---\nBody\n');
   repo.change(config => {
-    config.skills = { 'release-notes': { host: 'claude' } };
+    config.skills = { 'release-notes': { host: 'claude', scope: 'project' } };
     config.roles.researcher.skills.available = ['release-notes'];
   });
   const destination = path.join(repo.root, 'exported');
@@ -266,10 +266,11 @@ test('presets carry host skills as references and surface a missing host integra
     name: 'host-demo', display_name: 'Host demo', description: 'Host skill reference.', author: 'Tests', version: '1.0.0', license: 'Apache-2.0',
   } });
   const manifest = parse(exported.changes.find(change => change.file.endsWith('preset.yaml')).after.toString('utf8'));
-  assert.deepEqual(manifest.skills, { requires: [], includes: {}, host: { 'release-notes': { host: 'claude' } } });
+  assert.deepEqual(manifest.skills, { requires: [], includes: {}, host: { 'release-notes': { host: 'claude', scope: 'project' } } });
   assert.ok(!exported.changes.some(change => change.file.includes('release-notes')));
 
   const target = repository(t);
+  target.write('.claude/skills/release-notes/SKILL.md', '---\ndescription: Check release notes.\n---\nBody\n');
   const source = path.join(target.root, 'preset');
   for (const change of exported.changes) {
     fs.mkdirSync(path.dirname(path.join(target.root, 'preset', change.file.split('/').slice(1).join('/'))), { recursive: true });
@@ -281,7 +282,7 @@ test('presets carry host skills as references and surface a missing host integra
   assert.deepEqual(plan.notices, ['Preset skill release-notes is Claude Code skill release-notes; the Claude Code integration is not installed in this repository. The reference is kept as is.']);
   applyPresetImport(plan, true);
   const imported = resolveInstructions({ root: target.root, role: 'host-researcher' }).available[0];
-  assert.deepEqual([imported.type, imported.verification], ['host', 'host-provided']);
+  assert.deepEqual([imported.type, imported.scope, imported.verification], ['host', 'project', 'verified-local']);
 });
 
 test('an available skill sharing its ID with the role or profile is still exposed to the agent', t => {
@@ -297,7 +298,7 @@ test('an available skill sharing its ID with the role or profile is still expose
 test('doctor reports broken host markers instead of crashing when host skills are configured', t => {
   const repo = repository(t);
   repo.change(config => {
-    config.skills = { notes: { host: 'claude' } };
+    config.skills = { notes: { host: 'claude', scope: 'user' } };
     config.roles.researcher.skills.available = ['notes'];
   });
   install({ root: repo.root, agents: ['codex'] });
@@ -312,7 +313,7 @@ test('unreadable host skill metadata is reported without breaking other roles', 
   const repo = repository(t);
   repo.write('.claude/skills/notes/SKILL.md', 'Instructions without frontmatter.\n');
   repo.change(config => {
-    config.skills = { notes: { host: 'claude' } };
+    config.skills = { notes: { host: 'claude', scope: 'project' } };
     config.roles.researcher.skills.available = ['notes'];
   });
   assert.equal(resolveInstructions({ root: repo.root }).role, 'implementer');
@@ -333,7 +334,7 @@ test('doctor flags older file mappings that inject a Claude skill as text', t =>
   install({ root: repo.root, agents: ['claude'] });
   const report = doctor(repo.root);
   assert.equal(report.valid, true, report.errors.join('\n'));
-  assert.ok(report.notes.includes('Skill testing-2 maps .claude/skills/testing/SKILL.md as injected text; replace it with {host: claude, id: testing} so Claude Code invokes it'));
+  assert.ok(report.notes.includes('Skill testing-2 maps .claude/skills/testing/SKILL.md as injected text; replace it with {host: claude, scope: project, id: testing} so Claude Code invokes it'));
 });
 
 test('resolution knows its host: other hosts\' skills are unusable and required ones unsatisfied', t => {
@@ -341,7 +342,7 @@ test('resolution knows its host: other hosts\' skills are unusable and required 
   repo.write('.claude/skills/notes/SKILL.md', '---\ndescription: Notes.\n---\nBody\n');
   repo.write('.claude/skills/lint/SKILL.md', '---\ndescription: Lint.\n---\nBody\n');
   repo.change(config => {
-    config.skills = { notes: { host: 'claude' }, lint: { host: 'claude' } };
+    config.skills = { notes: { host: 'claude', scope: 'project' }, lint: { host: 'claude', scope: 'project' } };
     config.roles.researcher.skills = { required: ['notes'], available: ['lint'] };
   });
   const unknown = resolveInstructions({ root: repo.root, role: 'researcher' });
@@ -360,4 +361,29 @@ test('resolution knows its host: other hosts\' skills are unusable and required 
   assert.throws(() => resolveInstructions({ root: repo.root, host: 'cursor' }), /host: expected one of claude, codex/);
   install({ root: repo.root, agents: ['codex'] });
   assert.ok(doctor(repo.root).capabilities.includes('Role researcher in OpenAI Codex: required skill notes is unsatisfied (Claude Code skill notes cannot be invoked by OpenAI Codex)'));
+});
+
+test('host skill scope is explicit: project skills must exist, user and plugin skills cannot be verified', async t => {
+  const cases = [
+    [config => { config.skills = { notes: { host: 'claude', scope: 'project', id: 'relase-notes' } }; }, /skills.notes.file: cannot access .claude\/skills\/relase-notes\/SKILL.md/],
+    [config => { config.skills = { notes: { host: 'claude' } }; }, /skills.notes.scope: required field is missing/],
+    [config => { config.skills = { notes: { host: 'claude', scope: 'global' } }; }, /skills.notes.scope: expected one of project, user, plugin/],
+    [config => { config.skills = { notes: { host: 'claude', scope: 'user', id: 'kit:notes' } }; }, /skills.notes.id: expected a Claude Code user skill identifier/],
+    [config => { config.skills = { notes: { host: 'claude', scope: 'plugin', id: 'notes' } }; }, /skills.notes.id: expected a Claude Code plugin skill identifier/],
+  ];
+  for (const [index, [change, error]] of cases.entries()) {
+    await t.test(`scope case ${index + 1}`, t => {
+      const repo = repository(t);
+      repo.write('.claude/skills/release-notes/SKILL.md', '---\ndescription: Notes.\n---\nBody\n');
+      repo.change(change);
+      assert.throws(() => resolveInstructions({ root: repo.root }), error);
+    });
+  }
+  const repo = repository(t);
+  repo.change(config => {
+    config.skills = { mine: { host: 'claude', scope: 'user' }, kit: { host: 'claude', scope: 'plugin', id: 'toolkit:lint' } };
+    config.roles.researcher.skills.available = ['mine', 'kit'];
+  });
+  const result = resolveInstructions({ root: repo.root, role: 'researcher' });
+  assert.deepEqual(result.available.map(skill => [skill.id, skill.scope, skill.verification]), [['mine', 'user', 'host-provided'], ['kit', 'plugin', 'host-provided']]);
 });

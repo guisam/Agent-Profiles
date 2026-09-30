@@ -67,7 +67,7 @@ Discovery inspects only these known resources:
 
 The directory sources inspect one level of skill directories. Skills under
 `.claude/skills/` are **host-native**: selecting one saves a reference such as
-`release-notes: {host: claude}`, and agents invoke it through Claude Code instead of
+`release-notes: {host: claude, scope: project}`, and agents invoke it through Claude Code instead of
 receiving its text. The metadata reader extracts YAML `name` and `description` from
 each resource's frontmatter; when `name` is absent, the directory name is used, as in
 Claude Code. Host skills may omit `description`. Full instruction bodies are not displayed or included in the
@@ -105,7 +105,7 @@ never copied, rewritten, or deleted. Unused source mappings are retained.
 Additional layouts can be added through the small source adapter table in
 [skills.js](../src/skills.js). This version does not scan home directories or
 remote registries. A user-level or plugin Claude skill can be referenced by editing
-`agents.yaml` (`lint: {host: claude, id: toolkit:lint}`); doctor reports it as
+`agents.yaml` (`personal: {host: claude, scope: user}` or `lint: {host: claude, scope: plugin, id: toolkit:lint}`); doctor reports it as
 host-provided, since Agent Profiles cannot verify it. Editing a role keeps such
 references selectable. To use a resource outside the automatic locations, add its
 repository-local path to the existing `skills` map; it then appears in the wizard.

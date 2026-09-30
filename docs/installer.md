@@ -83,9 +83,9 @@ repository-relative detection `hint`, ordered instruction `files`, a pure
 `select(records)` function returning one of those paths, and `capabilities`
 recording observed host behavior (mode, verified host version, identity,
 compaction, model and role changes, subagents, host skills). An adapter with
-native skills also declares `skills`: an identifier pattern and a function
-mapping a host skill ID to its project-local path, or `null` when it lives outside
-the repository. Each record supplied
+native skills also declares `skills`, one entry per scope (`project`, `user`,
+`plugin`), each with an identifier pattern; the `project` entry also maps an ID to
+its path in the repository. Each record supplied
 to `select` contains `file`, `before` (a Buffer or null), and `span` (the managed
 block range or null). Missing targets must have a deterministic default. Path
 precedence belongs here, not in the resolver or shared bootstrap.
@@ -143,7 +143,7 @@ integrations, and each host-native skill's verification state (`verified-local`,
 `host-provided` when Agent Profiles cannot see it), noting when that host's
 integration is not installed. It also flags older `file` mappings to a Claude skill
 (for example `testing-2: {file: .claude/skills/testing/SKILL.md}` from earlier
-wizard versions), which inject the skill as text; replace them with `{host: claude}`.
+wizard versions), which inject the skill as text; replace them with `{host: claude, scope: project}`.
 These notes are informational, not errors. Missing protocol files, malformed blocks,
 shadowed integrations, and a configuration with no active integration produce
 actionable errors and exit status 1. Unselected agents are simply reported as

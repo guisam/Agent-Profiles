@@ -80,11 +80,11 @@ export function planRoleChange({ root, action, id, file, description, required, 
       if (typeof selection !== 'string' && selection.host) {
         // Host skills keep the host's own identity: a conflict is reported, never renamed to an alias.
         const current = sources.get(skillId);
-        if (current?.get('host') === selection.host && (current.get('id') ?? skillId) === selection.hostId) return skillId;
+        if (current?.get('host') === selection.host && current.get('scope') === selection.scope && (current.get('id') ?? skillId) === selection.hostId) return skillId;
         if (current || existsSync(path.join(root, `.agent-profiles/skills/${skillId}/SKILL.md`))) {
           throw new Error(`${entry}: ${skillId} already names another skill, so the ${selection.host} skill ${selection.hostId} cannot use it; rename one of them first`);
         }
-        const reference = new Map(Object.entries(selection.hostId === skillId ? { host: selection.host } : { host: selection.host, id: selection.hostId }));
+        const reference = new Map(Object.entries({ host: selection.host, scope: selection.scope, ...(selection.hostId === skillId ? {} : { id: selection.hostId }) }));
         sources.set(skillId, reference);
         document.setIn(['skills', skillId], document.createNode(Object.fromEntries(reference)));
         return skillId;
