@@ -62,7 +62,11 @@ Conflicts never imply approval to overwrite:
   updating references within incoming definitions. Local references are unchanged.
 - **cancel** leaves the repository untouched.
 
-Model/family mapping conflicts support keep, replace, or cancel. IDs and files
+Model/family mapping conflicts support keep, replace, or cancel. Mappings travel whole: a
+model's `aliases` and a family's `match.prefixes` are exported and imported with its
+profile. A local entry that differs in any field, even with the same profile, is a
+conflict. Imported aliases and prefixes are validated against the target
+configuration, and a collision blocks the import. IDs and files
 that exist only on disk also count as conflicts. Changed role definitions use
 `roles/<id>.md`; included skills use `.agent-profiles/skills/<id>/SKILL.md`. Older
 custom-path files are retained when their mappings are replaced. Missing skills,

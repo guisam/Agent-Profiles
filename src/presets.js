@@ -22,6 +22,14 @@ function ids(value, entry) {
   return value;
 }
 
+function strings(value, entry) {
+  if (!Array.isArray(value) || value.some(item => typeof item !== 'string' || !item.trim())) throw new Error(`${entry}: expected a list of nonempty strings`);
+  return value;
+}
+
+const same = (a, b) => JSON.stringify(a, (_, value) => value instanceof Map ? Object.fromEntries(value) : value) ===
+  JSON.stringify(b, (_, value) => value instanceof Map ? Object.fromEntries(value) : value);
+
 function selected(requested, choices, entry) {
   const result = requested === undefined ? [...choices] : ids(requested, entry);
   for (const id of result) if (!choices.has(id)) throw new Error(`${entry}: unknown selection ${id}`);
@@ -92,8 +100,12 @@ function parsePreset(manifest, read) {
   for (const section of ['models', 'families']) {
     const entries = mapping(data.get(section) ?? new Map(), section);
     for (const [key, value] of entries) {
-      mapping(value, `${section}.${key}`, ['profile']);
-      identifier(value.get('profile'), `${section}.${key}.profile`);
+      // Same shape as agents.yaml; collisions are checked by the resolver against the target at import.
+      const entry = `${section}.${key}`;
+      mapping(value, entry, ['profile'], [section === 'models' ? 'aliases' : 'match']);
+      identifier(value.get('profile'), `${entry}.profile`);
+      if (value.has('aliases')) strings(value.get('aliases'), `${entry}.aliases`);
+      if (value.has('match')) strings(mapping(value.get('match'), `${entry}.match`, ['prefixes']).get('prefixes'), `${entry}.match.prefixes`);
     }
   }
   const defaults = mapping(data.get('defaults') ?? new Map(), 'defaults', [], ['profile', 'role']);
@@ -244,13 +256,16 @@ export function planPresetImport({ root, source, roles, decisions = new Map(), u
     for (const [id, value] of preset.data.get(section) ?? []) {
       const key = `${section}.${id}`;
       const profile = profileNames.get(value.get('profile')) ?? value.get('profile');
-      const previous = configuration.get(section).get(id)?.get('profile');
-      if (previous === profile) continue;
+      // The whole entry travels, including aliases and family prefixes, not just the profile.
+      const incoming = new Map(value).set('profile', profile);
+      const current = configuration.get(section).get(id);
+      if (current && same(current, incoming)) continue;
+      const previous = current?.get('profile');
       const decision = decisions.get(key);
       if (decision !== undefined && !['keep', 'replace'].includes(decision)) throw new Error(`${key}: choose keep or replace`);
       if (previous !== undefined && decision === undefined) { conflicts.push({ key, file: configFile, rename: false }); continue; }
       if (decision === 'keep') { actions.push(`Keep ${key}`); continue; }
-      document.setIn([section, id], document.createNode({ profile }));
+      document.setIn([section, id], document.createNode(incoming));
       actions.push(`${previous === undefined ? 'Add' : 'Replace'} ${key} -> ${profile}`);
       origin(section, id, id);
     }

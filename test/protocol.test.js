@@ -10,7 +10,7 @@ import { applyRoleChange, planRoleChange, readConfiguration } from '../src/confi
 import { formatContext, formatProof } from '../src/diagnostics.js';
 import { bootstrapAvailability, doctor, install, installPackage, uninstall } from '../src/install.js';
 import { bootstrapBlock, END, START } from '../src/integrations.js';
-import { applyPresetImport, planPresetExport, planPresetImport } from '../src/presets.js';
+import { applyPresetExport, applyPresetImport, planPresetExport, planPresetImport } from '../src/presets.js';
 import { resolveInstructions } from '../src/resolve.js';
 import { discoverSkills } from '../src/skills.js';
 
@@ -488,4 +488,42 @@ test('managed surfaces are versioned: stale blocks and references are reported a
   const edited = fs.readFileSync(path.join(repo.root, 'CLAUDE.md'), 'utf8').replace('run this exact', 'run the');
   fs.writeFileSync(path.join(repo.root, 'CLAUDE.md'), edited);
   assert.deepEqual(doctor(repo.root).bootstrap, ['Claude Code: the managed block in CLAUDE.md is modified, not protocol 2; run init to replace it']);
+});
+
+test('presets round-trip model aliases and family prefixes', t => {
+  const source = repository(t);
+  source.change(config => {
+    config.models['example-model'].aliases = ['example-model-2026', 'example-model[1m]'];
+    config.families['example-family'].match = { prefixes: ['example-'] };
+  });
+  const destination = path.join(source.root, 'exported');
+  applyPresetExport(planPresetExport({ root: source.root, destination, roles: ['reviewer'], profiles: ['autonomous', 'scaffolded'], metadata: {
+    name: 'routing', display_name: 'Routing', description: 'Aliases and prefixes.', author: 'Tests', version: '1.0.0', license: 'Apache-2.0',
+  } }), true);
+  const manifest = parse(fs.readFileSync(path.join(destination, 'preset.yaml'), 'utf8'));
+  assert.deepEqual(manifest.models, { 'example-model': { profile: 'autonomous', aliases: ['example-model-2026', 'example-model[1m]'] } });
+  assert.deepEqual(manifest.families, { 'example-family': { profile: 'scaffolded', match: { prefixes: ['example-'] } } });
+
+  // The target maps the same model without aliases: a differing entry is a conflict, not a silent no-op.
+  const target = repository(t);
+  const conflicted = planPresetImport({ root: target.root, source: destination, decisions: new Map([['roles.reviewer', 'keep'], ['profiles.autonomous', 'keep'], ['profiles.scaffolded', 'keep']]) });
+  assert.deepEqual(conflicted.conflicts.map(conflict => conflict.key), ['models.example-model', 'families.example-family']);
+  const plan = planPresetImport({ root: target.root, source: destination, decisions: new Map([
+    ['roles.reviewer', 'keep'], ['profiles.autonomous', 'keep'], ['profiles.scaffolded', 'keep'],
+    ['models.example-model', 'replace'], ['families.example-family', 'replace'],
+  ]) });
+  assert.equal(plan.ready, true, plan.errors.join('\n'));
+  applyPresetImport(plan, true);
+  assert.equal(resolveInstructions({ root: target.root, model: 'example-model[1m]' }).matchedBy, 'alias');
+  assert.equal(resolveInstructions({ root: target.root, model: 'example-other' }).matchedBy, 'family-prefix');
+
+  // An imported alias that collides with the target's configuration blocks the import.
+  const clash = repository(t);
+  clash.change(config => { config.models['example-model-2026'] = { profile: 'constrained' }; });
+  const blocked = planPresetImport({ root: clash.root, source: destination, decisions: new Map([
+    ['roles.reviewer', 'keep'], ['profiles.autonomous', 'keep'], ['profiles.scaffolded', 'keep'],
+    ['models.example-model', 'replace'], ['families.example-family', 'replace'],
+  ]) });
+  assert.equal(blocked.ready, false);
+  assert.match(blocked.errors.join('\n'), /models\.example-model\.aliases: alias example-model-2026 shadows the configured model/);
 });
