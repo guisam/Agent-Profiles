@@ -1,34 +1,49 @@
 # Agent Profiles routing
 
-Keep the host's existing repository instructions and permission rules. If root
-`AGENTS.md` exists and has not already been supplied, read its repository rules
-once. Do not run bootstrap again if its managed block appears in that file.
+This file documents the protocol for people and host integrations. Agents do not
+need to read it: the managed block in the host instruction file asks the agent to
+run the resolver, which performs every routing decision in code.
 
-Read `.agent-profiles/agents.yaml` from the repository root. Use only runtime
-metadata or explicit user input for model and family identity; omit unknown
-identities. Never assess your own capability to select a profile.
+## Terms
 
-1. Select one profile: exact `models` key, then exact supplied `families` key,
-   then `default_profile`. Unknown identities are valid and use the default.
-2. Select the explicitly assigned role, or `default_role` when none is assigned.
-   Model selection and role selection are independent.
-3. Load `profiles/<profile>.md` and the role's `file`, both relative to
-   `.agent-profiles/`. Load all the role's required skills in declaration order.
-4. For each available skill, expose only its ID, name, description, and path.
-   Load its complete instructions only when explicitly needed for the task.
-   Do not search for or load skills outside the selected role's lists.
+- **Resolve**: choose the profile, role, and skills from `agents.yaml` and the
+  supplied identity. Only `agent-profiles resolve` or the resolver API resolves.
+- **Inject**: add Agent Profiles instruction text to the agent's context.
+- **Expose**: list a skill's ID and description without injecting or invoking it.
+- **Invoke**: use the host's own skill mechanism for a host-native skill.
 
-Skill IDs normally resolve to `.agent-profiles/skills/<id>/SKILL.md`. An entry in
-the top-level `skills` map may instead provide a `file` relative to the repository
-root. Names and descriptions come from YAML frontmatter in the skill itself.
-Different files for the same ID are an error; no resource is downloaded.
+## Protocol
 
-Report malformed configuration, missing files, unknown explicit roles, duplicate
-IDs, or required/available collisions instead of substituting instructions.
-Paths must remain local: profile and role files inside `.agent-profiles/`, skill
-files inside the repository. Required skills load once; repeated requests do
-not duplicate them. When roles change, replace the previous role and skill
-context while keeping the model profile unchanged.
+1. The agent runs `npx --no agent-profiles resolve --model "<exact model ID>"`,
+   copying the model ID its host states for it. It omits `--model` when the host
+   states none, and never uses a display name, another model's ID, or recollection.
+   It adds `--role <id>` only when the user or its agent definition assigns one.
+2. The resolver validates the whole configuration and resolves one profile:
+   exact model key, then configured alias, then supplied family, then the longest
+   configured family prefix, then `default_profile`. Matching is exact and
+   case-sensitive. Roles resolve independently: the assigned role, else `default_role`.
+3. The output injects the profile, the role, and required instruction skills; names
+   required host skills to invoke; and exposes available skills.
+4. **Required** skills apply to all work in the role. **Available** skills are used
+   only when the current task falls within the skill's description; an instruction
+   skill is then read from its path, a host skill invoked.
+5. The agent runs `resolve` again after compaction, in a new agent context, after
+   a model change, or to change role. Each output supersedes earlier Agent Profiles
+   instructions in that context.
+6. If `resolve` fails, the agent reports the error. It does not read
+   `.agent-profiles/` to route by hand.
 
-`agent-profiles doctor` validates this configuration when the CLI is available.
-The configuration and Markdown files remain usable without an installed CLI.
+## What each mode can guarantee
+
+In **bootstrap mode** (a managed block in `CLAUDE.md` or `AGENTS.md`), Agent
+Profiles guarantees the configuration check, the resolution for a given identity
+and role, and the generated instructions. Whether the agent runs the command,
+copies the right identity, re-runs it on lifecycle events, or disregards
+superseded text is agent and host behavior. Text already in context cannot be
+removed, and the host may still expose skills a role does not list.
+
+A **native integration** calls the resolver while the host builds context, so it
+can supply identity and lifecycle events itself and replace context cleanly.
+
+See `docs/architecture.md` in the Agent Profiles package for the full contract
+and `docs/host-observations.md` for observed host behavior.

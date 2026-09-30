@@ -23,8 +23,10 @@ Omitted model/family identities use normal fallback rules; omitted role uses
 `default_role`. One role may be selected per invocation. Repeat `--skill` to
 request available skills. Unknown roles or skills are errors, not substitutions.
 
-The human report shows the selected model/profile/role, match rule, loaded paths
-grouped by kind, byte/character totals, and available context not loaded.
+The human report shows the selected model, its canonical ID and identity source,
+the family and how it was found, the match rule, profile and role, injected paths
+grouped by kind, byte/character totals, available context not loaded, host-native
+skills, and the bootstrap block size.
 `--json` produces only JSON on stdout. `--contents` requires `--json` and adds
 selected instruction text; it never adds unrequested skill bodies. JSON errors
 go to stderr with exit code 1 and no partial JSON on stdout.
@@ -89,7 +91,7 @@ The data model makes the boundary explicit:
   "characterUnit": "unicode-code-points",
   "excluded": [
     "host-context", "repository-instructions", "bootstrap-instructions",
-    "inventory-rendering", "output-formatting"
+    "host-native-skills", "inventory-rendering", "output-formatting"
   ]
 }
 ```
@@ -104,6 +106,17 @@ totals, infer whether a host injected them, or claim which other files it used.
 runtime context as `unobserved`, without invented sizes or host-specific
 assumptions. Tokens are `not-calculated`; there is no tokenizer dependency or
 approximate byte-to-token conversion presented as a measurement.
+
+`diagnostics.hostSkills` lists each required or available host-native skill with its
+host, host skill ID, and verification state (`verified-local` or `host-provided`).
+Their bytes are `null`: the host delivers them, Agent Profiles never injects them,
+and they are excluded from `availableNotLoaded`. `proof`, the JSON output, and the
+visualizer apply the same rule.
+
+`diagnostics.bootstrap` measures the managed block that bootstrap mode adds to each
+host instruction surface. It is reported separately and never added to managed
+totals; a native integration needs no block. The `resolve` output wrapper and
+tool-call overhead are not measured.
 
 Managed totals exclude bootstrap/protocol text, host rendering of skill metadata,
 CLI/JSON formatting, separators, and other wrappers. Those bytes are not in
@@ -126,7 +139,7 @@ console.log(result.diagnostics.availableNotLoaded);
 ```
 
 All accounting is computed in the normal resolution path. `proof` only formats
-that result. `npm run resolve -- --role reviewer` exposes the same diagnostic
-fields in the existing developer command, with or without `--contents`.
+that result. `agent-profiles resolve --json --role reviewer` exposes the same
+diagnostic fields, with or without `--contents`.
 Consumers can resolve several model/role combinations independently for future
 comparisons or preset analysis without parsing terminal text.

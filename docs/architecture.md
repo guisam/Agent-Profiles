@@ -1,11 +1,44 @@
 # Architecture (configuration version 1)
 
 Agent Profiles is a repository-local instruction and configuration layer.
-It describes which instructions an existing agent tool should load. This
+It describes which instructions an existing agent tool should receive. This
 architecture defines the contract. The [bootstrap protocol](bootstrap.md) and
-resolver implement validation and loading of additional instruction layers.
-The [installer](installer.md) adds portable instructions through small
-agent-specific adapters.
+resolver implement it. The [installer](installer.md) adds the bootstrap to
+host instruction files through small agent-specific adapters.
+
+## Guarantee levels
+
+Every behavioral statement in this documentation has one of these levels:
+
+| Level | Meaning | Enforced by |
+| --- | --- | --- |
+| **Core** | Deterministic behavior of the resolver, validation, installer, and diagnostics | Agent Profiles code and tests |
+| **Native** | What a host that calls the resolver while building context can ensure | That host integration (none ships yet) |
+| **Bootstrap expectation** | What the managed block and `resolve` output ask the agent to do | The agent; verified only by live-host tests |
+| **Host-dependent** | Behavior Agent Profiles neither controls nor observes | The host |
+
+| Statement | Core | Native | Bootstrap mode |
+| --- | --- | --- | --- |
+| A given identity and role resolve to one profile, role, and skill set | Yes | Yes | Yes, when the agent runs `resolve` |
+| Broken configuration fails instead of falling back | Yes | Yes | The command fails; the agent is asked to report it |
+| The agent receives only the resolved profile, role, and required skills | — | Yes | Expectation. The agent may read other files, and the host may re-attach earlier ones |
+| An available skill stays uninjected until the task needs it | — | Yes | Expectation. Claude Code re-attaches files read earlier after compaction |
+| A reviewer does not receive implementer instructions | — | Yes, if the host builds each role's context separately | Only in a new session or custom agent. A rerun with `--role` supersedes earlier text but cannot remove it |
+| A role sees only its assigned skills | — | Only if the host can hide skills | No. Agent Profiles routes the role's skills; Claude Code still lists every host skill |
+| Resolution runs again after compaction or a model change | — | Yes, where the host reports the event | Expectation. Observed after compaction; skipped after a model change on an unrelated task |
+| The agent uses its host-stated model ID, not a guess | — | The host supplies it | Expectation. Observed reliably on Claude Code |
+| A host-native skill behaves as the host defines it | — | Host-dependent | Host-dependent: Agent Profiles asks the agent to invoke it and never injects its file |
+
+Observed host behavior, with versions, is recorded in [host-observations.md](host-observations.md).
+Integration capabilities are also printed by `agent-profiles doctor`.
+
+## Terms
+
+- **Resolve**: choose the profile, role, and skills from configuration and the
+  supplied identity. Only the resolver resolves.
+- **Inject**: add Agent Profiles instruction text to the agent's context.
+- **Expose**: list a skill's ID and description without injecting or invoking it.
+- **Invoke**: use the host's own mechanism for a host-native skill.
 
 ## Implementation flow
 
@@ -13,25 +46,30 @@ agent-specific adapters.
 explicit repository root to the synchronous installer and configuration APIs.
 
 - `resolve.js` parses YAML using `yaml`, rejects duplicate keys and invalid
-  schema, validates local references, then resolves the model profile, role,
-  and skill lists. Only selected instruction bodies enter its result.
-- `integrations.js` describes host instruction targets and precedence. The
+  schema, validates local references, aliases, and family prefixes, then resolves
+  the profile, role, and skill lists. Only selected instruction bodies enter its result.
+- `integrations.js` describes host instruction targets, host skill locations, the
+  managed block, and each adapter's observed capabilities. The
   [adapter contract](installer.md#integration-contract) keeps host differences
   out of routing.
 - `install.js` discovers integrations, validates configuration, plans scaffold
-  and bootstrap changes, then checks the resulting installation with doctor.
-  Uninstall removes managed spans even if routing configuration is broken.
+  and bootstrap changes (replacing outdated managed blocks), then checks the
+  result with doctor. Uninstall removes managed spans even if routing
+  configuration is broken.
 - `files.js` checks mutation paths and snapshots, writes temporary sibling files,
   and rolls completed writes back after reported failures. Existing user files
   are preserved; configuration deletion requires separate explicit confirmation.
 - `wizard.js` gathers a proposed role edit using local discovery from `skills.js`.
-  `configure.js` builds an in-memory YAML edit, validates through the same resolver,
-  previews the outcome, and applies it only after confirmation and stale-edit checks.
+  `configure.js` builds an in-memory YAML edit, validates it through the same
+  resolver, previews the outcome, and applies it only after confirmation and
+  stale-edit checks.
 - `presets.js` validates a separate versioned preset manifest, then composes import
   plans into the ordinary configuration. A resolver preview map supplies proposed
   Markdown bytes without writing them. Apply rechecks snapshots and uses the shared
   writer. `preset-wizard.js` reuses selection and configuration prompts. Export
   copies selected instruction files into a new local preset directory.
+- `diagnostics.js` measures and formats resolutions: `resolve` output for agents
+  and `proof` output for people.
 
 There is no build step, network resolution, or agent runtime. The only runtime
 dependency is `yaml`; Node supplies file, path, argument, and terminal APIs.
@@ -39,36 +77,37 @@ dependency is `yaml`; Node supplies file, path, argument, and terminal APIs.
 ## Context accounting
 
 A context proof measures the marginal instruction context managed by Agent
-Profiles. It is not necessarily a measurement of the agent's complete context
-window. `diagnostics.js` counts UTF-8 bytes and Unicode code points from the exact
-resolved instruction text, classifies loaded entries, and summarizes profile,
-role, required-skill, and requested-skill totals. Available skill bodies are scanned
-in bounded chunks to measure potential context without exposing that text in the
-result. Routing and ID deduplication semantics remain unchanged.
+Profiles, not the agent's complete context window. `diagnostics.js` counts UTF-8
+bytes and Unicode code points from the exact resolved instruction text, classifies
+injected entries, and summarizes profile, role, required-skill, and requested-skill
+totals. Available instruction skill bodies are scanned in bounded chunks to
+measure potential context without exposing their text.
 
-The resolver returns these diagnostics for CLI, preset, and external consumers.
-`proof` formats that result; it does not route independently. The data model marks
-repository instructions as host-supplied and host internals as unobserved, and
-excludes them from managed totals. Bootstrap instructions, inventory rendering,
-and output wrappers are also explicitly excluded. Tokens are not calculated.
-See [proof.md](proof.md) for the output contract and encoding details.
+Host-native skills are listed separately and never counted, because the host
+delivers them. The bootstrap block is measured on its own line: it is added to
+each host instruction surface in bootstrap mode, and a native integration needs
+none. Repository instructions are host-supplied, host internals are unobserved,
+and tokens are not calculated. See [proof.md](proof.md).
 
 ## Instruction layers
 
-| Layer | Responsibility | Loaded when |
+| Layer | Responsibility | Delivered |
 | --- | --- | --- |
-| Repository (`AGENTS.md`) | Shared project knowledge and invariant rules | Always |
-| Model profile | Accommodations for the configured model | One profile per agent |
-| Role | The job the agent is performing | One role per agent |
-| Required skills | Specialized instructions needed for that role | Whenever the role is active |
-| Available skills | Specialized instructions relevant to some tasks | Only when relevant to the current task |
+| Repository (`AGENTS.md`) | Shared project knowledge and invariant rules | By the host (Claude Code needs the `resolve` reminder to read it) |
+| Model profile | Accommodations for the configured model | Injected, one per resolution |
+| Role | The job the agent is performing | Injected, one per resolution |
+| Required skills | Specialized instructions for all work in the role | Instruction skills injected; host skills invoked |
+| Available skills | Specialized instructions for some tasks | Exposed; used only when the current task falls within the skill's description |
+
+This is the single definition of *required* and *available* used across the
+bootstrap, `resolve` output, wizard, presets, and visualizer.
 
 Keep each instruction in its owning layer. Profiles should not repeat project
 rules or define jobs; roles should not encode model capability. Roles reference
-skills through configuration rather than copying their text. These additions
-do not override repository invariants or the host tool's instruction hierarchy.
-If instructions conflict, surface the conflict rather than silently treating
-the last loaded file as authoritative.
+skills through configuration rather than copying their text. These additions do
+not override repository invariants or host permissions. If instructions
+conflict, surface the conflict rather than treating the last loaded file as
+authoritative.
 
 The sample instructions are deliberately small demonstrations, not recommended
 prompts or capability rankings. A constrained profile is guidance, not a
@@ -76,7 +115,7 @@ security sandbox or a replacement for host permission controls.
 
 ## Files and schema
 
-The working example is [agents.yaml](../.agent-profiles/agents.yaml). All paths
+The working example is [agents.yaml](../.agent-profiles/agents.yaml). Paths
 below are relative to `.agent-profiles/`:
 
 ```text
@@ -87,91 +126,115 @@ roles/<role-id>.md
 skills/<skill-id>/SKILL.md
 ```
 
-Version 1 uses plain YAML mappings and lists. The following table is the initial
-schema contract, enforced by [the resolver](../src/resolve.js).
+Version 1 uses plain YAML mappings and lists, enforced by [the resolver](../src/resolve.js).
 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `version` | Integer | Required; exactly `1` |
 | `default_profile` | Profile ID | Required fallback for unmatched models |
 | `default_role` | Role ID | Required; must be declared in `roles` |
-| `models` | Mapping | Required, may be `{}`; exact model identity to `{profile: <profile-id>}` |
-| `families` | Mapping | Required, may be `{}`; exact family identity to `{profile: <profile-id>}` |
+| `models` | Mapping | Required, may be `{}`; canonical model ID to a model entry |
+| `models.<id>.profile` | Profile ID | Required |
+| `models.<id>.aliases` | List of strings | Optional; other exact identities of the same model |
+| `families` | Mapping | Required, may be `{}`; family name to a family entry |
+| `families.<id>.profile` | Profile ID | Required |
+| `families.<id>.match.prefixes` | List of strings | Optional; identity prefixes that select this family |
 | `roles` | Mapping | Required; role ID to role definition |
 | `roles.<id>.file` | String | Required path to that role's Markdown instructions |
-| `roles.<id>.description` | String | Optional human-readable summary for role selection; role instructions remain in the Markdown file |
+| `roles.<id>.description` | String | Optional human-readable summary |
 | `roles.<id>.skills.required` | List of skill IDs | Required; use `[]` for none |
 | `roles.<id>.skills.available` | List of skill IDs | Required; use `[]` for none |
-| `skills` | Mapping | Optional; skill ID to `{file: <repository-relative Markdown path>}` for existing local resources |
+| `skills` | Mapping | Optional; skill ID to `{file: <repository path>}` or `{host: <host>, id?: <host skill ID>}` |
+
+**Compatibility decision.** The new optional fields (`aliases`, `match`, and host
+skill entries) stay in version 1. No release of Agent Profiles has been
+published, so no existing CLI can reject them. Configurations without these fields
+are unchanged, and the example configuration still validates.
 
 Profile, role, and skill IDs use lowercase ASCII letters, digits, and hyphens,
-starting with a letter or digit. A profile ID resolves to
-`profiles/<id>.md`; a skill ID normally resolves to `skills/<id>/SKILL.md`.
-The optional top-level `skills` map references resources elsewhere in the
-repository without copying or moving them. See [Local skills](#local-skills).
-Model and family keys are nonempty, case-sensitive identity strings, not paths,
-patterns, or capability labels. Quote YAML keys when needed to keep them strings.
+starting with a letter or digit. Model and family keys, aliases, and prefixes are
+nonempty, case-sensitive strings. Quote any value containing YAML syntax, such as
+`"claude-opus-5-5[1m]"`; inside a flow list an unquoted `[` is a YAML error.
 
 Role file paths must be relative, use `/` separators, end in `.md`, and remain
 inside `.agent-profiles/`, including after resolving symlinks. Absolute paths,
-URLs, and `..` path segments are invalid. All referenced files must exist;
-available skill bodies remain unloaded while their metadata is checked.
+URLs, and `..` segments are invalid. All referenced local files must exist.
 Skill lists contain no duplicates and must not overlap within a role.
 
-The resolver rejects duplicate mapping keys, unknown fields, unsupported
-versions, incorrect types, and invalid references with a clear error. A broken
-configuration is not an unknown model: do not silently substitute another
-profile or skip a missing required skill.
+The resolver rejects duplicate mapping keys, unknown fields, unsupported versions,
+incorrect types, and invalid references with an error naming the entry and a
+repository-relative path. A broken configuration is not an unknown model: nothing
+is silently substituted.
 
 ## Model resolution
 
-The host integration supplies a model identity and, when known, one family
-identity. Identity discovery may report the model's name, but may not infer its
-capability or select its own profile. Family membership comes from explicit
-host metadata or a user-supplied identity, never a guessed prefix or substring.
+Identity comes from the host: the exact model ID the host states, supplied by the
+agent in bootstrap mode or by the host in native mode. Models may copy their
+identity; models do not grade themselves, and they never supply an identity from
+recollection. Resolution is core behavior:
 
-**Models may identify themselves. Models do not grade themselves.**
+1. An identity that exactly equals a `models` key uses that model.
+2. Otherwise, an identity listed in a model's `aliases` uses that model.
+3. Otherwise, a supplied family that exactly equals a `families` key uses it.
+4. Otherwise, the family with the longest `match.prefixes` entry that the
+   identity starts with is used.
+5. Otherwise, `default_profile` applies, including when identity is absent.
 
-Resolve the profile in this order:
+Validation makes each step unambiguous:
 
-1. If the model identity exactly matches a key in `models`, use its profile.
-2. Otherwise, if the supplied family identity exactly matches a key in
-   `families`, use its profile.
-3. Otherwise, use `default_profile`, including when identity is unavailable.
+- An alias may not equal another model's key or appear under two models.
+- An alias equal to its own model key is redundant but allowed.
+- The same prefix may not appear in two families. Distinct prefixes that both
+  match an identity always differ in length, so the longest one wins without a tie.
 
-Exact model matches win even when a family mapping also exists. Repository
-owners choose the mappings and a safe default; the example uses `constrained`.
-Profile names are opaque IDs to the resolver, with no built-in ranking.
+Aliases and prefixes are chosen by the repository owner; the resolver never
+derives them.
+
+```yaml
+models:
+  claude-opus-5-5:
+    profile: autonomous
+    aliases: ["claude-opus-5-5[1m]"]
+families:
+  claude-haiku:
+    profile: scaffolded
+    match:
+      prefixes: [claude-haiku-]
+```
+
+Provider IDs vary. For example, Amazon Bedrock cross-region inference profiles
+put a region before the model (`us.`, `eu.`, `apac.`, `global.`). A prefix such as
+`claude-haiku-` does not match them, so list each form you use as an alias or
+prefix. Only the direct Claude Code identities in
+[host-observations.md](host-observations.md) have been verified live; Bedrock and
+Vertex forms are unverified.
+
+The output records provenance: `identity.raw`, `identity.canonical`,
+`identity.source` (`host`, `user`, or `null`), `matchedBy`, `family`, and
+`familySource` (`supplied` or `configured-prefix`).
 
 ## Role selection and skill composition
 
-The user or calling tool explicitly selects a role. If no role is supplied,
-use `default_role`. An explicitly requested but undeclared role is an error,
-not a request to fall back. Role selection never changes model routing, and
-model routing never selects a role.
+The user or calling tool selects a role; otherwise `default_role` applies. An
+explicitly requested but undeclared role is an error. Role selection never changes
+model routing, and model routing never selects a role.
 
 The [configuration wizard](configure.md) edits this same role schema. It can
-create a minimal instruction file, but does not rewrite an existing file when
-its description or skill assignments change.
+create a minimal instruction file, but does not rewrite an existing file.
 
-After resolution, compose context in this order:
+A resolution composes, in order:
 
-1. Repository instructions, following the host's existing `AGENTS.md` handling.
-2. The resolved profile's contents.
-3. The selected role's contents.
-4. That role's required skills, in declaration order.
-5. An inventory of that role's available skill IDs, names, descriptions, and
-   local paths. Load their contents only when explicitly requested for the task,
-   once per skill in the returned context.
+1. Repository instructions, supplied by the host.
+2. The resolved profile, injected.
+3. The selected role, injected.
+4. Required instruction skills in declaration order, injected; required host
+   skills, named for invocation.
+5. The role's available skills, exposed by ID, description, and either a path to
+   read or the host skill to invoke.
 
-Do not eagerly load other profiles, other roles, or available skill contents.
-If the role changes, recompute the role and skill context rather than carrying
-the previous role's instructions forward. How a host refreshes that context is
-an integration detail.
+The following cases can be checked with the example configuration (core behavior):
 
-With the checked-in example, these cases can be followed by hand:
-
-| Model | Supplied family | Requested role | Profile | Role | Required skill contents | Available inventory only |
+| Model | Supplied family | Requested role | Profile | Role | Injected skills | Exposed only |
 | --- | --- | --- | --- | --- | --- | --- |
 | `example-model` | `example-family` | `reviewer` | `autonomous` | `reviewer` | `code-review` | `testing` |
 | `unlisted-model` | `example-family` | `reviewer` | `scaffolded` | `reviewer` | `code-review` | `testing` |
@@ -179,15 +242,13 @@ With the checked-in example, these cases can be followed by hand:
 | Unavailable | Unavailable | `researcher` | `constrained` | `researcher` | None | None |
 | `example-model` | Unavailable | `implementer` | `autonomous` | `implementer` | None | `testing` |
 
-For the first row, load `AGENTS.md`, `profiles/autonomous.md`,
-`roles/reviewer.md`, and `skills/code-review/SKILL.md`. Advertise
-`skills/testing/SKILL.md` without loading its contents until testing is relevant.
-For any row, a role such as `undeclared-role` must produce an error.
+Any undeclared role, such as `undeclared-role`, produces an error.
 
-## Local skills
+## Local and host-native skills
 
-The default source is `.agent-profiles/skills/<id>/SKILL.md`. To reference an
-existing Markdown skill elsewhere, add an optional top-level mapping:
+An **instruction skill** is Markdown that Agent Profiles injects. Its default
+source is `.agent-profiles/skills/<id>/SKILL.md`; the top-level `skills` map can
+point an ID at another repository file:
 
 ```yaml
 skills:
@@ -195,86 +256,63 @@ skills:
     file: team-skills/security/SKILL.md
 ```
 
-This file path is relative to the **repository root**, unlike role file paths.
-It must remain inside the repository after resolving symlinks. Absolute paths,
-URLs, backslashes, and `..` segments are rejected. No folders are scanned, no
-files are downloaded, and a mapping alone does not expose a skill to any role.
-Add its ID to a role's `required` or `available` list to expose it there.
+This path is relative to the **repository root** and must stay inside the
+repository after resolving symlinks. No folders are scanned and nothing is
+downloaded.
 
-There must be one authoritative resource for each skill ID. If both a mapped
-file and the conventional file exist and resolve to different files, validation
-reports an ambiguous skill instead of choosing a winner. A mapping to the same
-canonical file is allowed. Duplicate YAML IDs are rejected. Multiple roles can
-reference the same ID; metadata is read once per resolution, and instructions
-remain in their original file.
+A **host-native skill** belongs to the host and is invoked, never injected:
 
-The initial local reader supports Markdown with YAML frontmatter:
-
-```markdown
----
-name: Security Review
-description: Review changes for common application security risks.
----
-
-Skill instructions go here.
+```yaml
+skills:
+  release-notes:
+    host: claude            # Claude Code
+  lint:
+    host: claude
+    id: toolkit:lint        # plugin skill; defaults to the key
 ```
 
-`name` and `description` must be nonempty strings. The stable ID comes from the
-configuration or conventional directory, not the display name. Other frontmatter
-fields are retained in the source and ignored by this reader; Agent Profiles
-does not maintain a second copy of metadata. Keep descriptions short enough to
-help decide relevance. Metadata must be within the first 64 KiB and use `---`
-delimiter lines. Existing skills without metadata need this small header added
-to their authoritative source. Other local formats can have readers added later.
+Host skill identifiers follow the host's rules (Claude Code allows
+`plugin:skill`), not the Agent Profiles ID grammar used for keys. Each reference
+has a verification state:
 
-Wizard discovery is separate from runtime exposure: it scans the supported
-Agent Profiles and Claude-local directories for a human to select from, while
-bootstrap still exposes only the selected role's lists. If two sources have the
-same ID, selecting an alternative creates or reuses an explicit source alias,
-such as `testing-2`, in the existing top-level `skills` map. No existing binding
-is overwritten, and no other role's meaning changes. The resolver continues to
-reject ambiguous IDs without explicit aliases.
+- `verified-local`: the skill exists in the repository (`.claude/skills/<id>/SKILL.md`),
+  and its metadata was read.
+- `host-provided`: the skill is outside Agent Profiles' view, for example a
+  user-level or plugin skill. It is neither verified nor reported missing.
 
-Metadata validation reads headers incrementally, stopping after the closing delimiter
-(a read chunk may include a prefix of the body). Unselected bodies never enter
-the returned instruction context. Required skills and explicitly requested
-available skills load their complete source text, including frontmatter.
+Initial support is project-local Claude Code skills. User-level and plugin skills
+can be referenced, but Agent Profiles cannot confirm them. Codex host skills are
+not supported yet.
 
-The resolution output includes `required` and `available` metadata lists, each
-containing `id`, `name`, `description`, and repository-relative `path`. The
-`loaded` list contains only selected instructions. Request an available skill
-through `skills: ['security-review']` in the API or `--skill security-review` in
-the debug command. Requests outside the selected role's lists fail even if a
-file exists. Required skills load first; requested skills follow in request
-order, with repeated IDs loaded once. The available index remains unchanged.
-See [bootstrap.md](bootstrap.md) for runnable examples.
+There is one authoritative resource per ID. If a mapped file or host reference
+coexists with a different conventional `.agent-profiles/skills/<id>/SKILL.md`,
+validation reports the ambiguity. Host skills are never renamed to resolve a
+conflict. The wizard asks you to rename one instead, while other mapped files may
+receive an explicit alias such as `testing-2`.
 
-Roles, skill exposure, and on-demand requests do not change model routing.
-This is instruction routing, not permission enforcement or a tool execution
-sandbox. The host remains responsible for its own permissions and context.
+Metadata comes from YAML frontmatter delimited by `---` within the first 64 KiB.
+The same rules apply to discovery, validation, and resolution:
+
+- When `name` is absent, the skill's directory name is used, as Claude Code does.
+- `description` is required for instruction skills and optional for host skills.
+- Other fields are ignored by this reader.
+
+The resolution lists `required` and `available` metadata with `id`, `type`
+(`instruction` or `host`), `delivery` (`inject` or `invoke`), `name`,
+`nameSource`, `description`, and `path` (`null` for host-provided skills). Request
+an available instruction skill with `skills: ['id']` in the API or `--skill id` on
+the CLI. Requests outside the selected role's lists fail. This is instruction
+routing, not permission enforcement.
 
 ## Integration boundary and scope
 
-The installer adapters select host instruction files and insert a managed block
-pointing to `.agent-profiles/BOOTSTRAP.md`. The host agent follows that protocol
-using its runtime identity and assigned role. The resolver API remains available
-for integrations that supply instruction text programmatically. Existing
-repository instructions are preserved and should be read only once. Agent-specific
-filenames belong in the adapter, not in the core profile format.
+Installer adapters choose host instruction files and insert the managed block;
+the agent then runs `resolve`. The resolver API is the native-mode entry point for
+hosts that build context themselves. Agent-specific filenames, skill locations,
+and capabilities belong in the adapter, not in the profile format.
 
-The core does not choose a model, spawn agents, orchestrate tasks, execute skill
-files, benchmark capability, or distribute optimal prompts. Local skill files
-are sufficient; this schema does not define a universal skill ecosystem.
-Remote registries, downloads, machine-local environments, hosted services, and synchronization are
-outside the initial architecture, routing, and installer work. A local debugging
-command is available as `npm run resolve`; the installer exposes `init`, `doctor`,
-and `uninstall`; `configure` provides the role/skill wizard. The [preset format](presets.md)
-adds local inspect/import/export without adding a runtime concept of preset roles.
-
-The [local visualizer](visualize.md) exposes validated selection lists through
-`readConfiguration` and delegates every projection to `resolveInstructions`.
-Its browser UI renders those results without parsing YAML, routing models, or
-recalculating context sizes. A Node HTTP server binds to loopback with a random
-session URL, fixed assets, same-origin restrictions, and read-only endpoints.
-Model/role choices, skill requests, and comparison snapshots remain in page memory;
-they never write configuration. Imported presets need no separate visualizer logic.
+The core does not choose or launch models, orchestrate tasks, execute skill files,
+benchmark capability, or distribute prompts. Remote registries, downloads,
+machine-local environments, hosted services, and synchronization are out of scope.
+The [preset format](presets.md) adds local inspect, import, and export. The
+[visualizer](visualize.md) renders resolver output without routing on its own.

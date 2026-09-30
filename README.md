@@ -1,7 +1,7 @@
 # Agent Profiles
 
 Different models need different instructions. Different roles need different
-skills. Agent Profiles gives each agent only the additional context it needs.
+skills. Agent Profiles resolves only the additional context each agent needs.
 
 A shared `AGENTS.md` is useful for repository facts and conventions. But putting
 every model accommodation, job description, and skill into it gives agents
@@ -34,7 +34,10 @@ npx agent-profiles visualize
 ```
 
 `init` asks which agents to enable and adds a small bootstrap block to their
-instruction files. `configure` creates, edits, or deletes roles and lets you
+instruction files. The block asks the agent to run `npx --no agent-profiles resolve`
+with the exact model ID its host states. Code does all routing, and the agent
+follows the printed result. Install the package as a dev dependency and allow that
+command in your agent (see [bootstrap setup](docs/bootstrap.md#host-setup)). `configure` creates, edits, or deletes roles and lets you
 select required and available local skills. `doctor` checks configuration and
 integration status. Use `--help` for options; scripts can initialize with
 `--agent claude --agent codex`. Use `--root` for a directory outside Git.
@@ -43,7 +46,8 @@ integration status. Use `--help` for options; scripts can initialize with
 | --- | --- |
 | `init` | Select agents, preserve their existing instructions, and install the local scaffold |
 | `configure` | Create/edit/delete roles and select required or available skills |
-| `doctor` | Validate configuration, local references, and integration status |
+| `doctor` | Validate configuration, local references, host skills, and integration capabilities |
+| `resolve` | Print the resolved instructions an agent follows; `--json` for integrations |
 | `proof` | Measure selected instruction bytes/characters and available context not loaded |
 | `visualize` | Explore model/role composition, project skill requests, and compare context locally |
 | `preset inspect/import/export` | Review and share local configurations with explicit conflict handling |
@@ -55,7 +59,7 @@ your-project/
   CLAUDE.md                   # Claude bootstrap
   .agent-profiles/
     agents.yaml               # model mappings, roles, skill references
-    BOOTSTRAP.md               # portable routing protocol
+    BOOTSTRAP.md              # protocol reference (agents do not need to read it)
     profiles/                 # autonomous, scaffolded, constrained
     roles/                    # implementer, reviewer, researcher
     skills/                   # code-review and testing examples
@@ -64,7 +68,8 @@ your-project/
 Only selected agents receive integrations; existing supported alternate files
 are respected. Initialization preserves existing instructions and user-edited
 configuration. Review the generated files before committing, then restart your
-agent session. Assign a role explicitly, or use the configured default.
+agent session. Assign a role explicitly, or use the configured default. For a
+clean per-role session in Claude Code, use a [custom agent](docs/bootstrap.md#roles).
 
 To remove integration blocks while keeping your configuration:
 
@@ -77,34 +82,43 @@ target-file selection, and explicitly confirmed configuration deletion.
 
 ## The layers
 
-| Layer | Purpose | When loaded |
+| Layer | Purpose | Delivered |
 | --- | --- | --- |
-| Repository instructions | Facts, conventions, and invariants in `AGENTS.md` | Always, through the host |
-| Model profile | Scaffolding or accommodations configured for a model | One selected profile |
-| Role | Instructions for the job being performed | One assigned or default role |
-| Required skills | Specialized instructions always needed for that role | With the role |
-| Available skills | Other relevant skills the role may use | Metadata first; instructions on demand |
+| Repository instructions | Facts, conventions, and invariants in `AGENTS.md` | By the host |
+| Model profile | Scaffolding or accommodations configured for a model | One selected profile, injected |
+| Role | Instructions for the job being performed | One assigned or default role, injected |
+| Required skills | Specialized instructions for all work in the role | Injected, or invoked for host skills |
+| Available skills | Other skills the role may use | Listed; used only when the task falls within the skill's description |
 
-Profile resolution is deterministic: **exact model → supplied family → configured
-default**. Role selection is independent. Models may identify themselves; models
-do not grade themselves. Unknown identities receive the fallback profile.
+Profile resolution is deterministic: **exact model → configured alias → supplied
+family → longest configured family prefix → default**. Role selection is
+independent. Models copy the identity their host states; they do not grade
+themselves or guess. Unknown identities receive the fallback profile.
 
 The complete [example configuration](.agent-profiles/agents.yaml) routes
 `example-model` to `autonomous`, `example-family` to `scaffolded`, and unmatched
-identities to `constrained`. A `reviewer` loads `code-review` and sees `testing`
-metadata until that skill is needed. The model names, three short profiles, and
+identities to `constrained`. A `reviewer` receives `code-review` and sees `testing`
+listed until a task needs it. The model names, three short profiles, and
 three roles demonstrate the mechanism; they are not capability rankings or
 universally optimal prompts. Adapt them to your workflow.
 
 Skills live in `.agent-profiles/skills/<id>/SKILL.md` or another explicitly mapped
-repository path. The [wizard](docs/configure.md) also discovers Claude-local
-skills. Skill frontmatter supplies names and descriptions. No remote instruction
+repository path. Claude Code skills in `.claude/skills/` can be assigned as
+host-native skills: Agent Profiles asks the agent to invoke them through Claude Code
+and never injects their files. The [wizard](docs/configure.md) discovers both kinds.
+Skill frontmatter supplies descriptions and optional names (the directory name is
+the fallback). No remote instruction
 source is fetched or silently installed, and Agent Profiles never executes skill
 instructions. Treat local configuration as code-like repository content.
 
-These are instructions for the host to follow, not a context or permission
-sandbox. Built-in host skills, global instructions, and host-managed context
-remain outside Agent Profiles' control.
+Agent Profiles guarantees the resolution: the same identity, role, and
+configuration always produce the same instructions. In bootstrap mode, running
+the command and following its output is up to the agent. Text already in context
+cannot be removed, and Claude Code lists every host skill to every role. The
+[guarantee levels](docs/architecture.md#guarantee-levels) mark what each
+integration mode can ensure. [host-observations.md](docs/host-observations.md)
+records what was verified live with Claude Haiku, Sonnet, and Opus. Agent Profiles
+is not a context or permission sandbox.
 
 ## Measure the selected context
 
@@ -120,8 +134,9 @@ output; the same diagnostics are available through the resolver API.
 
 These totals cover resolved instruction bodies, not the complete agent context.
 Repository instructions remain host-supplied; hidden system prompts, built-in
-skills, and other host context remain unobserved. Bootstrap text and metadata
-rendering are outside the measured total. Tokens are explicitly **not calculated**,
+skills, and other host context remain unobserved. Host-native skills are listed
+but never counted. The bootstrap block is reported on its own line, outside the
+managed total. Tokens are explicitly **not calculated**,
 and unloaded context is not labeled as savings without a comparison baseline.
 See [context proof](docs/proof.md) for the accounting contract.
 
@@ -184,7 +199,8 @@ Local environment profiles and token accounting remain future work.
 - [Context proof and accounting boundaries](docs/proof.md)
 - [Local context visualizer](docs/visualize.md)
 - [Architecture and schema](docs/architecture.md)
-- [Bootstrap protocol and resolver examples](docs/bootstrap.md)
+- [Bootstrap protocol, host setup, and resolver API](docs/bootstrap.md)
+- [Live-host observations](docs/host-observations.md)
 - [Contributing and development checks](CONTRIBUTING.md)
 - [Release checklist and verification limits](docs/release.md)
 - [Changelog](CHANGELOG.md)

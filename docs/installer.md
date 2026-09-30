@@ -42,13 +42,14 @@ agent-profiles init --agent claude --agent codex
 ```
 
 A fresh install copies the small checked-in `.agent-profiles/` scaffold,
-including its portable `BOOTSTRAP.md`, three profiles, three roles, and two
+including the `BOOTSTRAP.md` protocol reference, three profiles, three roles, and two
 illustrative skills. The default is `constrained` plus `implementer`. It then
 inserts a marked bootstrap block into the selected host instruction files and
 validates the installation using the existing resolver.
 
-Re-running init keeps existing configuration, profiles, roles, skills, and managed
-blocks unchanged. Additional agents can be selected later. A valid older
+Re-running init keeps existing configuration, profiles, roles, and skills unchanged.
+A managed block from an earlier version is replaced in place, with every byte
+outside its markers preserved; a current block is left alone. Additional agents can be selected later. A valid older
 configuration can receive a missing `BOOTSTRAP.md` without replacing other files.
 A nonempty `.agent-profiles/` without `agents.yaml`, or invalid existing
 configuration, is reported for manual repair rather than overwritten.
@@ -69,15 +70,22 @@ Global settings, custom instruction filenames, per-directory installations, and
 additional agent products are outside this first adapter set. Host exclusions
 and instruction size limits still apply. Restart the host session after install.
 
-The portable bootstrap preserves repository rules and directs agents to read
-root `AGENTS.md` once if it was not supplied by the host. It then follows the
-configuration routing protocol; it does not run an agent or execute skill tools.
+The managed block asks the agent to run `npx --no agent-profiles resolve` with its
+host-stated model ID and follow the output, which also asks it to read `AGENTS.md`
+when the host has not loaded it. Install the package in the repository and allow
+that command in the host; see [bootstrap setup](bootstrap.md#host-setup). The block
+does not run an agent or execute skill tools. `npx --no` never downloads a package.
 
 ## Integration contract
 
 An adapter is one record in `integrations` with a unique `id`, display `name`,
-repository-relative detection `hint`, ordered instruction `files`, and a pure
-`select(records)` function returning one of those paths. Each record supplied
+repository-relative detection `hint`, ordered instruction `files`, a pure
+`select(records)` function returning one of those paths, and `capabilities`
+recording observed host behavior (mode, verified host version, identity,
+compaction, model and role changes, subagents, host skills). An adapter with
+native skills also declares `skills`: an identifier pattern and a function
+mapping a host skill ID to its project-local path, or `null` when it lives outside
+the repository. Each record supplied
 to `select` contains `file`, `before` (a Buffer or null), and `span` (the managed
 block range or null). Missing targets must have a deterministic default. Path
 precedence belongs here, not in the resolver or shared bootstrap.
@@ -97,12 +105,13 @@ contract assumes local Markdown instruction files; a host requiring a different
 mechanism needs a separately designed adapter extension, not shared-bootstrap
 workarounds. No routing changes should be necessary.
 
-The shared bootstrap deliberately contains no host commands or assumed model
-identity. The installed protocol can be followed by reading local files without
-a global CLI. It preserves host instruction precedence, separates model identity
-from role assignment, and keeps available skill bodies out of initial context.
-See the [release checklist](release.md) for live-session verification: automated
-tests prove file and resolver behavior, not host compliance with instructions.
+The shared bootstrap contains one command and no assumed model identity: the
+agent copies the identity its host states, and the resolver does the rest. It
+preserves host instruction precedence and separates model identity from role
+assignment. Automated tests prove file and resolver behavior (core guarantees).
+Whether an agent runs the command and follows the output is a bootstrap
+expectation, recorded per host and model in [host-observations.md](host-observations.md)
+and the [release checklist](release.md).
 
 ## Managed blocks and failure safety
 
@@ -128,8 +137,11 @@ Linked mutation targets are rejected rather than writing through them.
 ## Doctor
 
 `agent-profiles doctor` reuses `resolveInstructions` to validate every declared
-profile, role, skill source, and metadata reference. It reports defaults and each
-supported integration's location/status. Missing protocol files, malformed blocks,
+profile, role, skill source, and metadata reference. It reports defaults, each
+supported integration's location/status, the observed capabilities of installed
+integrations, and each host-native skill's verification state (`verified-local`, or
+`host-provided` when Agent Profiles cannot see it), noting when that host's
+integration is not installed. These notes are informational, not errors. Missing protocol files, malformed blocks,
 shadowed integrations, and a configuration with no active integration produce
 actionable errors and exit status 1. Unselected agents are simply reported as
 not installed. Doctor never modifies files.

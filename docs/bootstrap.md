@@ -1,116 +1,176 @@
 # Bootstrap protocol
 
-The host supplies repository instructions using its normal instruction hierarchy.
-The resolver supplies only the additional layers; it does not replace, reread,
-or edit `AGENTS.md`. The installer adds a managed bootstrap block while preserving
-existing instructions. Model and family identities come from runtime metadata or
-explicit user input. Omit unknown identities; never guess capability or infer
-family membership from a name prefix.
+Agent Profiles supports two integration modes. Each statement below names the
+mode that can actually guarantee it.
 
-1. Read and validate `.agent-profiles/agents.yaml` and its file references.
-2. Resolve one profile: exact model, then supplied family, then default.
-3. Resolve one role: explicitly assigned role, otherwise `default_role`.
-4. Load the profile, role, and all required skills in that order.
-5. Advertise only the selected role's available skill IDs, names, descriptions,
-   and paths. Load their contents later only on an explicit request relevant to
-   the task. Do not discover or load other skills.
+- **Bootstrap mode** is for hosts whose only hook is an instruction file, such as
+  Claude Code (`CLAUDE.md`) and Codex (`AGENTS.md`). The installer adds a managed
+  block asking the agent to run the resolver. Agent Profiles guarantees the block,
+  the configuration check, and what `resolve` prints for a given identity and role.
+  Running the command, copying the right identity, and re-running it are agent
+  behavior, verified only by live-host tests.
+- **Native mode** is for a host that calls the resolver API while building
+  context. The host supplies identity, role, and lifecycle events and replaces
+  context itself, so the resolution is exactly what the agent receives.
 
-On a configuration error, stop bootstrap and report the offending entry. Unknown
-models are valid and use the fallback rules; invalid references are errors.
-Validation checks all declared references, including available skills and
-inactive roles, and reads skill metadata without loading unselected bodies into
-context. Explicit source mappings are validated even if unused. Missing available
-skills therefore fail this resolver's validation; the YAML remains directly
-inspectable even when resolution fails.
+No native integration ships yet. The protocol reference copied into each
+repository is [BOOTSTRAP.md](../.agent-profiles/BOOTSTRAP.md); observed host
+behavior is in [host-observations.md](host-observations.md).
 
-When the assigned role changes, recompute context from the repository instructions
-and the newly resolved layers. The host is responsible for replacing previous
-role and skill context. Additional instructions cannot override repository
-invariants or host permissions.
-
-## Reusable instruction block
-
-The installer inserts a small managed block pointing to the portable
-[routing protocol](../.agent-profiles/BOOTSTRAP.md), which is copied into the
-target repository. Its wording is maintained in
-[integrations.js](../src/integrations.js). It does not depend on this project's
-`docs/` directory or a globally installed CLI.
+## The managed block
 
 ```markdown
 <!-- agent-profiles:start -->
 
 ## Agent Profiles
 
-Before beginning work, read `.agent-profiles/agents.yaml` and follow
-`.agent-profiles/BOOTSTRAP.md` from the repository root. Keep existing
-repository instructions. Resolve one model profile and an independent role;
-load only that profile, role, and required skills. Expose available skill
-metadata and load their bodies only when needed. Never select a profile
-by assessing your own capabilities. Report configuration errors.
+At the start of every new or compacted context, and after a model change,
+run this exact command (no `cd` or other prefix) and follow its output:
+
+    npx --no agent-profiles resolve --model "<exact model ID>"
+
+Use the exact model ID your host states for you (for example, "The exact
+model ID is ..."): not a display name, another model's ID, or your own
+recollection. If the host states none, omit `--model`. Add `--role <id>` only
+when the user or your agent definition assigns a role. If the command fails,
+report its error; do not read `.agent-profiles/` to route by hand.
 
 <!-- agent-profiles:end -->
 ```
 
-## Try the resolver
+The wording is maintained in [integrations.js](../src/integrations.js). Running
+`init` again replaces an outdated managed block in place.
 
-From a checkout, with Node.js 22 or newer:
+The model's only routing task is copying one string. Live tests found that
+models asked to match `agents.yaml` themselves made mistakes, for example
+treating a dated model ID as matching an undated key. Aliases, family prefixes,
+validation, and file selection therefore happen in code.
 
-```sh
-npm ci
-npm test
-npm run resolve -- --model example-model --family example-family --role reviewer
-npm run resolve -- --model unknown-model
-npm run resolve -- --role reviewer --contents
-npm run resolve -- --role reviewer --skill testing --contents
+`--no` makes `npx` fail instead of downloading. Agent Profiles never runs a
+package fetched from the registry at bootstrap time, even if the name is taken
+by someone else.
+
+## Host setup
+
+1. Install the package in the repository: `npm install --save-dev agent-profiles`
+   (until v0.1.0 is published, install a packed tarball; see [installer.md](installer.md)).
+   The command then resolves from `node_modules/.bin` without a network request.
+2. Allow the command so the agent is not blocked on a permission prompt. In
+   Claude Code, add both rules; on Windows, models often choose PowerShell:
+
+   ```json
+   {
+     "permissions": {
+       "allow": [
+         "Bash(npx --no agent-profiles resolve:*)",
+         "PowerShell(npx --no agent-profiles resolve:*)"
+       ]
+     }
+   }
+   ```
+
+3. Run `agent-profiles doctor`. It reports configuration errors, host skill
+   verification, and the observed capabilities of each installed integration.
+
+## Identity
+
+Claude Code states `The exact model ID is <id>.` in every observed context,
+including subagents and after a model change. The same prompt also lists the IDs
+of *other* Claude models, and a model launched with an alias such as `haiku` sees
+the dated ID (`claude-haiku-4-5-20251001`). Configure the IDs your host actually
+exposes, using aliases and family prefixes (see [architecture.md](architecture.md#model-resolution)).
+Run `agent-profiles proof --model <id>` to check a route.
+
+Claude Code hooks do not receive the model, so a hook cannot resolve a profile at
+session start. Codex identity exposure has not been observed yet.
+
+## Roles
+
+The role is `default_role` unless `--role` is passed. In bootstrap mode the agent
+passes a role only when one is assigned: by the user, or by an agent definition.
+
+For Claude Code, a custom agent in `.claude/agents/<name>.md` gives a role its own
+session and model. Put the exact command in the agent's instructions; naming the
+role alone was not enough in live tests:
+
+```markdown
+---
+name: reviewer
+description: Reviews changes using the Agent Profiles reviewer role.
+model: haiku
+---
+
+Before any other step, run `npx --no agent-profiles resolve --role reviewer --model "<exact model ID>"`
+with the exact model ID your host states for you, and follow its output.
 ```
 
-The first resolution selects `autonomous` via the exact model mapping, loads
-the reviewer and `code-review` instructions, and lists `testing` without its
-contents. An unknown model with no supplied matching family uses `constrained`.
-`--root <repo>` targets another repository; the default is the working directory.
-Flags must be explicit: missing values and unknown flags are errors.
+Built-in subagents such as Explore do not receive `CLAUDE.md` and so get no
+profile.
 
-The JSON output reports `model`, `family`, `matchedBy` (`model`, `family`, or
-`default`), `profile`, `role`, host-owned `repository` instructions, `loaded`
-paths, and `required` and `available` skill metadata lists. Loaded entries also
-identify their kind/ID and exact byte/character counts; selected skill metadata
-includes counts, and `diagnostics` reports category totals and accounting boundaries.
-All output paths are
-repository-relative. Use `--contents` to include the selected instruction texts.
-`--skill testing` explicitly adds that available skill to `loaded`; repeat the
-flag for multiple skills. Merely passing `--contents` does not select available
-skills. Requests outside the selected role's skill lists fail. Errors go to
-stderr with exit status 1 and no
-partial resolution on stdout.
+## Lifecycle
 
-## Integration API
+| Event | Bootstrap mode (expectation, observed on Claude Code) | Native mode |
+| --- | --- | --- |
+| New session | Agent runs `resolve`; observed reliably | Host resolves before the first turn |
+| Compaction | Block is re-injected; Claude Code also re-attaches recently read files. Agent re-ran `resolve` when asked about its profile | Host treats reconstruction as a resolution event |
+| Model change | Re-ran `resolve` when asked about its profile; **not** on an unrelated task. The previous profile text stays in context | Host resolves with the new identity and rebuilds context |
+| Role change | A new session or custom agent is the only clean transition; a rerun with `--role` supersedes but cannot remove earlier text | Host resolves the new role before rebuilding context |
+| Subagent | Custom agents receive the block; built-in Explore does not | Host resolves per subagent |
+
+Each `resolve` output states that it supersedes earlier Agent Profiles text in
+the same context. That is an instruction to the agent, not removal.
+
+## The resolve command
+
+```sh
+agent-profiles resolve [--model <id>] [--family <id>] [--identity-source host|user]
+                       [--role <id>] [--skill <id> ...] [--json [--contents]]
+```
+
+Without `--json`, it prints the agent-facing context:
+
+- The profile, role, and required instruction skills, each injected in full.
+- Required host skills, named with the host skill to invoke.
+- Available skills, with their descriptions. Instruction skills show a path to
+  read, and host skills show the host skill to invoke.
+- A reminder to read `AGENTS.md` when it exists, since Claude Code does not load it.
+- The exact command to run again, and when.
+
+From a checkout, `npm run resolve -- --model example-model --role reviewer`
+prints the JSON form. `--skill testing` injects an available instruction skill;
+requesting a host skill injects nothing. Errors go to stderr with exit status 1
+and no partial output.
+
+## JSON and API
 
 ```js
 import { resolveInstructions } from './src/resolve.js';
 
 const result = resolveInstructions({
   root: process.cwd(),
-  model: 'example-model',
-  family: 'example-family',
+  model: 'claude-opus-5-5[1m]',
+  identitySource: 'host', // or 'user'; omit when unknown
   role: 'reviewer',
-  skills: ['testing'], // Omit this to load only required skills during bootstrap.
+  skills: ['testing'],    // omit to inject only required skills
 });
 ```
 
-The synchronous API returns the same result with `loaded` entries containing
-`path`, `content`, `kind`, `id`, `bytes`, and `characters`. All arguments are optional; omit unavailable identity or
-role values rather than supplying empty strings. Invalid input or configuration
-throws an error identifying the entry. The caller supplies repository context,
-inserts `loaded` contents, and exposes the available index using its host APIs.
-`skills` is an optional list of requested IDs. Required skills are already loaded;
-repeated requests for the same ID do not duplicate content. Each call returns a
-complete resolved context, not a delta: hosts should replace the previous result
-or deduplicate by path instead of appending it again. When roles change, drop any
-previous skill requests that the new role does not permit.
-The resolver does not inject prompts into an agent or execute skill files.
-Selected-role available skills are scanned for diagnostics without including
-their bodies in the returned context. [Context proof](proof.md) documents exact
-measurement semantics and the user-facing `agent-profiles proof` command.
+The synchronous result contains:
 
-See [architecture.md](architecture.md) for the schema and ownership boundaries.
-See [installer.md](installer.md) for installation, adapters, and safe removal.
+- `model`, `family`, and `familySource` (`supplied` or `configured-prefix`).
+- `matchedBy` (`model`, `alias`, `family`, `family-prefix`, or `default`), and
+  `identity` (`raw`, `canonical`, `source`, `matchedBy`) for provenance.
+- `profile`, `role`, and `roleSource` (`assigned` or `default`).
+- `repository` (host-supplied `AGENTS.md` and whether it exists).
+- `loaded`: the injected entries, with `path`, `content`, `kind`, `id`, `bytes`,
+  and `characters`.
+- `required` and `available`: skill metadata with `type`, `delivery`, and
+  `nameSource`. Host skills also carry `host`, `hostId`, and `verification`.
+- `diagnostics`.
+
+Each call returns a complete resolution, not a delta. A native host should
+replace the previous result, and drop skill requests the new role does not
+permit. The resolver never injects prompts or executes skill files.
+
+See [architecture.md](architecture.md) for the schema and [installer.md](installer.md)
+for installation and removal.

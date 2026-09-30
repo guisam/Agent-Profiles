@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased — host integration protocol
+
+- The managed bootstrap now asks the agent only to run
+  `npx --no agent-profiles resolve --model "<exact model ID>"` and follow its output.
+  Matching, validation, and file selection moved from the model into code after
+  live Claude Code tests showed models misrouting when they matched IDs themselves.
+  `init` replaces older managed blocks in place.
+- Added `resolve` (agent-facing text, or `--json`); it replaces `scripts/resolve.js`
+  and `npm run resolve` now calls it.
+- Model `aliases` and owner-configured family `match.prefixes` (longest prefix wins),
+  with collision validation and identity provenance (`identity`, `familySource`).
+- Host-native Claude Code skills as `{host: claude, id?}` references that are
+  invoked, never injected or counted, with `verified-local`/`host-provided` states.
+  The wizard binds Claude skills by host identity instead of numbered aliases, and
+  presets carry them under `skills.host`.
+- A skill without frontmatter `name` uses its directory name; errors report
+  repository-relative paths.
+- `doctor` reports host skill verification and each integration's observed
+  capabilities. `proof` and the visualizer list host skills separately and report
+  the bootstrap block size on its own line.
+- Documented guarantee levels (core, native, bootstrap expectation, host-dependent)
+  and recorded live-host observations for Claude Haiku, Sonnet, and Opus.
+
 ## Unreleased — local visualizer
 
 - Added `visualize`: a local, read-only context explorer with model/family/role

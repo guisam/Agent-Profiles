@@ -26,31 +26,45 @@ For releases including preset support, the packed workflow also inspects the
 bundled example and exports/imports selected roles. Preset tests cover conflicts,
 missing local skills, editable provenance, round trips, stale plans, and rollback.
 Context-proof checks verify the packed CLI's human/JSON output and requested-skill
-delta. Accounting tests cover Unicode, line endings, previews, aliases, and the
+delta. The artifact check also runs the exact bootstrap command,
+`npm exec --no -- agent-profiles resolve`, from the installed package offline. Accounting tests cover Unicode, line endings, previews, aliases, and the
 host boundary; no tokenizer or live-host introspection is used.
 
 ## Live-host checks
 
-For **both Claude Code and Codex**, record host version, OS, result, and any
-host instruction exclusions or size limits. Use a disposable repository and
-review generated files before starting a fresh host session.
+Live checks record agent and host behavior (bootstrap expectations), never core
+guarantees. Record results in [host-observations.md](host-observations.md) with the
+host version, OS, model, and date. Use a disposable repository with the packed
+package installed as a dev dependency and the resolve command allowed (see
+[bootstrap setup](bootstrap.md#host-setup)). Read tool calls from the host's
+transcript or stream output rather than trusting the agent's self-report; live
+tests found self-reports that omitted files the agent had read.
 
-- [ ] Initialize with the selected integration; check its reported target file.
-- [ ] Ask the host to report its profile, selected role, loaded instruction paths,
-      and available skill metadata. Supply `example-model` and role `reviewer`
-      explicitly for the fixture; expect `autonomous`, `reviewer`, required
-      `code-review`, and available `testing` without its body.
-- [ ] Repeat with unknown model identity; expect `constrained`. Supply
-      `example-family` instead to verify family fallback to `scaffolded`.
-- [ ] Request `testing` for a relevant task and verify its instructions load.
-- [ ] Run the interactive role wizard in a real terminal, then restart the host
-      with the new role. Verify existing repository rules still apply.
-- [ ] Uninstall; check that original instruction bytes and user configuration
-      remain. Restart the host to verify the managed bootstrap is gone.
+Run the protocol-sensitive rows with **Claude Haiku and Claude Opus**, and Sonnet
+where available. One model does not represent all Claude behavior.
 
-These adapters supply instructions, not a programmatic host context filter.
-Global instructions and built-in host skills may still load independently.
-Doctor validates local files and references; it cannot observe a host's session.
+- [ ] Exact identity: the ID passed to `resolve` equals the host-stated exact model ID.
+- [ ] Alias and family prefix: a dated or suffixed ID routes by alias or prefix.
+- [ ] Unknown and missing identity: `constrained`; no identity from recollection.
+- [ ] Required instruction skill: injected via `resolve` output.
+- [ ] Required Claude-native skill: invoked through the host, not read as a file.
+- [ ] Host-native skill without `name`: listed by the host and resolved by directory name.
+- [ ] Available skill: listed; its body is not read for an unrelated task.
+- [ ] Model switch: record whether the agent re-runs `resolve`, both when asked
+      about its profile and on an unrelated task.
+- [ ] Compaction: record re-resolution and which files the host re-attaches.
+- [ ] Role assignment timing and transition: default role at start; a custom agent
+      whose definition contains the `resolve --role` command.
+- [ ] Subagents: built-in Explore and a custom agent; bootstrap visibility and identity.
+- [ ] Claude Code and Codex installed together: one resolution per context.
+- [ ] Provider identity (Bedrock or Vertex) where access exists; otherwise mark unverified.
+- [ ] Uninstall; original instruction bytes and configuration remain, and a new
+      session no longer runs the bootstrap.
+
+Repeat identity, routing, and uninstall checks for **Codex**; its identity exposure
+is not yet observed. Claude Code 2.1.283 results from 2026-09-30 are recorded;
+Codex, provider identities, interactive `/model`, and automatic compaction remain
+unverified.
 
 ## Publish (maintainer)
 
