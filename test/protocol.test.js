@@ -527,3 +527,17 @@ test('presets round-trip model aliases and family prefixes', t => {
   assert.equal(blocked.ready, false);
   assert.match(blocked.errors.join('\n'), /models\.example-model\.aliases: alias example-model-2026 shadows the configured model/);
 });
+
+test('bootstrap accounting measures the block actually installed, including CRLF', t => {
+  const repo = repository(t);
+  assert.deepEqual(resolveInstructions({ root: repo.root }).diagnostics.bootstrap, { scope: 'not-measured', host: null, file: null, installed: false, bytes: null, characters: null });
+  const expected = resolveInstructions({ root: repo.root, host: 'claude' }).diagnostics.bootstrap;
+  assert.deepEqual([expected.scope, expected.installed, expected.bytes], ['expected-managed-block', false, bootstrapBlock('claude').length]);
+  repo.write('CLAUDE.md', '# Rules\r\n');
+  install({ root: repo.root, agents: ['claude'] });
+  const written = fs.readFileSync(path.join(repo.root, 'CLAUDE.md')).length - Buffer.byteLength('# Rules\r\n');
+  const installed = resolveInstructions({ root: repo.root, host: 'claude' }).diagnostics.bootstrap;
+  assert.deepEqual([installed.scope, installed.file, installed.bytes], ['installed-managed-block', 'CLAUDE.md', written]);
+  assert.ok(installed.bytes > bootstrapBlock('claude').length);
+  assert.match(formatProof(resolveInstructions({ root: repo.root, host: 'claude' })), new RegExp(`Bootstrap block in CLAUDE.md: ${written} B`));
+});

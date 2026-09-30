@@ -113,10 +113,12 @@ Their bytes are `null`: the host delivers them, Agent Profiles never injects the
 and they are excluded from `availableNotLoaded`. `proof`, the JSON output, and the
 visualizer apply the same rule.
 
-`diagnostics.bootstrap` measures the managed block that bootstrap mode adds to each
-host instruction surface. It is reported separately and never added to managed
-totals; a native integration needs no block. The `resolve` output wrapper and
-tool-call overhead are not measured.
+`diagnostics.bootstrap` measures the managed block for the host given with `--host`. When that
+host's block is installed, it measures the bytes on disk (`scope: installed-managed-block`,
+with its `file`), so a CRLF instruction file reports its CRLF block. Otherwise it measures
+the block `init` would write with LF (`expected-managed-block`). Without a host it is not
+measured. It is never added to managed totals, and a native integration needs no block.
+The `resolve` output wrapper and tool-call overhead are not measured.
 
 Managed totals exclude bootstrap/protocol text, host rendering of skill metadata,
 CLI/JSON formatting, separators, and other wrappers. Those bytes are not in

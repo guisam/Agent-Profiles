@@ -3,7 +3,7 @@ import path from 'node:path';
 import { parseDocument } from 'yaml';
 import { safePath } from './files.js';
 import { contextDiagnostics, measureFile, measureText } from './diagnostics.js';
-import { integrations } from './integrations.js';
+import { integrations, managedSurface } from './integrations.js';
 
 function fail(entry, message) {
   throw new Error(`${entry}: ${message}`);
@@ -326,6 +326,6 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
     required: requiredOut,
     available: measuredAvailable,
     unsatisfied,
-    diagnostics: contextDiagnostics(loaded, measuredAvailable, requiredOut, host),
+    diagnostics: contextDiagnostics(loaded, measuredAvailable, requiredOut, host, host === undefined ? null : managedSurface(repository, host)),
   };
 }

@@ -1,3 +1,5 @@
+import { readLocal } from './files.js';
+
 export const START = '<!-- agent-profiles:start -->';
 export const END = '<!-- agent-profiles:end -->';
 // Bump when the managed block or BOOTSTRAP.md changes meaning; doctor reports older surfaces as stale.
@@ -6,6 +8,21 @@ export const PROTOCOL = 2;
 /** The block this adapter's surface should hold, in the surface's own newline style. */
 export function expectedBlock(host, before) {
   return bootstrapBlock(host, before?.includes(Buffer.from('\r\n')) ? '\r\n' : '\n');
+}
+
+/**
+ * The managed block actually installed for a host, as bytes on disk (line endings included).
+ * @returns {{file: string, block: Buffer} | null}
+ */
+export function managedSurface(root, host) {
+  for (const file of integrations.find(item => item.id === host).files) {
+    try {
+      const before = readLocal(root, file);
+      const span = before && managedSpan(before, file);
+      if (span) return { file, block: before.subarray(span.start, span.end) };
+    } catch { return null; } // Malformed markers are reported by doctor; nothing reliable to measure.
+  }
+  return null;
 }
 
 /** Protocol version declared inside a managed span, or null for an unversioned (pre-2) block. */

@@ -31,7 +31,7 @@ function total(entries) {
   }), { files: 0, bytes: 0, characters: 0 });
 }
 
-export function contextDiagnostics(loaded, available, required = [], consumer) {
+export function contextDiagnostics(loaded, available, required = [], consumer, surface = null) {
   const loadedSkills = new Set(loaded.filter(entry => entry.kind.endsWith('-skill')).map(entry => entry.id));
   const host = (list, requirement) => list.filter(skill => skill.type === 'host')
     .map(({ id, host, hostId, verification, usable }) => ({ id, host, hostId, requirement, verification, usable, bytes: null, characters: null }));
@@ -51,8 +51,10 @@ export function contextDiagnostics(loaded, available, required = [], consumer) {
     // Delivered by the host's own skill mechanism; Agent Profiles never injects or measures them.
     hostSkills: [...host(required, 'required'), ...host(available, 'available')],
     // Bootstrap mode adds this managed block to each host instruction surface; native integrations need none.
-    bootstrap: consumer ? { scope: 'managed-block-per-instruction-surface', host: consumer, ...measureText(bootstrapBlock(consumer).toString('utf8')) }
-      : { scope: 'managed-block-per-instruction-surface', host: null, bytes: null, characters: null },
+    // The installed block is measured as stored (CRLF files hold a CRLF block); otherwise the block init would write with LF.
+    bootstrap: !consumer ? { scope: 'not-measured', host: null, file: null, installed: false, bytes: null, characters: null }
+      : surface ? { scope: 'installed-managed-block', host: consumer, file: surface.file, installed: true, ...measureText(surface.block.toString('utf8')) }
+        : { scope: 'expected-managed-block', host: consumer, file: null, installed: false, ...measureText(bootstrapBlock(consumer).toString('utf8')) },
     repository: {
       path: 'AGENTS.md', suppliedBy: 'host', status: 'host-supplied', injection: 'host-controlled', bytes: null, characters: null,
       otherInstructions: { status: 'unobserved', suppliedBy: 'host' },
@@ -95,7 +97,11 @@ export function formatProof(result) {
   for (const entry of result.diagnostics.hostSkills) lines.push(`  ${clean(entry.id)} (${clean(entry.host)}: ${clean(entry.hostId)})  ${entry.requirement}; ${entry.verification}${usability(entry)}`);
   if (result.unsatisfied.length) lines.push('', 'Unsatisfied requirements');
   for (const entry of result.unsatisfied) lines.push(`  ${clean(entry.id)}: ${clean(entry.reason)}`);
-  lines.push('', result.diagnostics.bootstrap.bytes === null ? 'Bootstrap block: not measured (no --host given)' : `Bootstrap block per host instruction surface: ${size(result.diagnostics.bootstrap)} (bootstrap mode only; not in the managed total)`, '',
+  const { bootstrap } = result.diagnostics;
+  const block = bootstrap.bytes === null ? 'Bootstrap block: not measured (no --host given)'
+    : bootstrap.installed ? `Bootstrap block in ${clean(bootstrap.file)}: ${size(bootstrap)} (bootstrap mode only; not in the managed total)`
+      : `Bootstrap block (not installed; as init would write it with LF): ${size(bootstrap)}`;
+  lines.push('', block, '',
     'Repository context: AGENTS.md and other project instructions supplied by host; injection host controlled; not measured.',
     'Host context: system instructions, tools, built-in skills, and runtime context unobserved.',
     'Tokens: not calculated (no tokenizer or estimate).',
