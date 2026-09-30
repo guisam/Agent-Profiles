@@ -1,3 +1,4 @@
+<!-- agent-profiles:protocol 2. Managed reference: agent-profiles init replaces local edits. -->
 # Agent Profiles routing
 
 This file documents the protocol for people and host integrations. Agents do not

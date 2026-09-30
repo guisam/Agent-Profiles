@@ -1,5 +1,17 @@
 export const START = '<!-- agent-profiles:start -->';
 export const END = '<!-- agent-profiles:end -->';
+// Bump when the managed block or BOOTSTRAP.md changes meaning; doctor reports older surfaces as stale.
+export const PROTOCOL = 2;
+
+/** The block this adapter's surface should hold, in the surface's own newline style. */
+export function expectedBlock(host, before) {
+  return bootstrapBlock(host, before?.includes(Buffer.from('\r\n')) ? '\r\n' : '\n');
+}
+
+/** Protocol version declared inside a managed span, or null for an unversioned (pre-2) block. */
+export function blockProtocol(span) {
+  return Number(/<!-- agent-profiles:protocol (\d+) -->/.exec(span.toString('utf8'))?.[1] ?? NaN) || null;
+}
 // --no refuses to download: an unpublished or squatted npm name must never run from a bootstrap.
 export const resolveCommand = 'npx --no agent-profiles resolve';
 
@@ -58,7 +70,7 @@ export function bootstrapBlock(host, newline = '\n') {
   // All added whitespace is inside the markers, so removal preserves every other byte.
   // Each block names its host: an agent may read another host's instruction file too.
   return Buffer.from([
-    START, '', '## Agent Profiles', '',
+    START, `<!-- agent-profiles:protocol ${PROTOCOL} -->`, '', '## Agent Profiles', '',
     `This block is for ${adapter.name}; agents in other hosts skip it. At the start`,
     'of every new or compacted context, and after a model change, run this exact',
     'command (no `cd` or other prefix) and follow its output:', '',

@@ -466,3 +466,26 @@ test('uninstall removes a settings file that only held the bootstrap permission 
   uninstall({ root: repo.root });
   assert.equal(fs.existsSync(path.join(repo.root, '.claude/settings.json')), false);
 });
+
+test('managed surfaces are versioned: stale blocks and references are reported and refreshed everywhere', t => {
+  const repo = repository(t);
+  withPackage(repo.root);
+  const unversioned = `${START}\n\n## Agent Profiles\n\nBefore beginning work, read \`.agent-profiles/agents.yaml\` and follow it.\n\n${END}`;
+  repo.write('AGENTS.md', `# Rules\n\n${unversioned}\n`);
+  repo.write('CLAUDE.md', `${bootstrapBlock('claude').toString('utf8').replace('protocol 2', 'protocol 1')}\n`);
+  fs.appendFileSync(path.join(repo.root, '.agent-profiles/BOOTSTRAP.md'), '\nOld guidance.\n');
+  const report = doctor(repo.root);
+  assert.deepEqual(report.errors, []);
+  assert.deepEqual(report.bootstrap.filter(line => !line.includes('does not allow')), [
+    'Claude Code: the managed block in CLAUDE.md is protocol 1, not protocol 2; run init to replace it',
+    'OpenAI Codex: the managed block in AGENTS.md is unversioned (before protocol 2), not protocol 2; run init to replace it',
+    '.agent-profiles/BOOTSTRAP.md differs from protocol 2; run init to refresh this managed reference',
+  ]);
+  // Selecting only Claude still refreshes the installed Codex block and the reference.
+  install({ root: repo.root, agents: ['claude'] });
+  assert.equal(fs.readFileSync(path.join(repo.root, 'AGENTS.md'), 'utf8'), `# Rules\n\n${bootstrapBlock('codex').toString('utf8')}\n`);
+  assert.deepEqual(doctor(repo.root).bootstrap, []);
+  const edited = fs.readFileSync(path.join(repo.root, 'CLAUDE.md'), 'utf8').replace('run this exact', 'run the');
+  fs.writeFileSync(path.join(repo.root, 'CLAUDE.md'), edited);
+  assert.deepEqual(doctor(repo.root).bootstrap, ['Claude Code: the managed block in CLAUDE.md is modified, not protocol 2; run init to replace it']);
+});

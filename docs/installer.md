@@ -48,8 +48,12 @@ inserts a marked bootstrap block into the selected host instruction files and
 validates the installation using the existing resolver.
 
 Re-running init keeps existing configuration, profiles, roles, and skills unchanged.
-A managed block from an earlier version is replaced in place, with every byte
-outside its markers preserved; a current block is left alone. Additional agents can be selected later. A valid older
+Managed surfaces are versioned (`<!-- agent-profiles:protocol N -->`). Init replaces
+any installed block that is not exactly the current protocol's block, in every
+installed integration and not only the ones selected, preserving every byte outside
+the markers. It also restores `.agent-profiles/BOOTSTRAP.md`, a managed reference that
+is not meant for local edits. Doctor reports each unversioned, older, or modified
+surface under **Bootstrap availability**. Additional agents can be selected later. A valid older
 configuration can receive a missing `BOOTSTRAP.md` without replacing other files.
 A nonempty `.agent-profiles/` without `agents.yaml`, or invalid existing
 configuration, is reported for manual repair rather than overwritten.

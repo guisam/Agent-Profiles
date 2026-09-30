@@ -29,6 +29,7 @@ Every behavioral statement in this documentation has one of these levels:
 | The agent uses its host-stated model ID, not a guess | — | The host supplies it | Expectation. Observed reliably on Claude Code |
 | A host-native skill behaves as the host defines it | — | Host-dependent | Host-dependent: Agent Profiles asks the agent to invoke it and never injects its file |
 | The installed bootstrap command can run in this repository | Yes: doctor checks the local package, its version, and Claude Code permissions; init exits nonzero until they hold | — (no bootstrap) | The agent still has to run it |
+| Every installed bootstrap surface carries the current protocol | Yes: doctor reports unversioned, older, or modified blocks and a changed BOOTSTRAP.md; init refreshes all installed surfaces | — | The agent reads whatever the surface says |
 | A host skill is offered only to the host that can invoke it | Yes, when the host is supplied | Yes: the host passes itself | Yes: each managed block passes its own `--host` |
 | A role whose required host skill the running host cannot invoke is reported, not silently degraded | Yes: `unsatisfied` in the resolution and a doctor capability error per installed host | Yes | The `resolve` output tells the agent to inform the user |
 

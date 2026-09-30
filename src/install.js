@@ -5,9 +5,13 @@ import { fileURLToPath } from 'node:url';
 import { resolveInstructions } from './resolve.js';
 import { readConfiguration } from './configure.js';
 import { safePath, readLocal, applyChanges } from './files.js';
-import { bootstrapBlock, integrations, managedSpan } from './integrations.js';
+import { blockProtocol, expectedBlock, integrations, managedSpan, PROTOCOL } from './integrations.js';
 
 const packageRoot = fileURLToPath(new URL('../', import.meta.url));
+const protocolFile = '.agent-profiles/BOOTSTRAP.md';
+// BOOTSTRAP.md is a managed reference, compared without regard to line endings, which Git may convert.
+const packagedProtocol = () => readFileSync(path.join(packageRoot, protocolFile));
+const sameText = (a, b) => a.toString('utf8').replace(/\r\n/g, '\n') === b.toString('utf8').replace(/\r\n/g, '\n');
 
 export function findRoot(start = process.cwd()) {
   let current = realpathSync(start);
@@ -122,12 +126,23 @@ export function doctor(root) {
     }
   } catch (error) { errors.push(error.message); }
   const agents = [];
+  const stale = [];
   for (const adapter of integrations) {
     try {
       const { records, ...state } = integrationState(root, adapter);
       agents.push(state);
+      // A block from another protocol version tells the agent something this CLI no longer means.
+      const record = records.find(item => item.file === state.file);
+      const span = state.installed && record.before.subarray(record.span.start, record.span.end);
+      if (span && !span.equals(expectedBlock(adapter.id, record.before))) {
+        const version = blockProtocol(span);
+        const found = version === PROTOCOL ? 'modified' : version ? `protocol ${version}` : 'unversioned (before protocol 2)';
+        stale.push(`${adapter.name}: the managed block in ${state.file} is ${found}, not protocol ${PROTOCOL}; run init to replace it`);
+      }
     } catch (error) { errors.push(error.message); }
   }
+  const protocol = readLocal(root, protocolFile);
+  if (protocol !== null && !sameText(protocol, packagedProtocol())) stale.push(`${protocolFile} differs from protocol ${PROTOCOL}; run init to refresh this managed reference`);
   if (!agents.some(agent => agent.installed)) errors.push('No active Agent Profiles integration; run init to select an agent');
   // A required host skill that an installed host cannot invoke makes that role unsatisfiable there.
   if (resolution) {
@@ -148,7 +163,7 @@ export function doctor(root) {
   notes.push(...legacy);
   // Bootstrap availability: can each installed block's command actually run here?
   const availability = bootstrapAvailability(root);
-  const bootstrap = [];
+  const bootstrap = [...stale];
   for (const agent of agents.filter(item => item.installed)) {
     const adapter = integrations.find(item => item.id === agent.id);
     if (!availability.runnable) bootstrap.push(`${agent.name}: ${availability.reason}`);
@@ -198,12 +213,14 @@ export function install({ root, agents }) {
     }
   } else {
     resolveInstructions({ root });
-    const file = '.agent-profiles/BOOTSTRAP.md';
-    if (readLocal(root, file) === null) changes.push({ file, before: null, after: readFileSync(path.join(packageRoot, file)) });
+    const before = readLocal(root, protocolFile);
+    if (before === null || !sameText(before, packagedProtocol())) changes.push({ file: protocolFile, before, after: packagedProtocol() });
   }
-  for (const agent of selected) {
+  // Refresh every installed surface, not only the selected ones: a stale block elsewhere still reaches agents.
+  const installed = integrations.map(adapter => integrationState(root, adapter)).filter(agent => agent.installed && !selected.some(item => item.id === agent.id));
+  for (const agent of [...selected, ...installed]) {
     const { file, before, span } = agent.records.find(record => record.file === agent.file);
-    const block = bootstrapBlock(agent.id, before?.includes(Buffer.from('\r\n')) ? '\r\n' : '\n');
+    const block = expectedBlock(agent.id, before);
     // An outdated managed block is replaced in place; bytes outside the markers are preserved.
     if (agent.installed && before.subarray(span.start, span.end).equals(block)) continue;
     changes.push({ file, before, after: agent.installed

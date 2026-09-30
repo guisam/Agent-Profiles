@@ -82,11 +82,16 @@ test('insertion and removal preserve every unrelated byte, including BOM, CRLF, 
 test('user-edited configuration and profiles survive reinstallation and integration-only uninstall', t => {
   const root = repository(t);
   install({ root, agents: ['codex'] });
-  for (const file of ['agents.yaml', 'profiles/constrained.md', 'roles/implementer.md', 'BOOTSTRAP.md']) {
+  for (const file of ['agents.yaml', 'profiles/constrained.md', 'roles/implementer.md']) {
     fs.appendFileSync(path.join(root, '.agent-profiles', file), '\n# User-owned addition\n');
   }
   const before = snapshot(path.join(root, '.agent-profiles'));
+  // BOOTSTRAP.md is a managed protocol reference, not user configuration: init restores it.
+  const protocol = path.join(root, '.agent-profiles/BOOTSTRAP.md');
+  const packaged = fs.readFileSync(protocol);
+  fs.appendFileSync(protocol, '\n# Local edit\n');
   install({ root, agents: ['codex', 'claude'] });
+  assert.deepEqual(fs.readFileSync(protocol), packaged);
   assert.deepEqual(snapshot(path.join(root, '.agent-profiles')), before);
   uninstall({ root });
   assert.deepEqual(snapshot(path.join(root, '.agent-profiles')), before);
