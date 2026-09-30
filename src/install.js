@@ -57,9 +57,20 @@ export function bootstrapAvailability(root) {
   let prefix = root;
   while (!existsSync(path.join(prefix, 'package.json')) && path.dirname(prefix) !== prefix) prefix = path.dirname(prefix);
   if (!existsSync(path.join(prefix, 'package.json'))) prefix = root;
-  const project = existsSync(path.join(prefix, 'package.json')) ? JSON.parse(readFileSync(path.join(prefix, 'package.json'), 'utf8')) : {};
-  const manifest = path.join(prefix, 'node_modules/agent-profiles/package.json');
-  const version = project.name === 'agent-profiles' ? project.version : existsSync(manifest) ? JSON.parse(readFileSync(manifest, 'utf8')).version : null;
+  // npm cannot run anything from a project whose manifest it cannot parse.
+  const read = file => {
+    try { return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null; }
+    catch (error) { throw Object.assign(new Error(`${path.relative(root, file) || file}: ${error.message}`), { unreadable: true }); }
+  };
+  let project, installed;
+  try {
+    project = read(path.join(prefix, 'package.json')) ?? {};
+    installed = read(path.join(prefix, 'node_modules/agent-profiles/package.json'));
+  } catch (error) {
+    if (!error.unreadable) throw error;
+    return { runnable: false, version: null, reason: `${error.message}; npx cannot run the bootstrap until it is repaired` };
+  }
+  const version = project.name === 'agent-profiles' ? project.version : installed?.version ?? null;
   if (version === null) return { runnable: false, version, reason: 'agent-profiles is not installed in this repository, so the bootstrap command fails; run init with --package, or npm install --save-dev agent-profiles' };
   // An older or newer copy may not understand this configuration or print this protocol.
   if (version !== ownVersion) return { runnable: false, version, reason: `the bootstrap runs installed agent-profiles ${version}, but this configuration was checked with ${ownVersion}; install ${ownVersion}` };
@@ -227,7 +238,7 @@ export function install({ root, agents }) {
       ? Buffer.concat([before.subarray(0, span.start), block, before.subarray(span.end)])
       : Buffer.concat([before ?? Buffer.alloc(0), block]) });
   }
-  for (const agent of selected) {
+  for (const agent of [...selected, ...installed]) {
     const adapter = integrations.find(item => item.id === agent.id);
     const change = adapter.permissions && permissionChange(root, adapter, true);
     if (change) changes.push(change);

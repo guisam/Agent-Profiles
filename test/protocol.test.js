@@ -556,3 +556,17 @@ test('bootstrap mode records host-stated identity provenance and keeps it on re-
   // Without a stated identity the block omits both flags, and nothing is claimed.
   assert.deepEqual(JSON.parse(run('--host', 'claude', '--json').stdout).identity, { raw: null, canonical: null, source: null, matchedBy: 'default' });
 });
+
+test('doctor and init survive a malformed package.json, and init restores rules for every installed host', t => {
+  const repo = repository(t);
+  withPackage(repo.root);
+  install({ root: repo.root, agents: ['claude'] });
+  fs.rmSync(path.join(repo.root, '.claude/settings.json'));
+  install({ root: repo.root, agents: ['codex'] });
+  assert.deepEqual(doctor(repo.root).bootstrap, []);
+  fs.writeFileSync(path.join(repo.root, 'package.json'), '{ broken');
+  const report = doctor(repo.root);
+  assert.deepEqual(report.errors, []);
+  assert.match(report.bootstrap[0], /^Claude Code: package\.json: .*npx cannot run the bootstrap until it is repaired$/);
+  assert.deepEqual(install({ root: repo.root, agents: ['codex'] }).modified, []);
+});
