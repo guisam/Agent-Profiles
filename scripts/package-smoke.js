@@ -77,10 +77,10 @@ try {
     for (const file of targets) {
       const text = fs.readFileSync(path.join(root, file), 'utf8');
       assert.equal(text.split('<!-- agent-profiles:start -->').length, 2);
-      assert.ok(text.includes('npx --no agent-profiles resolve --model'));
+      assert.ok(text.includes(`npx --no agent-profiles resolve --host ${file.includes('CLAUDE') ? 'claude' : 'codex'} --model`));
     }
     // The exact bootstrap command must work from the installed package without downloading anything.
-    const context = run(process.execPath, [npm, 'exec', '--no', '--offline', '--', 'agent-profiles', 'resolve', '--root', root, '--model', 'example-model', '--role', 'reviewer'], consumer);
+    const context = run(process.execPath, [npm, 'exec', '--no', '--offline', '--', 'agent-profiles', 'resolve', '--root', root, '--host', 'claude', '--model', 'example-model', '--role', 'reviewer'], consumer);
     assert.ok(context.startsWith('# Agent Profiles context') && context.includes('## Required skill: code-review'));
     const initial = snapshot(root);
     cli('init', '--root', root, '--agent', 'codex', '--agent', 'claude');
