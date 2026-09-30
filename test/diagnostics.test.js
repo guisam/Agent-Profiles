@@ -45,7 +45,8 @@ test('exact profile, role, skill and category totals use resolved text and exclu
     files: result.loaded.length, bytes: result.loaded.reduce((sum, entry) => sum + entry.bytes, 0), characters: result.loaded.reduce((sum, entry) => sum + entry.characters, 0),
   });
   fs.writeFileSync(path.join(root, 'AGENTS.md'), 'HOST-ONLY-CONTENT'.repeat(1000));
-  assert.deepEqual(resolveInstructions({ root, model: 'example-model', role: 'reviewer' }), result);
+  // Host instructions change only the existence flag, never managed context or measurements.
+  assert.deepEqual(resolveInstructions({ root, model: 'example-model', role: 'reviewer' }), { ...result, repository: { ...result.repository, exists: true } });
   assert.equal(result.diagnostics.repository.bytes, null);
   assert.equal(result.diagnostics.repository.injection, 'host-controlled');
   assert.ok(Object.values(result.diagnostics.host).every(entry => entry.status === 'unobserved' && !Object.hasOwn(entry, 'bytes')));

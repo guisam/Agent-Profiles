@@ -305,7 +305,7 @@ export function resolveInstructions({ root = process.cwd(), model, family, ident
     profile,
     role: selectedRole,
     roleSource: role === undefined ? 'default' : 'assigned',
-    repository: { path: 'AGENTS.md', suppliedBy: 'host' },
+    repository: { path: 'AGENTS.md', suppliedBy: 'host', exists: existsSync(path.join(repository, 'AGENTS.md')) },
     loaded,
     required: required.map(skill => ({ ...skill, ...(skill.type === 'host' ? { bytes: null, characters: null } : measuredSkills.get(skill.id)) })),
     available: measuredAvailable,

@@ -47,7 +47,7 @@ export function bootstrapBlock(newline = '\n') {
   return Buffer.from([
     START, '', '## Agent Profiles', '',
     'At the start of every new or compacted context, and after a model change,',
-    'run this from the repository root and follow its output:', '',
+    'run this exact command (no `cd` or other prefix) and follow its output:', '',
     `    ${resolveCommand} --model "<exact model ID>"`, '',
     'Use the exact model ID your host states for you (for example, "The exact',
     'model ID is ..."): not a display name, another model\'s ID, or your own',

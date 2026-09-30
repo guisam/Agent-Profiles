@@ -109,7 +109,8 @@ export function formatContext(result) {
   const lines = ['# Agent Profiles context', '',
     `Profile: ${result.profile} (model ${result.model ?? 'not stated'}; matched by ${result.matchedBy}). Role: ${result.role}.`,
     'These instructions add to the repository instructions and never override them or host permissions.',
-    'If AGENTS.md exists and your host has not loaded it, read it.',
+    // Observed: Claude Code does not load AGENTS.md, and a soft conditional here was skipped.
+    ...result.repository.exists ? ['AGENTS.md holds this repository\'s rules. Read it now unless its full text is already in your context.'] : [],
     'This output supersedes Agent Profiles profile, role, and skill instructions from any earlier run in this context,',
     'including copies your host re-attached after compaction.'];
   const titles = { profile: 'Profile', role: 'Role', 'required-skill': 'Required skill', 'requested-skill': 'Requested skill' };

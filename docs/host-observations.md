@@ -81,6 +81,40 @@ previous model's profile and an available skill's body as file attachments.
 - Automatic (non-manual) compaction.
 - Plugin-namespaced skill identifiers (`plugin:skill`) in the listing.
 
+## Resolver bootstrap on Claude Code 2.1.283 (2026-09-30)
+
+After the protocol revision, the same setup was repeated with the packed package
+installed as a dev dependency and the managed block asking only for
+`npx --no agent-profiles resolve --model "<exact model ID>"`. Allowed tools:
+`Bash(npx --no agent-profiles resolve:*)` and
+`PowerShell(npx --no agent-profiles resolve:*)`. Fixture routing:
+`claude-opus-5-5 → autonomous` (alias `claude-opus-5-5[1m]`), family prefix
+`claude-haiku- → scaffolded`, default `constrained`.
+
+| Check | Haiku 4.5 | Sonnet 5 | Opus 5.5 |
+| --- | --- | --- | --- |
+| Identity passed to `resolve` | `claude-haiku-4-5-20251001` | `claude-sonnet-5` | `claude-opus-5-5` |
+| Profile | `scaffolded` (family prefix) ✔ | `constrained` ✔ | `autonomous` ✔ |
+| Read `agents.yaml` or profile files itself | No | No | No |
+| Read an available skill body | No | No | No |
+
+| Scenario | Observed |
+| --- | --- |
+| Block said "run from the repository root" | Haiku prefixed `cd /d <root> &&`, which fell outside the allow rule and was denied. Wording changed to "exact command (no `cd` or other prefix)"; later runs used the bare command |
+| Windows shell | Haiku and Opus often chose the PowerShell tool first; a Bash-only allow rule was denied there |
+| `AGENTS.md` line phrased as a condition | Haiku skipped it and missed the repository rule. Rephrased as a direct instruction when the file exists; Haiku then read it |
+| Model switch (Opus → Haiku), prompt about the profile | Haiku re-ran `resolve` with its new ID and reported `scaffolded` |
+| Model switch, unrelated task | Haiku did **not** re-run `resolve` |
+| Compaction, prompt about the profile | Haiku re-ran `resolve` after compaction |
+| Custom agent whose definition only names the role | Haiku agent never ran `resolve` |
+| Custom agent whose definition contains the exact `resolve --role reviewer` command | Haiku agent ran it with its own dated ID and the reviewer role |
+| `init` over the previous managed block | Replaced the block in place; a second `init` made no changes |
+| Alias `claude-opus-5-5[1m]` in a YAML flow list | YAML error until quoted: `aliases: ["claude-opus-5-5[1m]"]` |
+
+Model-side identity copying was reliable in every run. Re-resolution after a
+model change without a related prompt was not, so it remains a bootstrap
+expectation rather than a guarantee.
+
 ## Implications for Phase 2
 
 1. Model-side matching is the dominant failure: the only incorrect routes came

@@ -65,7 +65,7 @@ test('only selected instructions load, with required skills ordered and availabl
   const testingFile = path.join(repo.root, '.agent-profiles/skills/testing/SKILL.md');
   writeFileSync(testingFile, readFileSync(testingFile, 'utf8') + '\nAVAILABLE-CONTENT-SENTINEL');
   const result = resolveInstructions({ root: repo.root, model: 'example-model', role: 'reviewer' });
-  assert.deepEqual(result.repository, { path: 'AGENTS.md', suppliedBy: 'host' });
+  assert.deepEqual(result.repository, { path: 'AGENTS.md', suppliedBy: 'host', exists: false });
   assert.deepEqual(result.loaded.map(item => item.path), [
     '.agent-profiles/profiles/autonomous.md',
     '.agent-profiles/roles/reviewer.md',
