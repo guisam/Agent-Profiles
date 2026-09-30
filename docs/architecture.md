@@ -33,7 +33,27 @@ Every behavioral statement in this documentation has one of these levels:
 | A host skill is offered only to the host that can invoke it | Yes, when the host is supplied | Yes: the host passes itself | Yes: each managed block passes its own `--host` |
 | A role whose required host skill the running host cannot invoke is reported, not silently degraded | Yes: `unsatisfied` in the resolution and a doctor capability error per installed host | Yes | The `resolve` output tells the agent to inform the user |
 
-Observed host behavior, with versions, is recorded in [host-observations.md](host-observations.md).
+Observed host behavior, with versions, is recorded in [host-observations.md](host-observations.md)
+and summarized per host in [hosts/claude-code.md](hosts/claude-code.md).
+
+### Known limitations
+
+- **Roles cannot be restricted to a host.** A role that requires a Claude Code skill is
+  still resolved for Codex, where it is reported as unsatisfied. A repository with both
+  integrations installed and such a role always shows a Host capability problem in
+  `doctor`; no configuration field marks a role as host-specific.
+- **Host-skill compatibility needs `--host`.** Resolutions without a host, such as
+  manual `resolve`, the visualizer, API callers that omit it, or older blocks, report
+  `usable: null`, mark nothing unsatisfied, and expose every host skill. The managed
+  blocks always pass `--host`.
+- **Codex identity and approval behavior are unverified.** No live Codex run was made.
+  Whether Codex states an exact model ID, and whether it asks approval for the
+  `resolve` command, are unknown. For Codex, doctor's availability check covers the
+  installed package only.
+- **Provenance and version checks are evidence, not attestation.** `host-stated` records
+  that the agent says it copied the host's statement; the identity is not verified. The
+  package check compares version strings, so two builds with the same version are
+  indistinguishable. `init --package` always reinstalls for that reason.
 Integration capabilities are also printed by `agent-profiles doctor`.
 
 ## Host in the resolution contract

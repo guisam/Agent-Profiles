@@ -18,12 +18,14 @@ node bin/agent-profiles.js proof --model example-model --role reviewer --json --
 
 With the executable installed, use `agent-profiles proof` with the same flags.
 `--root <directory>` targets another initialized repository; otherwise the CLI
-uses the nearest Git root. `--family <id>` supplies an explicit family identity.
+uses the nearest Git root. `--host <id>` names the consuming integration, which
+enables host-skill usability, unsatisfied requirements, and bootstrap block size.
+`--family <id>` supplies an explicit family identity.
 Omitted model/family identities use normal fallback rules; omitted role uses
 `default_role`. One role may be selected per invocation. Repeat `--skill` to
 request available skills. Unknown roles or skills are errors, not substitutions.
 
-The human report shows the selected model, its canonical ID and identity source,
+The human report shows the host (from `--host`), the selected model, its canonical ID and identity source,
 the family and how it was found, the match rule, profile and role, injected paths
 grouped by kind, byte/character totals, available context not injected, host-native
 skills, and the bootstrap block size.

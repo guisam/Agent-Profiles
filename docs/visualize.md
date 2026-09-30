@@ -37,6 +37,9 @@ Root discovery matches the other CLI commands: nearest Git root, or `--root`.
 - **Pin for comparison** keeps one resolution in memory and compares its category
   byte totals with the current selection. Pin again to replace it, or clear it.
 
+The visualizer resolves without a host, so host-skill usability is shown as unknown
+and no requirement is marked unsatisfied; use `proof --host <id>` for that view.
+
 Selections and pins belong to the current page session; they are not saved to
 disk or browser storage. Reloading the page returns to the launch selections.
 **Refresh files** rereads the configuration and resets temporary requests. Every

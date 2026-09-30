@@ -2,26 +2,34 @@
 
 ## Unreleased — host integration protocol
 
-- The managed bootstrap now asks the agent only to run
-  `npx --no agent-profiles resolve --model "<exact model ID>"` and follow its output.
-  Matching, validation, and file selection moved from the model into code after
-  live Claude Code tests showed models misrouting when they matched IDs themselves.
-  `init` replaces older managed blocks in place.
+- The managed bootstrap (protocol 2) asks the agent only to run
+  `npx --no agent-profiles resolve --host <host> --identity-source host-stated --model "<exact model ID>"`
+  and follow its output. Matching, validation, and file selection moved from the model
+  into code after live Claude Code tests showed models misrouting when they matched IDs
+  themselves. Blocks are versioned; `doctor` reports stale ones and `init` refreshes
+  every installed surface.
+- Resolutions take a consuming `host`: another host's skills are not exposed, and its
+  required skills are reported as `unsatisfied`.
+- `init` writes the Claude Code permission rules, installs the package with
+  `--package`, and exits nonzero while the bootstrap cannot run. `doctor` reports
+  configuration, bootstrap availability, and host capability separately.
 - Added `resolve` (agent-facing text, or `--json`); it replaces `scripts/resolve.js`
   and `npm run resolve` now calls it.
 - Model `aliases` and owner-configured family `match.prefixes` (longest prefix wins),
   with collision validation and identity provenance (`identity`, `familySource`).
-- Host-native Claude Code skills as `{host: claude, id?}` references that are
-  invoked, never injected or counted, with `verified-local`/`host-provided` states.
+- Host-native Claude Code skills as `{host: claude, scope: project|user|plugin, id?}`
+  references that are invoked, never injected or counted. Project skills must exist;
+  user and plugin skills are `host-provided`.
   The wizard binds Claude skills by host identity instead of numbered aliases, and
-  presets carry them under `skills.host`.
+  presets carry them under `skills.host`, along with model aliases and family prefixes.
 - A skill without frontmatter `name` uses its directory name; errors report
   repository-relative paths.
 - `doctor` reports host skill verification and each integration's observed
-  capabilities. `proof` and the visualizer list host skills separately and report
-  the bootstrap block size on its own line.
+  capabilities. `proof` and the visualizer list host skills separately; `proof --host`
+  reports the installed bootstrap block size, as stored on disk.
 - Documented guarantee levels (core, native, bootstrap expectation, host-dependent)
-  and recorded live-host observations for Claude Haiku, Sonnet, and Opus.
+  and recorded live-host observations for Claude Haiku, Sonnet, and Opus, summarized
+  in `docs/hosts/claude-code.md`.
 
 ## Unreleased — local visualizer
 

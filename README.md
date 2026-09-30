@@ -10,7 +10,8 @@ in local, reviewable files, with a small CLI for setup and configuration.
 
 ## Quick start
 
-Requires **Node.js 22 or newer**. Supports **Claude Code and OpenAI Codex**.
+Requires **Node.js 22 or newer**. Supports **Claude Code and OpenAI Codex**
+(Claude Code verified live; Codex behavior not yet observed).
 
 **v0.1.0 is being prepared; it has not been published to npm.** Try this checkout
 now with `npm ci` and `npm pack`, then run these commands with the path to your
@@ -123,7 +124,9 @@ the command and following its output is up to the agent. Text already in context
 cannot be removed, and Claude Code lists every host skill to every role. The
 [guarantee levels](docs/architecture.md#guarantee-levels) mark what each
 integration mode can ensure. [host-observations.md](docs/host-observations.md)
-records what was verified live with Claude Haiku, Sonnet, and Opus. Agent Profiles
+records what was verified live with Claude Haiku, Sonnet, and Opus; see the
+[Claude Code compatibility record](docs/hosts/claude-code.md) and the
+[known limitations](docs/architecture.md#known-limitations). Agent Profiles
 is not a context or permission sandbox.
 
 ## Measure the selected context

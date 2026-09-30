@@ -34,7 +34,8 @@ host boundary; no tokenizer or live-host introspection is used.
 
 Live checks record agent and host behavior (bootstrap expectations), never core
 guarantees. Record results in [host-observations.md](host-observations.md) with the
-host version, OS, model, and date. Use a disposable repository with the packed
+host version, OS, model, and date, and update the per-host summary in
+[hosts/claude-code.md](hosts/claude-code.md). Use a disposable repository with the packed
 package installed as a dev dependency and the resolve command allowed (see
 [bootstrap setup](bootstrap.md#host-setup)). Read tool calls from the host's
 transcript or stream output rather than trusting the agent's self-report; live
@@ -57,14 +58,16 @@ where available. One model does not represent all Claude behavior.
       whose definition contains the `resolve --role` command.
 - [ ] Subagents: built-in Explore and a custom agent; bootstrap visibility and identity.
 - [ ] Claude Code and Codex installed together: one resolution per context.
+- [ ] Permission rules written by `init`: in an untrusted workspace (expect approval
+      prompts) and after accepting the trust dialog (expect none).
 - [ ] Provider identity (Bedrock or Vertex) where access exists; otherwise mark unverified.
 - [ ] Uninstall; original instruction bytes and configuration remain, and a new
       session no longer runs the bootstrap.
 
 Repeat identity, routing, and uninstall checks for **Codex**; its identity exposure
 is not yet observed. Claude Code 2.1.283 results from 2026-09-30 are recorded;
-Codex, provider identities, interactive `/model`, and automatic compaction remain
-unverified.
+Codex, provider identities, interactive `/model`, automatic compaction, a trusted
+workspace, and host skill invocation remain unverified.
 
 ## Publish (maintainer)
 

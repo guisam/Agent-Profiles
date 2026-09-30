@@ -105,7 +105,8 @@ exposes, using aliases and family prefixes (see [architecture.md](architecture.m
 Run `agent-profiles proof --model <id>` to check a route.
 
 Claude Code hooks do not receive the model, so a hook cannot resolve a profile at
-session start. Codex identity exposure has not been observed yet.
+session start. Codex identity exposure and approval behavior have not been observed;
+see [known limitations](architecture.md#known-limitations).
 
 ## Roles
 
@@ -127,6 +128,9 @@ Before any other step, run `npx --no agent-profiles resolve --host claude --iden
 with the exact model ID your host states for you, and follow its output.
 ```
 
+Roles cannot yet be restricted to one host: a role requiring a Claude Code skill is
+reported as unsatisfied in Codex rather than hidden there.
+
 Built-in subagents such as Explore do not receive `CLAUDE.md` and so get no
 profile.
 
@@ -146,7 +150,8 @@ the same context. That is an instruction to the agent, not removal.
 ## The resolve command
 
 ```sh
-agent-profiles resolve [--model <id>] [--family <id>] [--identity-source host|user]
+agent-profiles resolve [--host <id>] [--model <id>] [--family <id>]
+                       [--identity-source host|host-stated|user]
                        [--role <id>] [--skill <id> ...] [--json [--contents]]
 ```
 
@@ -159,7 +164,10 @@ Without `--json`, it prints the agent-facing context:
 - A reminder to read `AGENTS.md` when it exists, since Claude Code does not load it.
 - The exact command to run again, and when.
 
-From a checkout, `npm run resolve -- --model example-model --role reviewer`
+Without `--host`, host-skill compatibility is not checked: every host skill is shown
+and nothing is marked unsatisfied. The managed blocks always pass it.
+
+From a checkout, `npm run resolve -- --host claude --model example-model --role reviewer`
 prints the JSON form. `--skill testing` injects an available instruction skill;
 requesting a host skill injects nothing. Errors go to stderr with exit status 1
 and no partial output.
