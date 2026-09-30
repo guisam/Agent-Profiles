@@ -120,7 +120,8 @@ export function formatContext(result) {
     lines.push('', '## Required host skills', '', 'Use each for all work in this role:');
     for (const entry of requiredHost) lines.push(`- ${entry.id}: ${skill(entry)}`);
   }
-  const loadedIDs = new Set(result.loaded.map(entry => entry.id));
+  // Skill IDs may equal a profile or role ID, so compare against injected skills only.
+  const loadedIDs = new Set(result.loaded.filter(entry => entry.kind.endsWith('-skill')).map(entry => entry.id));
   const available = result.available.filter(entry => !loadedIDs.has(entry.id));
   if (available.length) {
     lines.push('', '## Available skills', '', 'Use a skill only when the current task falls within its description:');

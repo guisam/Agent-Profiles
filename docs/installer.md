@@ -141,7 +141,10 @@ profile, role, skill source, and metadata reference. It reports defaults, each
 supported integration's location/status, the observed capabilities of installed
 integrations, and each host-native skill's verification state (`verified-local`, or
 `host-provided` when Agent Profiles cannot see it), noting when that host's
-integration is not installed. These notes are informational, not errors. Missing protocol files, malformed blocks,
+integration is not installed. It also flags older `file` mappings to a Claude skill
+(for example `testing-2: {file: .claude/skills/testing/SKILL.md}` from earlier
+wizard versions), which inject the skill as text; replace them with `{host: claude}`.
+These notes are informational, not errors. Missing protocol files, malformed blocks,
 shadowed integrations, and a configuration with no active integration produce
 actionable errors and exit status 1. Unselected agents are simply reported as
 not installed. Doctor never modifies files.

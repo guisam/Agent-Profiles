@@ -215,7 +215,10 @@ export function resolveInstructions({ root = process.cwd(), model, family, ident
       let skill = { id, type: 'host', host: adapter.id, hostId, delivery: 'invoke', name: hostId, nameSource: 'host', description: null, path: null, verification: 'host-provided' };
       if (file && exists(file)) {
         const resolved = localFile(repository, file, entry, 'repository', false, preview);
-        skill = { ...skill, ...skillMetadata(resolved, entry, preview.get(resolved), file, false), path: file, verification: 'verified-local' };
+        skill = { ...skill, path: file, verification: 'verified-local' };
+        // The host owns this file's format; unreadable metadata is reported, not fatal to every role.
+        try { skill = { ...skill, ...skillMetadata(resolved, entry, preview.get(resolved), file, false) }; }
+        catch (error) { skill.metadataError = error.message.slice(error.message.indexOf(`${file}: `) + file.length + 2); }
       }
       catalog.set(id, skill);
       return skill;

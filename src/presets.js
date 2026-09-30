@@ -200,7 +200,10 @@ export function planPresetImport({ root, source, roles, decisions = new Map(), u
           origin('skills', id, id);
         }
       }
-      if (!detectAgents(root).find(agent => agent.id === host.id).installed) {
+      let installed;
+      try { installed = detectAgents(root).find(agent => agent.id === host.id).installed; }
+      catch (error) { notices.push(`Could not check the ${host.name} integration (${error.message}); run doctor.`); }
+      if (installed === false) {
         notices.push(`Preset skill ${id} is ${host.name} skill ${hostId}; the ${host.name} integration is not installed in this repository. The reference is kept as is.`);
       }
       skillNames.set(id, id);

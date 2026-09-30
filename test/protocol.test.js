@@ -281,3 +281,55 @@ test('presets carry host skills as references and surface a missing host integra
   const imported = resolveInstructions({ root: target.root, role: 'host-researcher' }).available[0];
   assert.deepEqual([imported.type, imported.verification], ['host', 'host-provided']);
 });
+
+test('an available skill sharing its ID with the role or profile is still exposed to the agent', t => {
+  const repo = repository(t);
+  repo.write('.agent-profiles/roles/testing.md', '# Testing role\n');
+  repo.change(config => {
+    config.roles.testing = { file: 'roles/testing.md', skills: { required: [], available: ['testing'] } };
+  });
+  const context = formatContext(resolveInstructions({ root: repo.root, role: 'testing' }));
+  assert.match(context, /## Available skills\n\n.*\n- testing — Verify changed behavior/);
+});
+
+test('doctor reports broken host markers instead of crashing when host skills are configured', t => {
+  const repo = repository(t);
+  repo.change(config => {
+    config.skills = { notes: { host: 'claude' } };
+    config.roles.researcher.skills.available = ['notes'];
+  });
+  install({ root: repo.root, agents: ['codex'] });
+  repo.write('CLAUDE.md', `${START}\nno end marker\n`);
+  const report = doctor(repo.root);
+  assert.equal(report.valid, false);
+  assert.ok(report.errors.some(error => /CLAUDE\.md: malformed or duplicate Agent Profiles markers/.test(error)), report.errors.join('\n'));
+  assert.ok(report.notes.includes('Skill notes is Claude Code skill notes: host-provided; Agent Profiles cannot verify it'));
+});
+
+test('unreadable host skill metadata is reported without breaking other roles', t => {
+  const repo = repository(t);
+  repo.write('.claude/skills/notes/SKILL.md', 'Instructions without frontmatter.\n');
+  repo.change(config => {
+    config.skills = { notes: { host: 'claude' } };
+    config.roles.researcher.skills.available = ['notes'];
+  });
+  assert.equal(resolveInstructions({ root: repo.root }).role, 'implementer');
+  const notes = resolveInstructions({ root: repo.root, role: 'researcher' }).available[0];
+  assert.deepEqual([notes.verification, notes.description, notes.path], ['verified-local', null, '.claude/skills/notes/SKILL.md']);
+  assert.match(notes.metadataError, /^expected YAML frontmatter/);
+  install({ root: repo.root, agents: ['claude'] });
+  assert.ok(doctor(repo.root).notes.some(note => note.startsWith('Skill notes is Claude Code skill notes: verified at .claude/skills/notes/SKILL.md; its metadata could not be read (expected YAML frontmatter')));
+});
+
+test('doctor flags older file mappings that inject a Claude skill as text', t => {
+  const repo = repository(t);
+  repo.write('.claude/skills/testing/SKILL.md', '---\nname: testing\ndescription: Host testing.\n---\nBODY\n');
+  repo.change(config => {
+    config.skills = { 'testing-2': { file: '.claude/skills/testing/SKILL.md' } };
+    config.roles.researcher.skills.available = ['testing-2'];
+  });
+  install({ root: repo.root, agents: ['claude'] });
+  const report = doctor(repo.root);
+  assert.equal(report.valid, true, report.errors.join('\n'));
+  assert.ok(report.notes.includes('Skill testing-2 maps .claude/skills/testing/SKILL.md as injected text; replace it with {host: claude, id: testing} so Claude Code invokes it'));
+});

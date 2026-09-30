@@ -46,12 +46,21 @@ export function doctor(root) {
   const errors = [];
   const notes = [];
   const hostSkills = new Map();
+  const legacy = [];
   let resolution;
   try {
     resolution = resolveInstructions({ root });
-    for (const role of readConfiguration(root).configuration.get('roles').keys()) {
+    const { configuration } = readConfiguration(root);
+    for (const role of configuration.get('roles').keys()) {
       const { required, available } = resolveInstructions({ root, role });
       for (const skill of [...required, ...available]) if (skill.type === 'host') hostSkills.set(skill.id, skill);
+    }
+    // Mappings written before host-native skills existed inject a host skill's file as plain text.
+    for (const [id, source] of configuration.get('skills') ?? []) {
+      const file = source.get('file');
+      const hostId = file?.split('/')[2];
+      const adapter = integrations.find(item => item.skills && hostId && item.skills.path(hostId) === file);
+      if (adapter) legacy.push(`Skill ${id} maps ${file} as injected text; replace it with {host: ${adapter.id}${hostId === id ? '' : `, id: ${hostId}`}} so ${adapter.name} invokes it`);
     }
     if (readLocal(root, '.agent-profiles/BOOTSTRAP.md') === null) {
       errors.push('.agent-profiles/BOOTSTRAP.md is missing; run init to add the routing protocol');
@@ -66,10 +75,14 @@ export function doctor(root) {
   }
   if (!agents.some(agent => agent.installed)) errors.push('No active Agent Profiles integration; run init to select an agent');
   for (const skill of hostSkills.values()) {
+    // An integration whose state failed is already reported as an error and has no agent record.
+    const adapter = integrations.find(item => item.id === skill.host);
     const agent = agents.find(item => item.id === skill.host);
     const state = skill.verification === 'verified-local' ? `verified at ${skill.path}` : 'host-provided; Agent Profiles cannot verify it';
-    notes.push(`Skill ${skill.id} is ${agent.name} skill ${skill.hostId}: ${state}${agent.installed ? '' : `; the ${agent.name} integration is not installed`}`);
+    const unreadable = skill.metadataError ? `; its metadata could not be read (${skill.metadataError})` : '';
+    notes.push(`Skill ${skill.id} is ${adapter.name} skill ${skill.hostId}: ${state}${unreadable}${agent && !agent.installed ? `; the ${adapter.name} integration is not installed` : ''}`);
   }
+  notes.push(...legacy);
   for (const agent of agents.filter(item => item.installed)) {
     const { mode, verified, ...limits } = integrations.find(item => item.id === agent.id).capabilities;
     notes.push([`${agent.name}: ${mode} mode (observed: ${verified})`, ...Object.entries(limits).map(([key, value]) => `  ${key}: ${value}`)].join('\n'));

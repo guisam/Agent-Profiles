@@ -295,6 +295,8 @@ The same rules apply to discovery, validation, and resolution:
 
 - When `name` is absent, the skill's directory name is used, as Claude Code does.
 - `description` is required for instruction skills and optional for host skills.
+- A host skill whose metadata cannot be read stays `verified-local` with a
+  `metadataError`; doctor reports it, and other roles keep resolving.
 - Other fields are ignored by this reader.
 
 The resolution lists `required` and `available` metadata with `id`, `type`
