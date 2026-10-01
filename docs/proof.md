@@ -19,7 +19,7 @@ node bin/agent-profiles.js proof --model example-model --role reviewer --json --
 With the executable installed, use `agent-profiles proof` with the same flags.
 `--root <directory>` targets another initialized repository; otherwise the CLI
 uses the nearest Git root. `--host <id>` names the consuming integration, which
-enables host-skill usability, unsatisfied requirements, and bootstrap block size.
+enables host-skill compatibility, cross-host unsatisfied requirements, and bootstrap block size. Compatibility does not prove native invocability.
 `--family <id>` supplies an explicit family identity.
 Omitted model/family identities use normal fallback rules; omitted role uses
 `default_role`. One role may be selected per invocation. Repeat `--skill` to

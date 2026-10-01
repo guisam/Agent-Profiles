@@ -167,7 +167,7 @@ Examples:
       };
       section('Configuration', result.errors, 'valid');
       section('Bootstrap availability', result.bootstrap, `runnable (agent-profiles ${result.availability.version})`);
-      section('Host capability', result.capabilities, 'every role is satisfiable in every installed host');
+      section('Host compatibility', result.capabilities, 'no cross-host required-skill conflicts; native invocation not verified');
       console.log(result.valid ? '\nInstallation is ready.' : '\nInstallation needs attention.');
       if (!result.valid) process.exitCode = 1;
     } else {

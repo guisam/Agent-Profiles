@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased ? Protocol 2 review fixes
+
+- Preserve independent pathless host skills through selection and role editing; export them only as references.
+- Verify the selected npm executable and its owning package across ancestor lookup; discover initialized non-Git roots.
+- Keep repository reminders in host adapters, preserving Codex overrides. Render Bash/PowerShell rerun arguments literally and retain supplied families.
+- Keep inferred visualizer families separate from explicit overrides. Record permission-rule ownership and retain pre-existing rules on uninstall.
+- Qualify host compatibility and local-file verification: actual native skill invocation remains the host adapter's responsibility.
+
 ## Unreleased — host integration protocol
 
 - The managed bootstrap (protocol 2) asks the agent only to run

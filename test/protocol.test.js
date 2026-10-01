@@ -42,7 +42,18 @@ function repository(t) {
 function withPackage(root, version = JSON.parse(fs.readFileSync(path.join(project, 'package.json'), 'utf8')).version) {
   fs.writeFileSync(path.join(root, 'package.json'), '{"private":true}\n');
   fs.mkdirSync(path.join(root, 'node_modules/agent-profiles'), { recursive: true });
-  fs.writeFileSync(path.join(root, 'node_modules/agent-profiles/package.json'), JSON.stringify({ name: 'agent-profiles', version }));
+  fs.writeFileSync(path.join(root, 'node_modules/agent-profiles/package.json'), JSON.stringify({ name: 'agent-profiles', version, bin: { 'agent-profiles': 'bin/agent-profiles.js' } }));
+  fs.mkdirSync(path.join(root, 'node_modules/agent-profiles/bin'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'node_modules/agent-profiles/bin/agent-profiles.js'), '#!/usr/bin/env node\n');
+  fs.mkdirSync(path.join(root, 'node_modules/.bin'), { recursive: true });
+  const bin = path.join(root, 'node_modules/.bin/agent-profiles');
+  if (process.platform === 'win32') {
+    fs.writeFileSync(bin, '#!/bin/sh\n');
+    fs.writeFileSync(bin + '.cmd', '@echo off\r\nnode "%~dp0..\\agent-profiles\\bin\\agent-profiles.js" %*\r\n');
+  } else if (!fs.existsSync(bin)) {
+    fs.chmodSync(path.join(root, 'node_modules/agent-profiles/bin/agent-profiles.js'), 0o755);
+    fs.symlinkSync('../agent-profiles/bin/agent-profiles.js', bin);
+  }
   return root;
 }
 
@@ -223,9 +234,9 @@ test('resolve prints agent context with supersession and re-run guidance', t => 
   assert.match(assigned.stdout, /## Required skill: code-review/);
   assert.match(assigned.stdout, /- testing — Verify changed behavior .* Read `\.agent-profiles\/skills\/testing\/SKILL\.md`\./);
   assert.doesNotMatch(assigned.stdout, /# Testing/);
-  assert.match(assigned.stdout, /Command: `npx --no agent-profiles resolve --model "example-model" --role reviewer`/);
+  assert.match(assigned.stdout, /Command \(Bash\): `npx --no agent-profiles resolve --model 'example-model' --role 'reviewer'`/);
   const unassigned = run();
-  assert.match(unassigned.stdout, /Command: `npx --no agent-profiles resolve`/);
+  assert.match(unassigned.stdout, /Command \(Bash\): `npx --no agent-profiles resolve`/);
   const failure = run('--role', 'missing');
   assert.equal(failure.status, 1);
   assert.equal(failure.stdout, '');
@@ -239,7 +250,7 @@ test('init replaces an outdated managed block in place and stays idempotent acro
   repo.write('CLAUDE.md', old);
   repo.write('AGENTS.md', '# Repository\n');
   const result = install({ root: repo.root, agents: ['claude', 'codex'] });
-  assert.deepEqual(result.modified.sort(), ['.claude/settings.json', 'AGENTS.md', 'CLAUDE.md']);
+  assert.deepEqual(result.modified.sort(), ['.agent-profiles/permissions.json', '.claude/settings.json', 'AGENTS.md', 'CLAUDE.md']);
   const claude = fs.readFileSync(path.join(repo.root, 'CLAUDE.md'), 'utf8');
   assert.equal(claude, `# Rules\n\n${bootstrapBlock('claude').toString('utf8')}\n\nAfter the block.\n`);
   assert.deepEqual(install({ root: repo.root, agents: ['claude', 'codex'] }).modified, []);
@@ -359,7 +370,7 @@ test('resolution knows its host: other hosts\' skills are unusable and required 
   const claude = resolveInstructions({ root: repo.root, role: 'researcher', host: 'claude' });
   assert.deepEqual([claude.required[0].usable, claude.available[0].usable, claude.unsatisfied], [true, true, []]);
   assert.match(formatContext(claude), /## Required host skills\n\nUse each for all work in this role:\n- notes: Invoke the claude skill `notes`/);
-  assert.match(formatContext(claude), /Command: `npx --no agent-profiles resolve --host claude --role researcher`/);
+  assert.match(formatContext(claude), /Command \(Bash\): `npx --no agent-profiles resolve --host 'claude' --role 'researcher'`/);
   const codex = resolveInstructions({ root: repo.root, role: 'researcher', host: 'codex' });
   assert.deepEqual(codex.unsatisfied, [{ id: 'notes', host: 'claude', hostId: 'notes', reason: 'Claude Code skill notes cannot be invoked by OpenAI Codex' }]);
   assert.equal(codex.available[0].usable, false);
@@ -437,7 +448,8 @@ test('installPackage makes the bootstrap runnable from a local package directory
   const version = JSON.parse(fs.readFileSync(path.join(project, 'package.json'), 'utf8')).version;
   const local = path.join(repo.root, 'vendor/agent-profiles');
   fs.mkdirSync(local, { recursive: true });
-  fs.writeFileSync(path.join(local, 'package.json'), JSON.stringify({ name: 'agent-profiles', version }));
+  fs.writeFileSync(path.join(local, 'package.json'), JSON.stringify({ name: 'agent-profiles', version, bin: { 'agent-profiles': 'cli.js' } }));
+  fs.writeFileSync(path.join(local, 'cli.js'), '#!/usr/bin/env node\n');
   fs.writeFileSync(path.join(repo.root, 'package.json'), '{"name":"fixture","private":true}\n');
   assert.equal(bootstrapAvailability(repo.root).runnable, false);
   assert.deepEqual(installPackage(repo.root, local), { runnable: true, version, reason: null });
@@ -457,7 +469,7 @@ test('init exits nonzero while the bootstrap cannot run', t => {
   assert.match(ready.stdout, /Bootstrap runnable with agent-profiles /);
   const report = run('doctor');
   assert.equal(report.status, 0, report.stderr);
-  assert.match(report.stdout, /Configuration: valid\n[\s\S]*Bootstrap availability: runnable[\s\S]*Host capability: every role is satisfiable/);
+  assert.match(report.stdout, /Configuration: valid\n[\s\S]*Bootstrap availability: runnable[\s\S]*Host compatibility: no cross-host required-skill conflicts/);
 });
 
 test('uninstall removes a settings file that only held the bootstrap permission rules', t => {
@@ -551,7 +563,7 @@ test('bootstrap mode records host-stated identity provenance and keeps it on re-
     .replace('"<exact model ID>"', 'example-model').split(' ');
   const json = JSON.parse(run(...command, '--json').stdout);
   assert.deepEqual(json.identity, { raw: 'example-model', canonical: 'example-model', source: 'host-stated', matchedBy: 'model' });
-  assert.match(run(...command).stdout, /Command: `npx --no agent-profiles resolve --host claude --identity-source host-stated --model "example-model"`/);
+  assert.match(run(...command).stdout, /Command \(Bash\): `npx --no agent-profiles resolve --host 'claude' --identity-source 'host-stated' --model 'example-model'`/);
   assert.match(formatProof(resolveInstructions({ root: repo.root, model: 'example-model', identitySource: 'host-stated' })), /Source {6}host-stated/);
   // Without a stated identity the block omits both flags, and nothing is claimed.
   assert.deepEqual(JSON.parse(run('--host', 'claude', '--json').stdout).identity, { raw: null, canonical: null, source: null, matchedBy: 'default' });

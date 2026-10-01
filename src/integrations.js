@@ -40,6 +40,7 @@ export const integrations = [
     files: ['CLAUDE.md', '.claude/CLAUDE.md'],
     select: records => records.find(record => record.span)?.file ??
       records.find(record => record.before !== null)?.file ?? 'CLAUDE.md',
+    repositoryReminder: 'AGENTS.md holds this repository\'s rules. Read it now unless its full text is already in your context.',
     // Only project skills live in the repository and can be verified; user and plugin skills cannot.
     skills: {
       project: { id: /^[a-z0-9][a-z0-9-]*$/, path: id => `.claude/skills/${id}/SKILL.md` },
@@ -101,4 +102,10 @@ export function bootstrapBlock(host, newline = '\n') {
     'If the command fails, report its error; do not read `.agent-profiles/` to',
     'route by hand.', '', END,
   ].join(newline));
+}
+
+/** Literal arguments for the two bootstrap shells; never evaluate resolver inputs. */
+export function renderResolveCommand(args, shell) {
+  const quote = value => `'${value.replaceAll("'", shell === 'Bash' ? "'\"'\"'" : "''")}'`;
+  return `${resolveCommand}${args.map((value, index) => ` ${index % 2 === 0 ? value : quote(value)}`).join('')}`;
 }

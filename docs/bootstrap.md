@@ -90,8 +90,8 @@ by someone else.
    - **Configuration**: schema, references, and managed markers.
    - **Bootstrap availability**: whether each installed block's command can run,
      meaning the package is installed at the matching version and permissions allow it.
-   - **Host capability**: whether each installed host can satisfy each role's
-     required host skills.
+   - **Host compatibility**: whether each role's required host skills belong to each
+     installed host. Actual native invocation is not verified.
 
    Host skill verification and each integration's observed behavior are listed as notes.
 
@@ -161,8 +161,12 @@ Without `--json`, it prints the agent-facing context:
 - Required host skills, named with the host skill to invoke.
 - Available skills, with their descriptions. Instruction skills show a path to
   read, and host skills show the host skill to invoke.
-- A reminder to read `AGENTS.md` when it exists, since Claude Code does not load it.
-- The exact command to run again, and when.
+- A Claude-adapter reminder to read `AGENTS.md` when it exists. Codex uses its own instruction discovery, including `AGENTS.override.md` precedence.
+- Literal-argument rerun commands for Bash and PowerShell, preserving supplied family input, and when to run them.
+
+Rerun values use each shell's literal single-quote escaping; spaces, quotes, and
+shell-significant characters remain data. NUL is rejected because process arguments
+cannot represent it. Use the command for your shell, without changing its quoting.
 
 Without `--host`, host-skill compatibility is not checked: every host skill is shown
 and nothing is marked unsatisfied. The managed blocks always pass it.
@@ -199,7 +203,7 @@ The synchronous result contains:
   and `characters`.
 - `required` and `available`: skill metadata with `type`, `delivery`, and
   `nameSource`. Host skills also carry `host`, `hostId`, `verification`, and `usable`
-  for the consuming host.
+  for host compatibility only. The legacy `usable: true` does not prove invocability.
 - `unsatisfied`: required host skills the consuming host cannot invoke, with reasons.
 - `diagnostics`.
 

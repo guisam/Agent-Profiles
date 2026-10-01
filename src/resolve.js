@@ -138,6 +138,7 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
     if (value !== undefined && (typeof value !== 'string' || !value.trim())) {
       fail(name, 'expected a nonempty string or an omitted value');
     }
+    if (value?.includes('\0')) fail(name, 'NUL cannot be represented in a command argument');
   }
   if (identitySource !== undefined && !['host', 'host-stated', 'user'].includes(identitySource)) fail('identitySource', 'expected host, host-stated, user, or an omitted value');
   if (!Array.isArray(skills)) fail('skills', 'expected a list of requested skill IDs');
@@ -294,7 +295,7 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
     }
   });
   const measuredSkills = new Map(loaded.filter(entry => entry.kind.endsWith('-skill')).map(entry => [entry.id, { bytes: entry.bytes, characters: entry.characters }]));
-  // null when the consuming host is unknown; otherwise whether that host can invoke the skill.
+  // Legacy `usable` means host compatibility only; the adapter determines actual invocation.
   const usable = skill => ({ bytes: null, characters: null, usable: host === undefined ? null : skill.host === host });
   const unsatisfied = host === undefined ? [] : required.filter(skill => skill.type === 'host' && skill.host !== host)
     .map(({ id, host: skillHost, hostId }) => ({ id, host: skillHost, hostId, reason: `${integrations.find(item => item.id === skillHost).name} skill ${hostId} cannot be invoked by ${integrations.find(item => item.id === host).name}` }));

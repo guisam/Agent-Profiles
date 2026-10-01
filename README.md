@@ -41,12 +41,13 @@ npx agent-profiles visualize
 instruction files. The block asks the agent to run `npx --no agent-profiles resolve`
 with the exact model ID its host states. Code does all routing, and the agent
 follows the printed result. For Claude Code, `init` also allows exactly that command
-in `.claude/settings.json`. It exits nonzero until the package is installed in the
-repository, so the bootstrap never points at a command that cannot run (see
+in `.claude/settings.json`. It exits nonzero until the local bootstrap executable
+and matching version are verified (see
 [bootstrap setup](docs/bootstrap.md#host-setup)). `configure` creates, edits, or deletes
 roles and lets you select required and available local skills. `doctor` answers three
 separate questions: is the configuration valid, can the bootstrap run here, and can
-every installed host satisfy every role. Use `--help` for options; scripts can initialize with
+each role's required host skills belong to every installed host. Actual native
+invocation remains host-controlled. Use `--help` for options; scripts can initialize with
 `--agent claude --agent codex`. Use `--root` for a directory outside Git.
 
 | Command | Purpose |
