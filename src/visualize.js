@@ -47,7 +47,7 @@ export async function startVisualizer({ root = process.cwd(), port = 0, model, f
           models: [...configuration.get('models').keys()],
           families: [...configuration.get('families').keys()],
           roles: [...configuration.get('roles').keys()],
-          initial: { model: initial.model, family: initial.family, role: initial.role, skills },
+          initial: { model: initial.model, family: family ?? null, role: initial.role, skills },
         });
       } else if (route === 'api/resolve') {
         for (const key of url.searchParams.keys()) {

@@ -14,9 +14,10 @@ node bin/agent-profiles.js doctor --root /path/to/repository
 node bin/agent-profiles.js uninstall --root /path/to/repository
 ```
 
-Without `--root`, commands walk upward from the working directory to the nearest
-`.git` directory or worktree `.git` file. If no Git root is found, supply an
-explicit directory. The resolved target is printed before making changes.
+Without `--root`, commands walk upward to the nearest Agent Profiles configuration
+or Git root (`.git` directory or worktree file). Installed bootstrap commands can
+therefore find explicit-root installations outside Git. If neither is found,
+supply an explicit directory. The resolved target is printed before making changes.
 
 The npm package contains the executable, resolver, and scaffold. It does not
 need a build step. To test the package before publishing:
@@ -27,8 +28,8 @@ npx --yes --package /absolute/path/agent-profiles-0.1.0.tgz agent-profiles init 
 ```
 
 After a separate publication step, the entry point will be
-`npx agent-profiles init`. This implementation does not publish anything or
-install a dependency into the target repository's `package.json`.
+`npx agent-profiles init`. This implementation does not publish anything.
+`init --package` can install a development dependency into the target repository.
 
 ## Init
 
@@ -75,8 +76,9 @@ additional agent products are outside this first adapter set. Host exclusions
 and instruction size limits still apply. Restart the host session after install.
 
 The managed block asks the agent to run `npx --no agent-profiles resolve` with its
-host-stated model ID and follow the output, which also asks it to read `AGENTS.md`
-when the host has not loaded it. Install the package in the repository and allow
+host-stated model ID and follow the output. Only the Claude adapter asks it to read
+`AGENTS.md`; Codex discovery and override precedence remain host-controlled.
+Install the package in the repository and allow
 that command in the host; see [bootstrap setup](bootstrap.md#host-setup). The block
 does not run an agent or execute skill tools. `npx --no` never downloads a package.
 
@@ -156,8 +158,8 @@ and any of them makes doctor exit with status 1:
 - **Bootstrap availability**: `agent-profiles` is not installed in the repository,
   or is installed at a different version, so `npx --no agent-profiles resolve` would
   fail or run older code; or Claude Code settings do not allow the command.
-- **Host capability**: a role requires a host skill that an installed host cannot
-  invoke.
+- **Host compatibility**: a role requires a skill belonging to another host.
+  This does not verify invocation controls or runtime skill availability.
 
 `init` blocks only on configuration errors. It writes the integration even when the
 bootstrap is not yet runnable, then reports what is missing and exits 1. With
@@ -188,3 +190,9 @@ integrations were removed and identifies the remaining deletion error.
 The prompt-free APIs are `install({root, agents})`, `doctor(root)`, and
 `uninstall({root, deleteConfig, confirmed})`. Programmatic deletion requires both
 boolean flags to be true; callers must obtain explicit confirmation first.
+
+### Executable and permission ownership checks
+
+Doctor follows npm's local-package and ancestor `node_modules/.bin` lookup. It verifies the selected executable target against its own package's `bin` and version, rather than using nearby package metadata. Missing targets and unrecognized shims are unverified. Global/cache-only installations and custom npm shell/workspace configuration are outside this local check; install a standard project executable. Version equality is evidence, not build attestation.
+
+Init records only rules it actually adds in `.agent-profiles/permissions.json`. Uninstall removes only those recorded rules and the ownership record, preserving pre-existing rules and other settings. Older installations without ownership records retain their rules: equality alone cannot establish ownership.

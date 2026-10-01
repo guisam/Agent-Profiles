@@ -28,10 +28,10 @@ Every behavioral statement in this documentation has one of these levels:
 | Resolution runs again after compaction or a model change | — | Yes, where the host reports the event | Expectation. Observed after compaction; skipped after a model change on an unrelated task |
 | The agent uses its host-stated model ID, not a guess | — | The host supplies it | Expectation. Observed reliably on Claude Code |
 | A host-native skill behaves as the host defines it | — | Host-dependent | Host-dependent: Agent Profiles asks the agent to invoke it and never injects its file |
-| The installed bootstrap command can run in this repository | Yes, for what is on disk: doctor checks the local package, its version, and the Claude Code allow rules; init exits nonzero until they hold | — (no bootstrap) | Host-dependent: Claude Code ignores project allow rules until the workspace is trusted. When denied, Haiku was observed routing by hand |
+| The installed bootstrap command can run in this repository | Yes, for what is on disk: doctor checks the standard local/self or ancestor executable target, its owning package version, and the presence of Claude Code allow rules; init exits nonzero until they hold | — (no bootstrap) | Host-dependent: Claude Code ignores project allow rules until the workspace is trusted. When denied, Haiku was observed routing by hand |
 | Every installed bootstrap surface carries the current protocol | Yes: doctor reports unversioned, older, or modified blocks and a changed BOOTSTRAP.md; init refreshes all installed surfaces | — | The agent reads whatever the surface says |
-| A host skill is offered only to the host that can invoke it | Yes, when the host is supplied | Yes: the host passes itself | Yes: each managed block passes its own `--host` |
-| A role whose required host skill the running host cannot invoke is reported, not silently degraded | Yes: `unsatisfied` in the resolution and a doctor capability error per installed host | Yes | The `resolve` output tells the agent to inform the user |
+| Agent-facing output offers a host skill only to a compatible host | Yes, when the host is supplied | Yes: the host passes itself | Yes: each managed block passes its own `--host` |
+| A role requiring another host's skill is reported, not silently degraded | Yes: `unsatisfied` in the resolution and a doctor compatibility error per installed host | Yes | The `resolve` output tells the agent to inform the user |
 
 Observed host behavior, with versions, is recorded in [host-observations.md](host-observations.md)
 and summarized per host in [hosts/claude-code.md](hosts/claude-code.md).
@@ -40,7 +40,7 @@ and summarized per host in [hosts/claude-code.md](hosts/claude-code.md).
 
 - **Roles cannot be restricted to a host.** A role that requires a Claude Code skill is
   still resolved for Codex, where it is reported as unsatisfied. A repository with both
-  integrations installed and such a role always shows a Host capability problem in
+  integrations installed and such a role always shows a Host compatibility problem in
   `doctor`; no configuration field marks a role as host-specific.
 - **Host-skill compatibility needs `--host`.** Resolutions without a host, such as
   manual `resolve`, the visualizer, API callers that omit it, or older blocks, report
@@ -60,15 +60,15 @@ Integration capabilities are also printed by `agent-profiles doctor`.
 
 Every resolution may name the host that consumes it (`host`: an integration ID such
 as `claude` or `codex`). Host-native skills carry `usable`: `true` or `false` for the
-given host, `null` when no host is given. For a known host:
+given host, `null` when no host is given. The legacy field name `usable` means host compatibility only: `true` does not prove that the host can invoke the skill. `verified-local` proves a project file exists, not that the runtime selected it. Invocation controls, namespace precedence, shadowing, permissions, and user/plugin availability belong to the host adapter or native integration. Agent Profiles core resolves composition requirements; the host determines actual usability. For a known host:
 
 - another host's available skills are not exposed to the agent;
 - another host's required skills are listed in `unsatisfied` with a reason, and the
   `resolve` output tells the agent to inform the user instead of substituting;
-- `doctor` reports each unsatisfied role and installed host as a capability error,
+- `doctor` reports each unsatisfied role and installed host as a compatibility error,
   separate from configuration errors. It does not block installing the integration.
 
-Without `host`, usability is unknown and nothing is marked unsatisfied; callers that
+Without `host`, host compatibility is unknown and nothing is marked unsatisfied; callers that
 consume host skills should always pass it.
 
 ## Terms

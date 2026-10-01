@@ -74,6 +74,10 @@ read the resolved instructions. This is not isolation from other local processes
 
 ## API and reuse
 
+The family selector holds only an explicitly supplied family override. A family
+inferred from a model prefix is shown in the resolution, not promoted into selector
+state; changing the model recalculates prefix routing.
+
 ```js
 import { startVisualizer } from './src/visualize.js';
 

@@ -5,7 +5,8 @@ import { resolveInstructions } from './resolve.js';
 
 export const display = text => stripVTControlCharacters(String(text)).replace(/[\x00-\x1f\x7f]/g, ' ');
 const where = skill => skill.host ? `${skill.host} skill ${skill.hostId}${skill.path ? ` at ${skill.path}` : ' (host-provided)'}` : skill.path;
-const keyOf = skill => `${skill.id}\0${skill.path}`;
+const resourceOf = skill => skill.host ? `host\0${skill.host}\0${skill.scope}\0${skill.hostId}` : `file\0${skill.path}`;
+const keyOf = skill => `${skill.id}\0${resourceOf(skill)}`;
 
 export async function selectSkills({ choices, initial = [], label, ask, write }) {
   if (!choices.length) { write('No selectable local skills. This list will be empty.'); return []; }
@@ -42,7 +43,7 @@ export async function selectSkills({ choices, initial = [], label, ask, write })
       if (selected.has(key)) selected.delete(key);
       else {
         for (const [otherKey, other] of selected) {
-          if (other.id === skill.id || other.path === skill.path) selected.delete(otherKey);
+          if (other.id === skill.id || resourceOf(other) === resourceOf(skill)) selected.delete(otherKey);
         }
         selected.set(key, skill);
       }
@@ -108,7 +109,7 @@ export async function configureRoles({ root, ask, write = console.log }) {
           choices: found.skills, initial: existing.required,
           label: 'Required: injected or invoked for all work in this role; keep this list small', ask, write,
         });
-        const choices = found.skills.filter(skill => !input.required.some(required => required.id === skill.id || required.path === skill.path));
+        const choices = found.skills.filter(skill => !input.required.some(required => required.id === skill.id || resourceOf(required) === resourceOf(skill)));
         input.available = await selectSkills({
           choices, initial: existing.available.filter(skill => choices.some(choice => keyOf(choice) === keyOf(skill))),
           label: 'Available: listed for the role; used only when a task falls within the skill description', ask, write,

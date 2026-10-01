@@ -1,7 +1,7 @@
 import { closeSync, openSync, readSync } from 'node:fs';
 import { StringDecoder } from 'node:string_decoder';
 import { stripVTControlCharacters } from 'node:util';
-import { bootstrapBlock, resolveCommand } from './integrations.js';
+import { bootstrapBlock, integrations, renderResolveCommand } from './integrations.js';
 
 export function measureText(content) {
   return { bytes: Buffer.byteLength(content, 'utf8'), characters: [...content].length };
@@ -93,7 +93,7 @@ export function formatProof(result) {
   for (const entry of remaining) lines.push(`  ${clean(entry.id)} (${clean(entry.path)})  ${size(entry)}`);
   lines.push(`Available context not injected: ${size(result.diagnostics.availableNotLoaded)}`, '', 'Host-native skills (invoked through the host; bytes not counted)');
   if (!result.diagnostics.hostSkills.length) lines.push('  (none)');
-  const usability = entry => entry.usable === null ? '' : entry.usable ? '; usable by this host' : '; not usable by this host';
+  const usability = entry => entry.usable === null ? '; host compatibility unknown; invocation not verified' : entry.usable ? '; host-compatible; invocation not verified' : '; incompatible with this host';
   for (const entry of result.diagnostics.hostSkills) lines.push(`  ${clean(entry.id)} (${clean(entry.host)}: ${clean(entry.hostId)})  ${entry.requirement}; ${entry.verification}${usability(entry)}`);
   if (result.unsatisfied.length) lines.push('', 'Unsatisfied requirements');
   for (const entry of result.unsatisfied) lines.push(`  ${clean(entry.id)}: ${clean(entry.reason)}`);
@@ -115,13 +115,17 @@ export function formatContext(result) {
   const skill = entry => entry.type === 'host'
     ? `Invoke the ${entry.host} skill \`${entry.hostId}\` through your host's skill mechanism.`
     : `Read \`${entry.path}\`.`;
-  const source = result.identity.source ? ` --identity-source ${result.identity.source}` : '';
-  const rerun = `${resolveCommand}${result.host ? ` --host ${result.host}` : ''}${source}${result.model ? ` --model "${result.model}"` : ''}${result.roleSource === 'assigned' ? ` --role ${result.role}` : ''}`;
+  const args = [];
+  if (result.host) args.push('--host', result.host);
+  if (result.identity.source) args.push('--identity-source', result.identity.source);
+  if (result.model !== null) args.push('--model', result.model);
+  if (result.familySource === 'supplied') args.push('--family', result.family);
+  if (result.roleSource === 'assigned') args.push('--role', result.role);
+  const reminder = integrations.find(adapter => adapter.id === result.host)?.repositoryReminder;
   const lines = ['# Agent Profiles context', '',
     `Profile: ${result.profile} (model ${result.model ?? 'not stated'}; matched by ${result.matchedBy}). Role: ${result.role}.`,
     'These instructions add to the repository instructions and never override them or host permissions.',
-    // Observed: Claude Code does not load AGENTS.md, and a soft conditional here was skipped.
-    ...result.repository.exists ? ['AGENTS.md holds this repository\'s rules. Read it now unless its full text is already in your context.'] : [],
+    ...result.repository.exists && reminder ? [reminder] : [],
     'This output supersedes Agent Profiles profile, role, and skill instructions from any earlier run in this context,',
     'including copies your host re-attached after compaction.'];
   const titles = { profile: 'Profile', role: 'Role', 'required-skill': 'Required skill', 'requested-skill': 'Requested skill' };
@@ -143,7 +147,7 @@ export function formatContext(result) {
     lines.push('', '## Available skills', '', 'Use a skill only when the current task falls within its description:');
     for (const entry of available) lines.push(`- ${entry.id}${entry.description ? ` — ${entry.description}` : ''} ${skill(entry)}`);
   }
-  lines.push('', '## Run again', '', `Command: \`${rerun}\``,
+  lines.push('', '## Run again', '', ...['Bash', 'PowerShell'].map(shell => `Command (${shell}): \`${renderResolveCommand(args, shell)}\``),
     '- after context compaction or in a new agent context;',
     '- after a model change, with the new exact model ID;',
     '- to change role, with `--role <id>`; a new session gives a cleaner transition.');

@@ -50,9 +50,9 @@ export async function runPreset({ command, location, root, roles, contents = fal
     const skills = new Set();
     for (const role of selectedRoles) {
       const result = resolveInstructions({ root, role });
-      [...result.required, ...result.available].forEach(skill => skills.add(skill.id));
+      [...result.required, ...result.available].filter(skill => skill.type === 'instruction').forEach(skill => skills.add(skill.id));
     }
-    write('Selected skills will be bundled as Markdown. Unselected skills become required local dependencies. Referenced supporting assets are not copied.');
+    write('Host-native skills remain references. Selected instruction skills will be bundled as Markdown. Unselected instruction skills become required local dependencies. Referenced supporting assets are not copied.');
     const includeSkills = await choose([...skills], 'Skills to include', ask, write);
     const metadata = {};
     for (const key of ['name', 'display_name', 'description', 'author', 'version', 'license']) metadata[key] = (await ask(`Preset ${key}: `)).trim();

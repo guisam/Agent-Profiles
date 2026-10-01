@@ -113,7 +113,7 @@ try {
     cli('doctor', '--root', root);
     assert.deepEqual(snapshot(path.join(root, '.agent-profiles')), customized);
     cli('uninstall', '--root', root);
-    assert.deepEqual(snapshot(path.join(root, '.agent-profiles')), customized);
+    assert.deepEqual(snapshot(path.join(root, '.agent-profiles')), customized.filter(([file]) => file !== 'permissions.json'));
     for (const [file, content] of Object.entries(originals)) assert.deepEqual(fs.readFileSync(path.join(root, file)), content);
     for (const file of targets) assert.ok(!fs.readFileSync(path.join(root, file), 'utf8').includes('<!-- agent-profiles:start -->'));
     const destination = path.join(temporary, `preset ${scenario}`);

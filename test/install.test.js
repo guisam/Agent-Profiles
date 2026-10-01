@@ -28,7 +28,18 @@ function withPackage(root) {
   const { version } = JSON.parse(fs.readFileSync(path.join(project, 'package.json'), 'utf8'));
   fs.writeFileSync(path.join(root, 'package.json'), '{"private":true}\n');
   fs.mkdirSync(path.join(root, 'node_modules/agent-profiles'), { recursive: true });
-  fs.writeFileSync(path.join(root, 'node_modules/agent-profiles/package.json'), JSON.stringify({ name: 'agent-profiles', version }));
+  fs.writeFileSync(path.join(root, 'node_modules/agent-profiles/package.json'), JSON.stringify({ name: 'agent-profiles', version, bin: { 'agent-profiles': 'bin/agent-profiles.js' } }));
+  fs.mkdirSync(path.join(root, 'node_modules/agent-profiles/bin'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'node_modules/agent-profiles/bin/agent-profiles.js'), '#!/usr/bin/env node\n');
+  fs.mkdirSync(path.join(root, 'node_modules/.bin'), { recursive: true });
+  const bin = path.join(root, 'node_modules/.bin/agent-profiles');
+  if (process.platform === 'win32') {
+    fs.writeFileSync(bin, '#!/bin/sh\n');
+    fs.writeFileSync(bin + '.cmd', '@echo off\r\nnode "%~dp0..\\agent-profiles\\bin\\agent-profiles.js" %*\r\n');
+  } else if (!fs.existsSync(bin)) {
+    fs.chmodSync(path.join(root, 'node_modules/agent-profiles/bin/agent-profiles.js'), 0o755);
+    fs.symlinkSync('../agent-profiles/bin/agent-profiles.js', bin);
+  }
   return root;
 }
 
@@ -51,7 +62,7 @@ test('fresh multi-agent installation validates, detects the root, and is idempot
   assert.equal(result.valid, true, [...result.errors, ...result.bootstrap].join('\n'));
   assert.equal(result.profile, 'constrained');
   assert.equal(result.role, 'implementer');
-  assert.equal(result.modified.length, 13);
+  assert.equal(result.modified.length, 14);
   assert.ok(result.modified.includes('.claude/settings.json'));
   assert.ok(result.agents.every(agent => agent.installed));
   assert.equal(doctor(root).valid, true);
@@ -93,7 +104,7 @@ test('user-edited configuration and profiles survive reinstallation and integrat
   fs.appendFileSync(protocol, '\n# Local edit\n');
   install({ root, agents: ['codex', 'claude'] });
   assert.deepEqual(fs.readFileSync(protocol), packaged);
-  assert.deepEqual(snapshot(path.join(root, '.agent-profiles')), before);
+  assert.deepEqual(snapshot(path.join(root, '.agent-profiles')).filter(([file]) => file !== 'permissions.json'), before);
   uninstall({ root });
   assert.deepEqual(snapshot(path.join(root, '.agent-profiles')), before);
   assert.equal(fs.readFileSync(path.join(root, 'CLAUDE.md'), 'utf8'), '');
