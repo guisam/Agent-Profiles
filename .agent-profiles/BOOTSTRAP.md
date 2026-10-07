@@ -36,7 +36,7 @@ run the resolver, which performs every routing decision in code.
 
 ## What each mode can guarantee
 
-In **bootstrap mode** (a managed block in `CLAUDE.md` or `AGENTS.md`), Agent
+In **bootstrap mode** (a managed block in `CLAUDE.md`, `AGENTS.md`, `.hermes.md`, or `HERMES.md`), Agent
 Profiles guarantees the configuration check, the resolution for a given identity
 and role, and the generated instructions. Whether the agent runs the command,
 copies the right identity, re-runs it on lifecycle events, or disregards

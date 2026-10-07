@@ -10,8 +10,8 @@ in local, reviewable files, with a small CLI for setup and configuration.
 
 ## Quick start
 
-Requires **Node.js 22 or newer**. Supports **Claude Code and OpenAI Codex**
-(Claude Code verified live; Codex behavior not yet observed).
+Requires **Node.js 22 or newer**. Supports **Claude Code, OpenAI Codex, and Hermes Agent**
+(Claude Code verified live; Codex and Hermes live bootstrap behavior not yet observed).
 
 **v0.1.0 is being prepared; it has not been published to npm.** Try this checkout
 now with `npm ci` and `npm pack`, then run these commands with the path to your
@@ -65,6 +65,7 @@ invocation remains host-controlled. Use `--help` for options; scripts can initia
 your-project/
   AGENTS.md                   # repository rules + Codex bootstrap
   CLAUDE.md                   # Claude bootstrap
+  .hermes.md                  # Hermes bootstrap, when selected (existing HERMES.md respected)
   .agent-profiles/
     agents.yaml               # model mappings, roles, skill references
     BOOTSTRAP.md              # protocol reference (agents do not need to read it)
@@ -130,6 +131,21 @@ records what was verified live with Claude Haiku, Sonnet, and Opus; see the
 [known limitations](docs/architecture.md#known-limitations). Agent Profiles
 is not a context or permission sandbox.
 
+## Hermes: model instructions, not runtime profiles
+
+`init --agent hermes` installs a repository-local bootstrap in `.hermes.md` or
+an existing `HERMES.md`. A **model instruction profile** in `.agent-profiles/`
+is not a **Hermes runtime profile**: it adds model accommodations to a repository
+task, while Hermes owns personality, configuration, memory, credentials, sessions,
+tools, and its native skill catalog. This adapter never creates or selects a
+Hermes runtime profile and never edits `SOUL.md` or `HERMES_HOME`.
+
+Required and available portable skills use the existing resolver. The adapter
+does not restrict Hermes's skill visibility or add native Hermes skill bindings.
+Use fresh contexts for role/model changes; lifecycle compliance remains a bootstrap
+expectation. See the [Hermes adapter and sharing guide](docs/hosts/hermes.md) for
+installation, working-directory requirements, instruction precedence, and limits.
+
 ## Measure the selected context
 
 ```sh
@@ -188,7 +204,7 @@ import, and their origins are recorded separately.
 
 ## Scope and status
 
-The local workflow now includes deterministic routing, Claude Code/Codex setup,
+The local workflow now includes deterministic routing, Claude Code/Codex/Hermes setup,
 role and skill configuration, shareable presets, context diagnostics, and a local
 visualizer. No runtime dependencies were added for these features; YAML handling remains
 the CLI's single runtime dependency. See the [release checklist](docs/release.md)

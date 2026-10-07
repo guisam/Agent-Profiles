@@ -33,8 +33,8 @@ After a separate publication step, the entry point will be
 
 ## Init
 
-Interactive `init` offers `claude` and `codex` as comma-separated choices. Known
-instruction files and `.claude`/`.codex` directories suggest defaults; detection
+Interactive `init` offers `claude`, `codex`, and `hermes` as comma-separated choices. Known
+instruction files and `.claude`/`.codex`/`.hermes` directories suggest defaults; detection
 does not prove an agent is in use. Enter a different list to change the selection.
 Choose at least one agent. In scripts or CI, specify choices explicitly:
 
@@ -68,16 +68,23 @@ Shared editing and validation stay in [install.js](../src/install.js).
 | --- | --- |
 | `claude` | Existing managed location, otherwise existing `CLAUDE.md`, then `.claude/CLAUDE.md`; creates root `CLAUDE.md` when neither exists |
 | `codex` | Nonempty root `AGENTS.override.md`, otherwise root `AGENTS.md` |
+| `hermes` | Existing root `.hermes.md` (even if empty), otherwise existing root `HERMES.md`; creates `.hermes.md` when neither exists |
 
 These paths follow the official [Claude Code memory documentation](https://code.claude.com/docs/en/memory)
 and [OpenAI instruction-file documentation](https://learn.chatgpt.com/docs/agent-configuration/agents-md).
+Hermes precedence follows its official [context-file documentation](https://hermes-agent.nousresearch.com/docs/user-guide/features/context-files).
+The [Hermes adapter guide](hosts/hermes.md) separates Agent Profiles model
+instruction profiles from Hermes runtime profiles and explains shared-rule
+loading, nested-file shadowing, portable skills, and verification limits.
 Global settings, custom instruction filenames, per-directory installations, and
-additional agent products are outside this first adapter set. Host exclusions
+additional agent products are outside this adapter set. Host exclusions
 and instruction size limits still apply. Restart the host session after install.
 
 The managed block asks the agent to run `npx --no agent-profiles resolve` with its
-host-stated model ID and follow the output. Only the Claude adapter asks it to read
-`AGENTS.md`; Codex discovery and override precedence remain host-controlled.
+host-stated model ID and follow the output. Claude's resolver reminder asks it to read
+`AGENTS.md`; Hermes's bootstrap explicitly preserves applicable shared instructions
+because `.hermes.md` wins project-context discovery. Codex discovery and override
+precedence remain host-controlled.
 Install the package in the repository and allow
 that command in the host; see [bootstrap setup](bootstrap.md#host-setup). The block
 does not run an agent or execute skill tools. `npx --no` never downloads a package.
@@ -94,7 +101,9 @@ native skills also declares `skills`, one entry per scope (`project`, `user`,
 its path in the repository. Each record supplied
 to `select` contains `file`, `before` (a Buffer or null), and `span` (the managed
 block range or null). Missing targets must have a deterministic default. Path
-precedence belongs here, not in the resolver or shared bootstrap.
+precedence belongs here, not in the resolver or shared bootstrap. Optional
+`bootstrapGuidance` adds host-specific explanatory lines inside the managed block;
+hosts without it retain the existing bootstrap bytes.
 
 | Conceptual operation | Implementation |
 | --- | --- |

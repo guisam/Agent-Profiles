@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — Hermes bootstrap adapter
+
+- Added `hermes` to installer/CLI host choices and deterministic resolver composition.
+- Install into root `.hermes.md` or existing `HERMES.md`, respecting filename priority;
+  detect shadowed blocks and preserve existing bytes through reruns and uninstall.
+- Keep Agent Profiles model instruction profiles distinct from Hermes runtime profiles.
+  No Hermes personality, runtime configuration, memory, credentials, sessions, or skill
+  visibility is changed; portable instruction skills use the existing resolver.
+- Add explicit shared-rule loading guidance because Hermes-specific context files take
+  precedence. Native Hermes skill bindings and lifecycle enforcement are not included.
+- Cover Hermes host/CLI composition, portable skills and cross-host limits, three-host
+  coexistence, and the real packed artifact. Add a Hermes setup/sharing/limits guide.
+
 ## Unreleased ? Protocol 2 review fixes
 
 - Preserve independent pathless host skills through selection and role editing; export them only as references.

@@ -36,7 +36,7 @@ try {
     'src/integrations.js', 'src/install.js', 'src/resolve.js', 'src/skills.js', 'src/wizard.js',
     '.agent-profiles/agents.yaml', '.agent-profiles/BOOTSTRAP.md', 'docs/configure.md', 'src/presets.js',
     'src/preset-wizard.js', 'src/diagnostics.js', 'docs/proof.md', 'src/visualize.js', 'src/visualizer/index.html',
-    'src/visualizer/app.js', 'src/visualizer/style.css', 'docs/visualize.md', 'examples/presets/release-review/preset.yaml']) assert.ok(files.has(file), `Missing package file: ${file}`);
+    'src/visualizer/app.js', 'src/visualizer/style.css', 'docs/visualize.md', 'docs/hosts/hermes.md', 'examples/presets/release-review/preset.yaml']) assert.ok(files.has(file), `Missing package file: ${file}`);
   for (const file of files) {
     assert.ok(/^(bin\/|src\/|docs\/|examples\/presets\/|\.agent-profiles\/|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(file), `Unexpected package file: ${file}`);
   }
@@ -68,24 +68,32 @@ try {
     if (scenario !== 'empty') {
       originals['AGENTS.md'] = Buffer.from('\uFEFF# Repository invariants\r\nPreserve these rules.');
       originals[scenario === 'alternate targets' ? '.claude/CLAUDE.md' : 'CLAUDE.md'] = Buffer.from('# Claude rules\nKeep these too.\n');
+      originals[scenario === 'alternate targets' ? 'HERMES.md' : '.hermes.md'] = Buffer.from('\uFEFF# Hermes project rules\r\nKeep runtime profiles separate.');
       if (scenario === 'alternate targets') originals['AGENTS.override.md'] = Buffer.from('# Override\nRespect repository invariants.');
     }
     for (const [file, content] of Object.entries(originals)) {
       fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
       fs.writeFileSync(path.join(root, file), content);
     }
-    cli('init', '--root', root, '--agent', 'claude', '--agent', 'codex');
-    const targets = scenario === 'alternate targets' ? ['.claude/CLAUDE.md', 'AGENTS.override.md'] : ['CLAUDE.md', 'AGENTS.md'];
+    cli('init', '--root', root, '--agent', 'claude', '--agent', 'codex', '--agent', 'hermes');
+    const targets = scenario === 'alternate targets' ? ['.claude/CLAUDE.md', 'AGENTS.override.md', 'HERMES.md'] : ['CLAUDE.md', 'AGENTS.md', '.hermes.md'];
     for (const file of targets) {
       const text = fs.readFileSync(path.join(root, file), 'utf8');
       assert.equal(text.split('<!-- agent-profiles:start -->').length, 2);
-      assert.ok(text.includes(`npx --no agent-profiles resolve --host ${file.includes('CLAUDE') ? 'claude' : 'codex'} --identity-source host-stated --model`));
+      const host = file.includes('CLAUDE') ? 'claude' : /hermes/i.test(file) ? 'hermes' : 'codex';
+      assert.ok(text.includes(`npx --no agent-profiles resolve --host ${host} --identity-source host-stated --model`));
     }
     // The exact bootstrap command must work from the installed package without downloading anything.
     const context = run(process.execPath, [npm, 'exec', '--no', '--offline', '--', 'agent-profiles', 'resolve', '--root', root, '--host', 'claude', '--model', 'example-model', '--role', 'reviewer'], consumer);
     assert.ok(context.startsWith('# Agent Profiles context') && context.includes('## Required skill: code-review'));
+    const hermesContext = run(process.execPath, [npm, 'exec', '--no', '--offline', '--', 'agent-profiles', 'resolve', '--root', root, '--host', 'hermes', '--model', 'example-model', '--role', 'reviewer', '--json', '--contents'], consumer);
+    const hermes = JSON.parse(hermesContext);
+    assert.equal(hermes.host, 'hermes');
+    assert.equal(hermes.profile, 'autonomous');
+    assert.deepEqual(hermes.required.map(skill => skill.id), ['code-review']);
+    assert.ok(hermes.loaded.some(entry => entry.kind === 'required-skill' && entry.content));
     const initial = snapshot(root);
-    cli('init', '--root', root, '--agent', 'codex', '--agent', 'claude');
+    cli('init', '--root', root, '--agent', 'codex', '--agent', 'claude', '--agent', 'hermes');
     assert.deepEqual(snapshot(root), initial);
     for (const { model, family, profile, matchedBy } of [
       { model: 'example-model', family: 'example-family', profile: 'autonomous', matchedBy: 'model' },
@@ -109,7 +117,7 @@ try {
     assert.deepEqual(configured.available.map(skill => skill.id), ['testing']);
     for (const file of ['profiles/constrained.md', 'roles/release-reviewer.md']) fs.appendFileSync(path.join(root, '.agent-profiles', file), '\nUser customization.\n');
     const customized = snapshot(path.join(root, '.agent-profiles'));
-    cli('init', '--root', root, '--agent', 'claude', '--agent', 'codex');
+    cli('init', '--root', root, '--agent', 'claude', '--agent', 'codex', '--agent', 'hermes');
     cli('doctor', '--root', root);
     assert.deepEqual(snapshot(path.join(root, '.agent-profiles')), customized);
     cli('uninstall', '--root', root);
