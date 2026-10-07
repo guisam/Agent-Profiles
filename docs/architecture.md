@@ -59,7 +59,7 @@ Integration capabilities are also printed by `agent-profiles doctor`.
 ## Host in the resolution contract
 
 Every resolution may name the host that consumes it (`host`: an integration ID such
-as `claude` or `codex`). Host-native skills carry `usable`: `true` or `false` for the
+as `claude`, `codex`, or `hermes`). Host-native skills carry `usable`: `true` or `false` for the
 given host, `null` when no host is given. The legacy field name `usable` means host compatibility only: `true` does not prove that the host can invoke the skill. `verified-local` proves a project file exists, not that the runtime selected it. Invocation controls, namespace precedence, shadowing, permissions, and user/plugin availability belong to the host adapter or native integration. Agent Profiles core resolves composition requirements; the host determines actual usability. For a known host:
 
 - another host's available skills are not exposed to the agent;

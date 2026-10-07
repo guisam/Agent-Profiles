@@ -64,7 +64,8 @@ test('fresh multi-agent installation validates, detects the root, and is idempot
   assert.equal(result.role, 'implementer');
   assert.equal(result.modified.length, 14);
   assert.ok(result.modified.includes('.claude/settings.json'));
-  assert.ok(result.agents.every(agent => agent.installed));
+  assert.deepEqual(result.agents.filter(agent => agent.installed).map(agent => agent.id), ['claude', 'codex']);
+  assert.equal(result.agents.find(agent => agent.id === 'hermes').installed, false);
   assert.equal(doctor(root).valid, true);
   const before = snapshot(root);
   assert.deepEqual(install({ root, agents: ['claude', 'codex', 'codex'] }).modified, []);
@@ -118,7 +119,7 @@ test('adapters honor existing alternate files and Codex override precedence', t 
   fs.writeFileSync(path.join(root, 'AGENTS.override.md'), 'Codex override');
   fs.writeFileSync(path.join(root, 'AGENTS.md'), 'Shared repository rules');
   const result = install({ root, agents: ['claude', 'codex'] });
-  assert.deepEqual(result.agents.map(agent => agent.file), ['.claude/CLAUDE.md', 'AGENTS.override.md']);
+  assert.deepEqual(result.agents.filter(agent => agent.installed).map(agent => agent.file), ['.claude/CLAUDE.md', 'AGENTS.override.md']);
   assert.equal(fs.existsSync(path.join(root, 'CLAUDE.md')), false);
   assert.equal(fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8'), 'Shared repository rules');
   uninstall({ root });

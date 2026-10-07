@@ -70,6 +70,41 @@ export const integrations = [
     select: records => records.find(record => record.before?.length)?.file ?? 'AGENTS.md',
     capabilities: { mode: 'bootstrap', verified: 'not yet observed', identity: 'unverified' },
   },
+  {
+    id: 'hermes', name: 'Hermes Agent', hint: '.hermes',
+    files: ['.hermes.md', 'HERMES.md'],
+    // Hermes picks the first existing name at the nearest directory, not the first nonempty file.
+    select: records => records.find(record => record.before !== null)?.file ?? '.hermes.md',
+    bootstrapGuidance: [
+      '', '### Model instructions, not a Hermes runtime profile', '',
+      'An Agent Profiles model instruction profile adds repository-local model accommodations.',
+      'It is not a Hermes runtime profile and does not select one, change SOUL.md,',
+      'or change Hermes configuration, memory, credentials, tools, or skill visibility.',
+      'Required and available instruction skills are composed by the resolver;',
+      'this adapter does not enforce a skill or permission sandbox.', '',
+      'This Hermes-specific file takes precedence over other project context types.',
+      'Also read applicable shared repository instructions using these fallback rules:',
+      'Git root through the working directory; outside Git, working directory only.',
+      'In each directory, read the first readable nonempty file in order:',
+      'AGENTS.override.md, AGENTS.md, agents.md. Skip empty or unreadable files and try the next name.',
+      'If the entire AGENTS chain has no nonempty content, try the working directory\'s',
+      'CLAUDE.md then claude.md, again skipping empty or unreadable files.',
+      'If neither has content, read all readable nonempty .cursorrules and',
+      '.cursor/rules/*.mdc files in the working directory only.',
+      'Keep more-specific repository rules. A nearer .hermes.md or HERMES.md can shadow',
+      'this bootstrap; start in the installation root or provide it explicitly in that context.',
+    ],
+    capabilities: {
+      mode: 'bootstrap', verified: 'not yet observed live',
+      identity: 'use only the exact model ID stated by the host; omit it when absent',
+      compaction: 'agent must run resolve again; lifecycle compliance is not verified',
+      modelChange: 'agent must run resolve again; earlier instruction text may remain',
+      roleChange: 'use a fresh context for clean role separation',
+      subagents: 'bootstrap requires the assigned workspace context; inheritance is host-controlled',
+      hostSkills: 'portable instruction skills only; native Hermes skill visibility remains host-controlled',
+      permissions: 'no Hermes settings or approvals are changed',
+    },
+  },
 ];
 
 export function managedSpan(content, file) {
@@ -100,7 +135,7 @@ export function bootstrapBlock(host, newline = '\n') {
     // host-stated records provenance honestly: the host stated it, the agent relayed it.
     'Add `--role <id>` only when the user or your agent definition assigns a role.',
     'If the command fails, report its error; do not read `.agent-profiles/` to',
-    'route by hand.', '', END,
+    'route by hand.', ...adapter.bootstrapGuidance ?? [], '', END,
   ].join(newline));
 }
 

@@ -4,7 +4,7 @@ Agent Profiles supports two integration modes. Each statement below names the
 mode that can actually guarantee it.
 
 - **Bootstrap mode** is for hosts whose only hook is an instruction file, such as
-  Claude Code (`CLAUDE.md`) and Codex (`AGENTS.md`). The installer adds a managed
+  Claude Code (`CLAUDE.md`), Codex (`AGENTS.md`), and Hermes (`.hermes.md` / `HERMES.md`). The installer adds a managed
   block asking the agent to run the resolver. Agent Profiles guarantees the block,
   the configuration check, and what `resolve` prints for a given identity and role.
   Running the command, copying the right identity, and re-running it are agent
@@ -42,6 +42,10 @@ route by hand.
 ```
 
 The Codex block is identical except for its host name and `--host codex`.
+The Hermes block uses `--host hermes` and adds host-specific guidance distinguishing
+model instruction profiles from Hermes runtime profiles and preserving shared
+repository rules. See the [Hermes adapter guide](hosts/hermes.md); it does not
+configure Hermes profiles or install native lifecycle hooks.
 
 The wording is maintained in [integrations.js](../src/integrations.js). Each block
 declares its protocol version; `init` replaces outdated blocks in every installed
