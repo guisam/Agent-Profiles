@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — external native skill inventory (#15)
+
+- Add opt-in metadata-only `skills --external`, `configure --external`, and
+  `doctor --external`, plus `--sources` for machine-local approved roots.
+- Discover personal Claude and Codex skills and explicitly namespaced Claude
+  plugin roots; preserve portable host/scope/native-ID references and preset round-trips.
+- Add Codex user-native references without injecting or measuring skill bodies.
+- Show origin/status, retain opaque or missing assignments, and block known
+  shadowed/non-addressable origins. Revalidate disk selections before preview/save.
+- Keep repository containment rules and host settings unchanged. Metadata is not
+  proof of host enablement or live invocation.
+
+
 ## Unreleased — Hermes bootstrap adapter
 
 - Added `hermes` to installer/CLI host choices and deterministic resolver composition.

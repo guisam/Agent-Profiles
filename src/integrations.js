@@ -68,6 +68,9 @@ export const integrations = [
     id: 'codex', name: 'OpenAI Codex', hint: '.codex',
     files: ['AGENTS.override.md', 'AGENTS.md'],
     select: records => records.find(record => record.before?.length)?.file ?? 'AGENTS.md',
+    // Codex user skills are addressed by frontmatter name, never injected here.
+    // Other scopes need separate native addressability contracts.
+    skills: { user: { id: /^[a-z0-9][a-z0-9-]*$/ } },
     capabilities: { mode: 'bootstrap', verified: 'not yet observed', identity: 'unverified' },
   },
   {

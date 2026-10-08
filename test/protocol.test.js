@@ -164,7 +164,7 @@ test('host-native skills resolve as host capabilities, are never injected, and a
 
 test('host skill references validate host, identifier, and conflicts with local skills', async t => {
   const cases = [
-    [config => { config.skills = { x: { host: 'codex', scope: 'project' } }; }, /skills.x.host: expected a host with native skills: claude/],
+    [config => { config.skills = { x: { host: 'codex', scope: 'project' } }; }, /skills.x.scope: expected one of user/],
     [config => { config.skills = { x: { host: 'claude', scope: 'project', id: 'Bad Name' } }; }, /skills.x.id: expected a Claude Code project skill identifier/],
     [config => { config.skills = { x: { host: 'claude', file: 'a.md' } }; }, /skills.x.file: unknown field/],
     [config => { config.skills = { testing: { host: 'claude', scope: 'project' } }; }, /ambiguous skill testing: .agent-profiles\/skills\/testing\/SKILL.md exists and skills.testing names a host skill/],

@@ -2,6 +2,7 @@ import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { isNode, visit } from 'yaml';
 import { applyChanges, readLocal, safePath } from './files.js';
+import { validateSkillSelection } from './skills.js';
 import { identifier, localFile, parseYaml, parseYamlDocument, resolveInstructions, skillMetadata } from './resolve.js';
 
 const configFile = '.agent-profiles/agents.yaml';
@@ -19,10 +20,10 @@ export function readConfiguration(root) {
 /**
  * Build a validated, reviewable plan; this function never writes files.
  * @param {{root: string, action: string, id: string, file?: string, description?: string,
- *   required?: (string | {id: string, path: string})[], available?: (string | {id: string, path: string})[],
- *   defaultRole?: string, expectedConfiguration?: Buffer}} options
+ *   required?: (string | Record<string, any>)[], available?: (string | Record<string, any>)[],
+ *   defaultRole?: string, expectedConfiguration?: Buffer, sourceOptions?: object}} options
  */
-export function planRoleChange({ root, action, id, file, description, required, available, defaultRole, expectedConfiguration }) {
+export function planRoleChange({ root, action, id, file, description, required, available, defaultRole, expectedConfiguration, sourceOptions }) {
   const state = readConfiguration(root);
   ({ root } = state);
   const { document, configuration, before } = state;
@@ -41,6 +42,7 @@ export function planRoleChange({ root, action, id, file, description, required, 
     Alias() { shared = true; },
   });
   const aliases = [];
+  const selectionChecks = [];
   const changes = [];
   let newRoleFile;
 
@@ -75,6 +77,10 @@ export function planRoleChange({ root, action, id, file, description, required, 
       return candidate && existsSync(path.join(root, candidate)) ? localFile(root, candidate, skillId, 'repository') : null;
     };
     const bind = (selection, entry) => {
+      if (typeof selection !== 'string') {
+        validateSkillSelection(root, selection, sourceOptions);
+        if (selection.host && selection.path) selectionChecks.push({ ...selection });
+      }
       const skillId = identifier(typeof selection === 'string' ? selection : selection?.id, entry);
       if (typeof selection === 'string' && sources.get(skillId)?.has('host')) return skillId;
       if (typeof selection !== 'string' && selection.host) {
@@ -135,13 +141,14 @@ export function planRoleChange({ root, action, id, file, description, required, 
   if (!after.equals(before)) changes.push({ file: configFile, before, after });
   for (const change of changes) safePath(root, change.file);
   return {
-    root, action, id, before, after, changes, newRoleFile, resolution, aliases,
+    root, action, id, before, after, changes, newRoleFile, resolution, aliases, selectionChecks, sourceOptions,
     instructionFile: action === 'delete' ? roles.get(id).get('file') : proposed.get('roles').get(id).get('file'),
   };
 }
 
 export function applyRoleChange(plan) {
   if (!readLocal(plan.root, configFile)?.equals(plan.before)) throw new Error('Configuration changed after preview; reload before saving');
+  for (const selection of plan.selectionChecks) validateSkillSelection(plan.root, selection, plan.sourceOptions);
   const role = plan.action === 'delete' ? undefined : plan.id;
   resolveInstructions({ root: plan.root, role, configuration: parseYaml(plan.after.toString('utf8')), newRoleFile: plan.newRoleFile });
   const modified = applyChanges(plan.root, plan.changes, () => resolveInstructions({ root: plan.root, role }));
