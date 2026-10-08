@@ -280,13 +280,16 @@ test('POSIX PATH permissions, omitted and relative entries, shell evidence and u
   fs.chmodSync(file, 0o755);
   const nonexecutable = write('tools/ollama', 'NEVER-EXECUTE');
   fs.chmodSync(nonexecutable, 0o644);
-  // On Windows, rooted paths on the current drive let the POSIX delimiter fixture avoid a drive colon.
-  const directory = process.platform === 'win32' ? path.dirname(file).slice(2).replaceAll('\\', '/') : path.dirname(file);
+  // A virtual POSIX directory avoids Windows drive letters in colon-delimited PATH.
+  // Translate only this fixture's stat calls; cwd and temporary files may be on different drives.
+  const directory = process.platform === 'win32' ? '/agent-profiles-posix-tools' : path.dirname(file);
   if (process.platform === 'win32') {
     const original = fs.statSync;
     t.mock.method(fs, 'statSync', function(target, ...args) {
-      const stat = original.call(this, target, ...args);
-      if (path.resolve(String(target)) === file) stat.mode |= 0o111;
+      if (path.dirname(String(target)).replaceAll('\\', '/') !== directory) return original.call(this, target, ...args);
+      const name = path.basename(String(target));
+      const stat = original.call(this, path.join(path.dirname(file), name), ...args);
+      stat.mode = (stat.mode & ~0o111) | (name === 'git' ? 0o111 : 0);
       return stat;
     });
     syncBuiltinESMExports();
@@ -294,8 +297,8 @@ test('POSIX PATH permissions, omitted and relative entries, shell evidence and u
   }
   const result = inspectRepository({ root, environmentOptions: { platform: 'linux', env: { PATH: `:relative:${directory}:${directory}`, SHELL: '/bin/zsh', RANDOM_SECRET: 'SECRET-ENV' }, system: { ...os, cpus: () => { throw new Error(); } } } });
   assert.equal(result.environment.tools.find(tool => tool.id === 'git').availability, 'found');
-  // Windows mode bits are not POSIX execute permissions; the actual POSIX CI runners enforce this case.
-  if (process.platform !== 'win32') assert.equal(result.environment.tools.find(tool => tool.id === 'ollama').availability, 'not-found');
+  // POSIX runners use real execute permissions; Windows emulates them only for these fixture files.
+  assert.equal(result.environment.tools.find(tool => tool.id === 'ollama').availability, 'not-found');
   assert.equal(result.environment.shell.evidence, 'SHELL');
   assert.equal(result.environment.shell.currentShell, 'unverified');
   assert.equal(result.environment.cpu.status, 'unknown');
