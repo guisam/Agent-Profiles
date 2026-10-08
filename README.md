@@ -53,7 +53,8 @@ invocation remains host-controlled. Use `--help` for options; scripts can initia
 | Command | Purpose |
 | --- | --- |
 | `init` | Select agents, preserve their existing instructions, and install the local scaffold |
-| `configure` | Create/edit/delete roles and select required or available skills |
+| `configure` | Create/edit/delete roles; `--external` adds native user/plugin metadata |
+| `skills` | Inspect metadata/source availability; `--external --json` includes external inventory |
 | `doctor` | Validate configuration, local references, host skills, and integration capabilities |
 | `resolve` | Print the resolved instructions an agent follows; `--json` for integrations |
 | `proof` | Measure selected instruction bytes/characters and available context not injected |

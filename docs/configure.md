@@ -34,7 +34,7 @@ its replacement. The only/default role cannot be deleted until another exists.
 ## Selecting skills
 
 The first list selects **required** skills, which apply to all work in the role:
-instruction skills are injected and Claude Code skills invoked. Keep this list
+instruction skills are injected and supported host-native skills invoked. Keep this list
 small. The second selects **available** skills, listed for the role and used only
 when a task falls within the skill's description. Required skills are excluded from
 the available list. Selecting a skill routes it; it does not hide other host skills,
@@ -102,13 +102,53 @@ resource are reused; occupied IDs are skipped when choosing a numbered alias.
 Other roles can continue to reference the original `testing`. Skill files are
 never copied, rewritten, or deleted. Unused source mappings are retained.
 
-Additional layouts can be added through the small source adapter table in
-[skills.js](../src/skills.js). This version does not scan home directories or
-remote registries. A user-level or plugin Claude skill can be referenced by editing
-`agents.yaml` (`personal: {host: claude, scope: user}` or `lint: {host: claude, scope: plugin, id: toolkit:lint}`); doctor reports it as
-host-provided, since Agent Profiles cannot verify it. Editing a role keeps such
-references selectable. To use a resource outside the automatic locations, add its
-repository-local path to the existing `skills` map; it then appears in the wizard.
+Additional repository layouts can be added through the source adapter table in
+[skills.js](../src/skills.js) or explicit repository-local file mappings.
+External discovery is opt-in as described below; no remote registry is queried.
+Manual user/plugin native references remain supported and installation-unverified.
+Editing a role retains these references even when their metadata is unavailable.
+
+## External native skills (opt-in)
+
+```sh
+agent-profiles skills --external --json
+agent-profiles configure --external
+agent-profiles doctor --external
+# An explicit machine-local preferences file implies --external:
+agent-profiles configure --sources /path/to/skill-sources.json
+```
+
+Personal Claude and Codex skills are inventoried without copying their bodies.
+Explicit Claude plugin roots require the native plugin namespace. See
+[external skill sources](hosts/external-skill-sources.md) for current defaults,
+host-home overrides, the local JSON schema, symlink containment, and supported layouts.
+Preferences and inventory paths stay outside shareable repository configuration.
+
+The picker displays host, scope, native identifier, origin path, and availability.
+Search also matches host/scope/native identity/status. External aliases such as
+`codex-user-audit` save `{host: codex, scope: user, id: audit}`; they do not rename
+the native command. Existing configured aliases are reused. Fully qualified
+Claude plugin IDs stay qualified, for example `toolkit:lint`. Ambiguous external
+origins are disabled, not silently chosen. Claude personal skills shadow matching
+project names; Codex project/user duplicates cannot select an exact origin through
+this portable reference and are rejected. Only the selected repository root is
+checked for project conflicts; enterprise, additional directories and unobserved
+host catalogs may have other conflicts.
+
+`metadata-found` means frontmatter was found, not that the host enables or can
+invoke the skill. `not-found` means no matching user skill was found in the
+inventoried roots. An opaque plugin reference remains `host-provided-unverified`.
+Missing references remain editable and travel as references in presets. Native
+implementations are never bundled, injected, or included in managed-context bytes.
+
+New disk selections are validated again before preview and save. Missing, changed
+metadata, repointed links, and known origin conflicts abort before writes. This is
+not a filesystem sandbox or an atomic snapshot of host enablement. `resolve` stays
+repository-scoped and does not scan user roots; normal `doctor` reports compatibility,
+while `doctor --external` additionally prints inventory availability and warnings.
+Codex native bindings currently support user scope only; project directories are
+inspected solely for user-name conflict detection. Admin, bundled/system, Codex
+plugins, and Claude downloaded/enterprise catalogs are not automatically inventoried.
 
 ## Safe configuration changes
 

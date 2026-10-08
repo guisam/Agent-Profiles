@@ -11,8 +11,8 @@ const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-profiles-package-
 const npm = process.env.npm_execpath;
 assert.ok(npm, 'Run with npm run test:package');
 
-function run(command, args, cwd) {
-  const result = spawnSync(command, args, { cwd, encoding: 'utf8', timeout: 120000 });
+function run(command, args, cwd, env = process.env) {
+  const result = spawnSync(command, args, { cwd, env, encoding: 'utf8', timeout: 120000 });
   assert.equal(result.status, 0, `${args.join(' ')}\n${result.error ?? ''}\n${result.stdout}\n${result.stderr}`);
   return result.stdout;
 }
@@ -33,7 +33,7 @@ try {
   assert.equal(artifact.version, manifest.version);
   const files = new Set(artifact.files.map(file => file.path));
   for (const file of ['LICENSE', 'README.md', 'CHANGELOG.md', 'package.json', 'bin/agent-profiles.js', 'src/configure.js', 'src/files.js',
-    'src/integrations.js', 'src/install.js', 'src/resolve.js', 'src/skills.js', 'src/wizard.js',
+    'src/integrations.js', 'src/install.js', 'src/resolve.js', 'src/skills.js', 'src/wizard.js', 'src/external-skills.js', 'docs/hosts/external-skill-sources.md',
     '.agent-profiles/agents.yaml', '.agent-profiles/BOOTSTRAP.md', 'docs/configure.md', 'src/presets.js',
     'src/preset-wizard.js', 'src/diagnostics.js', 'docs/proof.md', 'src/visualize.js', 'src/visualizer/index.html',
     'src/visualizer/app.js', 'src/visualizer/style.css', 'docs/visualize.md', 'docs/hosts/hermes.md', 'examples/presets/release-review/preset.yaml']) assert.ok(files.has(file), `Missing package file: ${file}`);
@@ -51,9 +51,10 @@ try {
   assert.deepEqual(Object.keys(installedManifest.dependencies), ['yaml']);
   assert.equal(fs.existsSync(path.join(consumer, 'node_modules/typescript')), false);
   const cli = (...args) => run(process.execPath, [npm, 'exec', '--offline', '--', 'agent-profiles', ...args], consumer);
-  for (const command of ['init', 'resolve', 'configure', 'doctor', 'uninstall', 'visualize']) assert.match(cli(command, '--help'), new RegExp(command));
+  for (const command of ['init', 'resolve', 'configure', 'skills', 'doctor', 'uninstall', 'visualize']) assert.match(cli(command, '--help'), new RegExp(command));
   const { configureRoles } = await import(pathToFileURL(path.join(installed, 'src/wizard.js')).href);
   const { resolveInstructions } = await import(pathToFileURL(path.join(installed, 'src/resolve.js')).href);
+  const { planRoleChange, applyRoleChange } = await import(pathToFileURL(path.join(installed, 'src/configure.js')).href);
   const { startVisualizer } = await import(pathToFileURL(path.join(installed, 'src/visualize.js')).href);
   const { planPresetExport, applyPresetExport, planPresetImport, applyPresetImport } = await import(pathToFileURL(path.join(installed, 'src/presets.js')).href);
   assert.match(cli('preset', 'inspect', path.join(installed, 'examples/presets/release-review')), /Release Review/);
@@ -147,7 +148,28 @@ try {
     } finally {
       await new Promise(resolve => { visualizer.server.close(resolve); visualizer.server.closeAllConnections(); });
     }
-    console.log(`Packed workflow passed: ${scenario} (including presets, context proof, and visualizer)`);
+    const externalHome = path.join(temporary, `skill home ${scenario}`);
+    const externalFile = path.join(externalHome, '.agents/skills/packaged-audit/SKILL.md');
+    fs.mkdirSync(path.dirname(externalFile), { recursive: true });
+    fs.writeFileSync(externalFile, '---\nname: packaged-audit\ndescription: Packed native audit.\n---\nEXTERNAL-BODY-NOT-INJECTED\n');
+    const sourcesFile = path.join(externalHome, 'sources.json');
+    fs.writeFileSync(sourcesFile, JSON.stringify({ version: 1, roots: [] }));
+    const externalEnv = { ...process.env, USERPROFILE: externalHome, HOME: externalHome,
+      CLAUDE_CONFIG_DIR: path.join(externalHome, '.claude'), CODEX_HOME: path.join(externalHome, '.codex'), AGENT_PROFILES_SKILL_SOURCES: sourcesFile };
+    const beforeInventory = snapshot(root);
+    const inventory = JSON.parse(run(process.execPath, [npm, 'exec', '--offline', '--', 'agent-profiles', 'skills', '--root', root, '--external', '--sources', sourcesFile, '--json'], consumer, externalEnv));
+    const native = inventory.skills.find(skill => skill.host === 'codex' && skill.hostId === 'packaged-audit');
+    assert.ok(native, 'Packed executable must discover native external metadata');
+    assert.ok(!JSON.stringify(inventory).includes('EXTERNAL-BODY-NOT-INJECTED'));
+    assert.deepEqual(snapshot(root), beforeInventory);
+    const sourceOptions = { home: externalHome, env: externalEnv, sourcesFile };
+    applyRoleChange(planRoleChange({ root, action: 'create', id: 'external-qa', available: [native], sourceOptions }));
+    const nativeResolution = resolveInstructions({ root, role: 'external-qa', host: 'codex' });
+    assert.equal(nativeResolution.available[0].hostId, 'packaged-audit');
+    assert.equal(nativeResolution.available[0].bytes, null);
+    assert.ok(!fs.readFileSync(path.join(root, '.agent-profiles/agents.yaml'), 'utf8').includes(externalHome));
+    assert.ok(!JSON.stringify(nativeResolution).includes('EXTERNAL-BODY-NOT-INJECTED'));
+    console.log(`Packed workflow passed: ${scenario} (including presets, proof, visualizer, and external inventory)`);
   }
   console.log(`Verified ${artifact.name}@${artifact.version}: ${files.size} package files, ${artifact.size} bytes compressed.`);
 } finally {
