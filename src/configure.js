@@ -7,13 +7,17 @@ import { identifier, localFile, parseYaml, parseYamlDocument, resolveInstruction
 
 const configFile = '.agent-profiles/agents.yaml';
 
-export function readConfiguration(root) {
+/** @param {string} root
+ * @param {{metadataOnly?: boolean, content?: Buffer}} options
+ * A bounded inspection may supply already-read bytes; mutation callers always read disk.
+ */
+export function readConfiguration(root, { metadataOnly = false, content } = {}) {
   root = realpathSync(root);
-  const before = readLocal(root, configFile);
+  const before = metadataOnly && content !== undefined ? content : readLocal(root, configFile);
   if (before === null) throw new Error(`${configFile} is missing; run init first`);
   const document = parseYamlDocument(before.toString('utf8'));
   const configuration = document.toJS({ mapAsMap: true, maxAliasCount: 100 });
-  resolveInstructions({ root, configuration });
+  resolveInstructions({ root, configuration, metadataOnly });
   return { root, before, document, configuration };
 }
 

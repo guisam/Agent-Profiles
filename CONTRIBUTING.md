@@ -27,6 +27,8 @@ The CI matrix runs these checks on Windows, macOS, and Linux with Node 22 and 24
 - `src/resolve.js`: YAML validation and deterministic instruction composition.
 - `src/diagnostics.js`: exact resolved-text accounting, streaming available-skill
   measurement, and proof/JSON presentation with explicit host boundaries.
+- `src/inspect.js`: read-only setup inventory; keep repository metadata bounded,
+  machine facts separate, and skill scanning in the existing discovery adapters.
 - `src/visualize.js`, `src/visualizer/`: loopback-only HTTP adapter and static
   browser UI consuming resolver diagnostics; no build step or UI dependencies.
 - `src/integrations.js`: agent instruction targets and managed bootstrap text.

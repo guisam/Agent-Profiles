@@ -3,6 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { parseYaml, skillMetadata } from './resolve.js';
 
+import { discoveryError } from './discovery-diagnostics.js';
+
 const nativeId = /^[a-z0-9][a-z0-9-]*$/;
 
 function validateRoots(roots) {
@@ -45,7 +47,7 @@ function readRawFrontmatter(file) {
   } finally { closeSync(descriptor); }
 }
 
-function localRoots(file, explicit) {
+function localRoots(file, explicit, metadataOnly) {
   let descriptor;
   try {
     descriptor = openSync(file, 'r');
@@ -64,7 +66,7 @@ function localRoots(file, explicit) {
     return validateRoots(value.roots);
   } catch (error) {
     if (!explicit && error.code === 'ENOENT') return [];
-    throw new Error(`skill sources ${file}: ${error.message}; repair the local preferences before continuing`);
+    throw new Error(`skill sources ${file}: ${discoveryError(error, metadataOnly)}; repair the local preferences before continuing`);
   } finally { if (descriptor !== undefined) closeSync(descriptor); }
 }
 
@@ -73,14 +75,14 @@ function localRoots(file, explicit) {
  * @param {{home?: string, env?: NodeJS.ProcessEnv, sourcesFile?: string,
  * roots?: Array<{host: string, scope: string, path: string, namespace?: string}>}} options
  */
-export function discoverExternalSkills({ home = os.homedir(), env = process.env, sourcesFile, roots: approved = [] } = {}) {
+export function discoverExternalSkills({ home = os.homedir(), env = process.env, sourcesFile, roots: approved = [] } = {}, { metadataOnly = false } = {}) {
   if (env.CLAUDE_CONFIG_DIR !== undefined && (!path.isAbsolute(env.CLAUDE_CONFIG_DIR) || env.CLAUDE_CONFIG_DIR.includes('\0') || env.CLAUDE_CONFIG_DIR.split(/[\\/]/).includes('..'))) throw new Error('CLAUDE_CONFIG_DIR: expected an absolute home without traversal');
   const file = sourcesFile ?? env.AGENT_PROFILES_SKILL_SOURCES ?? path.join(home, '.config/agent-profiles/skill-sources.json');
   if (typeof file !== 'string' || !path.isAbsolute(file)) throw new Error('skill sources: expected an absolute preferences path');
   const roots = [
     { host: 'claude', scope: 'user', path: path.join(env.CLAUDE_CONFIG_DIR ?? path.join(home, '.claude'), 'skills') },
     { host: 'codex', scope: 'user', path: path.join(home, '.agents/skills') },
-    ...localRoots(file, sourcesFile !== undefined || env.AGENT_PROFILES_SKILL_SOURCES !== undefined),
+    ...localRoots(file, sourcesFile !== undefined || env.AGENT_PROFILES_SKILL_SOURCES !== undefined, metadataOnly),
     ...validateRoots(approved),
   ];
   const skills = [], warnings = [], targets = new Set();
@@ -95,7 +97,7 @@ export function discoverExternalSkills({ home = os.homedir(), env = process.env,
       origin = realpathSync(root.path);
       if (!statSync(origin).isDirectory()) throw new Error('expected a directory');
     } catch (error) {
-      if (error.code !== 'ENOENT') warnings.push(`${root.path}: cannot read root (${error.code ?? error.message}); check the path and permissions`);
+      if (error.code !== 'ENOENT') warnings.push(`${root.path}: cannot read root (${metadataOnly ? discoveryError(error, true) : error.code ?? error.message}); check the path and permissions`);
       continue;
     }
     const visited = new Set();
@@ -114,7 +116,7 @@ export function discoverExternalSkills({ home = os.homedir(), env = process.env,
         if (root.host === 'codex' && visited.has(canonical)) return;
         visited.add(canonical);
       } catch (error) {
-        warnings.push(`${directory}: cannot inspect directory (${error.code ?? error.message}); check permissions or restore the link`);
+        warnings.push(`${directory}: cannot inspect directory (${metadataOnly ? discoveryError(error, true) : error.code ?? error.message}); check permissions or restore the link`);
         return;
       }
       if (depth > 8) {
@@ -149,7 +151,7 @@ export function discoverExternalSkills({ home = os.homedir(), env = process.env,
               availability: 'metadata-found', runtime: 'unverified', selectable: true });
           }
         } catch (error) {
-          if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') warnings.push(`${file}: ${error.message}; repair skill metadata or permissions`);
+          if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') warnings.push(`${file}: ${discoveryError(error, metadataOnly)}; repair skill metadata or permissions`);
         }
       }
       if (root.host === 'claude' && depth > 0) return;
@@ -166,7 +168,7 @@ export function discoverExternalSkills({ home = os.homedir(), env = process.env,
           walk(path.join(directory, child.name), depth + 1);
         }
       } catch (error) {
-        warnings.push(`${directory}: cannot list skills (${error.code ?? error.message}); check permissions`);
+        warnings.push(`${directory}: cannot list skills (${metadataOnly ? discoveryError(error, true) : error.code ?? error.message}); check permissions`);
       }
     }
     walk(root.path, 0);

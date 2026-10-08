@@ -130,9 +130,9 @@ function skillFiles(ids, entry, resolveSkill) {
  * are unusable there, and required ones are reported as unsatisfied.
  * @param {{root?: string, host?: string, model?: string, family?: string, identitySource?: 'host' | 'host-stated' | 'user', role?: string,
  *   skills?: string[], configuration?: Map<string, any>,
- *   newRoleFile?: {path: string, content: string}, preview?: Map<string, Buffer>}} options
+ *   newRoleFile?: {path: string, content: string}, preview?: Map<string, Buffer>, metadataOnly?: boolean}} options
  */
-export function resolveInstructions({ root = process.cwd(), host, model, family, identitySource, role, skills = [], configuration, newRoleFile, preview = new Map() } = {}) {
+export function resolveInstructions({ root = process.cwd(), host, model, family, identitySource, role, skills = [], configuration, newRoleFile, preview = new Map(), metadataOnly = false } = {}) {
   if (host !== undefined && !integrations.some(adapter => adapter.id === host)) fail('host', `expected one of ${integrations.map(adapter => adapter.id).join(', ')} or an omitted value`);
   for (const [name, value] of Object.entries({ model, family, role })) {
     if (value !== undefined && (typeof value !== 'string' || !value.trim())) {
@@ -280,7 +280,7 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
     { path: `.agent-profiles/${roles.get(selectedRole).get('file')}`, kind: 'role', id: selectedRole },
     ...selectedSkills.filter(skill => skill.type === 'instruction').map(skill => ({ path: skill.path, id: skill.id, kind: required.some(item => item.id === skill.id) ? 'required-skill' : 'requested-skill' })),
   ];
-  const loaded = files.map(entry => {
+  const loaded = metadataOnly ? [] : files.map(entry => {
     const file = entry.path;
     try {
       let content;
@@ -302,6 +302,7 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
   const measuredAvailable = available.map(skill => {
     try {
       if (skill.type === 'host') return { ...skill, ...usable(skill) };
+      if (metadataOnly) return { ...skill, bytes: null, characters: null };
       let measured = measuredSkills.get(skill.id);
       if (!measured) {
         const file = localFile(repository, skill.path, skill.path, 'repository', false, preview);
@@ -327,6 +328,6 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
     required: requiredOut,
     available: measuredAvailable,
     unsatisfied,
-    diagnostics: contextDiagnostics(loaded, measuredAvailable, requiredOut, host, host === undefined ? null : managedSurface(repository, host)),
+    diagnostics: contextDiagnostics(loaded, measuredAvailable, requiredOut, host, metadataOnly || host === undefined ? null : managedSurface(repository, host)),
   };
 }

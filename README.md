@@ -3,6 +3,38 @@
 Different models need different instructions. Different roles need different
 skills. Agent Profiles resolves only the additional context each agent needs.
 
+## Ask your coding agent
+
+Copy this into your existing coding agent (including one used through a coding bench):
+
+> Set up Agent Profiles for this repository. First use its read-only `inspect
+> --json` interface to inventory existing agent instructions, project/native skills,
+> configured roles/models, workflow files and the local environment. Ask for any
+> additional read permissions; use `--external` only for approved global sources.
+>
+> Identify the project's actual SDLC authority and recommend a small set of roles
+> and model instruction profiles. For each role, explain required, available and
+> unassigned skills. Preserve independent review and human approval gates; do not
+> invent orchestration. Reuse native references without copying skill bodies.
+> Keep unknown models on the configured fallback and machine-specific facts local.
+>
+> Show proposed configuration, exact file changes, bootstrap mechanism, dependencies
+> and unverifiable host capabilities. Do not install, execute skills or modify files
+> until I explicitly approve. Propose any restructuring of existing instructions
+> separately; never automatically rewrite or shorten AGENTS.md.
+>
+> After approval, use the existing installer and role planner/applier or wizard.
+> Run doctor and representative host/model/role proofs; report measured managed
+> context and what remains unverified. Offer an existing-format preset export only
+> with separate approval, excluding machine-local facts.
+
+**The package is unpublished.** An agent can run inspection from a trusted checkout
+or a packed package in a separate scratch project **before target installation**;
+see the [setup workflow](docs/setup.md) for commands, inventory limits, approval
+boundaries and programmatic examples. Tool preparation/downloads need their own
+permissions. This prompt is a supported workflow, not a guarantee of every host's
+tools or live behavior. Manual installation remains available below.
+
 A shared `AGENTS.md` is useful for repository facts and conventions. But putting
 every model accommodation, job description, and skill into it gives agents
 instructions intended for other tasks. Agent Profiles separates those layers
@@ -52,6 +84,7 @@ invocation remains host-controlled. Use `--help` for options; scripts can initia
 
 | Command | Purpose |
 | --- | --- |
+| `inspect` | Read-only repository/machine inventory before or after init; `--json`, opt-in `--external` |
 | `init` | Select agents, preserve their existing instructions, and install the local scaffold |
 | `configure` | Create/edit/delete roles; `--external` adds native user/plugin metadata |
 | `skills` | Inspect metadata/source availability; `--external --json` includes external inventory |
@@ -217,10 +250,12 @@ model router, prompt marketplace, benchmark, collection of universally optimal
 prompts, replacement for `AGENTS.md`, or skill registry. It does not choose or
 launch models, score their capabilities, or run multi-agent workflows.
 
-Local environment profiles and token accounting remain future work.
+Read-only environment inventory is available; persistent local environment profiles
+and token accounting remain future work.
 
 ## Further reading
 
+- [Agent-assisted setup and inventory](docs/setup.md)
 - [Role and skill configuration](docs/configure.md)
 - [Shareable presets](docs/presets.md)
 - [Context proof and accounting boundaries](docs/proof.md)

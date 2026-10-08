@@ -12,6 +12,7 @@ import { runPreset } from '../src/preset-wizard.js';
 import { resolveInstructions } from '../src/resolve.js';
 import { formatContext, formatProof, resolutionOutput } from '../src/diagnostics.js';
 import { startVisualizer } from '../src/visualize.js';
+import { inspectRepository, formatInventory } from '../src/inspect.js';
 
 const agentChoices = integrations.map(adapter => adapter.id).join(', ');
 
@@ -48,6 +49,7 @@ try {
     console.log(`Usage: agent-profiles <command> [--root <directory>]
 
 Commands:
+  inspect     Inventory repository and machine metadata, even before init (read-only)
   init        Install bootstrap integrations and example configuration
   resolve     Print the resolved instructions for an agent to follow (read-only)
   configure   Create, edit, or delete roles and select skills (interactive)
@@ -66,6 +68,9 @@ Context proof:
   proof [--host <id>] [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...]
         [--json [--contents]]
 
+Setup inventory (works before init, including an empty/non-Git --root):
+  inspect [--json] [--external] [--sources <approved-roots-json>]
+
 Visualizer:
   visualize [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...]
             [--port <0-65535>]  (default: an available local port)
@@ -80,7 +85,7 @@ Options:
   --agent <id>        Select ${agentChoices} for init; repeat for multiple agents
   --package <spec>    For init: install this agent-profiles package or tarball as a
                       dev dependency so the bootstrap command can run
-  --external          Include external native skill inventory in skills/configure/doctor
+  --external          Include external native skill inventory in inspect/skills/configure/doctor
   --sources <file>    Machine-local skill roots JSON; implies --external
   --delete-config     Also delete .agent-profiles during uninstall; asks to confirm
   -h, --help          Show this help
@@ -92,7 +97,7 @@ Examples:
   } else {
     if (command === 'preset') {
       if (positionals.length !== 3 || !['inspect', 'import', 'export'].includes(positionals[1])) throw new Error('Usage: agent-profiles preset <inspect|import|export> <directory>');
-    } else if (positionals.length !== 1 || !['init', 'configure', 'skills', 'doctor', 'uninstall', 'resolve', 'proof', 'visualize'].includes(command)) throw new Error('Choose one command: init, configure, skills, doctor, uninstall, resolve, preset, proof, visualize');
+    } else if (positionals.length !== 1 || !['inspect', 'init', 'configure', 'skills', 'doctor', 'uninstall', 'resolve', 'proof', 'visualize'].includes(command)) throw new Error('Choose one command: inspect, init, configure, skills, doctor, uninstall, resolve, preset, proof, visualize');
     if (values.package !== undefined && command !== 'init') throw new Error('--package is only supported by init');
     if (values.agent && command !== 'init') throw new Error('--agent is only supported by init');
     if (values['delete-config'] && command !== 'uninstall') throw new Error('--delete-config is only supported by uninstall');
@@ -102,8 +107,8 @@ Examples:
     if ((values.model !== undefined || values.family !== undefined || values.skill) && !resolving) throw new Error('--model, --family, and --skill are only supported by resolve, proof, or visualize');
     if (values.host !== undefined && !['resolve', 'proof'].includes(command)) throw new Error('--host is only supported by resolve or proof');
     if (values['identity-source'] !== undefined && command !== 'resolve') throw new Error('--identity-source is only supported by resolve');
-    if (values.json && !['resolve', 'proof', 'skills'].includes(command)) throw new Error('--json is only supported by resolve, proof, or skills');
-    if ((values.external || values.sources !== undefined) && !['skills', 'configure', 'doctor'].includes(command)) throw new Error('--external and --sources are only supported by skills, configure, or doctor');
+    if (values.json && !['inspect', 'resolve', 'proof', 'skills'].includes(command)) throw new Error('--json is only supported by inspect, resolve, proof, or skills');
+    if ((values.external || values.sources !== undefined) && !['inspect', 'skills', 'configure', 'doctor'].includes(command)) throw new Error('--external and --sources are only supported by inspect, skills, configure, or doctor');
     if (values.sources !== undefined && !values.sources.trim()) throw new Error('--sources requires a file');
     const discoveryOptions = { external: values.external || values.sources !== undefined, sourceOptions: values.sources === undefined ? undefined : { sourcesFile: values.sources } };
     if (values.port !== undefined && (command !== 'visualize' || !/^\d+$/.test(values.port))) throw new Error('--port requires an integer from 0 to 65535 and is only supported by visualize');
@@ -112,13 +117,16 @@ Examples:
     let target = values.root;
     if (target === undefined) {
       try { target = findRoot(); } catch (error) {
-        if (command !== 'preset' || positionals[1] !== 'inspect') throw error;
+        if (command !== 'inspect' && (command !== 'preset' || positionals[1] !== 'inspect')) throw error;
         target = process.cwd();
       }
     }
     const root = realpathSync(target);
-    if (!(command === 'proof' && values.json) && command !== 'resolve' && !(command === 'skills' && values.json)) console.log(`Agent Profiles\nRepository: ${root}`);
-    if (command === 'visualize') {
+    if (!(command === 'proof' && values.json) && command !== 'resolve' && command !== 'inspect' && !(command === 'skills' && values.json)) console.log(`Agent Profiles\nRepository: ${root}`);
+    if (command === 'inspect') {
+      const result = inspectRepository({ root, ...discoveryOptions });
+      console.log(values.json ? JSON.stringify(result, null, 2) : formatInventory(result));
+    } else if (command === 'visualize') {
       const { server, url } = await startVisualizer({ root, port: values.port === undefined ? 0 : Number(values.port), model: values.model, family: values.family, role: values.role?.[0], skills: values.skill });
       console.log(`Context explorer: ${url}\nOpen this local URL in your browser. Read-only; press Ctrl+C to stop.`);
       const stop = () => { server.close(); server.closeAllConnections(); };

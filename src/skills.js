@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { safePath } from './files.js';
+import { discoveryError } from './discovery-diagnostics.js';
 import { integrations } from './integrations.js';
 import { identifier, localFile, skillMetadata } from './resolve.js';
 import { discoverExternalSkills, externalMetadata, validateExternalSelection } from './external-skills.js';
@@ -23,7 +24,7 @@ const nativeKey = skill => `${skill.host}\0${skill.scope}\0${skill.hostId}`;
 
 // Codex project names are inspected only to detect conflicts with user references.
 // This does not add project bindings, copy bodies, or scan arbitrary repository files.
-function codexProjectNames(root, warnings) {
+function codexProjectNames(root, warnings, metadataOnly) {
   const names = new Set();
   const visited = new Set();
   let count = 0;
@@ -37,13 +38,13 @@ function codexProjectNames(root, warnings) {
       try {
         const metadata = externalMetadata(localFile(root, file, file, 'repository'), 'codex');
         names.add(metadata.name);
-      } catch (error) { warnings.push(`Codex project conflict scan: ${error.message}`); }
+      } catch (error) { warnings.push(`Codex project conflict scan${metadataOnly ? ` (${file})` : ''}: ${discoveryError(error, metadataOnly)}`); }
       return;
     }
     for (const entry of readdirSync(target, { withFileTypes: true })) {
       if (!entry.name.startsWith('.') && (entry.isDirectory() || entry.isSymbolicLink())) {
         try { walk(`${directory}/${entry.name}`, depth + 1); }
-        catch (error) { warnings.push(`Codex project conflict scan: ${error.message}`); }
+        catch (error) { warnings.push(`Codex project conflict scan${metadataOnly ? ` (${directory}/${entry.name})` : ''}: ${discoveryError(error, metadataOnly)}`); }
       }
     }
   };
@@ -55,12 +56,12 @@ function codexProjectNames(root, warnings) {
     return target;
   };
   if (existsSync(path.join(root, '.agents/skills'))) {
-    try { walk('.agents/skills'); } catch (error) { warnings.push(`Codex project conflict scan: ${error.message}`); }
+    try { walk('.agents/skills'); } catch (error) { warnings.push(`Codex project conflict scan${metadataOnly ? ' (.agents/skills)' : ''}: ${discoveryError(error, metadataOnly)}`); }
   }
   return names;
 }
 
-export function discoverSkills(root, configuration, { external = false, sourceOptions = {} } = {}) {
+export function discoverSkills(root, configuration, { external = false, sourceOptions = {}, metadataOnly = false } = {}) {
   root = realpathSync(root);
   const skills = [];
   const warnings = [];
@@ -74,7 +75,7 @@ export function discoverSkills(root, configuration, { external = false, sourceOp
       seen.add(key);
       skills.push({ ...skill, ...skillMetadata(location, skill.id, undefined, skill.path, !skill.host),
         ...(skill.host && skill.scope === 'project' && { canonicalPath: location }), source });
-    } catch (error) { warnings.push(error.message); }
+    } catch (error) { warnings.push(metadataOnly ? `${source}: ${skill.id} (${skill.path}): ${discoveryError(error, true)}` : error.message); }
   };
   const references = [];
   for (const [id, value] of configuration.get('skills') ?? []) {
@@ -89,9 +90,9 @@ export function discoverSkills(root, configuration, { external = false, sourceOp
   }
   for (const source of skillSources) {
     try { for (const skill of source.enumerate(root)) add(skill, source.id); }
-    catch (error) { warnings.push(`${source.id}: ${error.message}`); }
+    catch (error) { warnings.push(`${source.id}: ${discoveryError(error, metadataOnly)}`); }
   }
-  const inventory = external ? discoverExternalSkills(sourceOptions) : { skills: [], warnings: [], roots: [] };
+  const inventory = external ? discoverExternalSkills(sourceOptions, { metadataOnly }) : { skills: [], warnings: [], roots: [] };
   warnings.push(...inventory.warnings);
   for (const skill of inventory.skills) {
     const aliases = references.filter(reference => nativeKey(reference) === nativeKey(skill));
@@ -112,7 +113,7 @@ export function discoverSkills(root, configuration, { external = false, sourceOp
         warnings.push(`${skill.id}: Claude personal skill ${skill.hostId} shadows this project skill; the project origin is not independently addressable`);
       }
     }
-    const projectNames = codexProjectNames(root, warnings);
+    const projectNames = codexProjectNames(root, warnings, metadataOnly);
     for (const skill of skills) {
       if (skill.host === 'codex' && skill.scope === 'user' && projectNames.has(skill.hostId)) {
         skill.selectable = false; skill.availability = 'ambiguous';
