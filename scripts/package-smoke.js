@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { parse, stringify } from 'yaml';
 
 const project = fileURLToPath(new URL('../', import.meta.url));
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-profiles-package-'));
@@ -192,7 +193,30 @@ try {
     assert.equal(nativeResolution.available[0].bytes, null);
     assert.ok(!fs.readFileSync(path.join(root, '.agent-profiles/agents.yaml'), 'utf8').includes(externalHome));
     assert.ok(!JSON.stringify(nativeResolution).includes('EXTERNAL-BODY-NOT-INJECTED'));
-    console.log(`Packed workflow passed: ${scenario} (including pre/post-approval inspect, presets, proof, visualizer, and external inventory)`);
+    const portablePath = '.agents/skills/portable-check/SKILL.md';
+    const portableBody = '---\nname: portable-check\ndescription: Portable evidence review.\n---\nPreserve the supplied evidence.\n';
+    fs.mkdirSync(path.dirname(path.join(root, portablePath)), { recursive: true });
+    fs.writeFileSync(path.join(root, portablePath), portableBody);
+    const configPath = path.join(root, '.agent-profiles/agents.yaml');
+    const portableConfig = parse(fs.readFileSync(configPath, 'utf8'));
+    portableConfig.skills ??= {};
+    portableConfig.skills['portable-check'] = { file: portablePath };
+    portableConfig.roles['portable-check'] = { file: 'roles/portable-check.md', skills: { required: ['portable-check'], available: [] } };
+    fs.writeFileSync(path.join(root, '.agent-profiles/roles/portable-check.md'), '# Portable check\nReview evidence without changing authority.\n');
+    fs.writeFileSync(configPath, stringify(portableConfig));
+    const portableConfiguration = fs.readFileSync(configPath);
+    cli('init', '--root', root, '--agent', 'claude', '--agent', 'codex', '--agent', 'hermes');
+    const portableInstalled = snapshot(root);
+    cli('doctor', '--root', root);
+    for (const host of ['claude', 'codex', 'hermes']) {
+      const routed = JSON.parse(cli('resolve', '--root', root, '--host', host, '--role', 'portable-check', '--json', '--contents'));
+      assert.deepEqual(routed.required.map(skill => skill.id), ['portable-check']);
+      assert.equal(routed.loaded.find(entry => entry.kind === 'required-skill').content, portableBody);
+    }
+    cli('init', '--root', root, '--agent', 'claude', '--agent', 'codex', '--agent', 'hermes');
+    assert.deepEqual(snapshot(root), portableInstalled);
+    assert.deepEqual(fs.readFileSync(configPath), portableConfiguration);
+    console.log(`Packed workflow passed: ${scenario} (including pre/post-approval inspect, presets, proof, visualizer, external inventory, and portable instruction mappings)`);
   }
   console.log(`Verified ${artifact.name}@${artifact.version}: ${files.size} package files, ${artifact.size} bytes compressed.`);
 } finally {
