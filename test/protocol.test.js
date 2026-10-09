@@ -344,6 +344,52 @@ test('unreadable host skill metadata is reported without breaking other roles', 
   assert.ok(doctor(repo.root).notes.some(note => note.startsWith('Skill notes is Claude Code skill notes: verified at .claude/skills/notes/SKILL.md; its metadata could not be read (expected YAML frontmatter')));
 });
 
+for (const file of ['.agents/skills/portable-review/SKILL.md', 'team/skills/portable-review/SKILL.md']) {
+  test(`doctor accepts portable instruction mappings at ${file} without changing files`, t => {
+    const repo = repository(t);
+    install({ root: withPackage(repo.root), agents: ['codex'] });
+    repo.write(file, '---\nname: portable-review\ndescription: Portable review instructions.\n---\nReview the supplied evidence.\n');
+    repo.change(config => {
+      config.skills = { 'portable-review': { file } };
+      config.roles.reviewer.skills.required = ['portable-review'];
+      config.roles.researcher.skills.available = ['portable-review'];
+    });
+    const protectedFiles = ['.agent-profiles/agents.yaml', '.agent-profiles/BOOTSTRAP.md', 'AGENTS.md', file];
+    const before = protectedFiles.map(name => fs.readFileSync(path.join(repo.root, name)));
+    const report = doctor(repo.root);
+    assert.equal(report.valid, true, [...report.errors, ...report.bootstrap].join('\n'));
+    assert.deepEqual(report.errors, []);
+    assert.ok(!report.notes.some(note => note.includes('as injected text; replace it with')));
+    assert.deepEqual(protectedFiles.map(name => fs.readFileSync(path.join(repo.root, name))), before);
+  });
+
+  test(`installation accepts portable instruction mappings at ${file} and remains idempotent`, t => {
+    const repo = repository(t);
+    withPackage(repo.root);
+    const body = '---\nname: portable-review\ndescription: Portable review instructions.\n---\nReview the supplied evidence.\n';
+    repo.write(file, body);
+    repo.change(config => {
+      config.skills = { 'portable-review': { file } };
+      config.roles.reviewer.skills.required = ['portable-review'];
+      config.roles.researcher.skills.available = ['portable-review'];
+    });
+    const configuration = fs.readFileSync(path.join(repo.root, '.agent-profiles/agents.yaml'));
+    const agents = ['claude', 'codex', 'hermes'];
+    const result = install({ root: repo.root, agents });
+    assert.equal(result.valid, true, [...result.errors, ...result.bootstrap].join('\n'));
+    assert.deepEqual(result.agents.filter(agent => agent.installed).map(agent => agent.id), agents);
+    for (const host of agents) {
+      const resolved = resolveInstructions({ root: repo.root, host, role: 'reviewer' });
+      assert.deepEqual(resolved.required.map(skill => skill.id), ['portable-review']);
+      assert.equal(resolved.loaded.find(item => item.kind === 'required-skill').content, body);
+    }
+    assert.equal(fs.readFileSync(path.join(repo.root, file), 'utf8'), body);
+    assert.deepEqual(fs.readFileSync(path.join(repo.root, '.agent-profiles/agents.yaml')), configuration);
+    assert.deepEqual(install({ root: repo.root, agents }).modified, []);
+    assert.equal(doctor(repo.root).valid, true);
+  });
+}
+
 test('doctor flags older file mappings that inject a Claude skill as text', t => {
   const repo = repository(t);
   repo.write('.claude/skills/testing/SKILL.md', '---\nname: testing\ndescription: Host testing.\n---\nBODY\n');

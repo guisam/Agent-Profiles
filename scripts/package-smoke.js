@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { parse, stringify } from 'yaml';
 
 const project = fileURLToPath(new URL('../', import.meta.url));
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-profiles-package-'));
@@ -33,7 +34,7 @@ try {
   assert.equal(artifact.version, manifest.version);
   const files = new Set(artifact.files.map(file => file.path));
   for (const file of ['LICENSE', 'README.md', 'CHANGELOG.md', 'package.json', 'bin/agent-profiles.js', 'src/configure.js', 'src/files.js',
-    'src/integrations.js', 'src/install.js', 'src/resolve.js', 'src/skills.js', 'src/wizard.js', 'src/external-skills.js', 'docs/hosts/external-skill-sources.md',
+    'src/integrations.js', 'src/install.js', 'src/resolve.js', 'src/skills.js', 'src/discovery-diagnostics.js', 'src/wizard.js', 'src/inspect.js', 'docs/setup.md', 'src/external-skills.js', 'docs/hosts/external-skill-sources.md',
     '.agent-profiles/agents.yaml', '.agent-profiles/BOOTSTRAP.md', 'docs/configure.md', 'src/presets.js',
     'src/preset-wizard.js', 'src/diagnostics.js', 'docs/proof.md', 'src/visualize.js', 'src/visualizer/index.html',
     'src/visualizer/app.js', 'src/visualizer/style.css', 'docs/visualize.md', 'docs/hosts/hermes.md', 'examples/presets/release-review/preset.yaml']) assert.ok(files.has(file), `Missing package file: ${file}`);
@@ -51,7 +52,7 @@ try {
   assert.deepEqual(Object.keys(installedManifest.dependencies), ['yaml']);
   assert.equal(fs.existsSync(path.join(consumer, 'node_modules/typescript')), false);
   const cli = (...args) => run(process.execPath, [npm, 'exec', '--offline', '--', 'agent-profiles', ...args], consumer);
-  for (const command of ['init', 'resolve', 'configure', 'skills', 'doctor', 'uninstall', 'visualize']) assert.match(cli(command, '--help'), new RegExp(command));
+  for (const command of ['inspect', 'init', 'resolve', 'configure', 'skills', 'doctor', 'uninstall', 'visualize']) assert.match(cli(command, '--help'), new RegExp(command));
   const { configureRoles } = await import(pathToFileURL(path.join(installed, 'src/wizard.js')).href);
   const { resolveInstructions } = await import(pathToFileURL(path.join(installed, 'src/resolve.js')).href);
   const { planRoleChange, applyRoleChange } = await import(pathToFileURL(path.join(installed, 'src/configure.js')).href);
@@ -76,7 +77,27 @@ try {
       fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
       fs.writeFileSync(path.join(root, file), content);
     }
+    for (const file of ['orchestrator.toml', 'adr-orchestrator.toml', 't3.json']) fs.writeFileSync(path.join(root, file), 'PRIVATE-WORKFLOW-CONTENT { malformed');
+    const broken = path.join(root, '.claude/skills/broken/SKILL.md');
+    fs.mkdirSync(path.dirname(broken), { recursive: true });
+    fs.writeFileSync(broken, '---\nname: broken\ndescription: Review\nprivate_token: [PRIVATE-FRONTMATTER-CONTENT\n---\nPRIVATE-BODY');
+    const beforeApproval = snapshot(root);
+    const inspected = JSON.parse(cli('inspect', '--root', root, '--json'));
+    assert.equal(inspected.skills.status, 'partial');
+    assert.ok(inspected.skills.warnings.length);
+    assert.doesNotMatch(JSON.stringify(inspected), /private_token|PRIVATE-|at line|column/);
+    for (const file of ['orchestrator.toml', 'adr-orchestrator.toml', 't3.json']) assert.ok(inspected.repository.workflows.some(record => record.path === file && record.availability === 'available'));
+    assert.doesNotMatch(cli('inspect', '--root', root), /private_token|PRIVATE-|at line|column/);
+    assert.equal(inspected.schemaVersion, 1);
+    assert.equal(inspected.repository.installation.status, 'not-installed');
+    assert.equal(inspected.environment.scope, 'machine');
+    assert.deepEqual(snapshot(root), beforeApproval);
     cli('init', '--root', root, '--agent', 'claude', '--agent', 'codex', '--agent', 'hermes');
+    const afterApproval = snapshot(root);
+    const configuredInventory = JSON.parse(cli('inspect', '--root', root, '--json'));
+    assert.equal(configuredInventory.repository.configuration.status, 'valid');
+    assert.ok(configuredInventory.hosts.every(host => host.configured && host.currentInvocation === 'unverified'));
+    assert.deepEqual(snapshot(root), afterApproval);
     const targets = scenario === 'alternate targets' ? ['.claude/CLAUDE.md', 'AGENTS.override.md', 'HERMES.md'] : ['CLAUDE.md', 'AGENTS.md', '.hermes.md'];
     for (const file of targets) {
       const text = fs.readFileSync(path.join(root, file), 'utf8');
@@ -158,6 +179,9 @@ try {
       CLAUDE_CONFIG_DIR: path.join(externalHome, '.claude'), CODEX_HOME: path.join(externalHome, '.codex'), AGENT_PROFILES_SKILL_SOURCES: sourcesFile };
     const beforeInventory = snapshot(root);
     const inventory = JSON.parse(run(process.execPath, [npm, 'exec', '--offline', '--', 'agent-profiles', 'skills', '--root', root, '--external', '--sources', sourcesFile, '--json'], consumer, externalEnv));
+    const setupInventory = JSON.parse(run(process.execPath, [npm, 'exec', '--offline', '--', 'agent-profiles', 'inspect', '--root', root, '--sources', sourcesFile, '--json'], consumer, externalEnv));
+    assert.ok(setupInventory.skills.skills.some(skill => skill.host === 'codex' && skill.hostId === 'packaged-audit'));
+    assert.ok(!JSON.stringify(setupInventory).includes('EXTERNAL-BODY-NOT-INJECTED'));
     const native = inventory.skills.find(skill => skill.host === 'codex' && skill.hostId === 'packaged-audit');
     assert.ok(native, 'Packed executable must discover native external metadata');
     assert.ok(!JSON.stringify(inventory).includes('EXTERNAL-BODY-NOT-INJECTED'));
@@ -169,7 +193,30 @@ try {
     assert.equal(nativeResolution.available[0].bytes, null);
     assert.ok(!fs.readFileSync(path.join(root, '.agent-profiles/agents.yaml'), 'utf8').includes(externalHome));
     assert.ok(!JSON.stringify(nativeResolution).includes('EXTERNAL-BODY-NOT-INJECTED'));
-    console.log(`Packed workflow passed: ${scenario} (including presets, proof, visualizer, and external inventory)`);
+    const portablePath = '.agents/skills/portable-check/SKILL.md';
+    const portableBody = '---\nname: portable-check\ndescription: Portable evidence review.\n---\nPreserve the supplied evidence.\n';
+    fs.mkdirSync(path.dirname(path.join(root, portablePath)), { recursive: true });
+    fs.writeFileSync(path.join(root, portablePath), portableBody);
+    const configPath = path.join(root, '.agent-profiles/agents.yaml');
+    const portableConfig = parse(fs.readFileSync(configPath, 'utf8'));
+    portableConfig.skills ??= {};
+    portableConfig.skills['portable-check'] = { file: portablePath };
+    portableConfig.roles['portable-check'] = { file: 'roles/portable-check.md', skills: { required: ['portable-check'], available: [] } };
+    fs.writeFileSync(path.join(root, '.agent-profiles/roles/portable-check.md'), '# Portable check\nReview evidence without changing authority.\n');
+    fs.writeFileSync(configPath, stringify(portableConfig));
+    const portableConfiguration = fs.readFileSync(configPath);
+    cli('init', '--root', root, '--agent', 'claude', '--agent', 'codex', '--agent', 'hermes');
+    const portableInstalled = snapshot(root);
+    cli('doctor', '--root', root);
+    for (const host of ['claude', 'codex', 'hermes']) {
+      const routed = JSON.parse(cli('resolve', '--root', root, '--host', host, '--role', 'portable-check', '--json', '--contents'));
+      assert.deepEqual(routed.required.map(skill => skill.id), ['portable-check']);
+      assert.equal(routed.loaded.find(entry => entry.kind === 'required-skill').content, portableBody);
+    }
+    cli('init', '--root', root, '--agent', 'claude', '--agent', 'codex', '--agent', 'hermes');
+    assert.deepEqual(snapshot(root), portableInstalled);
+    assert.deepEqual(fs.readFileSync(configPath), portableConfiguration);
+    console.log(`Packed workflow passed: ${scenario} (including pre/post-approval inspect, presets, proof, visualizer, external inventory, and portable instruction mappings)`);
   }
   console.log(`Verified ${artifact.name}@${artifact.version}: ${files.size} package files, ${artifact.size} bytes compressed.`);
 } finally {

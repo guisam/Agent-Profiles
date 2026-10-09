@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased — portable instruction mapping fix
+
+- Guard legacy native-skill diagnostics when a host has no project-native skill
+  interface, so explicit portable skill file mappings no longer break `doctor`
+  or roll back initialization.
+- Retain Claude-native migration warnings and cover read-only diagnostics,
+  three-host installation, role composition, idempotence and packed workflows.
+
+## Unreleased — agent-assisted setup (#17)
+
+- Add read-only `inspect`/`inspect --json` before and after initialization, with
+  bounded repository metadata, existing skill discovery and opt-in external roots.
+- Separate shared configuration, machine environment, adapter configuration,
+  filesystem executable detection and unverified current host invocation.
+- Add a portable README prompt and approval-first setup guide reusing existing
+  installer, role APIs, resolver, doctor/proof and presets; no embedded LLM or runtime.
+- Cover unchanged pre-approval bytes, native references, unknown/failed metadata,
+  environment limits and three packed-package inspection workflows.
+
 ## Unreleased — external native skill inventory (#15)
 
 - Add opt-in metadata-only `skills --external`, `configure --external`, and
