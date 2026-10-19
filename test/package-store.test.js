@@ -249,8 +249,7 @@ test('oracle: same-size replacement changes observable read identity; junction f
   writeFileSync(target, 'same');
   const before = statSync(target, { bigint: true });
   const holder = path.join(dir, 'holder.txt');
-  writeFileSync(holder, 'x'); // keeps the old file index from being immediately reused
-  unlinkSync(target);
+  renameSync(target, holder); // Keep the original object allocated until the replacement is observed.
   writeFileSync(target, 'same');
   const after = statSync(target, { bigint: true });
   assert.equal(after.size, before.size);
