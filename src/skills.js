@@ -3,7 +3,7 @@ import path from 'node:path';
 import { safePath } from './files.js';
 import { discoveryError } from './discovery-diagnostics.js';
 import { integrations } from './integrations.js';
-import { identifier, localFile, skillMetadata } from './resolve.js';
+import { identifier, localDeclaration, localFile, mapping, skillMetadata } from './resolve.js';
 import { discoverExternalSkills, externalMetadata, validateExternalSelection } from './external-skills.js';
 
 // Repository instruction files continue to use the original containment rules.
@@ -79,14 +79,35 @@ export function discoverSkills(root, configuration, { external = false, sourceOp
   };
   const references = [];
   for (const [id, value] of configuration.get('skills') ?? []) {
-    if (!value.has('host')) { add({ id, path: value.get('file') }, 'configured'); continue; }
-    const hostId = value.get('id') ?? id;
-    if (value.get('scope') !== 'project') {
-      references.push({ id, host: value.get('host'), hostId, scope: value.get('scope') });
-      continue;
-    }
-    const file = integrations.find(adapter => adapter.id === value.get('host'))?.skills?.project?.path(hostId);
-    if (file && existsSync(path.join(root, file))) add({ id, path: file, host: value.get('host'), hostId, scope: 'project' }, 'configured');
+    try {
+      identifier(id, 'skills');
+      mapping(value, `skills.${id}`);
+      // Declarations have no verified delivery type, digest, or repository path.
+      if (value.has('package')) {
+        mapping(value, `skills.${id}`, ['package', 'version']);
+        if (typeof value.get('package') !== 'string' || typeof value.get('version') !== 'string') throw new Error(`${id}: expected package name and version strings`);
+        skills.push({ id, source: 'configured', path: null, package: { binding: `skills.${id}`, name: value.get('package'), version: value.get('version') }, verification: 'not-checked', availability: 'declared' });
+        continue;
+      }
+      if (!value.has('host')) {
+        let metadata = {};
+        if (configuration.get('version') === 2) metadata = localDeclaration(root, value, `skills.${id}`, value.get('file'));
+        else mapping(value, `skills.${id}`, ['file']);
+        add({ id, path: value.get('file'), ...metadata }, 'configured');
+        continue;
+      }
+      mapping(value, `skills.${id}`, ['host', 'scope'], ['id']);
+      const adapter = integrations.find(adapter => adapter.id === value.get('host') && adapter.skills);
+      const scope = value.get('scope');
+      const hostId = value.has('id') ? value.get('id') : id;
+      if (!adapter || !Object.hasOwn(adapter.skills, scope) || typeof hostId !== 'string' || !adapter.skills[scope].id.test(hostId)) throw new Error(`${id}: invalid host, scope, or skill identifier`);
+      if (value.get('scope') !== 'project') {
+        references.push({ id, host: value.get('host'), hostId, scope: value.get('scope') });
+        continue;
+      }
+      const file = adapter.skills.project?.path(hostId);
+      if (file && existsSync(path.join(root, file))) add({ id, path: file, host: value.get('host'), hostId, scope: 'project' }, 'configured');
+    } catch (error) { warnings.push(`configured: ${String(id)}: ${discoveryError(error, metadataOnly)}`); }
   }
   for (const source of skillSources) {
     try { for (const skill of source.enumerate(root)) add(skill, source.id); }

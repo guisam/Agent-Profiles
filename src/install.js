@@ -153,7 +153,8 @@ function permissionChange(root, adapter, add, owned = []) {
   return { file, before, after: emptied ? null : Buffer.from(`${JSON.stringify(next, null, 2)}\n`), added };
 }
 
-export function doctor(root) {
+/** @param {string} root @param {{storeRoot?: string}} [options] */
+export function doctor(root, { storeRoot } = {}) {
   root = realpathSync(root);
   const errors = [];
   const notes = [];
@@ -162,11 +163,11 @@ export function doctor(root) {
   const legacy = [];
   let resolution, roleIDs = [];
   try {
-    resolution = resolveInstructions({ root });
-    const { configuration } = readConfiguration(root);
+    resolution = resolveInstructions({ root, storeRoot });
+    const { configuration } = readConfiguration(root, { storeRoot });
     roleIDs = [...configuration.get('roles').keys()];
     for (const role of roleIDs) {
-      const { required, available } = resolveInstructions({ root, role });
+      const { required, available } = resolveInstructions({ root, role, storeRoot });
       for (const skill of [...required, ...available]) if (skill.type === 'host') hostSkills.set(skill.id, skill);
     }
     // Mappings written before host-native skills existed inject a host skill's file as plain text.
@@ -203,11 +204,16 @@ export function doctor(root) {
   if (resolution) {
     for (const agent of agents.filter(item => item.installed)) {
       for (const role of roleIDs) {
-        for (const entry of resolveInstructions({ root, role, host: agent.id }).unsatisfied) capabilities.push(`Role ${role} in ${agent.name}: required skill ${entry.id} is unsatisfied (${entry.reason})`);
+        for (const entry of resolveInstructions({ root, role, host: agent.id, storeRoot }).unsatisfied) capabilities.push(`Role ${role} in ${agent.name}: required skill ${entry.id} is unsatisfied (${entry.reason})`);
       }
     }
   }
   for (const skill of hostSkills.values()) {
+    // A native package names supported hosts, not an installed host skill.
+    if (skill.package) {
+      notes.push(`Skill ${skill.id} is native package ${skill.package.name}@${skill.package.version} (sha256 ${skill.package.sha256}) for ${skill.supportedHosts.join(', ') || 'no declared host'}: package bytes verified in the store; host installation and invocation are not verified`);
+      continue;
+    }
     // An integration whose state failed is already reported as an error and has no agent record.
     const adapter = integrations.find(item => item.id === skill.host);
     const agent = agents.find(item => item.id === skill.host);
@@ -246,7 +252,7 @@ function templateFiles(directory, prefix = '') {
   });
 }
 
-export function install({ root, agents }) {
+export function install({ root, agents, storeRoot = undefined }) {
   root = realpathSync(root);
   const choices = integrations.map(adapter => adapter.id).join(', ');
   if (!Array.isArray(agents) || !agents.length) throw new Error(`Select at least one agent: ${choices}`);
@@ -268,7 +274,7 @@ export function install({ root, agents }) {
       changes.push({ file: `.agent-profiles/${file}`, before: null, after: readFileSync(path.join(templates, file)) });
     }
   } else {
-    resolveInstructions({ root });
+    resolveInstructions({ root, storeRoot });
     const before = readLocal(root, protocolFile);
     if (before === null || !sameText(before, packagedProtocol())) changes.push({ file: protocolFile, before, after: packagedProtocol() });
   }
@@ -301,11 +307,11 @@ export function install({ root, agents }) {
   detectAgents(root);
   for (const change of changes) safePath(root, change.file);
   const modified = applyChanges(root, changes, () => {
-    const report = doctor(root);
+    const report = doctor(root, { storeRoot });
     // Host capability gaps are reported by doctor but do not block installing an integration.
     if (report.errors.length) throw new Error(report.errors.join('\n'));
   });
-  return { ...doctor(root), modified };
+  return { ...doctor(root, { storeRoot }), modified };
 }
 
 function npmCli() {

@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — versioned local packages (#20)
+
+- Add strict full-tree local packages, immutable revision coexistence, v2 exact
+  bindings/selector assignments and complete dependency locks with frozen/offline install.
+- Capture raw managed bytes/provenance in immutable stamps; verify/reconstruct and
+  structurally compare them; export into absent isolated filesystem destinations.
+- Expose add/install/stamp/verify/diff/materialize, explicit store propagation and
+  package-aware caller safeguards. Native invocation/runtime identity remain unverified.
+- Document the runnable fictional workflow and adjacent v1 → v2 scalar-only migration
+  with a companion approval-first prompt. Retain v1 source validation; dependency
+  installation requires v2. Package 0.1.0 remains unpublished; artifact/platform and
+  final whole-solution review gates remain pending.
+
 ## Unreleased — portable instruction mapping fix
 
 - Guard legacy native-skill diagnostics when a host has no project-native skill

@@ -70,18 +70,23 @@ function localRoots(file, explicit, metadataOnly) {
   } finally { if (descriptor !== undefined) closeSync(descriptor); }
 }
 
+export function defaultUserRoots({ home = os.homedir(), env = process.env } = {}) {
+  if (env.CLAUDE_CONFIG_DIR !== undefined && (!path.isAbsolute(env.CLAUDE_CONFIG_DIR) || env.CLAUDE_CONFIG_DIR.includes('\0') || env.CLAUDE_CONFIG_DIR.split(/[\\/]/).includes('..'))) throw new Error('CLAUDE_CONFIG_DIR: expected an absolute home without traversal');
+  return { claudeConfig: env.CLAUDE_CONFIG_DIR ?? path.join(home, '.claude'), codexSkills: path.join(home, '.agents/skills') };
+}
+
 /**
  * Read metadata only from known or explicitly approved machine-local roots.
  * @param {{home?: string, env?: NodeJS.ProcessEnv, sourcesFile?: string,
  * roots?: Array<{host: string, scope: string, path: string, namespace?: string}>}} options
  */
 export function discoverExternalSkills({ home = os.homedir(), env = process.env, sourcesFile, roots: approved = [] } = {}, { metadataOnly = false } = {}) {
-  if (env.CLAUDE_CONFIG_DIR !== undefined && (!path.isAbsolute(env.CLAUDE_CONFIG_DIR) || env.CLAUDE_CONFIG_DIR.includes('\0') || env.CLAUDE_CONFIG_DIR.split(/[\\/]/).includes('..'))) throw new Error('CLAUDE_CONFIG_DIR: expected an absolute home without traversal');
+  const { claudeConfig, codexSkills } = defaultUserRoots({ home, env });
   const file = sourcesFile ?? env.AGENT_PROFILES_SKILL_SOURCES ?? path.join(home, '.config/agent-profiles/skill-sources.json');
   if (typeof file !== 'string' || !path.isAbsolute(file)) throw new Error('skill sources: expected an absolute preferences path');
   const roots = [
-    { host: 'claude', scope: 'user', path: path.join(env.CLAUDE_CONFIG_DIR ?? path.join(home, '.claude'), 'skills') },
-    { host: 'codex', scope: 'user', path: path.join(home, '.agents/skills') },
+    { host: 'claude', scope: 'user', path: path.join(claudeConfig, 'skills') },
+    { host: 'codex', scope: 'user', path: codexSkills },
     ...localRoots(file, sourcesFile !== undefined || env.AGENT_PROFILES_SKILL_SOURCES !== undefined, metadataOnly),
     ...validateRoots(approved),
   ];

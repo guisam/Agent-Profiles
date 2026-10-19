@@ -93,6 +93,12 @@ invocation remains host-controlled. Use `--help` for options; scripts can initia
 | `proof` | Measure selected instruction bytes/characters and available context not injected |
 | `visualize` | Explore model/role composition, project skill requests, and compare context locally |
 | `preset inspect/import/export` | Review and share local configurations with explicit conflict handling |
+| `add` | Import one exact local package revision into an explicit store |
+| `install` | Lock/import all declared v2 package pins; frozen/offline reproduction |
+| `stamp` | Capture immutable selected managed bytes and provenance |
+| `verify` | Verify a full stamp digest and all backing, without repair |
+| `diff` | Verify and structurally compare two stamps |
+| `materialize` | Export a verified stamp into a new absent filesystem destination |
 | `uninstall` | Remove managed bootstrap blocks while retaining user configuration |
 
 ```text
@@ -122,6 +128,19 @@ node bin/agent-profiles.js uninstall --root /path/to/project
 
 See the [installer guide](docs/installer.md) for packed-package installation,
 target-file selection, and explicitly confirmed configuration deletion.
+
+## Versioned instruction dependencies
+
+The [complete local package walkthrough](docs/versioned-packages.md) imports two
+revisions, selects exact pins by model/role, locks every declared override, captures
+raw managed bytes and exports separate ordinary filesystem trees. Configuration
+v2 is implemented in this checkout; the npm package remains unpublished. Existing
+v1 source validation remains, while dependency `install` requires v2. Use the
+[scalar-only migration guide](docs/migrations/config-v1-to-v2.md) and its
+[approval-first AI prompt](docs/migrations/prompts/config-v1-to-v2.md) before
+separately choosing package adoption. This is local acquisition, without downloads,
+model execution or native host enablement. Dependency `install` does not install
+the Agent Profiles executable; `init --package` retains that separate meaning.
 
 ## The layers
 

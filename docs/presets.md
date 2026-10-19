@@ -94,8 +94,8 @@ cancelling customization does not undo the already confirmed import.
 ## Export
 
 Export uses the existing selection UI to choose roles, profiles, and skills to
-bundle. Unbundled skills referenced by selected roles become explicit local
-requirements. The CLI asks for preset metadata and shows a preview before saving.
+bundle. For supported exports, unbundled skills referenced by selected roles become
+explicit local requirements. The CLI asks for preset metadata and shows a preview before saving.
 The destination must be a **new directory with an existing parent**. Existing
 directories and files are never overwritten by export.
 
@@ -106,9 +106,33 @@ destination's existing model profiles and default routing.
 The initial format copies **Markdown instruction files only**, preserving their
 bytes. It does not copy supporting scripts, images, linked documents, or folders
 mentioned inside instructions, and does not rewrite links inside Markdown. Review
-those references for portability, or leave a skill as a local requirement when
-it depends on resources outside its instruction file. Review redistribution
-rights before bundling someone else's skill.
+undeclared supporting references for portability, or leave such a skill as a local
+requirement; this does not archive or verify those dependencies. Review
+redistribution rights before bundling someone else's skill.
+
+Nonempty declared `resources` on selected profiles or roles, or on any required or
+available skill of a selected role, refuse export with `preset-resources-unsupported`.
+This check precedes `includeSkills` selection, so it also applies to skills left as
+requirements, including with `includeSkills: []`. Leaving a skill unbundled does not
+bypass this refusal. Resources on unrelated, unselected bindings do not globally
+block an otherwise supported export.
+
+## V2 instruction packages and preset schema 1
+
+Preset schema 1 remains Markdown/reference-oriented. It refuses
+`preset-package-unsupported` before writing an export that would flatten a selected
+package-backed profile, role or skill, whether that skill is included or left as a
+requirement. Unrelated package declarations do not block a local-only export.
+An import requirement may retain an existing validated package skill binding;
+import/replace cannot silently erase its revision assignments or identity.
+
+Pass `--store` to package-aware CLI operations and `storeRoot` to API planners;
+plans carry it through apply and returned validation. A valid config edit can leave
+its dependency lock stale and report `installRequired: true`, with lock bytes
+unchanged. Subsequent public selection refuses until explicitly approved dependency
+installation; no implicit import/relock. Ordinary local-only and native-reference
+preset behavior remains. Full-tree packages are a separate
+[format/workflow](versioned-packages.md), not a new preset schema.
 
 ## Authoring a manifest
 

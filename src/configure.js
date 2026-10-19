@@ -8,16 +8,17 @@ import { identifier, localFile, parseYaml, parseYamlDocument, resolveInstruction
 const configFile = '.agent-profiles/agents.yaml';
 
 /** @param {string} root
- * @param {{metadataOnly?: boolean, content?: Buffer}} options
+ * @param {{metadataOnly?: boolean, content?: Buffer, storeRoot?: string, lockMode?: 'required' | 'validation'}} options
  * A bounded inspection may supply already-read bytes; mutation callers always read disk.
+ * Mutation workflows validate a possibly stale-locked project; public readers pass lockMode 'required'.
  */
-export function readConfiguration(root, { metadataOnly = false, content } = {}) {
+export function readConfiguration(root, { metadataOnly = false, content, storeRoot, lockMode = 'validation' } = {}) {
   root = realpathSync(root);
   const before = metadataOnly && content !== undefined ? content : readLocal(root, configFile);
   if (before === null) throw new Error(`${configFile} is missing; run init first`);
   const document = parseYamlDocument(before.toString('utf8'));
   const configuration = document.toJS({ mapAsMap: true, maxAliasCount: 100 });
-  resolveInstructions({ root, configuration, metadataOnly });
+  resolveInstructions({ root, configuration, metadataOnly, storeRoot, lockMode });
   return { root, before, document, configuration };
 }
 
@@ -25,10 +26,10 @@ export function readConfiguration(root, { metadataOnly = false, content } = {}) 
  * Build a validated, reviewable plan; this function never writes files.
  * @param {{root: string, action: string, id: string, file?: string, description?: string,
  *   required?: (string | Record<string, any>)[], available?: (string | Record<string, any>)[],
- *   defaultRole?: string, expectedConfiguration?: Buffer, sourceOptions?: object}} options
+ *   defaultRole?: string, expectedConfiguration?: Buffer, sourceOptions?: object, storeRoot?: string}} options
  */
-export function planRoleChange({ root, action, id, file, description, required, available, defaultRole, expectedConfiguration, sourceOptions }) {
-  const state = readConfiguration(root);
+export function planRoleChange({ root, action, id, file, description, required, available, defaultRole, expectedConfiguration, sourceOptions, storeRoot }) {
+  const state = readConfiguration(root, { storeRoot });
   ({ root } = state);
   const { document, configuration, before } = state;
   if (expectedConfiguration && !before.equals(expectedConfiguration)) throw new Error('Configuration changed while editing; reload the role before retrying');
@@ -37,6 +38,9 @@ export function planRoleChange({ root, action, id, file, description, required, 
   const roles = configuration.get('roles');
   if (action === 'create' && roles.has(id)) throw new Error(`Role ${id} already exists; edit it instead`);
   if (action !== 'create' && !roles.has(id)) throw new Error(`Role ${id} does not exist`);
+  if (action === 'edit' && roles.get(id).has('package')) {
+    throw new Error(`roles.${id} is backed by package ${roles.get(id).get('package')}@${roles.get(id).get('version')}; edit it manually in ${configFile}`);
+  }
   const node = document.getIn(['roles', id], true);
   let shared = false;
   if (isNode(node)) visit(node, {
@@ -47,6 +51,7 @@ export function planRoleChange({ root, action, id, file, description, required, 
   });
   const aliases = [];
   const selectionChecks = [];
+  const packageSelections = [];
   const changes = [];
   let newRoleFile;
 
@@ -86,7 +91,15 @@ export function planRoleChange({ root, action, id, file, description, required, 
         if (selection.host && selection.path) selectionChecks.push({ ...selection });
       }
       const skillId = identifier(typeof selection === 'string' ? selection : selection?.id, entry);
-      if (typeof selection === 'string' && sources.get(skillId)?.has('host')) return skillId;
+      if (typeof selection === 'string' && (sources.get(skillId)?.has('host') || sources.get(skillId)?.has('package'))) return skillId;
+      if (typeof selection !== 'string' && selection.package) {
+        // Reuse only the current binding; its version and digest are checked against the preview resolution below.
+        if (selection.package.binding !== `skills.${skillId}` || sources.get(skillId)?.get('package') !== selection.package.name) {
+          throw new Error(`${entry}: ${skillId} is not the current package binding ${selection.package.name}; reload the role`);
+        }
+        packageSelections.push(selection);
+        return skillId;
+      }
       if (typeof selection !== 'string' && selection.host) {
         // Host skills keep the host's own identity: a conflict is reported, never renamed to an alias.
         const current = sources.get(skillId);
@@ -137,7 +150,13 @@ export function planRoleChange({ root, action, id, file, description, required, 
   if (!before.toString('utf8').endsWith('\n')) text = text.replace(/\r?\n$/, '');
   const proposed = parseYaml(text);
   const role = action === 'delete' ? undefined : id;
-  const resolution = resolveInstructions({ root, role, configuration: proposed, newRoleFile });
+  const resolution = resolveInstructions({ root, role, configuration: proposed, newRoleFile, storeRoot, lockMode: 'validation' });
+  for (const selection of packageSelections) {
+    const current = [...resolution.required, ...resolution.available].find(skill => skill.id === selection.id)?.package;
+    if (current?.version !== selection.package.version || current.sha256 !== selection.package.sha256) {
+      throw new Error(`${selection.id}: package binding changed since it was selected; reload the role`);
+    }
+  }
   // Avoid rewriting even formatting when the effective configuration is unchanged.
   const unchanged = JSON.stringify([...configuration], (_, value) => value instanceof Map ? Object.fromEntries(value) : value) ===
     JSON.stringify([...proposed], (_, value) => value instanceof Map ? Object.fromEntries(value) : value);
@@ -145,7 +164,7 @@ export function planRoleChange({ root, action, id, file, description, required, 
   if (!after.equals(before)) changes.push({ file: configFile, before, after });
   for (const change of changes) safePath(root, change.file);
   return {
-    root, action, id, before, after, changes, newRoleFile, resolution, aliases, selectionChecks, sourceOptions,
+    root, action, id, before, after, changes, newRoleFile, resolution, aliases, selectionChecks, sourceOptions, storeRoot,
     instructionFile: action === 'delete' ? roles.get(id).get('file') : proposed.get('roles').get(id).get('file'),
   };
 }
@@ -154,7 +173,8 @@ export function applyRoleChange(plan) {
   if (!readLocal(plan.root, configFile)?.equals(plan.before)) throw new Error('Configuration changed after preview; reload before saving');
   for (const selection of plan.selectionChecks) validateSkillSelection(plan.root, selection, plan.sourceOptions);
   const role = plan.action === 'delete' ? undefined : plan.id;
-  resolveInstructions({ root: plan.root, role, configuration: parseYaml(plan.after.toString('utf8')), newRoleFile: plan.newRoleFile });
-  const modified = applyChanges(plan.root, plan.changes, () => resolveInstructions({ root: plan.root, role }));
-  return { modified, resolution: resolveInstructions({ root: plan.root, role }) };
+  const { storeRoot } = plan, lockMode = 'validation';
+  resolveInstructions({ root: plan.root, role, configuration: parseYaml(plan.after.toString('utf8')), newRoleFile: plan.newRoleFile, storeRoot, lockMode });
+  const modified = applyChanges(plan.root, plan.changes, () => resolveInstructions({ root: plan.root, role, storeRoot, lockMode }));
+  return { modified, resolution: resolveInstructions({ root: plan.root, role, storeRoot, lockMode }) };
 }

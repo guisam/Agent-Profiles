@@ -4,9 +4,9 @@ import { discoverSkills } from './skills.js';
 import { resolveInstructions } from './resolve.js';
 
 export const display = text => stripVTControlCharacters(String(text)).replace(/[\x00-\x1f\x7f]/g, ' ');
-const where = skill => skill.host ? `${skill.host} ${skill.scope} skill ${skill.hostId}${skill.path ? ` at ${skill.path}` : ' (host-provided)'}` +
+const where = skill => skill.package ? `package ${skill.package.name}@${skill.package.version} (${skill.verification === 'not-checked' ? 'declared; verification not checked' : `sha256 ${skill.package.sha256}`})` : skill.host ? `${skill.host} ${skill.scope} skill ${skill.hostId}${skill.path ? ` at ${skill.path}` : ' (host-provided)'}` +
   `${skill.availability ? ` [${skill.availability}; invocation unverified]` : ''}` : skill.path;
-const resourceOf = skill => skill.host ? `host\0${skill.host}\0${skill.scope}\0${skill.hostId}` : `file\0${skill.path}`;
+const resourceOf = skill => skill.package ? `package\0${skill.package.binding}\0${skill.package.name}\0${skill.package.version}\0${skill.package.sha256}` : skill.host ?`host\0${skill.host}\0${skill.scope}\0${skill.hostId}` : `file\0${skill.path}`;
 const keyOf = skill => `${skill.id}\0${resourceOf(skill)}`;
 
 export async function selectSkills({ choices, initial = [], label, ask, write }) {
@@ -27,7 +27,8 @@ export async function selectSkills({ choices, initial = [], label, ask, write })
     write(`${label} — page ${page + 1}/${pages}; ${selected.size} selected`);
     visible.forEach((skill, index) => write(
       `${index + 1}. [${selected.has(keyOf(skill)) ? 'x' : ' '}] ${display(skill.id)} — ${display(skill.name)}\n` +
-      `   ${display(skill.description ?? '(no description)')}\n   ${display(skill.source)}: ${display(where(skill))}`,
+      `   ${display(skill.description ?? '(no description)')}\n   ${display(skill.source)}: ${display(where(skill))}` +
+      `${skill.resources?.length ? `\n   Resources: ${skill.resources.map(display).join(', ')}` : ''}`,
     ));
     const answer = (await ask('Toggle numbers; n/p pages; /text filter; clear; Enter to accept; q to cancel: ')).trim();
     if (!answer || answer === 'done') return [...selected.values()];
@@ -58,12 +59,14 @@ export async function selectSkills({ choices, initial = [], label, ask, write })
 
 function summary(plan, write) {
   if (plan.action === 'delete') {
-    write(`Remove role ${plan.id} from agents.yaml. Preserve ${display(plan.instructionFile)} and all skill files.`);
+    write(`Remove role ${plan.id} from agents.yaml. Preserve ${plan.instructionFile ? display(plan.instructionFile) : 'its stored package'} and all skill files.`);
     write(`Default role after deletion: ${plan.resolution.role}`);
   } else {
     write(`Role: ${plan.id}\nInstructions: ${display(plan.instructionFile)}`);
+    const role = plan.resolution.loaded.find(entry => entry.kind === 'role');
+    if (role?.resources?.length) write(`Resources: ${role.resources.map(display).join(', ')}`);
     for (const group of ['required', 'available']) {
-      write(`${group}: ${plan.resolution[group].map(skill => `${skill.id} (${display(where(skill))})`).join(', ') || '(none)'}`);
+      write(`${group}: ${plan.resolution[group].map(skill => `${skill.id} (${display(where(skill))}${skill.resources?.length ? `; resources: ${skill.resources.map(display).join(', ')}` : ''})`).join(', ') || '(none)'}`);
     }
     for (const alias of plan.aliases) write(`Source alias: ${alias.originalId} -> ${alias.id} (${display(alias.path)})`);
     if (plan.newRoleFile) write(`Create minimal instruction file: ${display(plan.instructionFile)}`);
@@ -71,9 +74,9 @@ function summary(plan, write) {
   write('Proposed configuration is valid.');
 }
 
-export async function configureRoles({ root, ask, write = console.log, external = false, sourceOptions = undefined }) {
+export async function configureRoles({ root, ask, write = console.log, external = false, sourceOptions = undefined, storeRoot = undefined }) {
   for (;;) {
-    const state = readConfiguration(root);
+    const state = readConfiguration(root, { storeRoot });
     const actionInput = (await ask('Roles: [c]reate, [e]dit, [d]elete, [q]uit: ')).trim().toLowerCase();
     if (['q', 'quit', 'exit', ''].includes(actionInput)) return;
     const action = { c: 'create', create: 'create', e: 'edit', edit: 'edit', d: 'delete', delete: 'delete' }[actionInput];
@@ -81,13 +84,13 @@ export async function configureRoles({ root, ask, write = console.log, external 
     try {
       const roles = state.configuration.get('roles');
       if (action !== 'create') {
-        for (const [id, role] of roles) write(`${id}${id === state.configuration.get('default_role') ? ' (default)' : ''} — ${display(role.get('description') ?? role.get('file'))}`);
+        for (const [id, role] of roles) write(`${id}${id === state.configuration.get('default_role') ? ' (default)' : ''} — ${display(role.get('description') ?? role.get('file') ?? `package ${role.get('package')}@${role.get('version')}`)}`);
       }
       const id = (await ask('Role identifier: ')).trim();
       const previous = roles.get(id);
       if (action === 'create' && previous) throw new Error(`Role ${id} already exists; choose edit`);
       if (action !== 'create' && !previous) throw new Error(`Role ${id} does not exist`);
-      const input = { root, action, id, expectedConfiguration: state.before, sourceOptions: external ? sourceOptions ?? {} : undefined };
+      const input = { root, action, id, expectedConfiguration: state.before, sourceOptions: external ? sourceOptions ?? {} : undefined, storeRoot };
       if (action === 'delete') {
         if (state.configuration.get('default_role') === id) {
           const replacements = [...roles.keys()].filter(name => name !== id);
@@ -95,7 +98,8 @@ export async function configureRoles({ root, ask, write = console.log, external 
           write(`Choose a replacement default: ${replacements.join(', ')}`);
           input.defaultRole = (await ask('New default role: ')).trim();
         }
-      } else {
+      } else if (!previous?.has('package')) {
+        // A package-backed role is refused by planRoleChange below, before any file prompt or write.
         const currentDescription = previous?.get('description') ?? '';
         const description = await ask(`Description [${display(currentDescription)}] (optional; - clears): `);
         input.description = description === '-' ? '' : description || currentDescription;
@@ -105,10 +109,11 @@ export async function configureRoles({ root, ask, write = console.log, external 
         for (const warning of found.warnings) write(`Inventory: ${display(warning)}`);
         if (!found.skills.length) write('No local skills were discovered. Create the role now and add skills later.');
         if (found.duplicates.length) write(`Duplicate IDs: ${found.duplicates.join(', ')}. Select the intended source; choosing another source replaces that selection.`);
-        const existing = previous ? resolveInstructions({ root, role: id }) : { required: [], available: [] };
-        // Retain opaque native bindings when their installed metadata cannot be inventoried.
+        const existing = previous ? resolveInstructions({ root, role: id, storeRoot, lockMode: 'validation' }) : { required: [], available: [] };
+        // Retain opaque native and package bindings when their installed metadata cannot be inventoried.
         for (const skill of [...existing.required, ...existing.available]) {
-          if (skill.type === 'host' && !found.skills.some(choice => keyOf(choice) === keyOf(skill))) found.skills.push({ ...skill, source: 'configured' });
+          if (skill.package) found.skills = found.skills.filter(choice => !(choice.verification === 'not-checked' && choice.package?.binding === skill.package.binding));
+          if ((skill.type === 'host' || skill.package) && !found.skills.some(choice => keyOf(choice) === keyOf(skill))) found.skills.push({ ...skill, source: 'configured' });
         }
         input.required = await selectSkills({
           choices: found.skills, initial: existing.required,
@@ -119,6 +124,8 @@ export async function configureRoles({ root, ask, write = console.log, external 
           choices, initial: existing.available.filter(skill => choices.some(choice => keyOf(choice) === keyOf(skill))),
           label: 'Available: listed for the role; used only when a task falls within the skill description', ask, write,
         });
+        // Bind declarations by ID; the planner's resolver supplies verified identity and digest.
+        for (const group of ['required', 'available']) input[group] = input[group].map(skill => skill.verification === 'not-checked' && skill.package ? skill.id : skill);
       }
       const plan = planRoleChange(input);
       summary(plan, write);

@@ -40,23 +40,23 @@ function preview(plan, write) {
   write('Replacements affect every local role/model referring to that ID. Renaming changes only imported references.');
 }
 
-/** @param {{command: string, location: string, root?: string, roles?: string[], contents?: boolean, ask: (prompt: string) => Promise<string>, write?: typeof console.log}} options */
-export async function runPreset({ command, location, root, roles, contents = false, ask, write = console.log }) {
+/** @param {{command: string, location: string, root?: string, roles?: string[], contents?: boolean, ask: (prompt: string) => Promise<string>, write?: typeof console.log, storeRoot?: string}} options */
+export async function runPreset({ command, location, root, roles, contents = false, ask, write = console.log, storeRoot }) {
   if (!['inspect', 'import', 'export'].includes(command) || !location?.trim()) throw new Error('Usage: agent-profiles preset <inspect|import|export> <directory> [--root <repository>]');
   if (command === 'export') {
-    const state = exportChoices(root);
+    const state = exportChoices(root, { storeRoot });
     const selectedRoles = roles ?? await choose([...state.configuration.get('roles').keys()], 'Roles to export', ask, write);
     const profiles = await choose(state.profiles, 'Profiles to export', ask, write);
     const skills = new Set();
     for (const role of selectedRoles) {
-      const result = resolveInstructions({ root, role });
+      const result = resolveInstructions({ root, role, storeRoot, lockMode: 'validation' });
       [...result.required, ...result.available].filter(skill => skill.type === 'instruction').forEach(skill => skills.add(skill.id));
     }
     write('Host-native skills remain references. Selected instruction skills will be bundled as Markdown. Unselected instruction skills become required local dependencies. Referenced supporting assets are not copied.');
     const includeSkills = await choose([...skills], 'Skills to include', ask, write);
     const metadata = {};
     for (const key of ['name', 'display_name', 'description', 'author', 'version', 'license']) metadata[key] = (await ask(`Preset ${key}: `)).trim();
-    const plan = planPresetExport({ root, destination: location, metadata, roles: selectedRoles, profiles, includeSkills });
+    const plan = planPresetExport({ root, destination: location, metadata, roles: selectedRoles, profiles, includeSkills, storeRoot });
     describe(plan.preset, write);
     write(`Create ${display(plan.target)} with ${plan.changes.length} files. No existing files will be replaced.`);
     if ((await ask('Export this preset? [y/N]: ')).trim().toLowerCase() !== 'y') { write('Cancelled; no files changed.'); return; }
@@ -67,7 +67,7 @@ export async function runPreset({ command, location, root, roles, contents = fal
   const preset = readPreset(location);
   describe(preset, write, contents);
   if (command === 'inspect') {
-    if (root && existsSync(path.join(root, '.agent-profiles/agents.yaml'))) preview(planPresetImport({ root, source: location, roles }), write);
+    if (root && existsSync(path.join(root, '.agent-profiles/agents.yaml'))) preview(planPresetImport({ root, source: location, roles, storeRoot }), write);
     else write('Local dependencies and conflicts not checked: use --root with an initialized repository.');
     write('No changes have been made. Use --contents to review instruction text.');
     return;
@@ -77,7 +77,7 @@ export async function runPreset({ command, location, root, roles, contents = fal
   const useDefaults = preset.data.get('defaults')?.size ? (await ask('Apply the preset default profile/role? [y/N]: ')).trim().toLowerCase() === 'y' : false;
   let plan;
   for (;;) {
-    plan = planPresetImport({ root, source: location, roles: selectedRoles, decisions, useDefaults });
+    plan = planPresetImport({ root, source: location, roles: selectedRoles, decisions, useDefaults, storeRoot });
     if (!preset.manifest.equals(plan.preset.manifest) || [...preset.payload].some(([file, content]) => !plan.preset.payload.get(file)?.equals(content))) {
       throw new Error('Preset changed while choosing import options; inspect it again before importing');
     }
@@ -91,7 +91,7 @@ export async function runPreset({ command, location, root, roles, contents = fal
   }
   if (!plan.ready) throw new Error('Preset cannot be imported until the reported dependencies/configuration errors are resolved');
   if ((await ask('Apply these preset changes? [y/N]: ')).trim().toLowerCase() !== 'y') { write('Cancelled; no files changed.'); return; }
-  const modified = applyPresetImport(plan, true);
+  const { modified } = applyPresetImport(plan, true);
   write(`Imported preset; ${modified.length} files updated. Configuration validated.`);
-  if ((await ask('Customize roles and skills with the existing wizard now? [y/N]: ')).trim().toLowerCase() === 'y') await configureRoles({ root, ask, write });
+  if ((await ask('Customize roles and skills with the existing wizard now? [y/N]: ')).trim().toLowerCase() === 'y') await configureRoles({ root, ask, write, storeRoot });
 }

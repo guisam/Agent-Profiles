@@ -31,6 +31,22 @@ After a separate publication step, the entry point will be
 `npx agent-profiles init`. This implementation does not publish anything.
 `init --package` can install a development dependency into the target repository.
 
+## Instruction dependency install is separate
+
+`agent-profiles install --root <project> --store <store> --offline` validates v2
+and locks/imports all declared instruction-package pins from approved local bytes.
+Repeat `--source <name> <version> <directory>` when supplying dependencies; frozen
+reproduction adds `--frozen-lockfile` and preserves the existing complete lock.
+V1 dependency installation refuses with migration guidance without writes, while
+v1 source validation still works. There is no download/registry fallback.
+
+This does not install the executable or initialize bootstrap integrations.
+`init --package <spec>` retains the npm executable-install behavior described below.
+The [package walkthrough](versioned-packages.md) covers trust, explicit stores,
+immutable snapshots, safe absent-destination exports and confirmed API recovery.
+Package-aware init/doctor accept `--store`; API `install({root, agents, storeRoot})`
+and `doctor(root, {storeRoot})` retain that explicit dependency context.
+
 ## Init
 
 Interactive `init` offers `claude`, `codex`, and `hermes` as comma-separated choices. Known
@@ -139,7 +155,7 @@ instruction files left by uninstall are retained because they may be user-owned.
 
 Malformed or repeated marker pairs require manual repair. A Codex block shadowed
 by a newly added override is reported; uninstall followed by init relocates it
-without editing unrelated rules. Existing blocks are not automatically upgraded.
+without editing unrelated rules. Init refreshes installed managed blocks; it does not rewrite surrounding instructions.
 
 The installer validates source configuration and checks targets before writing.
 Writes use temporary sibling files and rename; detected failures roll completed

@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { discoverSkills } from './skills.js';
 import { readConfiguration } from './configure.js';
+import { identifier, localDeclaration, localFile, mapping, parseYaml } from './resolve.js';
 import { safePath } from './files.js';
 import { integrations, managedSpan } from './integrations.js';
 
@@ -76,12 +77,65 @@ function configurationMetadata(root) {
   if (file.availability !== 'available') return { metadata: empty, configuration: new Map() };
   if (file.bytes > limit) return { metadata: { ...empty, problem: 'Configuration exceeds 64 KiB' }, configuration: new Map() };
   try {
-    const { configuration } = readConfiguration(root, { metadataOnly: true, content: readBounded(root, file.path) });
+    const content = readBounded(root, file.path);
+    const declared = parseYaml(content.toString('utf8'));
+    // Package pins verify only against a store, which bounded inspection never reads. Such declarations are listed
+    // unverified; malformed binding tables still go through full validation below and are reported invalid.
+    let packaged = false;
+    if (declared instanceof Map && declared.get('version') === 2) {
+      // Only an omitted table defaults; a present null/list/scalar falls through to strict validation.
+      const tables = ['profiles', 'roles', 'skills'].map(key => declared.has(key) ? declared.get(key) : new Map());
+      packaged = tables.every(table => table instanceof Map && [...table.values()].every(value => value instanceof Map)) &&
+        tables.some(table => [...table.values()].some(value => value.has('package')));
+    }
+    const configuration = packaged ? declared : readConfiguration(root, { metadataOnly: true, content }).configuration;
+    if (packaged) {
+      // Validate only the shapes and local references used below; store-backed validity remains unchecked.
+      mapping(configuration, 'agents.yaml', ['version', 'default_profile', 'default_role', 'models', 'families', 'roles'], ['skills', 'profiles', 'assignments']);
+      identifier(configuration.get('default_profile'), 'default_profile');
+      identifier(configuration.get('default_role'), 'default_role');
+      for (const section of ['models', 'families']) for (const [id, value] of mapping(configuration.get(section), section)) {
+        mapping(value, `${section}.${id}`, ['profile'], [section === 'models' ? 'aliases' : 'match']);
+        identifier(value.get('profile'), `${section}.${id}.profile`);
+        if (value.has('match')) mapping(value.get('match'), `${section}.${id}.match`, ['prefixes']);
+      }
+      for (const section of ['profiles', 'roles']) for (const [id, value] of configuration.get(section) ?? []) {
+        identifier(id, section);
+        const fields = value.has('package') ? ['package', 'version'] : ['file'];
+        const required = section === 'roles' ? [...fields, 'skills'] : fields;
+        const optional = section === 'roles' ? ['description'] : [];
+        if (value.has('package')) mapping(value, `${section}.${id}`, required, optional);
+        else localDeclaration(root, value, `${section}.${id}`, `.agent-profiles/${value.get('file')}`, required, optional);
+        if (!value.has('package')) localFile(path.join(root, '.agent-profiles'), value.get('file'), `${section}.${id}.file`, '.agent-profiles', true);
+        if (section === 'roles') {
+          const lists = mapping(value.get('skills'), `roles.${id}.skills`, ['required', 'available']);
+          for (const list of lists.values()) {
+            if (!Array.isArray(list)) throw new Error('Expected skill IDs');
+            list.forEach(skill => identifier(skill, `roles.${id}.skills`));
+          }
+        }
+      }
+    }
+    const declaration = (value, source) => ({ path: null, source, host: null, scope: 'repository', availability: 'declared', bytes: null,
+      package: { name: value.get('package'), version: value.get('version') }, verification: 'not-checked' });
+    const packageProfiles = configuration.get('profiles') ?? new Map();
     const models = [...configuration.get('models')].map(([id, value]) => ({ id, profile: value.get('profile'), aliases: value.get('aliases') ?? [] })).sort((a, b) => compare(a.id, b.id));
     const families = [...configuration.get('families')].map(([id, value]) => ({ id, profile: value.get('profile'), prefixes: value.get('match')?.get('prefixes') ?? [] })).sort((a, b) => compare(a.id, b.id));
-    const profiles = [...new Set([configuration.get('default_profile'), ...models.map(model => model.profile), ...families.map(family => family.profile)])].sort(compare).map(id => ({ id, ...fileMetadata(root, `.agent-profiles/profiles/${id}.md`, 'configured-profile') }));
-    const roles = [...configuration.get('roles')].map(([id, value]) => ({ id, ...fileMetadata(root, `.agent-profiles/${value.get('file')}`, 'configured-role'), description: value.get('description') ?? null, required: value.get('skills').get('required'), available: value.get('skills').get('available') })).sort((a, b) => compare(a.id, b.id));
-    return { configuration, metadata: { ...file, status: 'valid', defaultProfile: configuration.get('default_profile'), defaultRole: configuration.get('default_role'), profiles, roles, models, families } };
+    const profiles = [...new Set([configuration.get('default_profile'), ...models.map(model => model.profile), ...families.map(family => family.profile)])].sort(compare).map(id => {
+      const value = packageProfiles.get(id);
+      return { id, ...value?.has('package') ? declaration(value, 'configured-profile') : {
+        ...fileMetadata(root, `.agent-profiles/${value?.get('file') ?? `profiles/${id}.md`}`, 'configured-profile'),
+        ...value ? localDeclaration(root, value, `profiles.${id}`, `.agent-profiles/${value.get('file')}`) : {},
+      } };
+    });
+    const roles = [...configuration.get('roles')].map(([id, value]) => ({ id,
+      ...value.has('package') ? declaration(value, 'configured-role') : {
+        ...fileMetadata(root, `.agent-profiles/${value.get('file')}`, 'configured-role'),
+        ...localDeclaration(root, value, `roles.${id}`, `.agent-profiles/${value.get('file')}`, ['file', 'skills'], ['description']),
+      },
+      description: value.get('description') ?? null, required: value.get('skills').get('required'), available: value.get('skills').get('available') })).sort((a, b) => compare(a.id, b.id));
+    const partial = packaged && { problem: 'Package bindings are declared; bounded inspection does not read the package store, so package verification and full configuration validation were not checked; run doctor' };
+    return { configuration, metadata: { ...file, status: packaged ? 'partial' : 'valid', ...partial, defaultProfile: configuration.get('default_profile'), defaultRole: configuration.get('default_role'), profiles, roles, models, families } };
   } catch (error) {
     // Parser excerpts can contain arbitrary source text. Do not echo them into an inventory.
     return { metadata: error.code ? { ...empty, availability: 'unavailable', problem: `Cannot read configuration metadata (${error.code})` }
@@ -177,7 +231,7 @@ export function inspectRepository({ root, external = false, sourceOptions = {}, 
   const workflows = workflowMetadata(root);
   const environment = environmentMetadata(environmentOptions);
   const found = discoverSkills(root, parsed, { external, sourceOptions, metadataOnly: true });
-  let installationStatus = configuration.status === 'valid' ? 'installed' : 'incomplete';
+  let installationStatus = configuration.status === 'valid' ? 'installed' : configuration.status === 'partial' ? 'unverified' : 'incomplete';
   if (configuration.status === 'missing') {
     try { statSync(safePath(root, '.agent-profiles')); }
     catch (error) { if (error.code === 'ENOENT') installationStatus = 'not-installed'; }
@@ -186,9 +240,9 @@ export function inspectRepository({ root, external = false, sourceOptions = {}, 
     schemaVersion: 1,
     repository: { root, installation: { status: installationStatus, bootstrap: fileMetadata(root, '.agent-profiles/BOOTSTRAP.md', 'bootstrap-protocol') }, configuration, instructions, workflows: workflows.files, package: packageMetadata(root) },
     skills: { ...found,
-      skills: found.skills.map(skill => ({ ...skill, host: skill.host ?? null, scope: skill.scope ?? 'repository', availability: skill.availability ?? 'metadata-found', verification: skill.path ? 'metadata-only' : 'unobserved', runtime: 'unverified' })),
+      skills: found.skills.map(skill => ({ ...skill, host: skill.host ?? null, scope: skill.scope ?? 'repository', availability: skill.availability ?? 'metadata-found', verification: skill.package ? skill.verification : skill.path ? 'metadata-only' : 'unobserved', runtime: 'unverified' })),
       roots: found.roots.map(sourceMetadata),
-      status: configuration.status === 'invalid' || found.warnings.length ? 'partial' : 'complete' },
+      status: ['invalid', 'partial'].includes(configuration.status) || found.warnings.length ? 'partial' : 'complete' },
     hosts: hostMetadata(root, environment),
     environment,
     warnings: [...instructionWarnings, ...workflows.warnings],

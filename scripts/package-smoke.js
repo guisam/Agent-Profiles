@@ -11,8 +11,12 @@ const project = fileURLToPath(new URL('../', import.meta.url));
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-profiles-package-'));
 const npm = process.env.npm_execpath;
 assert.ok(npm, 'Run with npm run test:package');
+const environment = { ...process.env };
+for (const key of Object.keys(environment)) if (/^npm_config_/i.test(key)) delete environment[key];
+delete environment.NODE_OPTIONS;
+delete environment.AGENT_PROFILES_SKILL_SOURCES;
 
-function run(command, args, cwd, env = process.env) {
+function run(command, args, cwd, env = environment) {
   const result = spawnSync(command, args, { cwd, env, encoding: 'utf8', timeout: 120000 });
   assert.equal(result.status, 0, `${args.join(' ')}\n${result.error ?? ''}\n${result.stdout}\n${result.stderr}`);
   return result.stdout;
@@ -28,31 +32,52 @@ function snapshot(root) {
 }
 
 try {
-  const [artifact] = JSON.parse(run(process.execPath, [npm, 'pack', '--json', '--ignore-scripts', '--pack-destination', temporary], project));
+  const home = path.join(temporary, 'home');
+  fs.mkdirSync(home);
+  const userconfig = path.join(temporary, 'npm-user.npmrc'), globalconfig = path.join(temporary, 'npm-global.npmrc');
+  fs.writeFileSync(userconfig, ''); fs.writeFileSync(globalconfig, '');
+  Object.assign(environment, { HOME: home, USERPROFILE: home, CLAUDE_CONFIG_DIR: path.join(home, '.claude'),
+    CODEX_HOME: path.join(home, '.codex'), AGENT_PROFILES_STORE: path.join(home, 'unused-store'),
+    TMP: temporary, TEMP: temporary, TMPDIR: temporary,
+    npm_config_cache: path.join(temporary, 'npm-cache'), npm_config_userconfig: userconfig, npm_config_globalconfig: globalconfig,
+    npm_config_offline: 'true', npm_config_ignore_scripts: 'true', npm_config_audit: 'false', npm_config_fund: 'false' });
+  const [artifact] = JSON.parse(run(process.execPath, [npm, 'pack', '--offline', '--json', '--ignore-scripts', '--pack-destination', temporary], project));
+  const yamlRoot = path.join(project, 'node_modules/yaml');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(yamlRoot, 'package.json'), 'utf8')).version, '2.9.1');
+  const [yamlArtifact] = JSON.parse(run(process.execPath, [npm, 'pack', '--offline', '--json', '--ignore-scripts', '--pack-destination', temporary], yamlRoot));
+  assert.equal(yamlArtifact.name, 'yaml'); assert.equal(yamlArtifact.version, '2.9.1');
+  const tarballs = [artifact, yamlArtifact].map(packed => path.join(temporary, packed.filename));
   const manifest = JSON.parse(fs.readFileSync(path.join(project, 'package.json'), 'utf8'));
   assert.equal(artifact.name, 'agent-profiles');
   assert.equal(artifact.version, manifest.version);
   const files = new Set(artifact.files.map(file => file.path));
+  const versionedFiles = ['src/packages.js', 'src/package-store.js', 'src/package-lock.js', 'src/stamps.js', 'src/materialize.js',
+    'docs/versioned-packages.md', 'docs/migrations/README.md', 'docs/migrations/config-v1-to-v2.md',
+    'docs/migrations/prompts/config-v1-to-v2.md'];
   for (const file of ['LICENSE', 'README.md', 'CHANGELOG.md', 'package.json', 'bin/agent-profiles.js', 'src/configure.js', 'src/files.js',
     'src/integrations.js', 'src/install.js', 'src/resolve.js', 'src/skills.js', 'src/discovery-diagnostics.js', 'src/wizard.js', 'src/inspect.js', 'docs/setup.md', 'src/external-skills.js', 'docs/hosts/external-skill-sources.md',
     '.agent-profiles/agents.yaml', '.agent-profiles/BOOTSTRAP.md', 'docs/configure.md', 'src/presets.js',
     'src/preset-wizard.js', 'src/diagnostics.js', 'docs/proof.md', 'src/visualize.js', 'src/visualizer/index.html',
-    'src/visualizer/app.js', 'src/visualizer/style.css', 'docs/visualize.md', 'docs/hosts/hermes.md', 'examples/presets/release-review/preset.yaml']) assert.ok(files.has(file), `Missing package file: ${file}`);
+    'src/visualizer/app.js', 'src/visualizer/style.css', 'docs/visualize.md', 'docs/hosts/hermes.md', 'examples/presets/release-review/preset.yaml',
+    ...versionedFiles]) assert.ok(files.has(file), `Missing package file: ${file}`);
   for (const file of files) {
     assert.ok(/^(bin\/|src\/|docs\/|examples\/presets\/|\.agent-profiles\/|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(file), `Unexpected package file: ${file}`);
   }
   const consumer = path.join(temporary, 'consumer with spaces');
   fs.mkdirSync(consumer);
   fs.writeFileSync(path.join(consumer, 'package.json'), '{"name":"smoke-consumer","private":true}');
-  run(process.execPath, [npm, 'install', '--ignore-scripts', '--no-audit', '--no-fund', '--omit=dev', '--package-lock=false', path.join(temporary, artifact.filename)], consumer);
+  run(process.execPath, [npm, 'install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', '--omit=dev', '--package-lock=false', ...tarballs], consumer);
   const installed = path.join(consumer, 'node_modules/agent-profiles');
   const installedManifest = JSON.parse(fs.readFileSync(path.join(installed, 'package.json'), 'utf8'));
   assert.equal(installedManifest.license, 'Apache-2.0');
   assert.equal(installedManifest.version, manifest.version);
   assert.deepEqual(Object.keys(installedManifest.dependencies), ['yaml']);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(consumer, 'node_modules/yaml/package.json'), 'utf8')).version, '2.9.1');
+  for (const file of versionedFiles) assert.deepEqual(fs.readFileSync(path.join(installed, file)), fs.readFileSync(path.join(project, file)), `Installed bytes: ${file}`);
   assert.equal(fs.existsSync(path.join(consumer, 'node_modules/typescript')), false);
   const cli = (...args) => run(process.execPath, [npm, 'exec', '--offline', '--', 'agent-profiles', ...args], consumer);
-  for (const command of ['inspect', 'init', 'resolve', 'configure', 'skills', 'doctor', 'uninstall', 'visualize']) assert.match(cli(command, '--help'), new RegExp(command));
+  for (const command of ['inspect', 'init', 'resolve', 'configure', 'skills', 'doctor', 'uninstall', 'visualize',
+    'add', 'install', 'stamp', 'verify', 'diff', 'materialize']) assert.match(cli(command, '--help'), new RegExp(command));
   const { configureRoles } = await import(pathToFileURL(path.join(installed, 'src/wizard.js')).href);
   const { resolveInstructions } = await import(pathToFileURL(path.join(installed, 'src/resolve.js')).href);
   const { planRoleChange, applyRoleChange } = await import(pathToFileURL(path.join(installed, 'src/configure.js')).href);
@@ -65,7 +90,7 @@ try {
     fs.mkdirSync(root);
     fs.writeFileSync(path.join(root, 'package.json'), '{"private":true}\n');
     // Like a user, install the package into the target so its bootstrap command can run there.
-    run(process.execPath, [npm, 'install', '--save-dev', '--ignore-scripts', '--no-audit', '--no-fund', '--prefer-offline', path.join(temporary, artifact.filename)], root);
+    run(process.execPath, [npm, 'install', '--save-dev', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', ...tarballs], root);
     const originals = { 'package.json': fs.readFileSync(path.join(root, 'package.json')) };
     if (scenario !== 'empty') {
       originals['AGENTS.md'] = Buffer.from('\uFEFF# Repository invariants\r\nPreserve these rules.');
@@ -175,7 +200,7 @@ try {
     fs.writeFileSync(externalFile, '---\nname: packaged-audit\ndescription: Packed native audit.\n---\nEXTERNAL-BODY-NOT-INJECTED\n');
     const sourcesFile = path.join(externalHome, 'sources.json');
     fs.writeFileSync(sourcesFile, JSON.stringify({ version: 1, roots: [] }));
-    const externalEnv = { ...process.env, USERPROFILE: externalHome, HOME: externalHome,
+    const externalEnv = { ...environment, USERPROFILE: externalHome, HOME: externalHome,
       CLAUDE_CONFIG_DIR: path.join(externalHome, '.claude'), CODEX_HOME: path.join(externalHome, '.codex'), AGENT_PROFILES_SKILL_SOURCES: sourcesFile };
     const beforeInventory = snapshot(root);
     const inventory = JSON.parse(run(process.execPath, [npm, 'exec', '--offline', '--', 'agent-profiles', 'skills', '--root', root, '--external', '--sources', sourcesFile, '--json'], consumer, externalEnv));
@@ -217,6 +242,104 @@ try {
     assert.deepEqual(snapshot(root), portableInstalled);
     assert.deepEqual(fs.readFileSync(configPath), portableConfiguration);
     console.log(`Packed workflow passed: ${scenario} (including pre/post-approval inspect, presets, proof, visualizer, external inventory, and portable instruction mappings)`);
+  }
+  // One package workflow, separate from the three unchanged legacy scenarios.
+  {
+    const root = path.join(temporary, 'versioned project'), store = path.join(temporary, 'package store');
+    const sources = path.join(temporary, 'package sources'), outputs = path.join(temporary, 'package exports');
+    const put = (file, bytes) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, bytes); };
+    fs.mkdirSync(root); fs.mkdirSync(outputs);
+    const name = '@example/smoke-profile', role = Buffer.from('# Reviewer\r\nKeep exact evidence.\r\n');
+    const revisions = ['1.0.0', '2.0.0'].map((version, i) => {
+      const directory = path.join(sources, version);
+      const members = {
+        'entry.md': Buffer.from(`\uFEFF# Profile ${version}\r\nRevision ${i + 1}.\r\n\r\n `),
+        'package.yaml': Buffer.from(stringify({ schema_version: 1, package: { name, version, type: 'instruction' },
+          entrypoint: 'entry.md', behavior: { delivery: 'instruction', hosts: [], effects: [] } })),
+        'support/data.bin': Buffer.from([0, 255, i + 1, 13, 10]),
+      };
+      for (const [file, bytes] of Object.entries(members)) put(path.join(directory, file), bytes);
+      const added = JSON.parse(cli('add', `${name}@${version}`, '--root', root, '--source', directory, '--store', store, '--json'));
+      assert.deepEqual(added.identity, { name, version }); assert.equal(added.status, 'published');
+      assert.match(added.sha256, /^[a-f0-9]{64}$/);
+      const original = snapshot(directory);
+      assert.deepEqual(snapshot(path.join(store, 'objects/sha256', added.sha256, 'tree')), original);
+      return { version, directory, members, original, digest: added.sha256, stamp: '' };
+    });
+    assert.notEqual(revisions[0].digest, revisions[1].digest);
+    const configFile = path.join(root, '.agent-profiles/agents.yaml');
+    const config = { version: 2, default_profile: 'base', default_role: 'reviewer', models: {}, families: {},
+      profiles: { base: { package: name, version: '1.0.0' } },
+      roles: { reviewer: { file: 'roles/reviewer.md', skills: { required: [], available: [] } } }, skills: {} };
+    put(path.join(root, '.agent-profiles/roles/reviewer.md'), role);
+    for (const revision of revisions) {
+      config.profiles.base.version = revision.version;
+      put(configFile, stringify(config));
+      assert.deepEqual(JSON.parse(cli('install', '--root', root, '--store', store, '--offline', '--json')), { lockState: 'valid', installRequired: false });
+      const selected = JSON.parse(cli('resolve', '--root', root, '--store', store, '--host', 'codex', '--json', '--contents'));
+      assert.equal(selected.lockState, 'valid'); assert.equal(selected.profile, 'base'); assert.equal(selected.role, 'reviewer');
+      assert.deepEqual(selected.loaded.map(e => e.kind), ['profile', 'role']);
+      assert.deepEqual(selected.loaded[0].package, { binding: 'profiles.base', name, version: revision.version,
+        sha256: revision.digest, selectedBy: 'binding-default', selectors: {} });
+      assert.equal(selected.loaded[0].content, revision.members['entry.md'].toString('utf8'));
+      revision.stamp = JSON.parse(cli('stamp', '--root', root, '--store', store, '--host', 'codex', '--json')).digest;
+      assert.match(revision.stamp, /^[a-f0-9]{64}$/);
+      const verified = JSON.parse(cli('verify', revision.stamp, '--store', store, '--json'));
+      assert.equal(verified.managedReproducible, true); assert.equal(verified.completeRuntimeReproducible, false);
+    }
+    assert.notEqual(revisions[0].stamp, revisions[1].stamp);
+    const diff = JSON.parse(cli('diff', revisions[0].stamp, revisions[1].stamp, '--store', store, '--json'));
+    assert.equal(diff.complete, true); assert.ok(diff.changes.length > 0);
+    assert.deepEqual(diff.changes.find(change => change.path === '/packages/0/version'),
+      { path: '/packages/0/version', kind: 'changed', before: '1.0.0', after: '2.0.0' });
+    assert.deepEqual(diff.changes.find(change => change.path === '/packages/0/sha256'),
+      { path: '/packages/0/sha256', kind: 'changed', before: revisions[0].digest, after: revisions[1].digest });
+
+    const fresh = path.join(temporary, 'fresh package project'), freshStore = path.join(temporary, 'fresh package store');
+    fs.cpSync(root, fresh, { recursive: true });
+    const lockFile = path.join(fresh, '.agent-profiles/agent-profiles.lock'), lockBytes = fs.readFileSync(lockFile);
+    assert.equal(fs.existsSync(freshStore), false, 'fresh store has no cached objects');
+    assert.deepEqual(JSON.parse(cli('install', '--root', fresh, '--store', freshStore, '--frozen-lockfile', '--offline',
+      '--source', name, '2.0.0', revisions[1].directory, '--json')), { lockState: 'valid', installRequired: false });
+    assert.deepEqual(fs.readFileSync(lockFile), lockBytes);
+    const freshSelection = JSON.parse(cli('resolve', '--root', fresh, '--store', freshStore, '--host', 'codex', '--json', '--contents'));
+    assert.equal(freshSelection.lockState, 'valid');
+    assert.equal(freshSelection.loaded[0].package.sha256, revisions[1].digest);
+    assert.equal(freshSelection.loaded[0].package.version, '2.0.0');
+    assert.equal(freshSelection.loaded[0].content, revisions[1].members['entry.md'].toString('utf8'));
+    assert.deepEqual(snapshot(path.join(freshStore, 'objects/sha256', revisions[1].digest, 'tree')), revisions[1].original);
+    const freshStamp = JSON.parse(cli('stamp', '--root', fresh, '--store', freshStore, '--host', 'codex', '--json')).digest;
+    assert.equal(freshStamp, revisions[1].stamp, 'fresh exact bytes and selection reproduce the stamp');
+    for (const revision of revisions) assert.deepEqual(snapshot(revision.directory), revision.original, 'imports preserve sources');
+    fs.rmSync(root, { recursive: true }); fs.rmSync(sources, { recursive: true });
+    assert.equal(fs.existsSync(configFile), false); assert.equal(fs.existsSync(sources), false);
+
+    const { reconstructStamp } = await import(pathToFileURL(path.join(installed, 'src/stamps.js')).href);
+    const { verifyMaterialization } = await import(pathToFileURL(path.join(installed, 'src/materialize.js')).href);
+    const storeBefore = snapshot(store), freshBefore = snapshot(fresh), freshStoreBefore = snapshot(freshStore);
+    for (const [index, revision] of revisions.entries()) {
+      const rebuilt = reconstructStamp({ digest: revision.stamp, storeRoot: store });
+      assert.deepEqual(rebuilt.composition.map(e => e.bytes), [revision.members['entry.md'], role]);
+      assert.deepEqual(rebuilt.packages.map(p => [p.name, p.version, p.sha256]), [[name, revision.version, revision.digest]]);
+      assert.deepEqual(rebuilt.packages[0].files.map(file => [file.path, file.bytes]), Object.entries(revision.members));
+      const destination = path.join(outputs, `revision-${index + 1}`);
+      const receipt = JSON.parse(cli('materialize', revision.stamp, '--root', fresh, '--store', store, '--adapter', 'filesystem-v1',
+        '--output-root', outputs, '--destination', destination, '--json'));
+      assert.equal(receipt.status, 'committed'); assert.equal(receipt.stampDigest, revision.stamp);
+      assert.deepEqual(verifyMaterialization({ destination, expectedStampDigest: revision.stamp, storeRoot: store }), { verified: true, findings: [] });
+      assert.deepEqual(fs.readFileSync(path.join(destination, 'content/instructions/0000.md')), revision.members['entry.md']);
+      assert.deepEqual(fs.readFileSync(path.join(destination, 'content/instructions/0001.md')), role);
+      assert.deepEqual(snapshot(path.join(destination, 'content/packages/sha256', revision.digest)), revision.original);
+    }
+    const freshDestination = path.join(outputs, 'fresh');
+    cli('materialize', freshStamp, '--root', fresh, '--store', freshStore, '--adapter', 'filesystem-v1',
+      '--output-root', outputs, '--destination', freshDestination, '--json');
+    assert.deepEqual(verifyMaterialization({ destination: freshDestination, expectedStampDigest: freshStamp, storeRoot: freshStore }), { verified: true, findings: [] });
+    assert.deepEqual(fs.readFileSync(path.join(freshDestination, 'content/instructions/0000.md')), revisions[1].members['entry.md']);
+    assert.deepEqual(snapshot(path.join(freshDestination, 'content/packages/sha256', revisions[1].digest)), revisions[1].original);
+    assert.deepEqual(snapshot(store), storeBefore); assert.deepEqual(snapshot(freshStore), freshStoreBefore);
+    assert.deepEqual(snapshot(fresh), freshBefore); assert.deepEqual(fs.readFileSync(lockFile), lockBytes);
+    console.log('Packed package workflow passed: two pins, retained stamps/diff/exports, and fresh offline frozen installation.');
   }
   console.log(`Verified ${artifact.name}@${artifact.version}: ${files.size} package files, ${artifact.size} bytes compressed.`);
 } finally {

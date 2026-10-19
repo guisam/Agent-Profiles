@@ -3,6 +3,8 @@ import { StringDecoder } from 'node:string_decoder';
 import { stripVTControlCharacters } from 'node:util';
 import { bootstrapBlock, integrations, renderResolveCommand } from './integrations.js';
 
+const clean = value => stripVTControlCharacters(String(value)).replace(/[\x00-\x1f\x7f-\x9f]/g, ' ');
+
 export function measureText(content) {
   return { bytes: Buffer.byteLength(content, 'utf8'), characters: [...content].length };
 }
@@ -74,8 +76,9 @@ export function resolutionOutput(result, contents = false) {
 }
 
 export function formatProof(result) {
-  const clean = value => stripVTControlCharacters(String(value)).replace(/[\x00-\x1f\x7f]/g, ' ');
   const size = entry => `${entry.bytes} B; ${entry.characters} characters`;
+  // Package bodies have no repository path; their exact identity and digest locate them.
+  const source = entry => entry.package ? `${entry.package.name}@${entry.package.version} sha256:${entry.package.sha256}` : entry.path;
   const lines = ['Context proof', '', `Host        ${clean(result.host ?? '(unspecified)')}`, `Model       ${clean(result.model ?? '(unknown)')}`,
     `Canonical   ${clean(result.identity.canonical ?? '(none)')}`, `Source      ${clean(result.identity.source ?? '(unspecified)')}`,
     `Family      ${clean(result.family ?? '(unknown)')}${result.familySource ? ` (${result.familySource})` : ''}`, `Matched by  ${result.matchedBy}`,
@@ -84,17 +87,26 @@ export function formatProof(result) {
     lines.push('', label);
     const entries = result.loaded.filter(entry => entry.kind === kind);
     if (!entries.length) lines.push('  (none)');
-    for (const entry of entries) lines.push(`  ${clean(entry.path)}  ${size(entry)}`);
+    for (const entry of entries) {
+      lines.push(`  ${clean(source(entry))}  ${size(entry)}`);
+      for (const file of entry.resources ?? []) lines.push(`    Declared resource: ${clean(file)} (not injected)`);
+    }
   }
   const loadedIDs = new Set(result.loaded.filter(entry => entry.kind.endsWith('-skill')).map(entry => entry.id));
   lines.push('', `Agent Profiles managed context: ${size(result.diagnostics.managed.total)}`, '', 'Available, not injected');
   const remaining = result.available.filter(entry => entry.type !== 'host' && !loadedIDs.has(entry.id));
   if (!remaining.length) lines.push('  (none)');
-  for (const entry of remaining) lines.push(`  ${clean(entry.id)} (${clean(entry.path)})  ${size(entry)}`);
+  for (const entry of remaining) {
+    lines.push(`  ${clean(entry.id)} (${clean(source(entry))})  ${size(entry)}`);
+    for (const file of entry.resources ?? []) lines.push(`    Declared resource: ${clean(file)} (not injected)`);
+  }
   lines.push(`Available context not injected: ${size(result.diagnostics.availableNotLoaded)}`, '', 'Host-native skills (invoked through the host; bytes not counted)');
   if (!result.diagnostics.hostSkills.length) lines.push('  (none)');
   const usability = entry => entry.usable === null ? '; host compatibility unknown; invocation not verified' : entry.usable ? '; host-compatible; invocation not verified' : '; incompatible with this host';
-  for (const entry of result.diagnostics.hostSkills) lines.push(`  ${clean(entry.id)} (${clean(entry.host)}: ${clean(entry.hostId)})  ${entry.requirement}; ${entry.verification}${usability(entry)}`);
+  for (const entry of result.diagnostics.hostSkills) {
+    const skill = [...result.required, ...result.available].find(item => item.id === entry.id);
+    lines.push(`  ${clean(entry.id)} (${clean(skill?.package ? source(skill) : `${entry.host}: ${entry.hostId}`)})  ${entry.requirement}; ${entry.verification}${usability(entry)}`);
+  }
   if (result.unsatisfied.length) lines.push('', 'Unsatisfied requirements');
   for (const entry of result.unsatisfied) lines.push(`  ${clean(entry.id)}: ${clean(entry.reason)}`);
   const { bootstrap } = result.diagnostics;
@@ -111,16 +123,27 @@ export function formatProof(result) {
 }
 
 // Agent-facing resolution: everything the model needs, so it never parses agents.yaml itself.
-export function formatContext(result) {
-  const skill = entry => entry.type === 'host'
-    ? `Invoke the ${entry.host} skill \`${entry.hostId}\` through your host's skill mechanism.`
-    : `Read \`${entry.path}\`.`;
+/** @param {any} result @param {{root?: string, storeRoot?: string}} [context] */
+export function formatContext(result, { root, storeRoot } = {}) {
   const args = [];
+  if (root !== undefined) args.push('--root', root);
+  if (storeRoot !== undefined) args.push('--store', storeRoot);
   if (result.host) args.push('--host', result.host);
   if (result.identity.source) args.push('--identity-source', result.identity.source);
   if (result.model !== null) args.push('--model', result.model);
   if (result.familySource === 'supplied') args.push('--family', result.family);
   if (result.roleSource === 'assigned') args.push('--role', result.role);
+  args.push(...result.loaded.filter(entry => entry.kind === 'requested-skill').flatMap(entry => ['--skill', entry.id]));
+  const skill = entry => {
+    if (entry.package) {
+      const identity = `${clean(entry.package.name)}@${clean(entry.package.version)} (sha256 ${clean(entry.package.sha256)})`;
+      if (entry.type === 'host') return `Native package ${identity}; supported hosts: ${entry.supportedHosts.map(clean).join(', ')}. Host-visible address unavailable; invocation unverified.`;
+      return `Package ${identity}. Load by binding ID:\n` + ['Bash', 'PowerShell'].map(shell =>
+        `  Command (${shell}): \`${renderResolveCommand([...args, '--skill', entry.id], shell)}\``).join('\n');
+    }
+    return entry.type === 'host' ? `Invoke the ${clean(entry.host)} skill \`${clean(entry.hostId)}\` through your host's skill mechanism.`
+      : `Read \`${clean(entry.path)}\`.${entry.resources?.length ? ` Declared resources (not injected): ${entry.resources.map(file => `\`${clean(file)}\``).join(', ')}.` : ''}`;
+  };
   const reminder = integrations.find(adapter => adapter.id === result.host)?.repositoryReminder;
   const lines = ['# Agent Profiles context', '',
     `Profile: ${result.profile} (model ${result.model ?? 'not stated'}; matched by ${result.matchedBy}). Role: ${result.role}.`,
@@ -131,9 +154,12 @@ export function formatContext(result) {
   const titles = { profile: 'Profile', role: 'Role', 'required-skill': 'Required skill', 'requested-skill': 'Requested skill' };
   if (result.unsatisfied.length) {
     lines.push('', '## Unsatisfied requirements', '', 'This role requires capabilities your host cannot provide. Tell the user before doing role work, and do not substitute another skill:');
-    for (const entry of result.unsatisfied) lines.push(`- ${entry.id}: ${entry.reason}.`);
+    for (const entry of result.unsatisfied) lines.push(`- ${clean(entry.id)}: ${clean(entry.reason)}.`);
   }
-  for (const entry of result.loaded) lines.push('', `## ${titles[entry.kind]}: ${entry.id}`, '', entry.content.trim());
+  for (const entry of result.loaded) {
+    lines.push('', `## ${titles[entry.kind]}: ${entry.id}`, '', entry.content.trim());
+    if (entry.resources?.length) lines.push('', `Declared resources (not injected): ${entry.resources.map(file => `\`${file}\``).join(', ')}.`);
+  }
   const requiredHost = result.required.filter(entry => entry.type === 'host' && entry.usable !== false);
   if (requiredHost.length) {
     lines.push('', '## Required host skills', '', 'Use each for all work in this role:');
@@ -145,7 +171,7 @@ export function formatContext(result) {
   const available = result.available.filter(entry => !loadedIDs.has(entry.id) && entry.usable !== false);
   if (available.length) {
     lines.push('', '## Available skills', '', 'Use a skill only when the current task falls within its description:');
-    for (const entry of available) lines.push(`- ${entry.id}${entry.description ? ` — ${entry.description}` : ''} ${skill(entry)}`);
+    for (const entry of available) lines.push(`- ${clean(entry.id)}${entry.description ? ` — ${clean(entry.description)}` : ''} ${skill(entry)}`);
   }
   lines.push('', '## Run again', '', ...['Bash', 'PowerShell'].map(shell => `Command (${shell}): \`${renderResolveCommand(args, shell)}\``),
     '- after context compaction or in a new agent context;',
