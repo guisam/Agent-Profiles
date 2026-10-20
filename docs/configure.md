@@ -150,6 +150,23 @@ Codex native bindings currently support user scope only; project directories are
 inspected solely for user-name conflict detection. Admin, bundled/system, Codex
 plugins, and Claude downloaded/enterprise catalogs are not automatically inventoried.
 
+## Package bindings and dependency state
+
+V2 package bindings appear as exact package references, not null file aliases.
+Use `--store <directory>` with `configure`, and pass `storeRoot` to
+`readConfiguration`/`planRoleChange`; the plan retains it through apply and returned
+validation. Package skill references remain selectable without copying their bodies.
+Editing a package-backed role instruction file is refused; assignment-referenced
+role deletion cannot silently discard policy. Creating/converting package bindings
+is a separately reviewed manual v2 edit, not a file-picker side effect.
+
+Preview/apply validate proposed configuration and real package bytes independently
+of the old lock. A valid edit may return `installRequired: true` with a stale lock;
+its bytes stay unchanged. Public resolve/stamp then refuses until explicitly approved
+dependency installation updates it. Missing/corrupt packages and invalid/ambiguous
+configuration still fail, with existing stale-input/rollback safeguards. See
+[versioned packages](versioned-packages.md); no automatic import or relock occurs.
+
 ## Safe configuration changes
 
 The wizard previews and validates the proposed role using the same resolver as

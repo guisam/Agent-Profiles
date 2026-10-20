@@ -48,14 +48,14 @@ expand the permission defaults of `skills`, `configure`, `resolve`, or the adapt
 ### Inventory contract: schemaVersion 1
 
 `inspect --json` prints one JSON object, with no banner or instruction contents.
-The schema is finite and versioned independently of configuration version 1:
+The schema is finite and versioned independently of configuration versions 1 and 2:
 
 | Field | Meaning |
 | --- | --- |
 | `schemaVersion` | Integer `1` |
 | `repository.root` | Canonical target directory, not a claim that it is a Git repository |
-| `repository.installation` | `status`: `not-installed`, `incomplete`, or `installed`; `bootstrap` file metadata |
-| `repository.configuration` | Agents YAML file metadata; `status`: `missing`, `invalid`, or `valid`; `defaultProfile`, `defaultRole`, `profiles`, `roles`, `models`, `families` |
+| `repository.installation` | `status`: `not-installed`, `incomplete`, `unverified`, or `installed`; `bootstrap` file metadata |
+| `repository.configuration` | Agents YAML file metadata; `status`: `missing`, `invalid`, `valid`, or package-declaration `partial`; `defaultProfile`, `defaultRole`, `profiles`, `roles`, `models`, `families` |
 | `repository.instructions` | Known root instruction paths and direct `.cursor/rules/*.mdc` paths; existence/size only |
 | `repository.workflows` | Recognized workflow/runtime/lock file paths; not their instructions or inferred authority |
 | `repository.package` | Package file metadata; `status`; optional name, version, Node engine, package-manager declaration and sorted script **names**, never commands or arbitrary manifest fields |
@@ -146,6 +146,23 @@ pyproject/Cargo/go metadata; Docker/Compose; and common Node lockfiles.
 They are evidence locations, **not automatic workflow authority**.
 Stable ordering has no timestamps or random inventory values; naturally, observations
 can change if files, PATH, or the machine change between runs.
+
+### Package declarations and adoption
+
+With v2 package bindings, bounded `inspect` reports configuration `partial` and
+package metadata as declared/not-checked with path null. It does not read the store
+or certify package bytes/locks, and a stale lock does not hide declarations. This
+is distinct from strict public resolve/doctor validation. `inspect --store` does
+not turn bounded inventory into a store verifier.
+Installation status is `unverified` for this declaration-only configuration:
+these declarations do not verify installed dependency bytes, the lock or host invocation.
+
+Keep base setup and [scalar-only migration](migrations/config-v1-to-v2.md) separate
+from optional [package adoption](versioned-packages.md). Adoption needs approved
+local sources, observed exact identities/digests, assignments and a matching complete
+lock. Preserve explicit `--store` across package-aware operations and `storeRoot`
+through configuration plans/apply; environment defaults are not equivalent evidence.
+No model call, package acquisition or host enablement is implied by inventory.
 
 ## 2. Reason and propose; do not write yet
 

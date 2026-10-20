@@ -30,6 +30,29 @@ delta. The artifact check also runs the exact bootstrap command,
 `npm exec --no -- agent-profiles resolve`, from the installed package offline. Accounting tests cover Unicode, line endings, previews, aliases, and the
 host boundary; no tokenizer or live-host introspection is used.
 
+## Versioned-package delivery gates (pending)
+
+Configuration v2 and add/install/stamp/verify/diff/materialize are implemented in
+this checkout. The [local tutorial](versioned-packages.md) and
+[adjacent migration guide/prompt](migrations/README.md) describe source behavior;
+0.1.0 is still unpublished. Preserve the distinction between source checkout tests,
+installed artifact behavior, platform qualification and live host observation.
+
+- [ ] Qualify every complete tutorial YAML/required file with real validators;
+      execute documented six commands plus resolve and frozen fresh-root steps in
+      owned fixtures, preserving commands, exits, raw bytes and digest bindings.
+- [ ] Verify package inclusion and the same new public commands through the final
+      reviewed npm artifact under separately permitted installation conditions.
+- [ ] Qualify full-tree hashing, cooperative publication/recovery and concurrent
+      absent-destination exports on supported local Windows/macOS/Linux backends.
+- [ ] Complete final whole-solution independent review, including documentation
+      semantics; fixture rehearsals/wording tests do not prove AI approval compliance.
+
+These tasks are not marked complete by an earlier installer artifact smoke or
+listener-only visualizer check. No package-native invocation, complete host inventory,
+runtime model attestation, universal filesystem semantics or power-loss guarantee
+is supplied by ordinary source/offline tests.
+
 ## Live-host checks
 
 Live checks record agent and host behavior (bootstrap expectations), never core

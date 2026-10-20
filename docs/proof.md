@@ -33,8 +33,7 @@ skills, and the bootstrap block size.
 selected instruction text; it never adds unrequested skill bodies. JSON errors
 go to stderr with exit code 1 and no partial JSON on stdout.
 
-Run the command for two roles to compare their results. There is no separate
-comparison command, preset benchmark, or visualizer. Imported preset roles use
+Run the command for two roles to compare live results. The [visualizer](visualize.md) compares live totals; [stamp diff](versioned-packages.md) compares verified immutable snapshots. Neither is a semantic benchmark. Imported preset roles use
 the same resolver and diagnostics as any other local role.
 
 ## Measurements
@@ -131,6 +130,20 @@ Use **available context not injected**, not **savings**, unless comparing with a
 explicit baseline that would have loaded those instructions. The proof shows
 what was selected and what could additionally be loaded without assuming what
 another setup would do.
+
+## Package identity and immutable raw bytes
+
+Resolve/proof accept `--store`; the API accepts `storeRoot`. Package entries retain
+binding/name/version/full digest/selected rule, with typed backing rather than a
+fabricated repository cache path. Public selection uses required-lock validation;
+it does not import or repair. Inventory metadata alone is not verified selection.
+
+Live decoded text measurements are not immutable raw-byte evidence. Use
+[stamp/verify/diff](versioned-packages.md) for retained raw BOM/CRLF/trailing/binary
+backing and structural provenance/order comparisons, including all relevant backing
+on equal-digest comparisons. Snapshots record managed coverage, not the full rendered
+prompt, actual runtime model/provider or native invocation. No semantic quality or
+runtime equivalence result follows from matching bytes or counts.
 
 ## Programmatic access
 

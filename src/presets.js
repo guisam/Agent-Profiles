@@ -129,11 +129,11 @@ export function readPreset(source) {
 /**
  * Inspect without writing. Decisions use keys such as roles.reviewer and values
  * keep, replace, or rename:new-id. Defaults are opt-in, independently of mappings.
- * @param {{root: string, source: string, roles?: string[], decisions?: Map<string, string>, useDefaults?: boolean}} options
+ * @param {{root: string, source: string, roles?: string[], decisions?: Map<string, string>, useDefaults?: boolean, storeRoot?: string}} options
  */
-export function planPresetImport({ root, source, roles, decisions = new Map(), useDefaults = false }) {
+export function planPresetImport({ root, source, roles, decisions = new Map(), useDefaults = false, storeRoot }) {
   if (typeof useDefaults !== 'boolean') throw new Error('useDefaults must be a boolean');
-  const state = readConfiguration(root);
+  const state = readConfiguration(root, { storeRoot });
   root = state.root;
   const preset = readPreset(source);
   const { document, configuration, before } = state;
@@ -157,7 +157,7 @@ export function planPresetImport({ root, source, roles, decisions = new Map(), u
   const fileFor = (kind, id) => kind === 'skills' ? `.agent-profiles/skills/${id}/SKILL.md` : `.agent-profiles/${kind}/${id}.md`;
   const exists = (kind, id) => {
     const bytes = observe(fileFor(kind, id));
-    return bytes !== null || (kind !== 'profiles' && configuration.get(kind)?.has(id));
+    return bytes !== null || configuration.get(kind)?.has(id);
   };
   const reserve = (kind, id) => {
     const key = `${kind}.${id}`;
@@ -171,6 +171,13 @@ export function planPresetImport({ root, source, roles, decisions = new Map(), u
       return { id, skip: true };
     }
     const target = decision?.startsWith('rename:') ? identifier(decision.slice(7), key) : id;
+    if (conflict && target === id && decision === 'replace') {
+      const current = configuration.get(kind)?.get(id);
+      if (current?.get('resources')?.length) throw new Error(`${key}: replacement would discard declared resources; keep or rename instead`);
+      if (kind === 'profiles' && current?.has('file') && current.get('file') !== `profiles/${id}.md`) {
+        throw new Error(`${key}: mapped profile replacement would not update its effective file; keep or rename instead`);
+      }
+    }
     if (target !== id && exists(kind, target)) throw new Error(`${kind}.${target}: rename destination already exists`);
     if (names.has(`${kind}.${target}`)) throw new Error(`${kind}.${target}: multiple preset items target the same ID`);
     names.set(`${kind}.${target}`, id);
@@ -220,8 +227,8 @@ export function planPresetImport({ root, source, roles, decisions = new Map(), u
         notices.push(`Preset skill ${id} is ${host.name} skill ${hostId}; the ${host.name} integration is not installed in this repository. The reference is kept as is.`);
       }
       skillNames.set(id, id);
-    } else if (configuration.get('skills')?.get(id)?.has('host')) {
-      skillNames.set(id, id); // Satisfied by an existing host-native reference.
+    } else if (configuration.get('skills')?.get(id)?.has('host') || configuration.get('skills')?.get(id)?.has('package')) {
+      skillNames.set(id, id); // Satisfied by an existing host-native reference or verified package binding, kept as is.
     } else {
       const file = configuration.get('skills')?.get(id)?.get('file') ?? fileFor('skills', id);
       try {
@@ -290,11 +297,13 @@ export function planPresetImport({ root, source, roles, decisions = new Map(), u
   const proposed = parseYaml(serialized);
   const preview = new Map(changes.filter(change => change.file.endsWith('.md')).map(change => [path.join(root, change.file), change.after]));
   const errors = [...missing];
+  let resolution;
   if (!conflicts.length && !missing.length) {
-    try { resolveInstructions({ root, configuration: proposed, preview }); }
+    // A replaced package binding still named by an assignment fails here, naming the rule.
+    try { resolution = resolveInstructions({ root, configuration: proposed, preview, storeRoot, lockMode: 'validation' }); }
     catch (error) { errors.push(error.message); }
   }
-  return { root, preset, changes, snapshots, proposed, preview, conflicts, errors, notices, actions, ready: !conflicts.length && !errors.length };
+  return { root, preset, changes, snapshots, proposed, preview, conflicts, errors, notices, actions, storeRoot, resolution, ready: !conflicts.length && !errors.length };
 }
 
 export function applyPresetImport(plan, confirmed = false) {
@@ -307,25 +316,46 @@ export function applyPresetImport(plan, confirmed = false) {
   for (const [file, before] of new Map([['preset.yaml', plan.preset.manifest], ...plan.preset.payload])) {
     if (!readLocal(plan.preset.source, file)?.equals(before)) throw new Error(`${file}: preset changed after preview; inspect again`);
   }
-  resolveInstructions({ root: plan.root, configuration: plan.proposed, preview: plan.preview });
-  return applyChanges(plan.root, plan.changes, () => resolveInstructions({ root: plan.root }));
+  const { storeRoot } = plan, lockMode = 'validation';
+  resolveInstructions({ root: plan.root, configuration: plan.proposed, preview: plan.preview, storeRoot, lockMode });
+  const modified = applyChanges(plan.root, plan.changes, () => resolveInstructions({ root: plan.root, storeRoot, lockMode }));
+  return { modified, resolution: resolveInstructions({ root: plan.root, storeRoot, lockMode }) };
 }
 
-export function exportChoices(root) {
-  const state = readConfiguration(root);
-  const profiles = readdirSync(safePath(state.root, '.agent-profiles/profiles')).filter(file => file.endsWith('.md')).map(file => file.slice(0, -3));
+/** @param {string} root @param {{storeRoot?: string}} options */
+export function exportChoices(root, { storeRoot } = {}) {
+  const state = readConfiguration(root, { storeRoot });
+  let files;
+  try { files = readdirSync(safePath(state.root, '.agent-profiles/profiles')); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; files = []; }
+  const profiles = files.filter(file => file.endsWith('.md')).map(file => file.slice(0, -3));
   profiles.forEach(id => identifier(id, 'profiles'));
-  return { ...state, profiles };
+  // Package profiles are listed so that selecting one is refused honestly, not reported missing.
+  return { ...state, profiles: [...profiles, ...state.configuration.get('profiles')?.keys() ?? []] };
 }
 
-/** @param {{root: string, destination: string, metadata: object, roles?: string[], profiles?: string[], includeSkills?: string[]}} options */
-export function planPresetExport({ root, destination, metadata, roles, profiles, includeSkills = [] }) {
-  const state = exportChoices(root);
+// Schema 1 presets cannot carry package identities or their assignments; refuse rather than flatten.
+function unsupported(binding, source) {
+  throw new Error(`${binding}: preset-package-unsupported ${source.get('package')}@${source.get('version')}: preset schema 1 cannot keep package bindings or their version assignments; select only local roles, profiles and skills. Nothing was exported.`);
+}
+
+function unsupportedResources(binding, source) {
+  if (source?.get('resources')?.length) throw new Error(`${binding}: preset-resources-unsupported: preset schema 1 cannot retain declared resources; nothing was exported`);
+}
+
+/** @param {{root: string, destination: string, metadata: object, roles?: string[], profiles?: string[], includeSkills?: string[], storeRoot?: string}} options */
+export function planPresetExport({ root, destination, metadata, roles, profiles, includeSkills = [], storeRoot }) {
+  const state = exportChoices(root, { storeRoot });
   root = state.root;
   const config = state.configuration;
   const chosenRoles = selected(roles, new Set(config.get('roles').keys()), 'roles');
   if (!chosenRoles.length) throw new Error('Select at least one role to export');
   const chosenProfiles = selected(profiles, new Set(state.profiles), 'profiles');
+  for (const [section, ids] of [['roles', chosenRoles], ['profiles', chosenProfiles]]) for (const id of ids) {
+    const source = config.get(section)?.get(id), binding = `${section}.${id}`;
+    if (source?.has('package')) unsupported(binding, source);
+    unsupportedResources(binding, source);
+  }
   const sourceSnapshots = new Map([[configFile, state.before]]);
   const payload = new Map();
   const copy = (source, destination) => {
@@ -338,11 +368,16 @@ export function planPresetExport({ root, destination, metadata, roles, profiles,
   const needed = new Map();
   for (const id of chosenRoles) {
     const value = new Map(config.get('roles').get(id));
+    value.delete('resources');
     copy(`.agent-profiles/${value.get('file')}`, `roles/${id}.md`);
     value.set('file', `roles/${id}.md`);
     outputRoles.set(id, value);
-    const resolved = resolveInstructions({ root, role: id });
-    for (const skill of [...resolved.required, ...resolved.available]) needed.set(skill.id, skill);
+    const resolved = resolveInstructions({ root, role: id, storeRoot, lockMode: 'validation' });
+    for (const skill of [...resolved.required, ...resolved.available]) {
+      if (skill.package) unsupported(skill.package.binding, config.get('skills').get(skill.id));
+      unsupportedResources(`skills.${skill.id}`, config.get('skills')?.get(skill.id));
+      needed.set(skill.id, skill);
+    }
   }
   // Host skills export as references; only instruction skills can be copied into a preset.
   const hostSkills = new Map([...needed.values()].filter(skill => skill.type === 'host')
@@ -357,7 +392,7 @@ export function planPresetExport({ root, destination, metadata, roles, profiles,
   const outputProfiles = new Map();
   for (const id of chosenProfiles) {
     const file = `profiles/${id}.md`;
-    copy(`.agent-profiles/${file}`, file);
+    copy(`.agent-profiles/${config.get('profiles')?.get(id)?.get('file') ?? file}`, file);
     outputProfiles.set(id, new Map([['file', file]]));
   }
   const data = new Map([

@@ -1,9 +1,12 @@
-import { closeSync, existsSync, openSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs';
+import { closeSync, existsSync, lstatSync, openSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { parseDocument } from 'yaml';
 import { safePath } from './files.js';
 import { contextDiagnostics, measureFile, measureText } from './diagnostics.js';
 import { integrations, managedSurface } from './integrations.js';
+import { readLockState } from './package-lock.js';
+import { lookupPackage, safePath as guardedPath } from './package-store.js';
+import { parseManifest, validateMembers } from './packages.js';
 
 function fail(entry, message) {
   throw new Error(`${entry}: ${message}`);
@@ -122,28 +125,28 @@ function skillFiles(ids, entry, resolveSkill) {
   });
 }
 
-/**
- * Validate all configuration, then load only the selected additional layers.
- * Identity matching is exact and case-sensitive: model key, alias, supplied family,
- * longest configured family prefix, then default_profile.
- * `host` names the integration consuming the result; host-native skills of another host
- * are unusable there, and required ones are reported as unsatisfied.
- * @param {{root?: string, host?: string, model?: string, family?: string, identitySource?: 'host' | 'host-stated' | 'user', role?: string,
- *   skills?: string[], configuration?: Map<string, any>,
- *   newRoleFile?: {path: string, content: string}, preview?: Map<string, Buffer>, metadataOnly?: boolean}} options
- */
-export function resolveInstructions({ root = process.cwd(), host, model, family, identitySource, role, skills = [], configuration, newRoleFile, preview = new Map(), metadataOnly = false } = {}) {
-  if (host !== undefined && !integrations.some(adapter => adapter.id === host)) fail('host', `expected one of ${integrations.map(adapter => adapter.id).join(', ')} or an omitted value`);
-  for (const [name, value] of Object.entries({ model, family, role })) {
-    if (value !== undefined && (typeof value !== 'string' || !value.trim())) {
-      fail(name, 'expected a nonempty string or an omitted value');
+// Resource checks inspect named members only; binary bodies belong to stamp capture.
+export function localDeclaration(root, source, binding, instruction, fields = ['file'], optional = []) {
+  mapping(source, binding, fields, [...optional, 'resources']);
+  if (!source.has('resources')) return {};
+  const resources = source.get('resources'), entry = `${binding}.resources`;
+  if (!Array.isArray(resources)) fail(entry, 'expected a list of strings');
+  if (resources.some(file => typeof file !== 'string')) fail(entry, 'expected resource path strings');
+  try {
+    validateMembers(resources.map(file => ({ path: file, type: 'file', nlink: 1 })));
+    if (resources.includes(instruction)) fail(entry, 'resource duplicates owning instruction entrypoint');
+    if (resources.length) validateMembers([instruction, ...resources].map(file => ({ path: file, type: 'file', nlink: 1 })));
+    for (const file of resources) {
+      try {
+        const stat = lstatSync(guardedPath(root, file), { bigint: true });
+        if (!stat.isFile() || stat.nlink !== 1n) throw new Error('expected a regular unlinked file');
+      } catch (error) { throw new Error(`${file}: ${error.message}`); }
     }
-    if (value?.includes('\0')) fail(name, 'NUL cannot be represented in a command argument');
-  }
-  if (identitySource !== undefined && !['host', 'host-stated', 'user'].includes(identitySource)) fail('identitySource', 'expected host, host-stated, user, or an omitted value');
-  if (!Array.isArray(skills)) fail('skills', 'expected a list of requested skill IDs');
-  skills.forEach((id, index) => identifier(id, `skills[${index}]`));
+  } catch (error) { fail(entry, error.message); }
+  return resources.length ? { resources: [...resources].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))) } : {};
+}
 
+export function validateConfiguration({ root = process.cwd(), configuration = undefined, newRoleFile = undefined, preview = new Map() } = {}) {
   let repository, base, config;
   try {
     repository = realpathSync(root);
@@ -157,17 +160,50 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
     localFile(base, newRoleFile.path, 'newRoleFile.path', '.agent-profiles', true);
   }
 
-  mapping(config, 'agents.yaml', ['version', 'default_profile', 'default_role', 'models', 'families', 'roles'], ['skills']);
-  if (config.get('version') !== 1) fail('version', 'only version 1 is supported');
+  mapping(config, 'agents.yaml');
+  if (config.get('version') === 1) {
+    if (config.has('profiles')) fail('profiles', 'unknown field in version 1; requires version 2; upgrade/migrate agents.yaml to v2');
+    for (const section of ['roles', 'skills']) for (const [id, source] of config.get(section) instanceof Map ? config.get(section) : []) {
+      if (source instanceof Map && source.has('resources')) fail(`${section}.${id}.resources`, 'unknown field in version 1; requires version 2; upgrade/migrate agents.yaml to v2');
+    }
+  }
+  mapping(config, 'agents.yaml', ['version', 'default_profile', 'default_role', 'models', 'families', 'roles'],
+    config.get('version') === 2 ? ['skills', 'profiles', 'assignments'] : ['skills']);
+  if (![1, 2].includes(config.get('version'))) fail('version', 'only versions 1 and 2 are supported');
+  const profiles = mapping(config.has('profiles') ? config.get('profiles') : new Map(), 'profiles');
+  const bindings = new Map();
+  const local = new Map();
+  const exists = file => existsSync(path.join(repository, file)) || preview.has(path.join(repository, file));
+  function bindPackage(binding, source, type, conventional) {
+    if (exists(conventional)) fail(binding, `ambiguous package binding: ${conventional} also exists`);
+    bindings.set(binding, { source, type, rules: [], pins: new Map() });
+  }
+  for (const [id, source] of profiles) {
+    identifier(id, `profiles.${id}`);
+    const binding = `profiles.${id}`;
+    if (source instanceof Map && source.has('file')) {
+      local.set(binding, localDeclaration(repository, source, binding, `.agent-profiles/${source.get('file')}`));
+      localFile(base, source.get('file'), `${binding}.file`, '.agent-profiles', false, preview);
+    } else {
+      mapping(source, binding, ['package', 'version']);
+      bindPackage(binding, source, 'instruction', `.agent-profiles/profiles/${id}.md`);
+    }
+  }
+  const referencedProfiles = new Set();
+  function validateProfile(id, entry) {
+    identifier(id, entry);
+    referencedProfiles.add(id);
+    if (!profiles.has(id)) profileFile(base, id, entry, preview);
+  }
   const defaultProfile = config.get('default_profile');
-  profileFile(base, defaultProfile, 'default_profile', preview);
+  validateProfile(defaultProfile, 'default_profile');
   const defaultRole = identifier(config.get('default_role'), 'default_role');
   const models = mapping(config.get('models'), 'models');
   const aliases = new Map();
   for (const [identity, value] of models) {
     const entry = `models.${identity}`;
     mapping(value, entry, ['profile'], ['aliases']);
-    profileFile(base, value.get('profile'), `${entry}.profile`, preview);
+    validateProfile(value.get('profile'), `${entry}.profile`);
     for (const alias of value.has('aliases') ? strings(value.get('aliases'), `${entry}.aliases`) : []) {
       if (alias === identity) continue; // Redundant but harmless.
       if (models.has(alias)) fail(`${entry}.aliases`, `alias ${alias} shadows the configured model ${alias}`);
@@ -180,7 +216,7 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
   for (const [name, value] of families) {
     const entry = `families.${name}`;
     mapping(value, entry, ['profile'], ['match']);
-    profileFile(base, value.get('profile'), `${entry}.profile`, preview);
+    validateProfile(value.get('profile'), `${entry}.profile`);
     if (!value.has('match')) continue;
     const match = mapping(value.get('match'), `${entry}.match`, ['prefixes']);
     for (const prefix of strings(match.get('prefixes'), `${entry}.match.prefixes`)) {
@@ -197,7 +233,16 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
   const hostOf = source => hosts.find(adapter => adapter.id === source.get('host'));
   for (const [id, source] of sources) {
     identifier(id, `skills.${id}`);
-    if (!(source instanceof Map && source.has('host'))) { mapping(source, `skills.${id}`, ['file']); continue; }
+    if (config.get('version') === 2 && source instanceof Map && source.has('package')) {
+      mapping(source, `skills.${id}`, ['package', 'version']);
+      bindPackage(`skills.${id}`, source, 'skill', `.agent-profiles/skills/${id}/SKILL.md`);
+      continue;
+    }
+    if (!(source instanceof Map && source.has('host'))) {
+      if (config.get('version') === 2) local.set(`skills.${id}`, localDeclaration(repository, source, `skills.${id}`, source instanceof Map ? source.get('file') : undefined));
+      else mapping(source, `skills.${id}`, ['file']);
+      continue;
+    }
     mapping(source, `skills.${id}`, ['host', 'scope'], ['id']);
     const adapter = hostOf(source);
     if (!adapter) fail(`skills.${id}.host`, `expected a host with native skills: ${hosts.map(item => item.id).join(', ')}`);
@@ -206,12 +251,61 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
     const hostId = source.has('id') ? source.get('id') : id;
     if (typeof hostId !== 'string' || !scope.id.test(hostId)) fail(`skills.${id}.id`, `expected a ${adapter.name} ${source.get('scope')} skill identifier`);
   }
+  for (const [id, value] of roles) {
+    const entry = `roles.${id}`;
+    identifier(id, entry);
+    const packaged = config.get('version') === 2 && value instanceof Map && value.has('package');
+    if (!packaged && config.get('version') === 2) local.set(entry, localDeclaration(repository, value, entry, `.agent-profiles/${value instanceof Map ? value.get('file') : ''}`, ['file', 'skills'], ['description']));
+    else mapping(value, entry, packaged ? ['package', 'version', 'skills'] : ['file', 'skills'], ['description']);
+    if (packaged) bindPackage(entry, value, 'instruction', `.agent-profiles/roles/${id}.md`);
+  }
+
+  const assignments = mapping(config.has('assignments') ? config.get('assignments') : new Map(), 'assignments');
+  for (const [id, value] of assignments) {
+    const entry = `assignments.${id}`;
+    identifier(id, entry);
+    mapping(value, entry, ['when', 'versions']);
+    const when = mapping(value.get('when'), `${entry}.when`, [], ['model', 'role', 'profile', 'host']);
+    const allowed = { model: models, role: roles, profile: referencedProfiles, host: new Set(integrations.map(item => item.id)) };
+    for (const [key, value] of when) {
+      if (!allowed[key].has(value)) fail(`${entry}.when.${key}`, 'expected a declared canonical model, role, referenced profile, or known host');
+    }
+    const versions = mapping(value.get('versions'), `${entry}.versions`);
+    if (!versions.size) fail(`${entry}.versions`, 'expected at least one package binding');
+    for (const [binding, version] of versions) {
+      if (!bindings.has(binding)) fail(`${entry}.versions.${binding}`, 'expected a declared package binding');
+      bindings.get(binding).rules.push({ id, when, version });
+    }
+  }
+  for (const [binding, { source, rules }] of bindings) {
+    for (const [index, rule] of rules.entries()) {
+      const duplicate = rules.slice(0, index).find(other => other.when.size === rule.when.size && contains(other.when, rule.when));
+      if (duplicate) fail(binding, `ambiguous duplicate selectors in assignments ${duplicate.id}, ${rule.id}`);
+    }
+    const pairs = [[null, defaultProfile], ...[...models].map(([id, value]) => [id, value.get('profile')]),
+      ...[...families.values()].map(value => [null, value.get('profile')])];
+    for (const [model, profile] of pairs) {
+      for (const role of roles.keys()) {
+        for (const host of [null, ...integrations.map(item => item.id)]) selectRule(binding, rules, { model, profile, role, host });
+      }
+    }
+    for (const { version, entry } of [{ version: source.get('version'), entry: binding },
+      ...rules.map(rule => ({ version: rule.version, entry: `assignments.${rule.id}.versions.${binding}` }))]) {
+      const name = source.get('package');
+      if (typeof name !== 'string' || !/^@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/.test(name)) fail(entry, 'package: expected @namespace/name');
+      if (typeof version !== 'string' || !/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(version) || version.split('.').some(n => !Number.isSafeInteger(Number(n)))) fail(entry, 'version: expected exact safe release version');
+    }
+  }
   const catalog = new Map();
   function resolveSkill(id, entry) {
     if (catalog.has(id)) return catalog.get(id);
     const conventional = `.agent-profiles/skills/${id}/SKILL.md`;
-    const exists = file => existsSync(path.join(repository, file)) || preview.has(path.join(repository, file));
     const source = sources.get(id);
+    if (bindings.has(`skills.${id}`)) {
+      const reference = { id, binding: `skills.${id}` };
+      catalog.set(id, reference);
+      return reference;
+    }
     if (source?.has('host')) {
       if (exists(conventional)) fail(entry, `ambiguous skill ${id}: ${conventional} exists and skills.${id} names a host skill`);
       const adapter = hostOf(source);
@@ -237,7 +331,7 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
         localFile(repository, conventional, entry, 'repository', false, preview) !== resolved) {
       fail(entry, `ambiguous skill ${id}: both ${conventional} and ${file} exist`);
     }
-    const skill = { id, type: 'instruction', delivery: 'inject', ...skillMetadata(resolved, entry, preview.get(resolved), file), path: file };
+    const skill = { id, type: 'instruction', delivery: 'inject', ...skillMetadata(resolved, entry, preview.get(resolved), file), path: file, ...local.get(`skills.${id}`) };
     catalog.set(id, skill);
     return skill;
   }
@@ -245,9 +339,8 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
   for (const [id, value] of roles) {
     const entry = `roles.${id}`;
     identifier(id, entry);
-    mapping(value, entry, ['file', 'skills'], ['description']);
     if (value.has('description') && typeof value.get('description') !== 'string') fail(`${entry}.description`, 'expected a string');
-    localFile(base, value.get('file'), `${entry}.file`, '.agent-profiles', newRoleFile?.path === value.get('file'), preview);
+    if (!bindings.has(entry)) localFile(base, value.get('file'), `${entry}.file`, '.agent-profiles', newRoleFile?.path === value.get('file'), preview);
     const skills = mapping(value.get('skills'), `${entry}.skills`, ['required', 'available']);
     const required = skillFiles(skills.get('required'), `${entry}.skills.required`, resolveSkill);
     const available = skillFiles(skills.get('available'), `${entry}.skills.available`, resolveSkill);
@@ -260,6 +353,87 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
   }
   for (const id of sources.keys()) resolveSkill(id, `skills.${id}.file`);
 
+  return { repository, config, bindings, local, profiles, defaultProfile, defaultRole, models, aliases, families, prefixes, roles, roleSkills };
+}
+
+const contains = (a, b) => [...b].every(([key, value]) => a.get(key) === value);
+function selectRule(binding, rules, context) {
+  const matching = rules.filter(rule => [...rule.when].every(([key, value]) => context[key] === value));
+  const maxima = matching.filter(rule => !matching.some(other => other.when.size > rule.when.size && contains(other.when, rule.when)));
+  if (maxima.length > 1) fail(binding, `ambiguous assignments ${maxima.map(rule => rule.id).sort().join(', ')}`);
+  return maxima[0];
+}
+
+export function validatePackageBindings(bindings, packages) {
+  for (const [binding, { source, type, rules, pins }] of bindings) {
+    for (const { version, entry } of [{ version: source.get('version'), entry: binding },
+      ...rules.map(rule => ({ version: rule.version, entry: `assignments.${rule.id}.versions.${binding}` }))]) {
+      try {
+        const name = source.get('package');
+        const found = packages.get(`${name}@${version}`);
+        if (!found) fail(entry, `missing-package ${name}@${version}`);
+        const manifest = parseManifest(found.files.find(file => file.path === 'package.yaml').bytes);
+        if (manifest.package.type !== type || (type === 'instruction' && manifest.behavior.delivery !== 'instruction')) {
+          fail(entry, `${name}@${version}: expected ${type} package with compatible delivery`);
+        }
+        const bytes = found.files.find(file => file.path === manifest.entrypoint)?.bytes;
+        if (!bytes) fail(entry, `${name}@${version}: missing entrypoint ${manifest.entrypoint}`);
+        new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+        const metadata = type === 'skill' ? skillMetadata('unused', entry, bytes, manifest.entrypoint) : null;
+        if (metadata?.nameSource === 'directory' && path.posix.dirname(manifest.entrypoint) === '.') metadata.name = name.split('/')[1];
+        pins.set(version, { manifest, bytes, metadata, sha256: found.sha256 });
+      } catch (error) { fail(entry, `${source.get('package')}@${version}: ${error.message}`); }
+    }
+  }
+}
+
+/**
+ * Validate all configuration, then load only the selected additional layers.
+ * Identity matching is exact and case-sensitive: model key, alias, supplied family,
+ * longest configured family prefix, then default_profile.
+ * `host` names the integration consuming the result; host-native skills of another host
+ * are unusable there, and required ones are reported as unsatisfied.
+ * `lockMode: 'required'` (public selection) refuses package pins without a valid current lock; internal
+ * configure/preset `validation` checks the complete configuration against verified store bytes and only reports lock state.
+ * @param {{root?: string, host?: string, model?: string, family?: string, identitySource?: 'host' | 'host-stated' | 'user', role?: string,
+ *   skills?: string[], configuration?: Map<string, any>, storeRoot?: string, lockMode?: 'required' | 'validation',
+ *   newRoleFile?: {path: string, content: string}, preview?: Map<string, Buffer>, metadataOnly?: boolean}} options
+ */
+export function resolveInstructions({ root = process.cwd(), host, model, family, identitySource, role, skills = [], configuration, storeRoot, lockMode = 'required', newRoleFile, preview = new Map(), metadataOnly = false } = {}) {
+  if (!['required', 'validation'].includes(lockMode)) fail('lockMode', 'expected required, validation, or an omitted value');
+  if (host !== undefined && !integrations.some(adapter => adapter.id === host)) fail('host', `expected one of ${integrations.map(adapter => adapter.id).join(', ')} or an omitted value`);
+  for (const [name, value] of Object.entries({ model, family, role })) {
+    if (value !== undefined && (typeof value !== 'string' || !value.trim())) {
+      fail(name, 'expected a nonempty string or an omitted value');
+    }
+    if (value?.includes('\0')) fail(name, 'NUL cannot be represented in a command argument');
+  }
+  if (identitySource !== undefined && !['host', 'host-stated', 'user'].includes(identitySource)) fail('identitySource', 'expected host, host-stated, user, or an omitted value');
+  if (!Array.isArray(skills)) fail('skills', 'expected a list of requested skill IDs');
+  skills.forEach((id, index) => identifier(id, `skills[${index}]`));
+
+  const validated = validateConfiguration({ root, configuration, newRoleFile, preview });
+  const { repository, bindings, local, profiles, defaultProfile, defaultRole, models, aliases, families, prefixes, roles } = validated;
+  // Lock state is settled before any store access; zero package pins need no lock and never read one.
+  /** @type {{state: string, error?: string, locked?: Map<string, {sha256: string}>}} */
+  const lock = bindings.size ? readLockState(repository, validated) : { state: 'not-required' };
+  if (lockMode === 'required' && lock.error) throw new Error(lock.error);
+  const packages = new Map();
+  for (const [binding, { source, rules }] of bindings) {
+    const name = source.get('package');
+    for (const { version, entry } of [{ version: source.get('version'), entry: binding },
+      ...rules.map(rule => ({ version: rule.version, entry: `assignments.${rule.id}.versions.${binding}` }))]) {
+      const key = `${name}@${version}`;
+      try { if (!packages.has(key)) packages.set(key, lookupPackage({ storeRoot, name, version })); }
+      catch (error) { fail(entry, `${name}@${version}: ${error.message}`); }
+      const found = packages.get(key), locked = lock.locked?.get(key);
+      if (found && locked && found.sha256 !== locked.sha256) {
+        if (lockMode === 'required') fail(entry, `mismatched-package ${key}: verified store digest ${found.sha256} differs from locked ${locked.sha256}`);
+        lock.state = 'invalid';
+      }
+    }
+  }
+  validatePackageBindings(bindings, packages);
   const canonical = models.has(model) ? model : aliases.get(model) ?? null;
   const prefix = model === undefined ? undefined : [...prefixes.keys()].filter(item => model.startsWith(item)).sort((a, b) => b.length - a.length)[0];
   const matchedBy = models.has(model) ? 'model' : canonical ? 'alias' : families.has(family) ? 'family' : prefix !== undefined ? 'family-prefix' : 'default';
@@ -269,6 +443,28 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
     matchedBy.startsWith('family') ? families.get(resolvedFamily).get('profile') : defaultProfile;
   const selectedRole = role ?? defaultRole;
   if (!roles.has(selectedRole)) fail('role', `${selectedRole} is not declared in roles; choose ${[...roles.keys()].join(', ')} or run agent-profiles configure to create it`);
+  const selectedPackages = new Map();
+  for (const [binding, { source, rules, pins }] of bindings) {
+    const rule = selectRule(binding, rules, { model: canonical, profile, role: selectedRole, host: host ?? null });
+    const version = rule ? rule.version : source.get('version');
+    const pin = pins.get(version);
+    selectedPackages.set(binding, { ...pin, output: {
+      path: null, backing: { type: 'package', sha256: pin.sha256, path: pin.manifest.entrypoint },
+      package: { binding, name: source.get('package'), version, sha256: pin.sha256,
+        selectedBy: rule ? rule.id : 'binding-default', selectors: rule ? Object.fromEntries(rule.when) : {} },
+    } });
+  }
+  const resolveSkill = skill => {
+    if (!skill.binding) return skill;
+    const packaged = selectedPackages.get(skill.binding);
+    const native = packaged.manifest.behavior.delivery === 'native';
+    return { id: skill.id, type: native ? 'host' : 'instruction', delivery: native ? 'invoke' : 'inject',
+      ...packaged.metadata, ...packaged.output,
+      ...native ? { host: host ?? null, hostId: null, scope: 'package', supportedHosts: packaged.manifest.behavior.hosts, verification: 'verified-package' } : {} };
+  };
+  const roleSkills = new Map([...validated.roleSkills].map(([id, lists]) => [id, {
+    required: lists.required.map(resolveSkill), available: lists.available.map(resolveSkill),
+  }]));
   const { required, available } = roleSkills.get(selectedRole);
   const permitted = new Map([...required, ...available].map(skill => [skill.id, skill]));
   for (const id of skills) {
@@ -276,15 +472,16 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
   }
   const selectedSkills = [...new Set([...required.map(skill => skill.id), ...skills])].map(id => permitted.get(id));
   const files = [
-    { path: `.agent-profiles/profiles/${profile}.md`, kind: 'profile', id: profile },
-    { path: `.agent-profiles/${roles.get(selectedRole).get('file')}`, kind: 'role', id: selectedRole },
-    ...selectedSkills.filter(skill => skill.type === 'instruction').map(skill => ({ path: skill.path, id: skill.id, kind: required.some(item => item.id === skill.id) ? 'required-skill' : 'requested-skill' })),
+    { path: `.agent-profiles/${profiles.get(profile)?.get('file') ?? `profiles/${profile}.md`}`, kind: 'profile', id: profile, ...local.get(`profiles.${profile}`), ...selectedPackages.get(`profiles.${profile}`)?.output },
+    { path: `.agent-profiles/${roles.get(selectedRole).get('file')}`, kind: 'role', id: selectedRole, ...local.get(`roles.${selectedRole}`), ...selectedPackages.get(`roles.${selectedRole}`)?.output },
+    ...selectedSkills.filter(skill => skill.type === 'instruction').map(skill => ({ path: skill.path, id: skill.id, kind: required.some(item => item.id === skill.id) ? 'required-skill' : 'requested-skill', ...local.get(`skills.${skill.id}`), ...selectedPackages.get(`skills.${skill.id}`)?.output })),
   ];
   const loaded = metadataOnly ? [] : files.map(entry => {
     const file = entry.path;
     try {
       let content;
-      if (newRoleFile && file === `.agent-profiles/${newRoleFile.path}`) content = newRoleFile.content;
+      if (entry.package) content = selectedPackages.get(entry.package.binding).bytes.toString('utf8');
+      else if (newRoleFile && file === `.agent-profiles/${newRoleFile.path}`) content = newRoleFile.content;
       else {
         const resolved = localFile(repository, file, file, 'repository', false, preview);
         content = (preview.get(resolved) ?? readFileSync(resolved)).toString('utf8');
@@ -296,14 +493,17 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
   });
   const measuredSkills = new Map(loaded.filter(entry => entry.kind.endsWith('-skill')).map(entry => [entry.id, { bytes: entry.bytes, characters: entry.characters }]));
   // Legacy `usable` means host compatibility only; the adapter determines actual invocation.
-  const usable = skill => ({ bytes: null, characters: null, usable: host === undefined ? null : skill.host === host });
-  const unsatisfied = host === undefined ? [] : required.filter(skill => skill.type === 'host' && skill.host !== host)
-    .map(({ id, host: skillHost, hostId }) => ({ id, host: skillHost, hostId, reason: `${integrations.find(item => item.id === skillHost).name} skill ${hostId} cannot be invoked by ${integrations.find(item => item.id === host).name}` }));
+  const usable = skill => ({ bytes: null, characters: null, usable: host === undefined ? null : skill.supportedHosts ? skill.supportedHosts.includes(host) : skill.host === host });
+  const unsatisfied = host === undefined ? [] : required.filter(skill => skill.type === 'host' && !usable(skill).usable)
+    .map(skill => ({ id: skill.id, host: skill.host, hostId: skill.hostId, reason: skill.package
+      ? `${skill.package.name}@${skill.package.version} does not support ${host}; native invocation is not verified`
+      : `${integrations.find(item => item.id === skill.host).name} skill ${skill.hostId} cannot be invoked by ${integrations.find(item => item.id === host).name}` }));
   const measuredAvailable = available.map(skill => {
     try {
       if (skill.type === 'host') return { ...skill, ...usable(skill) };
       if (metadataOnly) return { ...skill, bytes: null, characters: null };
       let measured = measuredSkills.get(skill.id);
+      if (!measured && skill.package) measured = measureText(selectedPackages.get(skill.package.binding).bytes.toString('utf8'));
       if (!measured) {
         const file = localFile(repository, skill.path, skill.path, 'repository', false, preview);
         measured = preview.has(file) ? measureText(preview.get(file).toString('utf8')) : measureFile(file);
@@ -328,6 +528,9 @@ export function resolveInstructions({ root = process.cwd(), host, model, family,
     required: requiredOut,
     available: measuredAvailable,
     unsatisfied,
+    lockMode,
+    lockState: lock.state,
+    installRequired: !['valid', 'not-required'].includes(lock.state),
     diagnostics: contextDiagnostics(loaded, measuredAvailable, requiredOut, host, metadataOnly || host === undefined ? null : managedSurface(repository, host)),
   };
 }

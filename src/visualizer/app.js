@@ -33,12 +33,15 @@ function options(select, choices, empty, selected) {
 
 function inspect(entry, provenance) {
   const details = document.createElement('details');
-  // Host-native skills are invoked by the host; Agent Profiles never injects or measures them.
+  // Package integrity does not establish a host-visible invocation address.
   const host = entry.type === 'host';
+  const location = entry.package ? `${entry.package.binding}: ${entry.package.name}@${entry.package.version} sha256:${entry.package.sha256} (${entry.package.selectedBy})` : entry.path ?? `${entry.host}: ${entry.hostId}`;
+  const native = entry.package ? `Supported hosts: ${entry.supportedHosts?.join(', ')}; host-visible address unavailable; invocation unverified · bytes not counted` : `${entry.host} skill ${entry.hostId} · ${entry.verification} · bytes not counted`;
   details.append(element('summary', `${entry.id} · ${host ? 'host skill' : bytes(entry.bytes)}`),
-    element('p', host ? `${entry.host} skill ${entry.hostId} · ${entry.verification} · bytes not counted` : size(entry), 'size'),
-    element('p', provenance, 'muted'), element('code', entry.path ?? `${entry.host}: ${entry.hostId}`));
+    element('p', host ? native : size(entry), 'size'),
+    element('p', provenance, 'muted'), element('code', location));
   if (entry.description) details.append(element('p', entry.description, 'muted'));
+  if (entry.resources?.length) details.append(element('p', `Declared resources (not injected): ${entry.resources.join(', ')}`, 'muted'));
   if (entry.content !== undefined) details.append(element('pre', entry.content));
   return details;
 }
@@ -88,7 +91,7 @@ function render(result) {
   }
   for (const entry of result.required.filter(item => item.type === 'host')) {
     const card = element('div', '', 'entry');
-    card.append(inspect(entry, `Required by role ${result.role}; invoked through the host`));
+    card.append(inspect(entry, `Required by role ${result.role}; ${entry.package ? 'invocation unverified' : 'invoked through the host'}`));
     required.append(card);
   }
   if (!result.required.length) required.append(element('p', 'No required skills.', 'muted'));
@@ -97,7 +100,7 @@ function render(result) {
   for (const entry of result.available) {
     if (entry.type === 'host') {
       const card = element('div', '', 'entry');
-      card.append(inspect(entry, `Available to role ${result.role}; invoked through the host, never injected`));
+      card.append(inspect(entry, `Available to role ${result.role}; ${entry.package ? 'invocation unverified' : 'invoked through the host'}, never injected`));
       available.append(card);
       continue;
     }

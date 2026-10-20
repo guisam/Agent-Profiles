@@ -51,6 +51,21 @@ Invalid configuration, missing references, and requests unavailable to a role
 produce an error instead of fabricated counts. Fix the files and refresh, or
 choose a valid selection. The server validates before starting as well.
 
+## Package-aware selections
+
+Pass `--store <directory>` at launch, or `storeRoot` to `startVisualizer`. The server
+keeps this operational context through initial validation and later resolutions;
+HTTP queries cannot override it. Package-backed profile/role/skill rows show typed
+identity/version/digest/provenance instead of a fictitious repository file path.
+A package's verified bytes do not establish native invocation. Required public
+resolution still refuses missing/stale/invalid package locks or backing; fix them
+through separately approved dependency operations, not this read-only view.
+
+The [package guide](versioned-packages.md) explains snapshots and export separately
+from this live view. Listener/interception and stubbed UI test evidence is not a
+claim that every actual browser or live host has been qualified; those release
+gates remain separate.
+
 ## Accounting and privacy
 
 The view uses the [context proof contract](proof.md). Managed totals contain only

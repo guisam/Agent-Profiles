@@ -1,4 +1,4 @@
-# Architecture (configuration version 1)
+# Architecture (configuration versions 1 and 2)
 
 Agent Profiles is a repository-local instruction and configuration layer.
 It describes which instructions an existing agent tool should receive. This
@@ -205,6 +205,41 @@ incorrect types, and invalid references with an error naming the entry and a
 repository-relative path. A broken configuration is not an unknown model: nothing
 is silently substituted.
 
+## Configuration v2 packages and resources
+
+V2 retains the v1 routing, independent roles and ordered skill semantics above.
+It adds optional `profiles` and `assignments` maps. A profile/role may bind an
+instruction package, a skill may bind a skill package, using `{package, version}`
+with an exact stable version. Local role fields `skills`/`description` remain.
+Bindings are exclusive: package plus local/native fields or a conflicting
+conventional file refuses. V2 local file-backed profiles/roles/skills can declare
+`resources: [repository-relative-file]`; native/package bindings cannot. All
+configuration declarations validate, including unselected ones.
+
+Assignment `when` selectors are canonical `model`, `role`, `profile`, `host`;
+`versions` maps qualified package bindings to exact revisions. Per binding, a
+matching strict selector superset dominates subsets; incomparable maxima and
+duplicate selectors refuse, never tie-break by field priority or declaration order.
+The [complete package guide](versioned-packages.md) supplies strict examples,
+full-tree trust/path policy, all-pin lock coverage and actual commands.
+
+Public package resolve/stamp requires a complete nonstale lock and verified store
+bytes. Zero-pin v2 and v1 resolution need no lock. Dependency install requires v2;
+v1 receives actionable migration guidance without writes. Existing v1 validation
+is retained, not a promise of v1 package installation. The
+[adjacent migration guide](migrations/config-v1-to-v2.md) changes only its scalar
+before separately approved package adoption.
+
+Configure/preset preview and apply use internal validation mode: valid config edits
+can report `lockState: stale` and `installRequired: true`, preserving old lock bytes.
+Later public selection refuses stale locks; reads never import/relock. Explicit
+`storeRoot` must travel through plans and apply, not just initial preview.
+Immutable stamps retain raw Buffers/full trees/provenance independently of live
+text diagnostics. Verification checks all backing; diff is structural. Filesystem
+exports preserve managed bytes into absent destinations, without native layout,
+invocation, runtime attestation or universal host visibility isolation. Checkout
+implementation is not installed-artifact/platform/live qualification; 0.1.0 is unpublished.
+
 ## Model resolution
 
 Identity comes from the host: the exact model ID the host states, supplied by the
@@ -327,7 +362,7 @@ skills:
 Identifiers follow the host's rules, not the Agent Profiles ID grammar used for keys.
 A `host-provided` skill is neither verified nor reported missing. That is a stated
 limit of what can be checked, not a fallback, because the scope was declared
-explicitly. Codex host skills are not supported yet.
+explicitly. Codex user-native references are supported; assignable project-native Codex bindings are not provided.
 
 There is one authoritative resource per ID. If a mapped file or host reference
 coexists with a different conventional `.agent-profiles/skills/<id>/SKILL.md`,

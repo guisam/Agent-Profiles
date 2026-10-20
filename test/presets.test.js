@@ -131,7 +131,7 @@ test('conflicts require decisions; keep is exact, replacement is explicit, and r
   assert.deepEqual(conflict.conflicts.map(item => item.key).sort(), ['profiles.release-scaffolded', 'roles.release-reviewer', 'skills.release-checklist']);
   assert.throws(() => applyPresetImport(conflict, true), /conflicts/);
   const keep = new Map([['roles.release-reviewer', 'keep'], ['profiles.release-scaffolded', 'keep']]);
-  assert.deepEqual(applyPresetImport(planPresetImport({ root, source, decisions: keep }), true), []);
+  assert.deepEqual(applyPresetImport(planPresetImport({ root, source, decisions: keep }), true).modified, []);
   assert.deepEqual(snapshot(root), before);
   fs.appendFileSync(path.join(source, 'roles/release-reviewer.md'), '\nChanged preset instructions.');
   const rename = new Map([

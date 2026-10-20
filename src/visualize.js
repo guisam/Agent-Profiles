@@ -12,10 +12,10 @@ const assets = new Map([
   ['style.css', ['style.css', 'text/css']],
 ]);
 
-/** @param {{root?: string, port?: number, model?: string, family?: string, role?: string, skills?: string[]}} options */
-export async function startVisualizer({ root = process.cwd(), port = 0, model, family, role, skills = [] } = {}) {
+/** @param {{root?: string, port?: number, model?: string, family?: string, role?: string, skills?: string[], storeRoot?: string}} options */
+export async function startVisualizer({ root = process.cwd(), port = 0, model, family, role, skills = [], storeRoot } = {}) {
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('port must be an integer from 0 to 65535');
-  const initial = resolveInstructions({ root, model, family, role, skills });
+  const initial = resolveInstructions({ root, model, family, role, skills, storeRoot });
   const token = randomBytes(24).toString('hex');
   const prefix = `/${token}/`;
   let origin;
@@ -42,7 +42,8 @@ export async function startVisualizer({ root = process.cwd(), port = 0, model, f
         response.writeHead(200, { 'Content-Type': `${type}; charset=utf-8` });
         response.end(body);
       } else if (route === 'api/config') {
-        const { configuration } = readConfiguration(root);
+        // A public read: keep the required lock preflight, unlike internal mutation readers.
+        const { configuration } = readConfiguration(root, { storeRoot, lockMode: 'required' });
         send(200, {
           models: [...configuration.get('models').keys()],
           families: [...configuration.get('families').keys()],
@@ -54,7 +55,8 @@ export async function startVisualizer({ root = process.cwd(), port = 0, model, f
           if (!['model', 'family', 'role', 'skill'].includes(key)) throw new Error(`Unknown parameter: ${key}`);
           if (key !== 'skill' && url.searchParams.getAll(key).length > 1) throw new Error(`Only one ${key} is supported`);
         }
-        send(200, resolutionOutput(resolveInstructions({ root,
+        // The store is fixed by the server; no query parameter can select another.
+        send(200, resolutionOutput(resolveInstructions({ root, storeRoot,
           model: url.searchParams.get('model') ?? undefined,
           family: url.searchParams.get('family') ?? undefined,
           role: url.searchParams.get('role') ?? undefined,
