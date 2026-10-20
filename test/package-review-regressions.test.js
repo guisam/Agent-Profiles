@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { canonicalJSON, parseManifest, parseRecord, readPackage } from '../src/packages.js';
@@ -9,7 +9,7 @@ const manifest = 'schema_version: 1\npackage:\n  name: "@example/review"\n  vers
 const skill = '---\ndescription: Review.\n---\nBODY\n';
 const native = manifest.replace('delivery: instruction', 'delivery: native').replace('hosts: []', 'hosts: [claude]');
 function fixture(t, text = manifest, body = skill) {
-  const base = mkdtempSync(path.join(process.env.TMPDIR ?? os.tmpdir(), 'package-review-'));
+  const base = realpathSync(mkdtempSync(path.join(process.env.TMPDIR ?? os.tmpdir(), 'package-review-')));
   t.after(() => rmSync(base, { recursive: true, force: true }));
   const approved = path.join(base, 'real', 'approved');
   const root = path.join(approved, 'pkg');

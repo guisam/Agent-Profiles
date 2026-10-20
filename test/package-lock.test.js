@@ -143,7 +143,7 @@ function makePackage(root, id, version, type) {
   return { ...source, files: files.sort((a, b) => byteOrder(a.path, b.path)), sha256: tree(files) };
 }
 function fixture(t, { cached = false } = {}) {
-  const owned = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-profiles-p5a-'));
+  const owned = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'agent-profiles-p5a-')));
   t.after(() => fs.rmSync(owned, { recursive: true, force: true }));
   const root = path.join(owned, 'project'), storeRoot = path.join(owned, 'store');
   fs.mkdirSync(root); fs.mkdirSync(storeRoot);
