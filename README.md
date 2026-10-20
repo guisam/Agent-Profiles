@@ -142,6 +142,14 @@ separately choosing package adoption. This is local acquisition, without downloa
 model execution or native host enablement. Dependency `install` does not install
 the Agent Profiles executable; `init --package` retains that separate meaning.
 
+Packages are identified by SHA-256 digests covering their complete file trees.
+The `stamp` command captures selected managed instruction content and records
+SHA-256 hashes of captured local files, together with package identities and
+composition metadata. Retained content can then be verified, compared, and
+reconstructed without relying on the original source files. This verifies
+captured managed content—not every file an agent reads or the host's complete
+runtime context. See the [capture, verify and compare walkthrough](docs/versioned-packages.md#capture-verify-and-compare).
+
 ## The layers
 
 | Layer | Purpose | Delivered |
