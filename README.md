@@ -105,6 +105,9 @@ invocation remains host-controlled. Use `--help` for options; scripts can initia
 | `migrate results <plan-id> <result-file>` | Import complete caller-supplied paired outcomes |
 | `migrate report <result-id>` | Read historical correctness/metric claims without a project |
 | `migrate propose/proposals/accept/reject` | Retain evidence-linked advisory changes and explicitly accept or reject one workspace instruction |
+| `migrate preview <decision-file>` | Check a promotion decision read-only before applying it |
+| `migrate promote <decision-file>` | Promote one exact evaluated role/model/host tuple and repin only its binding |
+| `revision record <manifest-file>` | Adopt immutable metadata for an existing legacy release |
 | `uninstall` | Remove managed bootstrap blocks while retaining user configuration |
 
 ```text

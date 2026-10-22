@@ -1,8 +1,0 @@
-{
-	// Converted .ts files get full strict; .js files keep tsconfig.json's checks until converted.
-	"extends": "./tsconfig.json",
-	"compilerOptions": {
-		"checkJs": false,
-		"strict": true
-	}
-}

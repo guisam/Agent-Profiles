@@ -11,12 +11,14 @@ npm test
 npm run test:package
 ```
 
-Sources are moving from JavaScript to TypeScript one file at a time. Node 24
-runs both directly, so development and tests need no build step. `typecheck`
-runs two passes: `tsconfig.json` checks every file, including unused bindings,
-unreachable code, unused labels, and switch fallthrough; `tsconfig.strict.json`
-holds converted `.ts` files to full `strict`. Import converted modules with
-their `.ts` extension. `lint` runs [Biome](https://biomejs.dev)'s
+Sources, the CLI and scripts are TypeScript; Node 24 runs them directly, so
+development and tests need no build step. The visualizer's browser script,
+`src/visualizer/app.js`, stays JavaScript (the server sends it as-is) and is
+typed with JSDoc. `typecheck` runs `tsc` with full `strict` over every file,
+including unused bindings, unreachable code, unused labels, and switch
+fallthrough. Import local modules with their `.ts` extension. Data from parsed
+records whose shape is validated at runtime uses the `Untyped` alias from
+`src/packages.ts`, not scattered `any`. `lint` runs [Biome](https://biomejs.dev)'s
 recommended rules over sources and tests; `check` also formats and sorts
 imports in place. CI runs `biome ci`, which fails on lint errors or unformatted
 files. TypeScript, Biome, and Node type declarations are development-only

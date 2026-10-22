@@ -32,7 +32,7 @@
 		"node": ">=24"
 	},
 	"scripts": {
-		"typecheck": "tsc && tsc -p tsconfig.strict.json",
+		"typecheck": "tsc",
 		"lint": "biome lint",
 		"format": "biome format --write",
 		"check": "biome check --write",
