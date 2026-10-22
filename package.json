@@ -40,7 +40,7 @@
 		"prepack": "npm run build",
 		"test": "node --test",
 		"test:affected": "node scripts/affected-tests.ts",
-		"test:package": "npm run build && node scripts/package-smoke.js",
+		"test:package": "npm run build && node scripts/package-smoke.ts",
 		"resolve": "node bin/agent-profiles.ts resolve --json"
 	},
 	"dependencies": {
