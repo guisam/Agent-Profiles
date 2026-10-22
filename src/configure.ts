@@ -9,6 +9,7 @@ import {
 	parseYamlDocument,
 	resolveInstructions,
 	skillMetadata,
+	type YamlMap,
 } from "./resolve.ts";
 import { validateSkillSelection } from "./skills.js";
 
@@ -187,12 +188,10 @@ export function planRoleChange({
 				after: Buffer.from(content),
 			});
 		}
-		const sources = new Map<string, Map<string, unknown>>(
-			configuration.get("skills") ?? [],
-		);
+		const sources = new Map<string, YamlMap>(configuration.get("skills") ?? []);
 		const binding = (skillId: string) =>
 			sources.has(skillId)
-				? ((sources.get(skillId)?.get("file") as string | undefined) ?? null)
+				? (sources.get(skillId)?.get("file") ?? null)
 				: `.agent-profiles/skills/${skillId}/SKILL.md`;
 		const targetOf = (skillId: string) => {
 			const candidate = binding(skillId);

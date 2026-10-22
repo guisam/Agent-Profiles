@@ -155,9 +155,7 @@ function summary(plan: RoleChangePlan, write: Write) {
 		write(`Default role after deletion: ${plan.resolution.role}`);
 	} else {
 		write(`Role: ${plan.id}\nInstructions: ${display(plan.instructionFile)}`);
-		const role = plan.resolution.loaded.find(
-			(entry: { kind: string }) => entry.kind === "role",
-		);
+		const role = plan.resolution.loaded.find((entry) => entry.kind === "role");
 		if (role?.resources?.length)
 			write(`Resources: ${role.resources.map(display).join(", ")}`);
 		for (const group of ["required", "available"] as const) {

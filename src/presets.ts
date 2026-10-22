@@ -19,6 +19,7 @@ import {
 	parseYaml,
 	resolveInstructions,
 	skillMetadata,
+	type YamlMap,
 } from "./resolve.ts";
 
 const configFile = ".agent-profiles/agents.yaml";
@@ -485,18 +486,16 @@ export function planPresetImport({
 	}
 	for (const [id, target] of roleNames) {
 		if (target.skip) continue;
-		const value = new Map<string, unknown>(preset.roles.get(id));
+		const value: YamlMap = new Map(preset.roles.get(id));
 		const file = fileFor("roles", target.id);
-		write(file, preset.payload.get(value.get("file") as string));
+		write(file, preset.payload.get(value.get("file")));
 		value.set("file", `roles/${target.id}.md`);
-		// parsePreset validated roles.<id>.skills as a mapping of ID lists.
-		const lists = value.get("skills") as Map<string, string[]>;
 		value.set(
 			"skills",
 			new Map(
-				[...lists].map(([key, list]) => [
+				[...value.get("skills")].map(([key, list]) => [
 					key,
-					list.map((skill) => skillNames.get(skill)),
+					list.map((skill: string) => skillNames.get(skill)),
 				]),
 			),
 		);
