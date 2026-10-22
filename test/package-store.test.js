@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import childProcess, { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
+import fs, {
 	existsSync,
 	lstatSync,
 	mkdirSync,
@@ -1503,5 +1503,54 @@ behavior(
 			exactTree(listFiles(objectTree(store, GOLDEN)), pkg());
 		await sut.importPackage({ sourceDirectory: src, storeRoot: store });
 		checkPublished(store, pkg());
+	},
+);
+
+behavior(
+	"store cache switch: off re-reads every object file; unknown values are refused",
+	async (t) => {
+		const dir = scratch(t);
+		const src = writeTree(path.join(dir, "src"), pkg());
+		const store = path.join(dir, "store");
+		await sut.importPackage({ sourceDirectory: src, storeRoot: store });
+		const previous = process.env.AGENT_PROFILES_STORE_CACHE;
+		t.after(() => {
+			if (previous === undefined) delete process.env.AGENT_PROFILES_STORE_CACHE;
+			else process.env.AGENT_PROFILES_STORE_CACHE = previous;
+		});
+		const treeOpens = (setting) => {
+			process.env.AGENT_PROFILES_STORE_CACHE = setting;
+			let opens = 0;
+			const real = fs.openSync;
+			const mock = t.mock.method(fs, "openSync", (file, ...args) => {
+				if (String(file).includes(`${path.sep}tree${path.sep}`)) opens++;
+				return real(file, ...args);
+			});
+			syncBuiltinESMExports();
+			try {
+				sut.storeSession(() => {
+					for (let i = 0; i < 2; i++)
+						sut.lookupPackage({
+							storeRoot: store,
+							name: NAME,
+							version: "1.0.0",
+						});
+				});
+			} finally {
+				mock.mock.restore();
+				syncBuiltinESMExports();
+			}
+			return opens;
+		};
+		const files = pkg().length;
+		assert.equal(treeOpens("off"), 2 * files);
+		// At most one read per file in a session; fewer when an earlier verification is still valid.
+		assert.ok(treeOpens("on") <= files);
+		process.env.AGENT_PROFILES_STORE_CACHE = "false";
+		assert.throws(
+			() =>
+				sut.lookupPackage({ storeRoot: store, name: NAME, version: "1.0.0" }),
+			/AGENT_PROFILES_STORE_CACHE: expected on or off, got "false"/,
+		);
 	},
 );

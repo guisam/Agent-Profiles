@@ -121,8 +121,19 @@ function rootPath(value, label, create = false) {
 let session = null;
 let freshDepth = 0;
 
+// AGENT_PROFILES_STORE_CACHE=off makes every operation read fresh, like the audit commands.
+// A safety switch fails loudly on a typo rather than silently leaving caching on.
+function fresh() {
+	const setting = process.env.AGENT_PROFILES_STORE_CACHE;
+	if (setting !== undefined && setting !== "on" && setting !== "off")
+		throw new Error(
+			`AGENT_PROFILES_STORE_CACHE: expected on or off, got ${JSON.stringify(setting)}`,
+		);
+	return freshDepth > 0 || setting === "off";
+}
+
 export function storeSession(operation) {
-	if (session || freshDepth) return operation();
+	if (session || fresh()) return operation();
 	session = { dirs: new Set(), memo: new Map() };
 	try {
 		return operation();
@@ -454,7 +465,7 @@ function verifyObjectAt(root, sha256, key) {
 	if (readdirSync(object).join(",") !== "tree")
 		throw new Error("object: unexpected membership outside tree");
 	const tree = safePath(root, `objects/sha256/${sha256}/tree`);
-	let entry = freshDepth ? undefined : verified.get(key);
+	let entry = fresh() ? undefined : verified.get(key);
 	if (
 		!entry ||
 		!sameStat(entry.objectStat, objectStat) ||
@@ -470,7 +481,7 @@ function verifyObjectAt(root, sha256, key) {
 			Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)),
 		);
 		entry = { objectStat, snapshot, files, name, version };
-		if (!freshDepth) verified.set(key, entry);
+		if (!fresh()) verified.set(key, entry);
 	}
 	return entry;
 }

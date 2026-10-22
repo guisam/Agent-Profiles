@@ -332,3 +332,26 @@ interruption may leave staging/locks or complete unacknowledged outputs. No auto
 lock stealing, visible-copy fallback, universal concurrent-edit or power-loss guarantee.
 Source/offline tests do not qualify every OS/filesystem/browser/installed artifact/live
 host. See [release gates](release.md) and [architecture](architecture.md).
+
+## Store read caching
+
+Each store command checks the store's directories for links and junctions and
+verifies every package object it reads. By default it does that once per command:
+within one operation, directories already checked and objects and revision records
+already verified (all content-addressed) are reused. Between commands, an object is
+reused only while every file's metadata (inode, size, timestamps, link count) still
+matches what was hashed. `verify`, `diff` and `reconstruct` always re-read every byte
+independently, with no caching.
+
+The trade-off: if another process swaps a store directory for a link partway through
+a single command, the store may not notice until the next command. Files are always
+opened without following links and checked for identity, and every new command
+re-verifies objects. If you ever cannot trust reads from your store (a shared
+store another account can write to, or a writer you do not control), turn caching off:
+
+```sh
+AGENT_PROFILES_STORE_CACHE=off agent-profiles resolve --root /path/to/project
+```
+
+`off` makes every command re-check every path and re-read every object, like the
+audit commands. Accepted values are `on` (default) and `off`; anything else is refused.
