@@ -11,7 +11,7 @@ import {
 	planMaterialization,
 	recoverMaterialization,
 	verifyMaterialization,
-} from "../src/materialize.js";
+} from "../src/materialize.ts";
 import { createStamp } from "../src/stamps.ts";
 
 const WORKER = fileURLToPath(

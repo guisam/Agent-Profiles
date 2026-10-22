@@ -11,7 +11,7 @@ import {
 	materializeStamp,
 	planMaterialization,
 	verifyMaterialization,
-} from "../src/materialize.js";
+} from "../src/materialize.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, lookupPackage } from "../src/package-store.ts";
 import { hashRecord } from "../src/packages.ts";

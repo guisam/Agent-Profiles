@@ -225,7 +225,7 @@ if (process.argv[2] !== undefined) {
 			result = { ok: true, result: [...bytes] };
 		} else {
 			// Absent SUT is imported only for a real owned materialization request.
-			const sut = await import("../../../src/materialize.js");
+			const sut = await import("../../../src/materialize.ts");
 			result = { ok: true, result: await sut[q.op ?? "materialize"](q.args) };
 		}
 	} catch (error) {

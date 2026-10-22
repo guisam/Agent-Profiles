@@ -29,7 +29,7 @@ import {
 import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.ts";
 
 // C18/C19, M01-M14. Runtime boundaries are operational inputs, never hashed data.
-const target = new URL("../src/materialize.js", import.meta.url);
+const target = new URL("../src/materialize.ts", import.meta.url);
 let sut;
 try {
 	sut = await import(target.href);
@@ -47,7 +47,7 @@ const behavior = (name, body) =>
 	test(
 		name,
 		{
-			skip: sut ? false : "src/materialize.js absent: business body unexecuted",
+			skip: sut ? false : "src/materialize.ts absent: business body unexecuted",
 		},
 		body,
 	);
@@ -748,7 +748,7 @@ async function paused(t, f, phase, extra = {}, name = "writer") {
 test("C18 seam exports the four materialization operations", () => {
 	assert.ok(
 		sut,
-		"missing src/materialize.js: C18/C19 production interface absent",
+		"missing src/materialize.ts: C18/C19 production interface absent",
 	);
 	for (const name of [
 		"planMaterialization",

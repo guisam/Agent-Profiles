@@ -248,7 +248,7 @@ $env:AP_STAMP_A = $A
 import path from 'node:path';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { verifyMaterialization } from './src/materialize.js';
+import { verifyMaterialization } from './src/materialize.ts';
 import { reconstructStamp } from './src/stamps.ts';
 const storeRoot = path.join(process.env.AP_DEMO, 'store');
 const digest = process.env.AP_STAMP_A;
@@ -273,7 +273,7 @@ may call `recoverStore({storeRoot, confirmNoActiveWriter: true})` from
 `src/package-store.ts`. It removes recognized uncommitted staging/writer-lock state,
 preserving published objects/identities. Old age/PID guesses never authorize lock deletion.
 Output API `recoverMaterialization({destination, outputRoot, expectedStampDigest,
-storeRoot, deniedRoots, confirmNoActiveWriter: true})` from `src/materialize.js`
+storeRoot, deniedRoots, confirmNoActiveWriter: true})` from `src/materialize.ts`
 checks ownership, verifies committed output and clears only recognized leftovers.
 Committed targets remain; mismatches are reported without repair or republication.
 Verify committed-but-unacknowledged output independently: retry to its existing

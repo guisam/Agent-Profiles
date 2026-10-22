@@ -21,7 +21,7 @@ import {
 	uninstall,
 } from "../src/install.ts";
 import { integrations } from "../src/integrations.ts";
-import { materializeStamp } from "../src/materialize.js";
+import { materializeStamp } from "../src/materialize.ts";
 import {
 	abandonMigration,
 	acceptMigrationProposal,
