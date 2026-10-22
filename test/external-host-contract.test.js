@@ -6,7 +6,7 @@ import test from "node:test";
 import {
 	discoverExternalSkills,
 	validateExternalSelection,
-} from "../src/external-skills.js";
+} from "../src/external-skills.ts";
 
 function fixture(t) {
 	const home = fs.realpathSync(

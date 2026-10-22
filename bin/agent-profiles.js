@@ -9,7 +9,7 @@ import {
 	formatProof,
 	resolutionOutput,
 } from "../src/diagnostics.ts";
-import { defaultUserRoots } from "../src/external-skills.js";
+import { defaultUserRoots } from "../src/external-skills.ts";
 import { errorMessage } from "../src/files.ts";
 import { formatInventory, inspectRepository } from "../src/inspect.js";
 import {

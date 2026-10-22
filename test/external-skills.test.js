@@ -14,7 +14,7 @@ import test from "node:test";
 import {
 	discoverExternalSkills,
 	validateExternalSelection,
-} from "../src/external-skills.js";
+} from "../src/external-skills.ts";
 
 function fixture(t) {
 	const home = mkdtempSync(
@@ -336,7 +336,7 @@ test("metadata inspection never uses whole-file reads or consumes large skill bo
 				"BODY".repeat(1000000),
 		);
 	}
-	const moduleUrl = new URL("../src/external-skills.js", import.meta.url).href;
+	const moduleUrl = new URL("../src/external-skills.ts", import.meta.url).href;
 	const script = `
     import fs from 'node:fs';
     import { syncBuiltinESMExports } from 'node:module';
@@ -389,7 +389,7 @@ test("local JSON reads request at most 64 KiB even at the exact size boundary", 
 	const sourcesFile = path.join(options.home, "sources.json");
 	const json = JSON.stringify({ version: 1, roots: [] });
 	writeFileSync(sourcesFile, json.padEnd(65536, " "));
-	const moduleUrl = new URL("../src/external-skills.js", import.meta.url).href;
+	const moduleUrl = new URL("../src/external-skills.ts", import.meta.url).href;
 	const script = `
     import fs from 'node:fs';
     import { syncBuiltinESMExports } from 'node:module';

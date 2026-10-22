@@ -5,7 +5,7 @@ import {
 	discoverExternalSkills,
 	externalMetadata,
 	validateExternalSelection,
-} from "./external-skills.js";
+} from "./external-skills.ts";
 import { errorMessage, safePath } from "./files.ts";
 import { integrations } from "./integrations.ts";
 import {
