@@ -18,7 +18,7 @@ import { hashRecord } from "../src/packages.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
 
-const service = new URL("../src/revisions.js", import.meta.url);
+const service = new URL("../src/revisions.ts", import.meta.url);
 let revisions;
 try {
 	revisions = await import(service.href);
@@ -426,7 +426,7 @@ test("workflow foundation public revision service exists", () => {
 	assert.equal(
 		typeof revisions?.retainRevisionManifest,
 		"function",
-		"src/revisions.js must export retainRevisionManifest",
+		"src/revisions.ts must export retainRevisionManifest",
 	);
 });
 

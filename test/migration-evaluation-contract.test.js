@@ -19,7 +19,7 @@ import { resolveInstructions } from "../src/resolve.ts";
 import {
 	readRevisionRecord,
 	retainRevisionManifest,
-} from "../src/revisions.js";
+} from "../src/revisions.ts";
 import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
 
 const requiredExports = [

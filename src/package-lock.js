@@ -36,7 +36,7 @@ import {
 	validateConfiguration,
 	validatePackageBindings,
 } from "./resolve.ts";
-import { releasedPackage, revisionClosure } from "./revisions.js";
+import { releasedPackage, revisionClosure } from "./revisions.ts";
 
 const configurationFile = ".agent-profiles/agents.yaml";
 const lockFile = ".agent-profiles/agent-profiles.lock";

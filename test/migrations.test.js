@@ -827,7 +827,7 @@ migrationTest(
 	},
 );
 
-const { retainRevisionManifest } = await import("../src/revisions.js");
+const { retainRevisionManifest } = await import("../src/revisions.ts");
 const { verifyStamp } = await import("../src/stamps.js");
 const { parseYaml } = await import("../src/resolve.ts");
 const workspaceBoundaryOriginalStore = process.env.AGENT_PROFILES_STORE;

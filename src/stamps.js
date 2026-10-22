@@ -38,7 +38,7 @@ import {
 	skillMetadata,
 	validatePackageBindings,
 } from "./resolve.ts";
-import { readRevisionRecord } from "./revisions.js";
+import { readRevisionRecord } from "./revisions.ts";
 
 const DOMAIN = "agent-profiles/stamp/v1";
 const stampDomain = (s) =>

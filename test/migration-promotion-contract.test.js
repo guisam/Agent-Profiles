@@ -27,7 +27,7 @@ import {
 	lookupRevisionManifest,
 	readRevisionRecord,
 	retainRevisionManifest,
-} from "../src/revisions.js";
+} from "../src/revisions.ts";
 import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
 
 const promotionExports = [

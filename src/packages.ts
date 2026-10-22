@@ -11,7 +11,7 @@ import {
 	skillMetadata,
 } from "./resolve.ts";
 
-// biome-ignore lint/suspicious/noExplicitAny: parsed records whose shape is validated by their readers (revisions.js, stamps.js).
+// biome-ignore lint/suspicious/noExplicitAny: parsed records whose shape is validated by their readers (revisions.ts, stamps.js).
 export type Untyped = any;
 
 /** package.yaml after parseManifest has validated every field. */

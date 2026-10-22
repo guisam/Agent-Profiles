@@ -13,7 +13,7 @@ import {
 import { installDependencies } from "../src/package-lock.js";
 import { importPackage } from "../src/package-store.ts";
 import { resolveInstructions } from "../src/resolve.ts";
-import { retainRevisionManifest } from "../src/revisions.js";
+import { retainRevisionManifest } from "../src/revisions.ts";
 
 const put = (file, bytes) => {
 	fs.mkdirSync(path.dirname(file), { recursive: true });

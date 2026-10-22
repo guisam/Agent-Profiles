@@ -50,7 +50,7 @@ import {
 	readRevisionRecord,
 	retainCandidateRevision,
 	validateDecision,
-} from "./revisions.js";
+} from "./revisions.ts";
 import {
 	createCandidateStamp,
 	createStamp,

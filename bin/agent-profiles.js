@@ -42,7 +42,7 @@ import { importPackage, rootPath } from "../src/package-store.ts";
 import { readPackage } from "../src/packages.ts";
 import { runPreset } from "../src/preset-wizard.ts";
 import { resolveInstructions } from "../src/resolve.ts";
-import { retainRevisionManifest } from "../src/revisions.js";
+import { retainRevisionManifest } from "../src/revisions.ts";
 import { discoverSkills } from "../src/skills.js";
 import { createStamp, diffStamps, verifyStamp } from "../src/stamps.js";
 import { startVisualizer } from "../src/visualize.ts";

@@ -5,6 +5,7 @@ import { errorCode, errorMessage } from "./files.ts";
 import {
 	candidateReservation,
 	encodeComponent,
+	type Identity,
 	inStoreSession,
 	lookupPackage,
 	publish,
@@ -20,20 +21,62 @@ import {
 import {
 	canonicalJSON,
 	hashRecord,
+	type PackageFile,
 	parseManifest,
 	parseRecord,
+	type Untyped,
 	validateMembers,
 } from "./packages.ts";
+
+export type Dependency = {
+	name: string;
+	version: string;
+	sha256: string;
+	revisionDigest: string | null;
+};
+export type Protocol = { protocol: string; major: number };
+export type WorkflowDeclaration = {
+	file: string | null;
+	provides: Protocol[];
+	requires: Protocol[];
+};
+
+/** A revision record after validate(): legacy v1 release, or typed v2 candidate/release. */
+export type RevisionRecord = {
+	revisionVersion: 1 | 2;
+	identity: Identity;
+	kind: "release" | "candidate";
+	content: { identity: Identity; sha256: string };
+	parent: string | null;
+	candidate: string | null;
+	dependencies: Dependency[];
+	workflow: WorkflowDeclaration | null;
+	// Shape depends on kind (legacy adoption, candidate migration, promotion); see validate().
+	provenance: Untyped;
+};
+
+/** One verified member of a dependency-first revision closure. */
+export type ClosureMember = {
+	identity: Identity;
+	sha256: string;
+	files: PackageFile[];
+	revisionDigest: string | null;
+	revision: RevisionRecord | null;
+};
 
 const domain = "agent-profiles/revision/v1";
 const digestPattern = /^[0-9a-f]{64}$/;
 const namePattern = /^@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/;
-const fail = (field, message) => {
+function fail(field: string, message: string): never {
 	throw new Error(`revision ${field}: ${message}`);
-};
-const key = (identity) => `${identity.name}@${identity.version}`;
+}
+const key = (identity: Identity) => `${identity.name}@${identity.version}`;
 
-function fields(value, names, field) {
+function fields(
+	value: unknown,
+	names: readonly string[],
+	field: string,
+): asserts value is Record<string, Untyped> {
 	if (
 		!value ||
 		Array.isArray(value) ||
@@ -42,7 +85,7 @@ function fields(value, names, field) {
 	)
 		fail(field, `expected exact fields ${names.join(", ")}`);
 }
-function identity(value, field) {
+function identity(value: unknown, field: string): asserts value is Identity {
 	fields(value, ["name", "version"], field);
 	if (typeof value.name !== "string" || !namePattern.test(value.name))
 		fail(field, "expected @namespace/name");
@@ -62,11 +105,11 @@ function identity(value, field) {
 	)
 		fail(field, "identity path exceeds backend limit");
 }
-function digest(value, field) {
+function digest(value: unknown, field: string): asserts value is string {
 	if (typeof value !== "string" || !digestPattern.test(value))
 		fail(field, "expected lowercase SHA-256 digest");
 }
-function validate(manifest) {
+function validate(manifest: unknown): asserts manifest is RevisionRecord {
 	fields(
 		manifest,
 		[
@@ -122,7 +165,7 @@ function validate(manifest) {
 	}
 	if (!Array.isArray(manifest.dependencies))
 		fail("dependencies", "expected array");
-	const seen = new Set();
+	const seen = new Set<string>();
 	for (const dependency of manifest.dependencies) {
 		fields(
 			dependency,
@@ -143,10 +186,10 @@ function validate(manifest) {
 	const workflow = manifest.workflow;
 	if (workflow === null) return;
 	fields(workflow, ["file", "provides", "requires"], "workflow");
-	for (const direction of ["provides", "requires"]) {
+	for (const direction of ["provides", "requires"] as const) {
 		if (!Array.isArray(workflow[direction]))
 			fail(`workflow.${direction}`, "expected array");
-		const protocols = new Set();
+		const protocols = new Set<string>();
 		for (const entry of workflow[direction]) {
 			fields(entry, ["protocol", "major"], `workflow.${direction}`);
 			if (
@@ -171,7 +214,7 @@ function validate(manifest) {
 	}
 }
 
-function validateCandidate(manifest) {
+function validateCandidate(manifest: Record<string, Untyped>) {
 	digest(manifest.parent, "parent");
 	if (
 		typeof manifest.candidate !== "string" ||
@@ -227,7 +270,7 @@ function validateCandidate(manifest) {
 		fail("workflowChange", "expected task-only reason");
 	if (!Array.isArray(p.proposals) || !p.proposals.length)
 		fail("proposals", "expected accepted literal history");
-	const ids = new Set();
+	const ids = new Set<string>();
 	for (const entry of p.proposals) {
 		fields(entry, ["id", "proposal", "status", "reason"], "proposal record");
 		if (
@@ -282,7 +325,7 @@ function validateCandidate(manifest) {
 }
 
 // A promoted release labels the exact evaluated candidate content; only approval metadata differs.
-function validateRelease(manifest) {
+function validateRelease(manifest: Record<string, Untyped>) {
 	digest(manifest.parent, "parent");
 	digest(manifest.candidate, "candidate");
 	if (
@@ -311,14 +354,22 @@ const decisionFields = [
 	"regressions",
 	"correctnessOverride",
 ];
-const text = (value, field) => {
+function plainObject(
+	value: unknown,
+	field: string,
+): asserts value is Record<string, Untyped> {
+	if (!value || typeof value !== "object" || Array.isArray(value))
+		fail(field, "expected object");
+}
+const text = (value: unknown, field: string) => {
 	if (typeof value !== "string" || !value.trim() || value.includes("\0"))
 		fail(field, "expected nonempty text without NUL");
 };
 // Strict promotion decision shape; evidence relations are checked by the promotion service.
-export function validateDecision(value) {
-	if (!value || typeof value !== "object" || Array.isArray(value))
-		fail("decision", "expected object");
+export function validateDecision(
+	value: unknown,
+): asserts value is Record<string, Untyped> {
+	plainObject(value, "decision");
 	for (const name of Object.keys(value))
 		if (!decisionFields.includes(name))
 			fail("decision", `unknown field ${name}`);
@@ -366,7 +417,7 @@ export function validateDecision(value) {
 		!Array.isArray(override.cases) ||
 		!override.cases.length ||
 		override.cases.some(
-			(id) => typeof id !== "string" || !idPattern.test(id),
+			(id: unknown) => typeof id !== "string" || !idPattern.test(id),
 		) ||
 		new Set(override.cases).size !== override.cases.length
 	)
@@ -375,7 +426,7 @@ export function validateDecision(value) {
 			"expected nonempty unique case ids",
 		);
 }
-export function readPromotionDecision(root, decisionDigest) {
+export function readPromotionDecision(root: string, decisionDigest: string) {
 	digest(decisionDigest, "decisionDigest");
 	const bytes = readStoreFile(
 			root,
@@ -390,7 +441,7 @@ export function readPromotionDecision(root, decisionDigest) {
 		fail("decision", "integrity digest mismatch");
 	return decision;
 }
-export function readPromotionIndex(root, id) {
+export function readPromotionIndex(root: string, id: string) {
 	if (typeof id !== "string" || !idPattern.test(id))
 		fail("promotion index", "expected portable identifier");
 	const bytes = readStoreFile(root, `promotions/decisions/ids/${id}.json`),
@@ -411,11 +462,11 @@ export function readPromotionIndex(root, id) {
 	return index;
 }
 
-export function labelPath(identity) {
+export function labelPath(identity: Identity) {
 	return `revisions/labels/${identity.name.slice(1).split("/").map(encodeComponent).join("/")}/${identity.version}.json`;
 }
-const recordPath = (digest) => `revisions/sha256/${digest}.json`;
-function readLabel(root, identity) {
+const recordPath = (digest: string) => `revisions/sha256/${digest}.json`;
+function readLabel(root: string, identity: Identity) {
 	const relative = labelPath(identity);
 	if (!statOrNull(safePath(root, relative))) return null;
 	const bytes = readStoreFile(root, relative),
@@ -428,7 +479,7 @@ function readLabel(root, identity) {
 	return label;
 }
 
-function backing(root, manifest) {
+function backing(root: string, manifest: RevisionRecord) {
 	if (manifest.revisionVersion === 2) {
 		// A promoted release has no legacy identity; its object is verified against the typed physical identity.
 		const files = verifyObject(
@@ -450,11 +501,15 @@ function backing(root, manifest) {
 	verifyCompanion(pkg, manifest);
 	return pkg;
 }
-function verifyCompanion(pkg, manifest) {
+function verifyCompanion(
+	pkg: { files: PackageFile[] },
+	manifest: RevisionRecord,
+) {
 	const workflow = manifest.workflow;
 	if (workflow !== null && workflow.file !== null) {
+		// A missing manifest reaches parseManifest as undefined and fails as "expected a Buffer".
 		const packageManifest = parseManifest(
-			pkg.files.find((member) => member.path === "package.yaml").bytes,
+			pkg.files.find((member) => member.path === "package.yaml")?.bytes,
 		);
 		if (
 			workflow.file.toLowerCase() ===
@@ -467,7 +522,7 @@ function verifyCompanion(pkg, manifest) {
 			);
 		const member = pkg.files.find((member) => member.path === workflow.file);
 		if (!member) fail("workflow.file", "missing companion member");
-		let text;
+		let text: string;
 		try {
 			text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
 				member.bytes,
@@ -484,7 +539,18 @@ function verifyCompanion(pkg, manifest) {
 	}
 }
 
-function verify(root, manifest, recordDigest, state) {
+type VerificationState = {
+	pins: Map<string, string>;
+	active: Set<string>;
+	done: Set<string>;
+};
+
+function verify(
+	root: string,
+	manifest: unknown,
+	recordDigest: string | null,
+	state: VerificationState,
+) {
 	validate(manifest);
 	const identityKey = key(manifest.identity),
 		previous = state.pins.get(manifest.identity.name);
@@ -525,7 +591,13 @@ function verify(root, manifest, recordDigest, state) {
 	state.done.add(pin);
 }
 // Historical reading validates immutable backing without consulting current registration labels.
-export function readRevisionRecord({ storeRoot: selected, recordDigest }) {
+export function readRevisionRecord({
+	storeRoot: selected,
+	recordDigest,
+}: {
+	storeRoot?: string;
+	recordDigest: string;
+}): RevisionRecord {
 	const root = storeRoot(selected);
 	digest(recordDigest, "recordDigest");
 	// Records are content-addressed; within one store session a verified record is reused.
@@ -536,7 +608,7 @@ export function readRevisionRecord({ storeRoot: selected, recordDigest }) {
 	);
 }
 
-function readRecordAt(root, recordDigest) {
+function readRecordAt(root: string, recordDigest: string): RevisionRecord {
 	const bytes = readStoreFile(root, recordPath(recordDigest)),
 		manifest = parseRecord(bytes);
 	validate(manifest);
@@ -560,10 +632,10 @@ function readRecordAt(root, recordDigest) {
 }
 
 // Integrity relations only: exact evaluated candidate content and a decision bound to it. Publication authority is checked by readRetained.
-function releaseBacking(root, manifest) {
+function releaseBacking(root: string, manifest: RevisionRecord) {
 	const candidate = readRevisionRecord({
 		storeRoot: root,
-		recordDigest: manifest.candidate,
+		recordDigest: manifest.candidate as string, // validateRelease checked it
 	});
 	if (candidate.kind !== "candidate")
 		fail("release", "expected an evaluated candidate record");
@@ -573,7 +645,7 @@ function releaseBacking(root, manifest) {
 		"parent",
 		"dependencies",
 		"workflow",
-	]) {
+	] as const) {
 		if (!canonicalJSON(candidate[field]).equals(canonicalJSON(manifest[field])))
 			fail(
 				"release",
@@ -591,14 +663,19 @@ function releaseBacking(root, manifest) {
 		fail("release", "decision does not bind this candidate and label");
 }
 
-function candidateBacking(root, manifest, files) {
-	const parentBytes = readStoreFile(root, recordPath(manifest.parent)),
+function candidateBacking(
+	root: string,
+	manifest: RevisionRecord,
+	files: PackageFile[],
+) {
+	const parentDigest = manifest.parent as string; // validateCandidate checked it
+	const parentBytes = readStoreFile(root, recordPath(parentDigest)),
 		parent = parseRecord(parentBytes);
 	if (parent.revisionVersion !== 1)
 		fail("parent", "candidate requires adopted release parent");
 	const retained = readRevisionRecord({
 		storeRoot: root,
-		recordDigest: manifest.parent,
+		recordDigest: parentDigest,
 	});
 	if (
 		key(retained.identity) !== key(manifest.content.identity) ||
@@ -614,7 +691,7 @@ function candidateBacking(root, manifest, files) {
 			retained.content.identity,
 		),
 		entrypoint = parseManifest(
-			files.find((f) => f.path === "package.yaml").bytes,
+			files.find((f) => f.path === "package.yaml")?.bytes,
 		).entrypoint;
 	if (
 		files.length !== original.length ||
@@ -641,7 +718,7 @@ function candidateBacking(root, manifest, files) {
 	}
 	const seen = new Map([[manifest.identity.name, key(manifest.identity)]]),
 		active = new Set([manifest.identity.name]);
-	function dependencyBacking(dependency) {
+	function dependencyBacking(dependency: Dependency) {
 		const pin = `${dependency.version}:${dependency.sha256}:${dependency.revisionDigest}`;
 		if (active.has(dependency.name))
 			fail("dependency", "cyclic candidate closure");
@@ -670,7 +747,7 @@ function candidateBacking(root, manifest, files) {
 	}
 	for (const dependency of manifest.dependencies) dependencyBacking(dependency);
 }
-function readRetained(root, recordDigest) {
+function readRetained(root: string, recordDigest: string): RevisionRecord {
 	const manifest = readRevisionRecord({ storeRoot: root, recordDigest });
 	if (manifest.kind === "candidate")
 		fail("candidate", "unpublished candidate is not selectable");
@@ -693,7 +770,7 @@ function readRetained(root, recordDigest) {
 	return manifest;
 }
 // Classification only (no verification); callers then use the fully verified public lookup.
-function typedRelease(root, recordDigest) {
+function typedRelease(root: string, recordDigest: unknown): boolean {
 	if (typeof recordDigest !== "string" || !digestPattern.test(recordDigest))
 		return false;
 	try {
@@ -709,6 +786,11 @@ export function releasedPackage({
 	name,
 	version,
 	revisionDigest,
+}: {
+	storeRoot?: string;
+	name: string;
+	version: string;
+	revisionDigest?: string | null;
 }) {
 	if (revisionDigest === null || revisionDigest === undefined) return null;
 	const root = storeRoot(selected);
@@ -729,14 +811,20 @@ export function releasedPackage({
 		),
 	};
 }
-const verification = () => ({
+const verification = (): VerificationState => ({
 	pins: new Map(),
 	active: new Set(),
 	done: new Set(),
 });
 
 // Internal publication retains metadata only; normal release labels are never created here.
-export function retainCandidateRevision({ storeRoot: selected, manifest }) {
+export function retainCandidateRevision({
+	storeRoot: selected,
+	manifest,
+}: {
+	storeRoot?: string;
+	manifest: unknown;
+}) {
 	validate(manifest);
 	if (manifest.kind !== "candidate") fail("record", "expected candidate");
 	const root = storeRoot(selected),
@@ -763,7 +851,7 @@ export function retainCandidateRevision({ storeRoot: selected, manifest }) {
 		if (errorCode(error) === "EEXIST") fail("store-busy", "writer lock exists");
 		throw error;
 	}
-	let staging;
+	let staging: string | undefined;
 	try {
 		writeFlushed(
 			path.join(writer, "owner.json"),
@@ -790,7 +878,13 @@ export function retainCandidateRevision({ storeRoot: selected, manifest }) {
 	}
 }
 
-export function lookupRevisionManifest({ storeRoot: selected, recordDigest }) {
+export function lookupRevisionManifest({
+	storeRoot: selected,
+	recordDigest,
+}: {
+	storeRoot?: string;
+	recordDigest: string;
+}): RevisionRecord {
 	const root = storeRoot(selected),
 		manifest = readRetained(root, recordDigest);
 	verify(root, manifest, recordDigest, verification());
@@ -803,10 +897,15 @@ function revisionClosureOperation({
 	name,
 	version,
 	revisionDigest = null,
-}) {
-	const result = [],
-		seen = new Map();
-	function visit(name, version, revisionDigest) {
+}: {
+	storeRoot?: string;
+	name: string;
+	version: string;
+	revisionDigest?: string | null;
+}): ClosureMember[] {
+	const result: ClosureMember[] = [],
+		seen = new Map<string, string>();
+	function visit(name: string, version: string, revisionDigest: string | null) {
 		const released = typedRelease(storeRoot(selected), revisionDigest);
 		if (
 			!released &&
@@ -849,6 +948,9 @@ function revisionClosureOperation({
 function retainRevisionManifestOperation({
 	storeRoot: selected,
 	manifestFile,
+}: {
+	storeRoot?: string;
+	manifestFile: unknown;
 }) {
 	if (typeof manifestFile !== "string" || !manifestFile.trim())
 		fail("manifestFile", "expected local file");
@@ -863,7 +965,7 @@ function retainRevisionManifestOperation({
 	const recordDigest = hashRecord(domain, manifest),
 		bytes = canonicalJSON(manifest),
 		root = storeRoot(selected);
-	const result = (status) => ({
+	const result = (status: "reused" | "published") => ({
 		identity: manifest.identity,
 		sha256: manifest.content.sha256,
 		recordDigest,
@@ -890,7 +992,7 @@ function retainRevisionManifestOperation({
 		if (errorCode(error) === "EEXIST") fail("store-busy", "writer lock exists");
 		throw error;
 	}
-	let staging;
+	let staging: string | undefined;
 	try {
 		writeFlushed(
 			path.join(writer, "owner.json"),

@@ -79,7 +79,7 @@ Recording dependencies does not install or inject them into legacy context.
 ## Immutability and replay
 
 The synchronous API is
-`retainRevisionManifest({storeRoot, manifestFile})` from `src/revisions.js`.
+`retainRevisionManifest({storeRoot, manifestFile})` from `src/revisions.ts`.
 It returns exactly `{identity, sha256, recordDigest, status}`. `sha256` is the
 unchanged v1 tree digest. `recordDigest` is the existing canonical record hash
 under `agent-profiles/revision/v1`, not another evaluated-content hash.

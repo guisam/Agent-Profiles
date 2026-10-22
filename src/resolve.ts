@@ -28,14 +28,15 @@ import {
 import {
 	type PackageManifest,
 	parseManifest,
-	type Untyped,
 	validateMembers,
 } from "./packages.ts";
 import {
+	type ClosureMember,
+	type RevisionRecord,
 	readRevisionRecord,
 	releasedPackage,
 	revisionClosure,
-} from "./revisions.js";
+} from "./revisions.ts";
 
 /**
  * Parsed YAML (`toJS({mapAsMap: true})`). Its shape is unknown until mapping(),
@@ -58,8 +59,8 @@ export type PackagePin = {
 	metadata: SkillMetadata | null;
 	sha256: string;
 	// Added for config v3 from the revision closure.
-	closure?: Untyped[];
-	revision?: Untyped;
+	closure?: ClosureMember[];
+	revision?: RevisionRecord | null;
 	revisionDigest?: string | null;
 };
 
@@ -88,8 +89,8 @@ type Part = {
 	binding: string;
 	owner: string;
 	backing: { type: "package"; sha256: string; path: string };
-	package: Untyped;
-	revision: Untyped;
+	package: SelectedPackage["output"]["package"];
+	revision: RevisionRecord | null;
 	content: string;
 };
 
@@ -112,14 +113,14 @@ type RoleLists<T> = { required: T[]; available: T[] };
 /** An evaluated, unpublished candidate revision substituted for its parent in one assignment. */
 export type Candidate = {
 	digest: string;
-	record: Untyped;
+	record: RevisionRecord;
 	files: { path: string; bytes: Buffer }[];
 	assignment: {
 		role?: string | null;
 		model?: string | null;
 		host?: string | null;
 	};
-	closure: Untyped[];
+	closure: ClosureMember[];
 };
 
 export type ResolveOptions = {
@@ -1298,7 +1299,7 @@ function resolveCore(
 				Object.assign(value.pins.get(referenceKey(reference)) as PackagePin, {
 					closure,
 					revisionDigest: reference.get("revision") ?? null,
-					revision: closure.at(-1).revision,
+					revision: closure.at(-1)?.revision ?? null, // the root is last
 				});
 			}
 	const exact = model !== undefined && models.has(model);
@@ -1518,7 +1519,7 @@ function resolveCore(
 	let workflowState:
 		| { status: string; runtime: string; peers: unknown[] }
 		| undefined;
-	let workflowPeerPackages: Untyped[] | undefined;
+	let workflowPeerPackages: Part["package"][] | undefined;
 	const captureActors: {
 		assignment: Assignment;
 		profile: string;
@@ -1713,7 +1714,7 @@ function resolveCore(
 					fail("workflow consumer", "unknown root metadata/declaration");
 				const requiring = consumerParts.filter((part) =>
 					part.revision?.workflow?.requires.some(
-						(item: { protocol: string }) => item.protocol === protocol,
+						(item) => item.protocol === protocol,
 					),
 				);
 				if (requiring.length !== 1)
@@ -1721,9 +1722,15 @@ function resolveCore(
 						"workflow consumer",
 						"missing or unknown required protocol declaration",
 					);
-				const requirement = requiring[0].revision.workflow.requires.find(
-					(item: { protocol: string }) => item.protocol === protocol,
+				// requiring holds exactly the part whose declaration matched above.
+				const requirement = requiring[0].revision?.workflow?.requires.find(
+					(item) => item.protocol === protocol,
 				);
+				if (!requirement)
+					fail(
+						"workflow consumer",
+						"missing or unknown required protocol declaration",
+					);
 				covered.add(
 					`${actorKey(consumer.actor)}:${requiring[0].package.revisionDigest}:${protocol}`,
 				);
@@ -1748,7 +1755,7 @@ function resolveCore(
 						(part) =>
 							part.kind !== "workflow" &&
 							part.revision?.workflow?.provides.some(
-								(item: { protocol: string }) => item.protocol === protocol,
+								(item) => item.protocol === protocol,
 							),
 					);
 					if (candidates.length > 1)
@@ -1768,9 +1775,14 @@ function resolveCore(
 							"workflow provider",
 							"binding does not provide loaded protocol",
 						);
-					const provided = candidates[0].revision.workflow.provides.find(
-						(item: { protocol: string }) => item.protocol === protocol,
+					const provided = candidates[0].revision?.workflow?.provides.find(
+						(item) => item.protocol === protocol,
 					);
+					if (!provided)
+						fail(
+							"workflow provider",
+							"binding does not provide loaded protocol",
+						);
 					if (provided.major !== requirement.major)
 						fail("workflow protocol", "incompatible major");
 					const consumerDigest = requiring[0].package.revisionDigest,
