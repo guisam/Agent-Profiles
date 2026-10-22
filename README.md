@@ -42,7 +42,7 @@ in local, reviewable files, with a small CLI for setup and configuration.
 
 ## Quick start
 
-Requires **Node.js 22 or newer**. Supports **Claude Code, OpenAI Codex, and Hermes Agent**
+Requires **Node.js 24 or newer**. Supports **Claude Code, OpenAI Codex, and Hermes Agent**
 (Claude Code verified live; Codex and Hermes live bootstrap behavior not yet observed).
 
 **v0.1.0 is being prepared; it has not been published to npm.** Try this checkout

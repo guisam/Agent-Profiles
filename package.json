@@ -30,7 +30,7 @@
 		"CONTRIBUTING.md"
 	],
 	"engines": {
-		"node": ">=22"
+		"node": ">=24"
 	},
 	"scripts": {
 		"typecheck": "tsc",
@@ -46,7 +46,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.6.2",
-		"@types/node": "^22.20.4",
+		"@types/node": "^24.19.2",
 		"typescript": "5.9"
 	}
 }

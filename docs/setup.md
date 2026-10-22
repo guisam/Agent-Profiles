@@ -9,7 +9,7 @@ not a new Agent Profiles host adapter.
 
 ## 1. Inspect before installing
 
-Requires Node.js 22 or newer. **The package is not published to npm yet.** From a
+Requires Node.js 24 or newer. **The package is not published to npm yet.** From a
 trusted checkout with dependencies already available, inspection does not require
 installing Agent Profiles in the target project:
 

@@ -1,6 +1,6 @@
 # Contributing
 
-Use Node.js 22 or newer and npm. From a checkout:
+Use Node.js 24 or newer and npm. From a checkout:
 
 ```sh
 npm ci

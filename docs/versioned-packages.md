@@ -3,7 +3,7 @@
 This checkout implements configuration v2 and opt-in v3; the walkthrough below
 remains v2, including its existing snapshot1 behavior. The manifest
 is still **0.1.0, unpublished**; no published v2-supporting release is claimed.
-Use a trusted checkout with Node.js 22+ and its dependencies already available.
+Use a trusted checkout with Node.js 24+ and its dependencies already available.
 Preparing/installing the executable needs separate authorization. Dependency
 `install` below is distinct from `init --package`, which installs the Agent
 Profiles npm executable into a project.
