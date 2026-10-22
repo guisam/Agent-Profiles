@@ -9,7 +9,13 @@
   },
   "homepage": "https://github.com/guisam/Agent-Profiles#readme",
   "bugs": "https://github.com/guisam/Agent-Profiles/issues",
-  "keywords": ["agents", "instructions", "profiles", "claude", "codex"],
+  "keywords": [
+    "agents",
+    "instructions",
+    "profiles",
+    "claude",
+    "codex"
+  ],
   "type": "module",
   "bin": {
     "agent-profiles": "bin/agent-profiles.js"
@@ -28,7 +34,9 @@
   },
   "scripts": {
     "typecheck": "tsc",
-    "lint": "tsc --noUnusedLocals --noUnusedParameters --allowUnreachableCode false --allowUnusedLabels false --noFallthroughCasesInSwitch",
+    "lint": "biome lint",
+    "format": "biome format --write",
+    "check": "biome check --write",
     "test": "node --test",
     "test:package": "node scripts/package-smoke.js",
     "resolve": "node bin/agent-profiles.js resolve --json"
@@ -37,6 +45,7 @@
     "yaml": "^2.9.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.2",
     "@types/node": "^22.20.4",
     "typescript": "5.9"
   }

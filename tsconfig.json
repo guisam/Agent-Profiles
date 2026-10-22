@@ -5,7 +5,18 @@
     "noEmit": true,
     "target": "ES2023",
     "module": "NodeNext",
-    "types": ["node"]
+    "types": [
+      "node"
+    ],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/**/*.js", "bin/**/*.js", "scripts/**/*.js"]
+  "include": [
+    "src/**/*.js",
+    "bin/**/*.js",
+    "scripts/**/*.js"
+  ]
 }

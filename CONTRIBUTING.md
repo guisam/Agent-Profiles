@@ -6,21 +6,25 @@ Use Node.js 22 or newer and npm. From a checkout:
 npm ci
 npm run typecheck
 npm run lint
+npm run check
 npm test
 npm run test:package
 ```
 
 `typecheck` uses TypeScript's `checkJs` on runtime JavaScript and scripts,
-without a build step. `lint` uses that same compiler for unused bindings,
-unreachable code, unused labels, and switch fallthrough. TypeScript and Node
-type declarations are development-only dependencies. Runtime needs only `yaml`
-for parsing, validation, and comment-preserving edits.
+without a build step, including unused bindings, unreachable code, unused
+labels, and switch fallthrough. `lint` runs [Biome](https://biomejs.dev)'s
+recommended rules over sources and tests; `check` also formats and sorts
+imports in place. CI runs `biome ci`, which fails on lint errors or unformatted
+files. TypeScript, Biome, and Node type declarations are development-only
+dependencies. Runtime needs only `yaml` for parsing, validation, and
+comment-preserving edits.
 
 `test:package` packs the actual npm artifact, checks its contents, installs it in
 an isolated temporary project, invokes the npm executable, and exercises the
 installer, wizard, resolver, doctor, and uninstall. It may need registry access
 for `yaml`; it never publishes. Temporary repositories are removed afterward.
-The CI matrix runs these checks on Windows, macOS, and Linux with Node 22 and 24.
+The CI matrix runs these checks on Windows, macOS, and Linux with Node 24.
 
 ## Where things live
 
