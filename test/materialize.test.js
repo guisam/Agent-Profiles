@@ -1,24 +1,23 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import childProcess, { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { spawn } from "node:child_process";
-import childProcess from "node:child_process";
+import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";
-import net from "node:net";
 import { syncBuiltinESMExports } from "node:module";
-import { fileURLToPath } from "node:url";
+import net from "node:net";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import { createStamp, verifyStamp, reconstructStamp } from "../src/stamps.js";
+import { installDependencies } from "../src/package-lock.js";
 import {
+	decodeComponent,
+	encodeComponent,
 	importPackage,
 	lookupPackage,
-	encodeComponent,
-	decodeComponent,
 } from "../src/package-store.js";
 import {
 	canonicalJSON,
@@ -27,7 +26,7 @@ import {
 	readPackage,
 	validateMembers,
 } from "../src/packages.js";
-import { installDependencies } from "../src/package-lock.js";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
 
 // C18/C19, M01-M14. Runtime boundaries are operational inputs, never hashed data.
 const target = new URL("../src/materialize.js", import.meta.url);
@@ -69,7 +68,7 @@ const capabilities = {
 };
 const cmp = (a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b));
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
-const E = (s) => "x-" + Buffer.from(s).toString("hex");
+const E = (s) => `x-${Buffer.from(s).toString("hex")}`;
 const put = (file, bytes) => {
 	fs.mkdirSync(path.dirname(file), { recursive: true });
 	fs.writeFileSync(file, bytes);
@@ -98,7 +97,7 @@ function J(value) {
 			).join("") +
 			'"'
 		);
-	if (Array.isArray(value)) return "[" + value.map(J).join(",") + "]";
+	if (Array.isArray(value)) return `[${value.map(J).join(",")}]`;
 	return (
 		"{" +
 		Object.keys(value)
@@ -116,11 +115,11 @@ function U(n) {
 function record(value, domain = PLAN_DOMAIN) {
 	const bytes = Buffer.from(J(value));
 	return sha(
-		Buffer.concat([Buffer.from(domain + "\0"), U(bytes.length), bytes]),
+		Buffer.concat([Buffer.from(`${domain}\0`), U(bytes.length), bytes]),
 	);
 }
 function tree(files, domain = TREE_DOMAIN) {
-	const parts = [Buffer.from(domain + "\0"), U(files.length)];
+	const parts = [Buffer.from(`${domain}\0`), U(files.length)];
 	for (const f of [...files].sort((a, b) => cmp(a.path, b.path))) {
 		const name = Buffer.from(f.path);
 		parts.push(
@@ -151,7 +150,7 @@ function fingerprint(root) {
 				rows.push([label, "link", fs.readlinkSync(full)]);
 			else if (stat.isDirectory()) {
 				rows.push([label, "dir"]);
-				visit(full, label + "/");
+				visit(full, `${label}/`);
 			} else rows.push([label, "file", stat.nlink, sha(fs.readFileSync(full))]);
 		}
 	}
@@ -307,7 +306,7 @@ function fixture(
 				[storeRoot, "explicit"],
 				[misleading, "ambient"],
 			]) {
-				const source = path.join(dir, label + "-sources", E(name));
+				const source = path.join(dir, `${label}-sources`, E(name));
 				const sourceFiles =
 					label === "explicit"
 						? members
@@ -393,7 +392,7 @@ function fixture(
 	};
 	const blob = (output, source, binding) =>
 		row(
-			"content/" + output,
+			`content/${output}`,
 			{
 				type: "blob",
 				sha256: sha(local[source]),
@@ -406,7 +405,7 @@ function fixture(
 	const pkg = (output, p, binding) => {
 		const member = p.members.find((m) => /^(ENTRY|SKILL)\.md$/.test(m.path));
 		row(
-			"content/" + output,
+			`content/${output}`,
 			{ type: "package", sha256: p.digest, path: member.path },
 			binding,
 			member.bytes,
@@ -462,7 +461,7 @@ function fixture(
 		["con", "assets/requested.bin"],
 		["x-636f6e", "assets/idle.bin"],
 	])
-		blob(`resources/${E("skills." + id)}/${source}`, source, "skills." + id);
+		blob(`resources/${E(`skills.${id}`)}/${source}`, source, `skills.${id}`);
 	if (packaged) {
 		pkg(`available/${E("idle-pkg")}/entry.md`, packages[1], "skills.idle-pkg");
 		for (const p of packages)
@@ -565,7 +564,7 @@ function exactOutput(f, destination = f.args.destination) {
 	assert.deepEqual(files(path.join(destination, "content")), f.content);
 	assert.deepEqual(
 		files(destination).map((m) => m.path),
-		[...f.content.map((m) => "content/" + m.path), "receipt.json"].sort(cmp),
+		[...f.content.map((m) => `content/${m.path}`), "receipt.json"].sort(cmp),
 	);
 	assert.deepEqual(
 		fs.readFileSync(path.join(destination, "receipt.json")),
@@ -703,8 +702,8 @@ async function result(run) {
 	return r.data;
 }
 async function paused(t, f, phase, extra = {}, name = "writer") {
-	const marker = path.join(f.dir, name + ".marker"),
-		release = path.join(f.dir, name + ".release");
+	const marker = path.join(f.dir, `${name}.marker`),
+		release = path.join(f.dir, `${name}.release`);
 	const run = child(t, f.dir, {
 		args: f.args,
 		storeRoot: f.storeRoot,
@@ -1621,7 +1620,7 @@ const boundaryCases = [
 	[
 		"NUL denied member",
 		(f) => {
-			f.args.deniedRoots = [f.root + "\0"];
+			f.args.deniedRoots = [`${f.root}\0`];
 		},
 		/boundary|deniedRoots/,
 	],
@@ -1889,7 +1888,7 @@ behavior(
 						const fd = original(file, flags, ...args);
 						if (
 							typeof file === "string" &&
-							file.endsWith(path.sep + "receipt.json") &&
+							file.endsWith(`${path.sep}receipt.json`) &&
 							file.includes(".stage")
 						)
 							receiptFd = fd;
@@ -2840,7 +2839,7 @@ for (const malformed of ["duplicate", "exponent", "BOM", "newline"])
 				);
 			if (malformed === "exponent")
 				bytes = bytes.replace('"receiptVersion":1', '"receiptVersion":1e0');
-			if (malformed === "BOM") bytes = "\uFEFF" + bytes;
+			if (malformed === "BOM") bytes = `\uFEFF${bytes}`;
 			if (malformed === "newline") bytes += "\n";
 			put(path.join(f.args.destination, "receipt.json"), bytes);
 			await finding(f, "receipt-malformed", "receipt.json");

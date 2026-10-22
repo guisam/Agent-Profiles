@@ -1,22 +1,22 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import { importPackage, lookupPackage } from "../src/package-store.js";
-import { hashRecord } from "../src/packages.js";
-import { installDependencies } from "../src/package-lock.js";
-import { resolveInstructions } from "../src/resolve.js";
-import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
+import { formatContext, formatProof } from "../src/diagnostics.js";
 import {
-	planMaterialization,
 	materializeStamp,
+	planMaterialization,
 	verifyMaterialization,
 } from "../src/materialize.js";
-import { formatContext, formatProof } from "../src/diagnostics.js";
+import { installDependencies } from "../src/package-lock.js";
+import { importPackage, lookupPackage } from "../src/package-store.js";
+import { hashRecord } from "../src/packages.js";
+import { resolveInstructions } from "../src/resolve.js";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
 
 const service = new URL("../src/revisions.js", import.meta.url);
 let revisions;

@@ -1,28 +1,28 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import fs from "node:fs";
-import path from "node:path";
-import os from "node:os";
-import vm from "node:vm";
-import { syncBuiltinESMExports } from "node:module";
 import { createHash } from "node:crypto";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import vm from "node:vm";
 import { parse, stringify } from "yaml";
-import { parseYaml, resolveInstructions } from "../src/resolve.js";
-import { importPackage } from "../src/package-store.js";
-import { installDependencies } from "../src/package-lock.js";
+import { planRoleChange } from "../src/configure.js";
 import { formatContext, resolutionOutput } from "../src/diagnostics.js";
 import { inspectRepository } from "../src/inspect.js";
-import { discoverSkills } from "../src/skills.js";
-import { configureRoles } from "../src/wizard.js";
-import { planRoleChange } from "../src/configure.js";
+import { installDependencies } from "../src/package-lock.js";
+import { importPackage } from "../src/package-store.js";
 import {
+	applyPresetExport,
+	applyPresetImport,
 	exportChoices,
 	planPresetExport,
-	applyPresetExport,
 	planPresetImport,
-	applyPresetImport,
 	readPreset,
 } from "../src/presets.js";
+import { parseYaml, resolveInstructions } from "../src/resolve.js";
+import { discoverSkills } from "../src/skills.js";
+import { configureRoles } from "../src/wizard.js";
 
 const WORK = os.tmpdir();
 const put = (file, text) => {
@@ -263,10 +263,10 @@ function render(result) {
 		fetch: () => new Promise(() => {}),
 	});
 	vm.runInContext(
-		fs.readFileSync(
+		`${fs.readFileSync(
 			new URL("../src/visualizer/app.js", import.meta.url),
 			"utf8",
-		) + "\nrender(result);",
+		)}\nrender(result);`,
 		context,
 	);
 	const texts = (node) =>
@@ -791,9 +791,9 @@ test("P4B06 non-ENOENT directory errors remain errors", (t) => {
 // Decode only the emitted literal flag/value grammar; never execute payloads.
 function contextCommandArgs(section, shell) {
 	const command = section.match(
-		new RegExp("Command \\(" + shell + "\\): `([\\s\\S]*?)`(?:\\n|$)"),
+		new RegExp(`Command \\(${shell}\\): \`([\\s\\S]*?)\`(?:\\n|$)`),
 	)?.[1];
-	assert.ok(command, shell + " command exists");
+	assert.ok(command, `${shell} command exists`);
 	const prefix = "npx --no agent-profiles resolve";
 	assert.ok(command.startsWith(prefix));
 	const tail = command.slice(prefix.length),
@@ -808,7 +808,7 @@ function contextCommandArgs(section, shell) {
 		const match = pair.exec(tail);
 		assert.ok(
 			match,
-			shell + " accepts only literal flag/value pairs at " + offset,
+			`${shell} accepts only literal flag/value pairs at ${offset}`,
 		);
 		args.push(
 			match[1],

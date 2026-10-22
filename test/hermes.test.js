@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
+import { formatContext } from "../src/diagnostics.js";
 import { detectAgents, doctor, install, uninstall } from "../src/install.js";
 import { bootstrapBlock } from "../src/integrations.js";
-import { formatContext } from "../src/diagnostics.js";
 import { parseYaml, resolveInstructions } from "../src/resolve.js";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
@@ -48,7 +48,7 @@ function repository(t) {
 	if (process.platform === "win32") {
 		fs.writeFileSync(bin, "#!/bin/sh\n");
 		fs.writeFileSync(
-			bin + ".cmd",
+			`${bin}.cmd`,
 			'@echo off\r\nnode "%~dp0..\\agent-profiles\\bin\\agent-profiles.js" %*\r\n',
 		);
 	} else fs.symlinkSync("../agent-profiles/bin/agent-profiles.js", bin);

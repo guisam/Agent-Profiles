@@ -71,14 +71,14 @@ for (const field of ["profiles", "assignments"]) {
 			assertLoaded(
 				resolveInstructions({
 					root,
-					configuration: parseYaml(configuration + `${field}: {}\n`),
+					configuration: parseYaml(`${configuration}${field}: {}\n`),
 				}),
 			);
 			assert.throws(
 				() =>
 					resolveInstructions({
 						root,
-						configuration: parseYaml(configuration + `${field}:${value}\n`),
+						configuration: parseYaml(`${configuration}${field}:${value}\n`),
 					}),
 				{ message: `${field}: expected a mapping` },
 			);

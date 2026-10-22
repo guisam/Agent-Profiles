@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
-import { resolveInstructions } from "../src/resolve.js";
 import { formatProof } from "../src/diagnostics.js";
+import { resolveInstructions } from "../src/resolve.js";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 function repository(t) {

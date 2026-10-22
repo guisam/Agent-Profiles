@@ -1,14 +1,14 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
-import { createStamp, verifyStamp } from "../src/stamps.js";
-import { lookupPackage } from "../src/package-store.js";
-import { installDependencies } from "../src/package-lock.js";
 import { verifyMaterialization } from "../src/materialize.js";
+import { installDependencies } from "../src/package-lock.js";
+import { lookupPackage } from "../src/package-store.js";
+import { createStamp, verifyStamp } from "../src/stamps.js";
 
 const CLI_WORKER = fileURLToPath(
 	new URL("./fixtures/issue-20/package-cli-worker.mjs", import.meta.url),
@@ -37,7 +37,7 @@ function tree(root) {
 			return [
 				p,
 				stat.isSymbolicLink()
-					? "link:" + fs.readlinkSync(file)
+					? `link:${fs.readlinkSync(file)}`
 					: stat.isDirectory()
 						? "directory"
 						: fs.readFileSync(file).toString("hex"),
@@ -276,7 +276,7 @@ test("F01 valid stamp exports normally to an ordinary fake-HOME archive", (t) =>
 
 // Portable root-unavailable model, NOT native missing-drive qualification. Only
 // ancestor lstat results are replaced; parent evidence separately confirms Windows.
-const rootUnavailable = String.raw`
+const rootUnavailable = `
   import assert from 'node:assert/strict';
   import fs from 'node:fs';
   import path from 'node:path';
@@ -404,7 +404,7 @@ test("F03 install accepts an ordinary missing child beneath an existing ancestor
 		"zero-pin installation need not create the store",
 	);
 	assert.deepEqual(
-		tree(f.dir).filter(([p]) => p !== "project/" + lockPath),
+		tree(f.dir).filter(([p]) => p !== `project/${lockPath}`),
 		before,
 		"only the expected empty lock was added",
 	);

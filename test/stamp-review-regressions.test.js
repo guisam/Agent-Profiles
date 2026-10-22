@@ -1,12 +1,12 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { createHash } from "node:crypto";
-import { syncBuiltinESMExports } from "node:module";
+import test from "node:test";
 import { resolveInstructions } from "../src/resolve.js";
-import { createStamp, verifyStamp, reconstructStamp } from "../src/stamps.js";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
 
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const compare = (a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b));

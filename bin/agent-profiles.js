@@ -1,8 +1,16 @@
 #!/usr/bin/env node
-import { parseArgs } from "node:util";
-import { createInterface } from "node:readline/promises";
 import { realpathSync } from "node:fs";
 import { stdin, stdout } from "node:process";
+import { createInterface } from "node:readline/promises";
+import { parseArgs } from "node:util";
+import { readConfiguration } from "../src/configure.js";
+import {
+	formatContext,
+	formatProof,
+	resolutionOutput,
+} from "../src/diagnostics.js";
+import { defaultUserRoots } from "../src/external-skills.js";
+import { formatInventory, inspectRepository } from "../src/inspect.js";
 import {
 	detectAgents,
 	doctor,
@@ -11,41 +19,33 @@ import {
 	installPackage,
 	uninstall,
 } from "../src/install.js";
-import { configureRoles, display as displayText } from "../src/wizard.js";
-import { readConfiguration } from "../src/configure.js";
-import { discoverSkills } from "../src/skills.js";
-import { defaultUserRoots } from "../src/external-skills.js";
 import { integrations } from "../src/integrations.js";
-import { runPreset } from "../src/preset-wizard.js";
-import { resolveInstructions } from "../src/resolve.js";
-import {
-	formatContext,
-	formatProof,
-	resolutionOutput,
-} from "../src/diagnostics.js";
-import { startVisualizer } from "../src/visualize.js";
-import { inspectRepository, formatInventory } from "../src/inspect.js";
-import { readPackage } from "../src/packages.js";
-import { importPackage, rootPath } from "../src/package-store.js";
-import { installDependencies } from "../src/package-lock.js";
-import { createStamp, verifyStamp, diffStamps } from "../src/stamps.js";
 import { materializeStamp } from "../src/materialize.js";
 import {
-	startMigration,
-	migrationStatus,
 	abandonMigration,
-	proposeMigration,
-	migrationProposals,
 	acceptMigrationProposal,
-	rejectMigrationProposal,
-	publishMigrationCandidate,
-	planMigrationEvaluation,
+	applyMigrationPromotion,
 	importMigrationEvaluationResults,
 	migrationEvaluationReport,
+	migrationProposals,
+	migrationStatus,
+	planMigrationEvaluation,
 	previewMigrationPromotion,
-	applyMigrationPromotion,
+	proposeMigration,
+	publishMigrationCandidate,
+	rejectMigrationProposal,
+	startMigration,
 } from "../src/migrations.js";
+import { installDependencies } from "../src/package-lock.js";
+import { importPackage, rootPath } from "../src/package-store.js";
+import { readPackage } from "../src/packages.js";
+import { runPreset } from "../src/preset-wizard.js";
+import { resolveInstructions } from "../src/resolve.js";
 import { retainRevisionManifest } from "../src/revisions.js";
+import { discoverSkills } from "../src/skills.js";
+import { createStamp, diffStamps, verifyStamp } from "../src/stamps.js";
+import { startVisualizer } from "../src/visualize.js";
+import { configureRoles, display as displayText } from "../src/wizard.js";
 
 const agentChoices = integrations.map((adapter) => adapter.id).join(", ");
 const display = (text) => displayText(text).replace(/[\x80-\x9f]/g, " ");

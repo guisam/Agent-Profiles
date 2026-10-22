@@ -1,24 +1,24 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { createHash } from "node:crypto";
-import { syncBuiltinESMExports } from "node:module";
 import childProcess from "node:child_process";
-import net from "node:net";
-import tls from "node:tls";
+import { createHash } from "node:crypto";
+import dns from "node:dns";
+import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";
-import dns from "node:dns";
-import {
-	readPackage,
-	hashTree,
-	hashRecord,
-	canonicalJSON,
-} from "../src/packages.js";
+import { syncBuiltinESMExports } from "node:module";
+import net from "node:net";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import tls from "node:tls";
+import { fileURLToPath } from "node:url";
 import { importPackage, lookupPackage } from "../src/package-store.js";
+import {
+	canonicalJSON,
+	hashRecord,
+	hashTree,
+	readPackage,
+} from "../src/packages.js";
 import { parseYaml, resolveInstructions } from "../src/resolve.js";
 
 // P5a tests only: the accepted seam has no required return shape or helper exports.
@@ -55,9 +55,9 @@ function json(value) {
 					const n = c.codePointAt(0);
 					assert.ok(n < 0xd800 || n > 0xdfff, "unpaired surrogate");
 					return n < 32
-						? "\\u" + n.toString(16).padStart(4, "0")
+						? `\\u${n.toString(16).padStart(4, "0")}`
 						: c === '"' || c === "\\"
-							? "\\" + c
+							? `\\${c}`
 							: c;
 				})
 				.join("") +
@@ -68,13 +68,13 @@ function json(value) {
 		assert.ok(Number.isSafeInteger(value) && !Object.is(value, -0));
 		return String(value);
 	}
-	if (Array.isArray(value)) return "[" + value.map(json).join(",") + "]";
+	if (Array.isArray(value)) return `[${value.map(json).join(",")}]`;
 	assert.equal(Object.getPrototypeOf(value), Object.prototype);
 	return (
 		"{" +
 		Object.keys(value)
 			.sort(byteOrder)
-			.map((k) => json(k) + ":" + json(value[k]))
+			.map((k) => `${json(k)}:${json(value[k])}`)
 			.join(",") +
 		"}"
 	);
@@ -236,9 +236,11 @@ function makePackage(root, id, version, type) {
 		{
 			path: "ENTRY.md",
 			bytes: Buffer.from(
-				(type === "skill"
-					? `---\ndescription: Fixture ${id}.\n---\n`
-					: "\ufeff") + `${id} ${version}\r\n\r\n`,
+				`${
+					type === "skill"
+						? `---\ndescription: Fixture ${id}.\n---\n`
+						: "\ufeff"
+				}${id} ${version}\r\n\r\n`,
 			),
 		},
 		{
@@ -562,7 +564,7 @@ test("P5a golden coverage oracle rejects each missing and foreign member", (t) =
 test("P5a independent config oracle preserves lists and ignores formatting and map order", (t) => {
 	const f = fixture(t, { cached: true });
 	const parsed = plain(
-		parseYaml("# comment\n" + JSON.stringify(f.config, null, 4)),
+		parseYaml(`# comment\n${JSON.stringify(f.config, null, 4)}`),
 	);
 	assert.deepEqual(parsed, f.config);
 	const reversed = Object.fromEntries(Object.entries(parsed).reverse());
@@ -1168,8 +1170,8 @@ const rawChanges = [
 		(s) => s.replace('"lockVersion":1', '"lockVersion":-0'),
 		/zero|lockVersion|integer/i,
 	],
-	["trailing bytes", (s) => s + "{}", /JSON|record|trailing|unexpected/i],
-	["BOM", (s) => "\ufeff" + s, /BOM|JSON|record/i],
+	["trailing bytes", (s) => `${s}{}`, /JSON|record|trailing|unexpected/i],
+	["BOM", (s) => `\ufeff${s}`, /BOM|JSON|record/i],
 	["null root", () => "null", /lock|record|mapping|object/i],
 	["array root", () => "[]", /lock|record|mapping|object/i],
 	[
@@ -1398,7 +1400,7 @@ for (const key of ["profiles", "skills", "assignments"])
 			(c) => {
 				c[key] = value;
 			},
-			new RegExp(key + ".*mapping", "i"),
+			new RegExp(`${key}.*mapping`, "i"),
 		]);
 	}
 for (const [name, change, diagnostic] of invalidConfigurations)
@@ -1428,7 +1430,7 @@ installTest(
 		write(
 			f.root,
 			configPath,
-			"# formatting only\n" + JSON.stringify(reverse(f.config), null, 4) + "\n",
+			`# formatting only\n${JSON.stringify(reverse(f.config), null, 4)}\n`,
 		);
 		const before = fingerprint(f.owned);
 		await invoke(f, { frozen: true });
@@ -1452,85 +1454,85 @@ installTest(
 );
 
 const sourceChanges = [
-	["duplicate equal source", (f, s) => s.push(copy(s[0])), /duplicate/i],
+	["duplicate equal source", (_f, s) => s.push(copy(s[0])), /duplicate/i],
 	[
 		"foreign identity",
-		(f, s) => s.push({ ...s[0], name: "@fixture/foreign" }),
+		(_f, s) => s.push({ ...s[0], name: "@fixture/foreign" }),
 		/foreign|undeclared|coverage/i,
 	],
 	[
 		"unknown key",
-		(f, s) => {
+		(_f, s) => {
 			s[1].extra = true;
 		},
 		/extra|unknown/i,
 	],
 	[
 		"missing name",
-		(f, s) => {
+		(_f, s) => {
 			delete s[1].name;
 		},
 		/name/i,
 	],
 	[
 		"missing version",
-		(f, s) => {
+		(_f, s) => {
 			delete s[1].version;
 		},
 		/version/i,
 	],
 	[
 		"missing directory",
-		(f, s) => {
+		(_f, s) => {
 			delete s[1].directory;
 		},
 		/directory/i,
 	],
 	[
 		"blank directory",
-		(f, s) => {
+		(_f, s) => {
 			s[1].directory = " ";
 		},
 		/directory|local|path/i,
 	],
 	[
 		"nonstring directory",
-		(f, s) => {
+		(_f, s) => {
 			s[1].directory = 42;
 		},
 		/directory|local|path/i,
 	],
 	[
 		"range version",
-		(f, s) => {
+		(_f, s) => {
 			s[1].version = "^2.0.0";
 		},
 		/version/i,
 	],
 	[
 		"URL directory",
-		(f, s) => {
+		(_f, s) => {
 			s[1].directory = "https://invalid.example/fixture";
 		},
 		/remote-acquisition-unsupported|nonlocal|local.*path/i,
 	],
 	[
 		"UNC directory",
-		(f, s) => {
+		(_f, s) => {
 			s[1].directory = "//invalid.example/share/pkg";
 		},
 		/remote-acquisition-unsupported|nonlocal|local.*path/i,
 	],
 	[
 		"traversal directory",
-		(f, s) => {
+		(_f, s) => {
 			s[1].directory = "../outside";
 		},
 		/traversal|outside|boundary|unsafe/i,
 	],
 	[
 		"identity mismatch",
-		(f, s) => {
+		(_f, s) => {
 			s[1].directory = s[0].directory;
 		},
 		/mismatched-package|identity.*mismatch|manifest.*match/i,
@@ -2243,7 +2245,7 @@ for (const mutate of [false, true])
 		const f = fixture(t),
 			before = fingerprint(f.root, [configPath]);
 		const original = fs.renameSync,
-			edited = Buffer.from("# user comment\n" + JSON.stringify(f.config));
+			edited = Buffer.from(`# user comment\n${JSON.stringify(f.config)}`);
 		let fired = 0;
 		const watch = finalizationIO(t, f, (e) => {
 			if (e.publication && e.phase === "after" && !fired) {
@@ -2367,7 +2369,7 @@ for (const frozen of [false, true])
 				lock.packages[0].source = { type: "provided" };
 				const bytes = Buffer.from(
 					edited === configPath
-						? "# concurrent user edit\n" + JSON.stringify(config, null, 2)
+						? `# concurrent user edit\n${JSON.stringify(config, null, 2)}`
 						: json(lock),
 				);
 				let boundary = 0,

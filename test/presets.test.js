@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
-import { syncBuiltinESMExports } from "node:module";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
+import { applyRoleChange, planRoleChange } from "../src/configure.js";
+import { runPreset } from "../src/preset-wizard.js";
 import {
 	applyPresetExport,
 	applyPresetImport,
@@ -14,9 +16,7 @@ import {
 	planPresetImport,
 	readPreset,
 } from "../src/presets.js";
-import { runPreset } from "../src/preset-wizard.js";
 import { resolveInstructions } from "../src/resolve.js";
-import { applyRoleChange, planRoleChange } from "../src/configure.js";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 const metadata = {

@@ -1,29 +1,29 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import vm from "node:vm";
-import { createHash } from "node:crypto";
-import { spawnSync } from "node:child_process";
-import { syncBuiltinESMExports } from "node:module";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
+import vm from "node:vm";
 import { stringify } from "yaml";
-import { resolveInstructions } from "../src/resolve.js";
-import { importPackage, lookupPackage } from "../src/package-store.js";
-import { installDependencies } from "../src/package-lock.js";
 import { applyRoleChange, planRoleChange } from "../src/configure.js";
+import { inspectRepository } from "../src/inspect.js";
+import { doctor } from "../src/install.js";
+import { installDependencies } from "../src/package-lock.js";
+import { importPackage, lookupPackage } from "../src/package-store.js";
+import { runPreset } from "../src/preset-wizard.js";
 import {
 	applyPresetExport,
 	applyPresetImport,
 	planPresetExport,
 	planPresetImport,
 } from "../src/presets.js";
-import { configureRoles } from "../src/wizard.js";
-import { runPreset } from "../src/preset-wizard.js";
-import { doctor } from "../src/install.js";
-import { inspectRepository } from "../src/inspect.js";
+import { resolveInstructions } from "../src/resolve.js";
 import { startVisualizer } from "../src/visualize.js";
+import { configureRoles } from "../src/wizard.js";
 
 // P5b RED (contract section 6 "Resolver lock modes and store-root propagation", test map C10-C12/C20-C22):
 // public selection defaults to lockMode "required"; configure/preset internals use "validation".
@@ -633,7 +633,7 @@ test("P5B-R05 public required resolve refuses explicit store bytes that differ f
 // ---- 2. internal validation mode ----
 
 const validationStates = [
-	["valid lock", (f) => {}, "valid", false, "2.0.0"],
+	["valid lock", (_f) => {}, "valid", false, "2.0.0"],
 	[
 		"missing lock",
 		(f) => fs.rmSync(path.join(f.root, LOCK)),

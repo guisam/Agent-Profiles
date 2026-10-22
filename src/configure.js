@@ -2,7 +2,6 @@ import { existsSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { isNode, visit } from "yaml";
 import { applyChanges, readLocal, safePath } from "./files.js";
-import { validateSkillSelection } from "./skills.js";
 import {
 	identifier,
 	localFile,
@@ -11,6 +10,7 @@ import {
 	resolveInstructions,
 	skillMetadata,
 } from "./resolve.js";
+import { validateSkillSelection } from "./skills.js";
 
 const configFile = ".agent-profiles/agents.yaml";
 
@@ -273,7 +273,7 @@ export function planRoleChange({
 	// Keep comments and unrelated YAML nodes; retain the original newline style and BOM.
 	let text = document.toString({ lineWidth: 0 });
 	if (before.includes(Buffer.from("\r\n"))) text = text.replace(/\n/g, "\r\n");
-	if (before.toString("utf8").startsWith("\uFEFF")) text = "\uFEFF" + text;
+	if (before.toString("utf8").startsWith("\uFEFF")) text = `\uFEFF${text}`;
 	if (!before.toString("utf8").endsWith("\n"))
 		text = text.replace(/\r?\n$/, "");
 	const proposed = parseYaml(text);

@@ -2,13 +2,13 @@ import { createHash } from "node:crypto";
 import { lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { isAlias, isScalar, parseDocument, visit } from "yaml";
+import { integrations } from "./integrations.js";
 import {
 	mapping,
 	parseYaml,
 	parseYamlDocument,
 	skillMetadata,
 } from "./resolve.js";
-import { integrations } from "./integrations.js";
 
 function fail(location, message) {
 	throw new Error(`${location}: ${message}`);
@@ -402,7 +402,7 @@ function canonicalRecord(value, evaluation) {
 						return descriptor.value;
 					})
 				: item;
-			result = "[" + Array.from(values, encode).join(",") + "]";
+			result = `[${Array.from(values, encode).join(",")}]`;
 		} else {
 			if (Reflect.ownKeys(item).length !== Object.keys(item).length)
 				fail("record", "expected enumerable string keys");
@@ -416,7 +416,7 @@ function canonicalRecord(value, evaluation) {
 						const descriptor = Object.getOwnPropertyDescriptor(item, key);
 						if (!Object.hasOwn(descriptor, "value"))
 							fail("record", "accessor properties are not JSON data");
-						return string(key) + ":" + encode(descriptor.value);
+						return `${string(key)}:${encode(descriptor.value)}`;
 					})
 					.join(",") +
 				"}";

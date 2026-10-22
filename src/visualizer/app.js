@@ -116,7 +116,7 @@ function render(result) {
 		`${managed.total.characters.toLocaleString("en-US")} characters · ${managed.total.files} instruction entries`;
 	byId("available-total").textContent = bytes(availableNotLoaded.bytes);
 	byId("routing").textContent =
-		`${result.model ?? "Unspecified model"} → ${result.profile} (matched by ${result.matchedBy}${result.matchedBy.startsWith("family") ? ": " + result.family : result.matchedBy === "alias" ? " of " + result.identity.canonical : ""}) · Role: ${result.role}`;
+		`${result.model ?? "Unspecified model"} → ${result.profile} (matched by ${result.matchedBy}${result.matchedBy.startsWith("family") ? `: ${result.family}` : result.matchedBy === "alias" ? ` of ${result.identity.canonical}` : ""}) · Role: ${result.role}`;
 	const layers = byId("layers");
 	layers.replaceChildren();
 	for (const kind of ["profile", "role"]) {

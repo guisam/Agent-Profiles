@@ -1,14 +1,14 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
+import { migrationProposals, proposeMigration } from "../src/migrations.js";
 import { installDependencies } from "../src/package-lock.js";
 import { createStamp, reconstructStamp } from "../src/stamps.js";
-import { proposeMigration, migrationProposals } from "../src/migrations.js";
 
 const cli = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));
 const instruction = "local/.agent-profiles/roles/reviewer.md";

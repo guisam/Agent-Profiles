@@ -8,6 +8,18 @@ import {
 	rmSync,
 } from "node:fs";
 import path from "node:path";
+import { integrations } from "./integrations.js";
+import {
+	publish,
+	readStoreFile,
+	rootPath,
+	safePath,
+	sameStat,
+	statOrNull,
+	storeRoot,
+	verifyObject,
+	writeFlushed,
+} from "./package-store.js";
 import {
 	canonicalJSON,
 	hashRecord,
@@ -18,23 +30,11 @@ import {
 import {
 	identifier,
 	parseYaml,
-	resolveCapture,
 	resolveCandidateCapture,
+	resolveCapture,
 	skillMetadata,
 	validatePackageBindings,
 } from "./resolve.js";
-import { integrations } from "./integrations.js";
-import {
-	rootPath,
-	storeRoot,
-	safePath,
-	statOrNull,
-	sameStat,
-	readStoreFile,
-	writeFlushed,
-	verifyObject,
-	publish,
-} from "./package-store.js";
 
 import { readRevisionRecord } from "./revisions.js";
 
@@ -238,7 +238,9 @@ function validateObservations(s, skills, packages) {
 			fail("hostReferences", "native association/backing/order mismatch");
 		list(e.supportedHosts, "supportedHosts");
 		unique(e.supportedHosts, "supportedHosts");
-		e.supportedHosts.forEach((v) => host(v));
+		e.supportedHosts.forEach((v) => {
+			host(v);
+		});
 		if (e.scope === "package") {
 			if (
 				!skill.package ||
@@ -394,7 +396,9 @@ function validateSnapshot2(s) {
 		"workflowActors",
 	])
 		list(s[name], name);
-	s.requested.forEach((value) => identifier(value, "requested"));
+	s.requested.forEach((value) => {
+		identifier(value, "requested");
+	});
 	unique(s.requested, "requested");
 	const packages = new Map();
 	for (const p of s.packages) {
@@ -412,7 +416,9 @@ function validateSnapshot2(s) {
 			list(p.behavior[name], name);
 			unique(p.behavior[name], name);
 		}
-		p.behavior.hosts.forEach((value) => host(value));
+		p.behavior.hosts.forEach((value) => {
+			host(value);
+		});
 		if (
 			!["native", "instruction"].includes(p.behavior.delivery) ||
 			(p.behavior.delivery === "native") !== p.behavior.hosts.length > 0 ||
@@ -675,7 +681,9 @@ function validateSnapshot1(s) {
 		"hostReferences",
 	])
 		list(s[k], k);
-	s.requested.forEach((v) => identifier(v, "requested"));
+	s.requested.forEach((v) => {
+		identifier(v, "requested");
+	});
 	unique(s.requested, "requested");
 	const packages = new Map();
 	for (const p of s.packages) {
@@ -688,7 +696,9 @@ function validateSnapshot1(s) {
 			list(p.behavior[k], `behavior.${k}`);
 			unique(p.behavior[k], `behavior.${k}`);
 		}
-		p.behavior.hosts.forEach((v) => host(v));
+		p.behavior.hosts.forEach((v) => {
+			host(v);
+		});
 		if (
 			p.behavior.effects.some(
 				(v) =>
@@ -817,8 +827,7 @@ function validateSnapshot1(s) {
 		} else {
 			const skill = skills.get(e.id);
 			if (
-				!skill ||
-				skill.type !== "instruction" ||
+				skill?.type !== "instruction" ||
 				!equal(e, {
 					kind: e.kind,
 					id: skill.id,

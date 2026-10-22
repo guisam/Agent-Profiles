@@ -265,15 +265,15 @@ export function readStoreFile(root, relative) {
 }
 
 export {
-	rootPath,
-	storeRoot,
-	safePath,
-	statOrNull,
-	sameStat,
-	writeFlushed,
-	verifyObject,
 	publish,
 	readTree,
+	rootPath,
+	safePath,
+	sameStat,
+	statOrNull,
+	storeRoot,
+	verifyObject,
+	writeFlushed,
 };
 
 function readTree(root, copy = undefined, onFirst = undefined) {

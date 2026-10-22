@@ -2,13 +2,6 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, mkdtempSync, renameSync, rmSync } from "node:fs";
 import path from "node:path";
 import {
-	canonicalJSON,
-	hashRecord,
-	parseManifest,
-	parseRecord,
-	validateMembers,
-} from "./packages.js";
-import {
 	candidateReservation,
 	encodeComponent,
 	lookupPackage,
@@ -21,6 +14,13 @@ import {
 	verifyObject,
 	writeFlushed,
 } from "./package-store.js";
+import {
+	canonicalJSON,
+	hashRecord,
+	parseManifest,
+	parseRecord,
+	validateMembers,
+} from "./packages.js";
 
 const domain = "agent-profiles/revision/v1";
 const digestPattern = /^[0-9a-f]{64}$/;

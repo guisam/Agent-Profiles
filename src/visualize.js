@@ -1,9 +1,9 @@
-import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { readConfiguration } from "./configure.js";
-import { resolveInstructions } from "./resolve.js";
 import { resolutionOutput } from "./diagnostics.js";
+import { resolveInstructions } from "./resolve.js";
 
 // Only these package assets are served; repository paths never become HTTP paths.
 const assets = new Map([

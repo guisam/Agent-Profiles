@@ -1,13 +1,13 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import * as resolver from "../src/resolve.js";
-import { readPackage } from "../src/packages.js";
-import { importPackage } from "../src/package-store.js";
-import { installDependencies } from "../src/package-lock.js";
+import test from "node:test";
 import { readConfiguration } from "../src/configure.js";
+import { installDependencies } from "../src/package-lock.js";
+import { importPackage } from "../src/package-store.js";
+import { readPackage } from "../src/packages.js";
+import * as resolver from "../src/resolve.js";
 
 function fixture(t) {
 	const owned = fs.mkdtempSync(

@@ -1,7 +1,5 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { configureRoles, display, selectSkills } from "./wizard.js";
-import { resolveInstructions } from "./resolve.js";
 import {
 	applyPresetExport,
 	applyPresetImport,
@@ -10,6 +8,8 @@ import {
 	planPresetImport,
 	readPreset,
 } from "./presets.js";
+import { resolveInstructions } from "./resolve.js";
+import { configureRoles, display, selectSkills } from "./wizard.js";
 
 async function choose(ids, label, ask, write) {
 	if (!ids.length) return [];
@@ -118,7 +118,9 @@ export async function runPreset({
 			});
 			[...result.required, ...result.available]
 				.filter((skill) => skill.type === "instruction")
-				.forEach((skill) => skills.add(skill.id));
+				.forEach((skill) => {
+					skills.add(skill.id);
+				});
 		}
 		write(
 			"Host-native skills remain references. Selected instruction skills will be bundled as Markdown. Unselected instruction skills become required local dependencies. Referenced supporting assets are not copied.",

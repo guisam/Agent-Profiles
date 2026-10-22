@@ -1,7 +1,7 @@
 // Child-only native interception. Default --test discovery has no request and no effects.
 import fs from "node:fs";
-import path from "node:path";
 import { syncBuiltinESMExports } from "node:module";
+import path from "node:path";
 
 if (process.argv[2] !== undefined) {
 	const q = JSON.parse(process.argv[2]);
@@ -57,7 +57,7 @@ if (process.argv[2] !== undefined) {
 	function hold(phase) {
 		phases.push(phase);
 		if (phase !== q.barrier?.phase) return;
-		const pending = q.barrier.marker + ".pending";
+		const pending = `${q.barrier.marker}.pending`;
 		original.writeFileSync(pending, phase);
 		original.renameSync(pending, q.barrier.marker);
 		const wait = new Int32Array(new SharedArrayBuffer(4));
@@ -242,6 +242,6 @@ if (process.argv[2] !== undefined) {
 		};
 	}
 	process.stdout.write(
-		JSON.stringify({ ...result, counts, phases, committed, stage }) + "\n",
+		`${JSON.stringify({ ...result, counts, phases, committed, stage })}\n`,
 	);
 }

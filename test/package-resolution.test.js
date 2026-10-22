@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
-import test, { after } from "node:test";
 import { createHash } from "node:crypto";
 import {
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
-	readFileSync,
 	readdirSync,
+	readFileSync,
 	realpathSync,
 	rmSync,
 	statSync,
@@ -14,11 +13,12 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import test, { after } from "node:test";
 import { stringify } from "yaml";
-import { resolveInstructions } from "../src/resolve.js";
+import { integrations } from "../src/integrations.js";
 import { importPackage, lookupPackage } from "../src/package-store.js";
 import { readPackage } from "../src/packages.js";
-import { integrations } from "../src/integrations.js";
+import { resolveInstructions } from "../src/resolve.js";
 
 // P4 slice 1 (docs/development/issue-20-p4-handoff.md sections 4, 5, 8): resolver only.
 // Seam B1 (parent-accepted): resolveInstructions({..., storeRoot, lockMode: 'validation'}) verifies EVERY

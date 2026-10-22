@@ -1,26 +1,26 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { syncBuiltinESMExports } from "node:module";
 import { stringify } from "yaml";
+import * as migrations from "../src/migrations.js";
+import { installDependencies } from "../src/package-lock.js";
+import { importPackage } from "../src/package-store.js";
 import {
 	canonicalEvaluationJSON as canonicalJSON,
 	hashEvaluationRecord as hashRecord,
 	readPackage,
 } from "../src/packages.js";
-import { importPackage } from "../src/package-store.js";
-import {
-	retainRevisionManifest,
-	readRevisionRecord,
-} from "../src/revisions.js";
-import { installDependencies } from "../src/package-lock.js";
 import { resolveInstructions } from "../src/resolve.js";
-import { createStamp, verifyStamp, reconstructStamp } from "../src/stamps.js";
-import * as migrations from "../src/migrations.js";
+import {
+	readRevisionRecord,
+	retainRevisionManifest,
+} from "../src/revisions.js";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
 
 const requiredExports = [
 	"planMigrationEvaluation",
@@ -196,7 +196,7 @@ function fixture(t) {
 	const base = createStamp(input),
 		workspace = path.join(root, migration.workspace),
 		tree = path.join(workspace, "packages", reviewer.sha256);
-	const after = reviewer.task + "Check stale evidence before reporting.\r\n",
+	const after = `${reviewer.task}Check stale evidence before reporting.\r\n`,
 		proposalFile = path.join(dir, "proposal.json");
 	put(
 		proposalFile,
@@ -1456,8 +1456,8 @@ evidenceTest(
 	},
 );
 
-import { readStoreFile } from "../src/package-store.js";
 import * as observerFs from "node:fs";
+import { readStoreFile } from "../src/package-store.js";
 
 test("observer control: safe-reader post-close edit returns original bytes and restores synchronized methods", (t) => {
 	const dir = fs.realpathSync(

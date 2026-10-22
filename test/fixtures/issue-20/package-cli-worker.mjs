@@ -1,14 +1,15 @@
 // Child-only native interception, following materialize-worker.mjs. Discovery is inert.
-import fs from "node:fs";
-import path from "node:path";
-import os from "node:os";
+
 import childProcess from "node:child_process";
+import dns from "node:dns";
+import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";
-import net from "node:net";
-import tls from "node:tls";
-import dns from "node:dns";
 import { syncBuiltinESMExports } from "node:module";
+import net from "node:net";
+import os from "node:os";
+import path from "node:path";
+import tls from "node:tls";
 
 if (process.argv[2] !== undefined) {
 	const q = JSON.parse(process.argv[2]);
@@ -128,7 +129,7 @@ if (process.argv[2] !== undefined) {
 		[globalThis, ["fetch"]],
 	])
 		for (const name of names) target[name] = denied(name);
-	net.Server.prototype.listen = function () {
+	net.Server.prototype.listen = () => {
 		counts.listen++;
 		throw new Error(
 			"owned-listen-stop: resolver preflight reached native listener",

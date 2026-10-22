@@ -9,23 +9,23 @@ import {
 } from "node:fs";
 import path from "node:path";
 import {
+	encodeComponent,
+	publish,
+	readStoreFile,
+	rootPath,
+	safePath,
+	sameStat,
+	statOrNull,
+	storeRoot,
+	writeFlushed,
+} from "./package-store.js";
+import {
 	canonicalJSON,
 	hashRecord,
 	hashTree,
 	parseRecord,
 	validateMembers,
 } from "./packages.js";
-import {
-	encodeComponent,
-	rootPath,
-	storeRoot,
-	safePath,
-	statOrNull,
-	sameStat,
-	readStoreFile,
-	writeFlushed,
-	publish,
-} from "./package-store.js";
 import { reconstructStamp } from "./stamps.js";
 
 const PLAN_DOMAIN = "agent-profiles/materialization-plan/v1";

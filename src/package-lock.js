@@ -17,17 +17,17 @@ import os from "node:os";
 import path from "node:path";
 import { safePath } from "./files.js";
 import {
+	candidateReservation,
+	importPackage,
+	lookupPackage,
+} from "./package-store.js";
+import {
 	canonicalJSON,
 	hashRecord,
 	parseRecord,
 	readPackage,
 	validateMembers,
 } from "./packages.js";
-import {
-	candidateReservation,
-	importPackage,
-	lookupPackage,
-} from "./package-store.js";
 import {
 	identifier,
 	packageReferences,

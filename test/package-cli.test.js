@@ -1,31 +1,31 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { createHash } from "node:crypto";
-import { spawn, spawnSync } from "node:child_process";
+import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import { readPackage } from "../src/packages.js";
-import { importPackage, lookupPackage } from "../src/package-store.js";
-import { installDependencies } from "../src/package-lock.js";
-import { resolveInstructions } from "../src/resolve.js";
-import { resolutionOutput, formatContext } from "../src/diagnostics.js";
-import { install, doctor } from "../src/install.js";
-import { configureRoles } from "../src/wizard.js";
 import { readConfiguration } from "../src/configure.js";
-import { discoverSkills } from "../src/skills.js";
+import { formatContext, resolutionOutput } from "../src/diagnostics.js";
 import { inspectRepository } from "../src/inspect.js";
+import { doctor, install } from "../src/install.js";
+import * as materializer from "../src/materialize.js";
+import { installDependencies } from "../src/package-lock.js";
+import { importPackage, lookupPackage } from "../src/package-store.js";
+import { readPackage } from "../src/packages.js";
 import { runPreset } from "../src/preset-wizard.js";
+import { resolveInstructions } from "../src/resolve.js";
+import { discoverSkills } from "../src/skills.js";
 import {
 	createStamp,
-	verifyStamp,
 	diffStamps,
 	reconstructStamp,
+	verifyStamp,
 } from "../src/stamps.js";
-import * as materializer from "../src/materialize.js";
+import { configureRoles } from "../src/wizard.js";
 
 // P9a RED only. No missing-CLI skip: native CLI assertions must expose actual dispatch failures.
 // Only the new digest-to-export API body is skipped when its exact export is absent.
@@ -72,13 +72,13 @@ const u64 = (n) => {
 const recordHash = (value, domain) => {
 	const bytes = Buffer.from(canonical(value));
 	return sha(
-		Buffer.concat([Buffer.from(domain + "\0"), u64(bytes.length), bytes]),
+		Buffer.concat([Buffer.from(`${domain}\0`), u64(bytes.length), bytes]),
 	);
 };
 function treeHash(files, domain = "agent-profiles/package-tree/v1") {
 	return sha(
 		Buffer.concat([
-			Buffer.from(domain + "\0"),
+			Buffer.from(`${domain}\0`),
 			u64(files.length),
 			...[...files]
 				.sort((a, b) => cmp(a.path, b.path))
@@ -117,7 +117,7 @@ function fingerprint(root, exclude = []) {
 			return [
 				p,
 				stat.isSymbolicLink()
-					? "link:" + fs.readlinkSync(full)
+					? `link:${fs.readlinkSync(full)}`
 					: stat.isDirectory()
 						? "directory"
 						: sha(fs.readFileSync(full)),
@@ -332,16 +332,16 @@ function child(f, argv, options = {}) {
 child.id = 0;
 function success(r, label) {
 	assert.equal(r.status, 0, `${label}: ${r.stderr}\n${r.stdout}`);
-	assert.equal(r.stderr, "", label + ": no stderr");
+	assert.equal(r.stderr, "", `${label}: no stderr`);
 	assert.deepEqual(
 		r.counts.dispatch,
 		[],
-		label + ": no acquisition/native dispatch",
+		`${label}: no acquisition/native dispatch`,
 	);
 	assert.doesNotMatch(
 		r.stdout,
 		/^Agent Profiles\r?\nRepository:/,
-		label + ": no banner",
+		`${label}: no banner`,
 	);
 	return JSON.parse(r.stdout);
 }
@@ -408,7 +408,7 @@ function golden(f, stamp, index = 0) {
 	};
 	const blob = (output, source, binding, bytes) =>
 		row(
-			"content/" + output,
+			`content/${output}`,
 			{ type: "blob", path: source, sha256: sha(bytes), bytes: bytes.length },
 			binding,
 			bytes,
@@ -475,7 +475,7 @@ function exactOutput(f, stamp, destination, index = 0) {
 	assert.deepEqual(
 		files(destination),
 		[
-			...g.content.map((m) => ({ path: "content/" + m.path, bytes: m.bytes })),
+			...g.content.map((m) => ({ path: `content/${m.path}`, bytes: m.bytes })),
 			{ path: "receipt.json", bytes: Buffer.from(canonical(g.receipt)) },
 		].sort((a, b) => cmp(a.path, b.path)),
 	);
@@ -496,12 +496,12 @@ function expectedDiff(f, before, after) {
 	const add = (p, b) =>
 		rows.push({ path: p, kind: "added", before: null, after: b });
 	for (const p of ["/composition/2", "/required/0"]) {
-		change(p + "/backing/sha256", f.packages[0].digest, f.packages[1].digest);
-		change(p + "/package/selectedBy", "binding-default", "large-review");
-		add(p + "/package/selectors/model", MODELS[1]);
-		add(p + "/package/selectors/role", "reviewer");
-		change(p + "/package/sha256", f.packages[0].digest, f.packages[1].digest);
-		change(p + "/package/version", "1.0.0", "2.0.0");
+		change(`${p}/backing/sha256`, f.packages[0].digest, f.packages[1].digest);
+		change(`${p}/package/selectedBy`, "binding-default", "large-review");
+		add(`${p}/package/selectors/model`, MODELS[1]);
+		add(`${p}/package/selectors/role`, "reviewer");
+		change(`${p}/package/sha256`, f.packages[0].digest, f.packages[1].digest);
+		change(`${p}/package/version`, "1.0.0", "2.0.0");
 	}
 	change("/packages/0/sha256", f.packages[0].digest, f.packages[1].digest);
 	change("/packages/0/version", "1.0.0", "2.0.0");
@@ -542,7 +542,7 @@ test("P9-01 fixture qualification: real two-release routing, finite diff and raw
 			}),
 			g.plan,
 		);
-		const destination = path.join(f.outputRoot, "golden-" + i);
+		const destination = path.join(f.outputRoot, `golden-${i}`);
 		assert.deepEqual(
 			materializer.materialize({
 				plan: g.plan,
@@ -574,7 +574,7 @@ for (const command of [
 		// Existing flags only: current CLI must expose unknown-command RED rather than
 		// hiding every dispatch behind its earlier unknown --store/--source parser error.
 		const admissionArgs = {
-			add: ["add", NAME + "@1.0.0"],
+			add: ["add", `${NAME}@1.0.0`],
 			install: ["install", "--root", f.root, "--json"],
 			stamp: ["stamp", "--root", f.root, "--json"],
 			verify: ["verify", a.digest, "--json"],
@@ -597,7 +597,7 @@ for (const command of [
 			);
 		else
 			assert.deepEqual(
-				success(admission, command + " default-store dispatch"),
+				success(admission, `${command} default-store dispatch`),
 				{
 					install: { lockState: "valid", installRequired: false },
 					stamp: createStamp({ root: f.root, storeRoot: f.storeRoot }),
@@ -609,7 +609,7 @@ for (const command of [
 		const args = {
 			add: [
 				"add",
-				NAME + "@1.0.0",
+				`${NAME}@1.0.0`,
 				"--source",
 				pkg.source,
 				"--store",
@@ -643,7 +643,7 @@ for (const command of [
 		}[command];
 		const result = success(
 			child(f, [...args, "--json"], { cwd: f.dir }),
-			command + " JSON",
+			`${command} JSON`,
 		);
 		assert.deepEqual(result, expected);
 		if (command === "materialize") exactOutput(f, a, target);
@@ -663,7 +663,7 @@ for (const command of [
 				text.stdout.includes(command === "add" ? pkg.digest : a.digest),
 				"full digest in text",
 			);
-		if (command === "add") assert.ok(text.stdout.includes(NAME + "@1.0.0"));
+		if (command === "add") assert.ok(text.stdout.includes(`${NAME}@1.0.0`));
 		if (["verify", "materialize"].includes(command))
 			assert.match(text.stdout, /unverified|unsupported/i);
 	});
@@ -676,7 +676,7 @@ test("P9-02 parser isolation: bounded paired command grammar and no mutation", (
 	const valid = [
 		[
 			"add",
-			NAME + "@1.0.0",
+			`${NAME}@1.0.0`,
 			"--source",
 			f.packages[0].source,
 			"--store",
@@ -689,7 +689,7 @@ test("P9-02 parser isolation: bounded paired command grammar and no mutation", (
 		materializeArgs(f, a.digest, path.join(f.outputRoot, "valid")).slice(0, -1),
 	];
 	for (const args of valid) {
-		success(child(f, [...args, "--json"]), args[0] + " paired syntax control");
+		success(child(f, [...args, "--json"]), `${args[0]} paired syntax control`);
 		for (const [suffix, diagnostic] of [
 			[["extra"], /position|argument|usage|exactly|accepts/i],
 			[["--unknown-p9"], /unknown.*unknown-p9/i],
@@ -729,11 +729,11 @@ test("P9-02 parser isolation: bounded paired command grammar and no mutation", (
 			],
 			/identity|namespace|package|spec/i,
 		],
-		[["add", NAME + "@1.0.0", "--source"], /source|argument/i],
+		[["add", `${NAME}@1.0.0`, "--source"], /source|argument/i],
 		[
 			[
 				"add",
-				NAME + "@1.0.0",
+				`${NAME}@1.0.0`,
 				"--source",
 				f.packages[0].source,
 				"--source",
@@ -796,7 +796,7 @@ test("P9-03 add: publication, identical reuse, support conflict, identity mismat
 	const pkg = f.packages[0];
 	const args = [
 		"add",
-		NAME + "@1.0.0",
+		`${NAME}@1.0.0`,
 		"--source",
 		path.relative(f.dir, pkg.source),
 		"--store",
@@ -825,17 +825,17 @@ test("P9-03 add: publication, identical reuse, support conflict, identity mismat
 	);
 	for (const [spec, source, diagnostic] of [
 		[
-			NAME + "@9.0.0",
+			`${NAME}@9.0.0`,
 			pkg.source,
 			/identity|version.*mismatch|mismatch.*version/i,
 		],
 		[
-			NAME + "@1.0.0",
+			`${NAME}@1.0.0`,
 			"https://invalid.example/pkg",
 			/local|nonlocal|remote|source/i,
 		],
 	]) {
-		const untouchedStore = path.join(f.dir, "refusal-store-" + child.id);
+		const untouchedStore = path.join(f.dir, `refusal-store-${child.id}`);
 		fs.mkdirSync(untouchedStore);
 		const untouched = fingerprint(untouchedStore);
 		refusal(
@@ -869,7 +869,7 @@ test("P9-03 add binds inspected manifest and full-tree digest across native sour
 		f,
 		[
 			"add",
-			NAME + "@1.0.0",
+			`${NAME}@1.0.0`,
 			"--source",
 			pkg.source,
 			"--store",
@@ -931,7 +931,7 @@ test("P9-04 install: all pins, fresh frozen offline triples relative to selected
 		"--source",
 		NAME,
 		p.version,
-		"offline-sources/" + p.version,
+		`offline-sources/${p.version}`,
 	]);
 	const before = fingerprint(f.root);
 	const args = [
@@ -1102,7 +1102,7 @@ test("P9-04 fixture qualification: available pins, safe relative triples and exa
 		sources: f.packages.map((p) => ({
 			name: NAME,
 			version: p.version,
-			directory: "offline-sources/" + p.version,
+			directory: `offline-sources/${p.version}`,
 		})),
 	});
 	assert.deepEqual(fs.readFileSync(lockFile), original);
@@ -1370,9 +1370,9 @@ test("P9-05 init --package safely counts native executable dispatch; dependency 
 // Same bounded literal decoding as package-caller-review-regressions.test.js: no shell evaluation.
 function commandArgs(section, shell) {
 	const command = section.match(
-		new RegExp("Command \\(" + shell + "\\): `([\\s\\S]*?)`(?:\\n|$)"),
+		new RegExp(`Command \\(${shell}\\): \`([\\s\\S]*?)\`(?:\\n|$)`),
 	)?.[1];
-	assert.ok(command, shell + " command exists");
+	assert.ok(command, `${shell} command exists`);
 	const prefix = "npx --no agent-profiles resolve";
 	assert.ok(command.startsWith(prefix));
 	const tail = command.slice(prefix.length),
@@ -1819,9 +1819,9 @@ async function atBarrier(children, markers) {
 }
 async function concurrent(f, stamps) {
 	const releaseFile = path.join(f.dir, "release"),
-		markers = stamps.map((_, i) => path.join(f.dir, "marker-" + i));
+		markers = stamps.map((_, i) => path.join(f.dir, `marker-${i}`));
 	const destinations = stamps.map((_, i) =>
-		path.join(f.outputRoot, "concurrent-" + i),
+		path.join(f.outputRoot, `concurrent-${i}`),
 	);
 	const children = [];
 	try {
@@ -2113,14 +2113,14 @@ test("P9-12 complete offline two-revision CLI workflow with raw bytes, frozen fr
 			success(
 				child(f, [
 					"add",
-					NAME + "@" + p.version,
+					`${NAME}@${p.version}`,
 					"--source",
 					p.source,
 					"--store",
 					f.storeRoot,
 					"--json",
 				]),
-				"workflow add " + p.version,
+				`workflow add ${p.version}`,
 			),
 			{
 				identity: { name: NAME, version: p.version },
@@ -2539,7 +2539,7 @@ description: "Inspect \u001b[31msecurity\u001b[0m boundaries.\u0007\u007f\r\nP9-
 		};
 		f.save();
 		const rawBody = "Intentional instruction bytes: \x1b[35mBODY\x1b[0m\tkeep.";
-		const profile = Buffer.from("# Profile\r\n" + rawBody + "\r\n\r\n");
+		const profile = Buffer.from(`# Profile\r\n${rawBody}\r\n\r\n`);
 		put(path.join(f.root, ".agent-profiles/profiles/base.md"), profile);
 		installDependencies({ root: f.root, storeRoot: f.storeRoot });
 		const resolved = resolveInstructions(f.select());
@@ -2567,7 +2567,7 @@ description: "Inspect \u001b[31msecurity\u001b[0m boundaries.\u0007\u007f\r\nP9-
 			assert.equal(
 				result.status,
 				0,
-				"real resolve text admission: " + result.stderr,
+				`real resolve text admission: ${result.stderr}`,
 			);
 			assert.equal(result.stderr, "");
 			assert.deepEqual(result.counts.dispatch, []);
@@ -2619,9 +2619,7 @@ description: "Inspect \u001b[31msecurity\u001b[0m boundaries.\u0007\u007f\r\nP9-
 				"decoded metadata LF cannot create an injected line",
 			);
 			assert.ok(
-				section.includes(
-					"Package " + NAME + "@1.0.0 (sha256 " + pkg.sha256 + ")",
-				),
+				section.includes(`Package ${NAME}@1.0.0 (sha256 ${pkg.sha256})`),
 				"full verified package identity",
 			);
 			assert.match(section, /Load by binding ID:/);

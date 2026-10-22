@@ -1,18 +1,18 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
-import { syncBuiltinESMExports } from "node:module";
-import { fileURLToPath } from "node:url";
+import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-import { createStamp } from "../src/stamps.js";
+import { fileURLToPath } from "node:url";
 import {
 	planMaterialization,
 	recoverMaterialization,
 	verifyMaterialization,
 } from "../src/materialize.js";
+import { createStamp } from "../src/stamps.js";
 
 const WORKER = fileURLToPath(
 	new URL("./fixtures/issue-20/materialize-worker.mjs", import.meta.url),
@@ -38,7 +38,7 @@ function fingerprint(root) {
 				rows.push([label, "link", ...identity, fs.readlinkSync(file)]);
 			else if (stat.isDirectory()) {
 				rows.push([label, "directory", ...identity]);
-				walk(file, label + "/");
+				walk(file, `${label}/`);
 			} else {
 				assert.equal(stat.isFile(), true, label);
 				rows.push([
@@ -306,7 +306,7 @@ for (const state of ["valid", "damaged-output", "missing-backing"])
 			state === "valid"
 				? before.filter(
 						(row) =>
-							row[0] !== lockLabel && !row[0].startsWith(lockLabel + "/"),
+							row[0] !== lockLabel && !row[0].startsWith(`${lockLabel}/`),
 					)
 				: before;
 		assert.deepEqual(

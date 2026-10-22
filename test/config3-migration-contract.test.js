@@ -1,25 +1,24 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import * as observedFs from "node:fs";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import fs, * as observedFs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { createHash } from "node:crypto";
-import { spawnSync } from "node:child_process";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { syncBuiltinESMExports } from "node:module";
 import { stringify } from "yaml";
-import { readPackage } from "../src/packages.js";
+import { integrations } from "../src/integrations.js";
+import * as migrations from "../src/migrations.js";
+import { installDependencies } from "../src/package-lock.js";
 import { importPackage, lookupPackage } from "../src/package-store.js";
+import { readPackage } from "../src/packages.js";
+import { resolveInstructions } from "../src/resolve.js";
 import {
 	readRevisionRecord,
 	retainRevisionManifest,
 } from "../src/revisions.js";
-import { installDependencies } from "../src/package-lock.js";
-import { resolveInstructions } from "../src/resolve.js";
 import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
-import { integrations } from "../src/integrations.js";
-import * as migrations from "../src/migrations.js";
 
 // The only refusal allowed to block downstream bodies: the existing config3 start guard.
 const GUARD =
@@ -762,7 +761,7 @@ test("config3 start: open primary and collateral reservations are exclusive whil
 		active = selection(f);
 	put(
 		path.join(workspace, "local/.agent-profiles/roles/worker.md"),
-		roleText + "Workspace-only edit.\r\n",
+		`${roleText}Workspace-only edit.\r\n`,
 	);
 	put(path.join(workspace, "local/notes.txt"), "New workspace note.\r\n");
 	const status = migrations.migrationStatus({ root: f.root, id: record.id });
@@ -787,7 +786,7 @@ test("config3 start: role and package proposals use the captured base while role
 		record = startNative(t, { ...f.input, sharing: "fork" });
 	if (!record) return;
 	const roleTarget = "local/.agent-profiles/roles/worker.md",
-		roleAfter = roleText + "Cite the captured base stamp.\r\n";
+		roleAfter = `${roleText}Cite the captured base stamp.\r\n`;
 	const roleProposal = propose(f, record, {
 		classification: "role",
 		target: { path: roleTarget },
@@ -852,7 +851,7 @@ test("config3 start: role and package proposals use the captured base while role
 			proposalVersion: 1,
 			classification: "role",
 			target: { path: roleTarget },
-			change: { before: roleAfter, after: roleAfter + "x\r\n" },
+			change: { before: roleAfter, after: `${roleAfter}x\r\n` },
 			evidence: [
 				{
 					sessionId: "caller-claimed-config3-session",
@@ -1084,7 +1083,7 @@ test("config3 start: abandon preserves accepted and rejected history, candidate 
 	const roleProposal = propose(f, record, {
 		classification: "role",
 		target: { path: "local/.agent-profiles/roles/worker.md" },
-		change: { before: roleText, after: roleText + "Unused.\r\n" },
+		change: { before: roleText, after: `${roleText}Unused.\r\n` },
 	});
 	const rejected = migrations.rejectMigrationProposal({
 		root: f.root,
@@ -1144,7 +1143,7 @@ test("config3 start: abandon preserves accepted and rejected history, candidate 
 			propose(f, record, {
 				classification: "role",
 				target: { path: "local/.agent-profiles/roles/worker.md" },
-				change: { before: roleText, after: roleText + "y\r\n" },
+				change: { before: roleText, after: `${roleText}y\r\n` },
 			}),
 		/not open/,
 	);

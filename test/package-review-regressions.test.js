@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import test from "node:test";
 import {
 	mkdirSync,
 	mkdtempSync,
@@ -8,8 +7,9 @@ import {
 	symlinkSync,
 	writeFileSync,
 } from "node:fs";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
+import test from "node:test";
 import {
 	canonicalJSON,
 	parseManifest,

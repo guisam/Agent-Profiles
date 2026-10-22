@@ -1,15 +1,15 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { syncBuiltinESMExports } from "node:module";
+import test from "node:test";
 import { stringify } from "yaml";
 import * as migrations from "../src/migrations.js";
-import { importPackage, readStoreFile } from "../src/package-store.js";
 import { installDependencies } from "../src/package-lock.js";
-import { createStamp, reconstructStamp } from "../src/stamps.js";
+import { importPackage, readStoreFile } from "../src/package-store.js";
 import { resolveInstructions } from "../src/resolve.js";
+import { createStamp, reconstructStamp } from "../src/stamps.js";
 
 const exports = [
 	"proposeMigration",

@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
-import test, { after } from "node:test";
 import { createHash } from "node:crypto";
 import {
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
-	readFileSync,
 	readdirSync,
+	readFileSync,
 	realpathSync,
 	rmSync,
 	statSync,
@@ -14,23 +13,24 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import test, { after } from "node:test";
 import { parse, stringify } from "yaml";
-import { parseYaml, resolveInstructions } from "../src/resolve.js";
-import { importPackage } from "../src/package-store.js";
-import { installDependencies } from "../src/package-lock.js";
 import { applyRoleChange, planRoleChange } from "../src/configure.js";
-import { configureRoles } from "../src/wizard.js";
+import { formatProof, resolutionOutput } from "../src/diagnostics.js";
+import { inspectRepository } from "../src/inspect.js";
+import { doctor } from "../src/install.js";
+import { installDependencies } from "../src/package-lock.js";
+import { importPackage } from "../src/package-store.js";
 import {
 	applyPresetExport,
 	applyPresetImport,
 	planPresetExport,
 	planPresetImport,
 } from "../src/presets.js";
-import { doctor } from "../src/install.js";
-import { startVisualizer } from "../src/visualize.js";
-import { inspectRepository } from "../src/inspect.js";
+import { parseYaml, resolveInstructions } from "../src/resolve.js";
 import { discoverSkills } from "../src/skills.js";
-import { formatProof, resolutionOutput } from "../src/diagnostics.js";
+import { startVisualizer } from "../src/visualize.js";
+import { configureRoles } from "../src/wizard.js";
 
 // P4 slice 2 (docs/development/issue-20-p4-handoff.md section 6, contract section 9): caller integration.
 // Every test gets a fresh explicit store, a fake HOME, and AGENT_PROFILES_STORE naming an empty store (or a

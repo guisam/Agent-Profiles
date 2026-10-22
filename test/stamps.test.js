@@ -1,18 +1,17 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import { renameSync as esmRename } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import fs, { renameSync as esmRename } from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { createHash } from "node:crypto";
-import { spawnSync } from "node:child_process";
-import { syncBuiltinESMExports } from "node:module";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import { resolveInstructions } from "../src/resolve.js";
-import { importPackage, lookupPackage } from "../src/package-store.js";
 import { installDependencies } from "../src/package-lock.js";
+import { importPackage, lookupPackage } from "../src/package-store.js";
 import { canonicalJSON, hashRecord, readPackage } from "../src/packages.js";
+import { resolveInstructions } from "../src/resolve.js";
 
 // P6a RED: contract sections 2-7, C13-C16 and the profile/role/request corrections.
 // Local declared resources, diff, materialization and CLI are separate phases.

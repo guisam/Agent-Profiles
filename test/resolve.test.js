@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import {
 	cpSync,
 	mkdirSync,
@@ -10,9 +11,8 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
 import { resolveInstructions } from "../src/resolve.js";
 
@@ -98,7 +98,7 @@ test("only selected instructions load, with required skills ordered and availabl
 	);
 	writeFileSync(
 		testingFile,
-		readFileSync(testingFile, "utf8") + "\nAVAILABLE-CONTENT-SENTINEL",
+		`${readFileSync(testingFile, "utf8")}\nAVAILABLE-CONTENT-SENTINEL`,
 	);
 	const result = resolveInstructions({
 		root: repo.root,
@@ -345,7 +345,7 @@ test("malformed YAML, duplicate keys, typed keys, and missing config fail clearl
 	const original = readFileSync(repo.configPath, "utf8");
 	for (const text of [
 		"version: [",
-		original + "\nversion: 1\n",
+		`${original}\nversion: 1\n`,
 		original.replace("example-model:", "123:"),
 		original.replace("version: 1", "version: !unknown 1"),
 		"null",
@@ -555,7 +555,7 @@ test("ambiguous sources and duplicate YAML identifiers fail instead of picking a
 	assert.equal(resolveInstructions({ root: repo.root }).available.length, 1);
 	for (const text of [
 		original.replace("  reviewer:", "  implementer: {}\n  reviewer:"),
-		original + "\nskills:\n  testing: {}\n  testing: {}\n",
+		`${original}\nskills:\n  testing: {}\n  testing: {}\n`,
 	]) {
 		writeFileSync(repo.configPath, text);
 		assert.throws(
@@ -617,7 +617,7 @@ test("malformed skill frontmatter identifies the role, skill path, and metadata 
 		'---\nname: Testing\ndescription: " "\n---\nBody',
 		"---\nname: [\n---\nBody",
 		"---\nname: A\nname: B\ndescription: Test.\n---\nBody",
-		"---\nname: A\ndescription: " + "x".repeat(65536) + "\n---\nBody",
+		`---\nname: A\ndescription: ${"x".repeat(65536)}\n---\nBody`,
 	];
 	for (const [index, content] of cases.entries()) {
 		await t.test(`metadata case ${index + 1}`, (t) => {
@@ -645,10 +645,9 @@ test("metadata handles CRLF, BOM, UTF-8, folded descriptions, and chunk boundari
 	assert.equal(result.available[0].description, "Check behavior and failures.");
 	assert.ok(!JSON.stringify(result).includes("BODY-SENTINEL"));
 	const start = "---\nname: Testing\ndescription: Test.\n#";
-	const boundary =
-		start + "x".repeat(1020 - Buffer.byteLength(start)) + "\n---";
+	const boundary = `${start + "x".repeat(1020 - Buffer.byteLength(start))}\n---`;
 	assert.equal(Buffer.byteLength(boundary), 1024);
-	writeFileSync(file, boundary + "\nBody");
+	writeFileSync(file, `${boundary}\nBody`);
 	assert.equal(
 		resolveInstructions({ root: repo.root }).available[0].name,
 		"Testing",
@@ -658,7 +657,7 @@ test("metadata handles CRLF, BOM, UTF-8, folded descriptions, and chunk boundari
 		resolveInstructions({ root: repo.root }).available[0].name,
 		"Testing",
 	);
-	writeFileSync(file, boundary + "not-a-delimiter\nBody");
+	writeFileSync(file, `${boundary}not-a-delimiter\nBody`);
 	assert.throws(
 		() => resolveInstructions({ root: repo.root }),
 		/expected YAML frontmatter/,

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
 import {
 	applyRoleChange,
@@ -90,7 +90,7 @@ function withPackage(
 	if (process.platform === "win32") {
 		fs.writeFileSync(bin, "#!/bin/sh\n");
 		fs.writeFileSync(
-			bin + ".cmd",
+			`${bin}.cmd`,
 			'@echo off\r\nnode "%~dp0..\\agent-profiles\\bin\\agent-profiles.js" %*\r\n',
 		);
 	} else if (!fs.existsSync(bin)) {
@@ -354,7 +354,7 @@ test("host-native skills resolve as host capabilities, are never injected, and a
 	assert.match(context, /- lint Invoke the claude skill `toolkit:lint`/);
 	assert.match(
 		formatProof(result),
-		/lint \(claude: toolkit:lint\)  available; host-provided/,
+		/lint \(claude: toolkit:lint\) {2}available; host-provided/,
 	);
 });
 

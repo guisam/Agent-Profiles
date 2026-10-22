@@ -1,18 +1,18 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
 import test from "node:test";
-import { syncBuiltinESMExports } from "node:module";
+import { fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
-import { inspectRepository, formatInventory } from "../src/inspect.js";
-import { discoverSkills } from "../src/skills.js";
-import { install, doctor } from "../src/install.js";
-import { planRoleChange, applyRoleChange } from "../src/configure.js";
+import { applyRoleChange, planRoleChange } from "../src/configure.js";
+import { formatInventory, inspectRepository } from "../src/inspect.js";
+import { doctor, install } from "../src/install.js";
+import { applyPresetExport, planPresetExport } from "../src/presets.js";
 import { resolveInstructions } from "../src/resolve.js";
-import { planPresetExport, applyPresetExport } from "../src/presets.js";
+import { discoverSkills } from "../src/skills.js";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 const cliFile = path.join(project, "bin/agent-profiles.js");

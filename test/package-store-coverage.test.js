@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import test from "node:test";
 import { spawn } from "node:child_process";
 import {
 	existsSync,
@@ -7,8 +6,8 @@ import {
 	lstatSync,
 	mkdirSync,
 	mkdtempSync,
-	readFileSync,
 	readdirSync,
+	readFileSync,
 	readlinkSync,
 	realpathSync,
 	rmSync,
@@ -19,6 +18,7 @@ import {
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
 	importPackage,

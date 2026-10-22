@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import childProcess, { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
 	existsSync,
 	lstatSync,
 	mkdirSync,
 	mkdtempSync,
-	readFileSync,
 	readdirSync,
+	readFileSync,
 	realpathSync,
 	renameSync,
 	rmSync,
@@ -17,12 +17,12 @@ import {
 	utimesSync,
 	writeFileSync,
 } from "node:fs";
-import path from "node:path";
-import os from "node:os";
-import childProcess, { spawn } from "node:child_process";
 import http from "node:http";
 import https from "node:https";
 import { syncBuiltinESMExports } from "node:module";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { parseRecord, readPackage } from "../src/packages.js";
@@ -200,12 +200,12 @@ function exactTree(actual, expected) {
 		actual.map((f) => f.path),
 		sortFiles(expected).map((f) => f.path),
 	);
-	sortFiles(expected).forEach((f, i) =>
+	sortFiles(expected).forEach((f, i) => {
 		assert.ok(
 			Buffer.from(actual[i].bytes).equals(f.bytes),
 			`raw bytes differ: ${f.path}`,
-		),
-	);
+		);
+	});
 }
 function checkPublished(store, files, name = NAME, version = "1.0.0") {
 	const sum = digest(files);
@@ -731,12 +731,12 @@ behavior(
 
 const mutations = {
 	size: (src) =>
-		listFiles(src).forEach((f) =>
+		listFiles(src).forEach((f) => {
 			writeFileSync(
 				path.join(src, f.path),
 				Buffer.concat([f.bytes, Buffer.from("!")]),
-			),
-		),
+			);
+		}),
 	readIdentity: (src) =>
 		listFiles(src).forEach((f) => {
 			unlinkSync(path.join(src, f.path));
@@ -1128,9 +1128,9 @@ behavior(
 			f.path
 				.split("/")
 				.slice(0, 2)
-				.forEach((component) =>
-					assert.match(component, /^x-(?:[0-9a-f]{2})+$/),
-				);
+				.forEach((component) => {
+					assert.match(component, /^x-(?:[0-9a-f]{2})+$/);
+				});
 		}
 		await rejects(
 			() =>
@@ -1168,7 +1168,7 @@ behavior(
 );
 
 // ---- C07 interruption, recovery and concurrent publication (independent child processes) ----
-async function committedOther(t, dir, store) {
+async function committedOther(_t, dir, store) {
 	await sut.importPackage({
 		sourceDirectory: writeTree(path.join(dir, "other"), V2),
 		storeRoot: store,

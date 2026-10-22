@@ -1,7 +1,12 @@
 import { existsSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
-import { safePath } from "./files.js";
 import { discoveryError } from "./discovery-diagnostics.js";
+import {
+	discoverExternalSkills,
+	externalMetadata,
+	validateExternalSelection,
+} from "./external-skills.js";
+import { safePath } from "./files.js";
 import { integrations } from "./integrations.js";
 import {
 	identifier,
@@ -10,11 +15,6 @@ import {
 	mapping,
 	skillMetadata,
 } from "./resolve.js";
-import {
-	discoverExternalSkills,
-	externalMetadata,
-	validateExternalSelection,
-} from "./external-skills.js";
 
 // Repository instruction files continue to use the original containment rules.
 function directorySkills(root, directory, host) {

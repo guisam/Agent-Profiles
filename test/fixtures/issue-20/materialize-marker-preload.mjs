@@ -46,10 +46,10 @@ if (
 			const fd = original.open(value, "wx");
 			try {
 				original.write(
-					signal + ".pending",
+					`${signal}.pending`,
 					JSON.stringify({ target: path.resolve(value) }),
 				);
-				original.rename(signal + ".pending", signal);
+				original.rename(`${signal}.pending`, signal);
 				const wait = new Int32Array(new SharedArrayBuffer(4)),
 					start = Date.now();
 				while (!original.exists(release)) {

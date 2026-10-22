@@ -4,8 +4,8 @@ import {
 	planRoleChange,
 	readConfiguration,
 } from "./configure.js";
-import { discoverSkills } from "./skills.js";
 import { resolveInstructions } from "./resolve.js";
+import { discoverSkills } from "./skills.js";
 
 export const display = (text) =>
 	stripVTControlCharacters(String(text)).replace(/[\x00-\x1f\x7f]/g, " ");
@@ -63,13 +63,13 @@ export async function selectSkills({
 		page = Math.min(page, pages - 1);
 		const visible = matches.slice(page * pageSize, (page + 1) * pageSize);
 		write(`${label} — page ${page + 1}/${pages}; ${selected.size} selected`);
-		visible.forEach((skill, index) =>
+		visible.forEach((skill, index) => {
 			write(
 				`${index + 1}. [${selected.has(keyOf(skill)) ? "x" : " "}] ${display(skill.id)} — ${display(skill.name)}\n` +
 					`   ${display(skill.description ?? "(no description)")}\n   ${display(skill.source)}: ${display(where(skill))}` +
 					`${skill.resources?.length ? `\n   Resources: ${skill.resources.map(display).join(", ")}` : ""}`,
-			),
-		);
+			);
+		});
 		const answer = (
 			await ask(
 				"Toggle numbers; n/p pages; /text filter; clear; Enter to accept; q to cancel: ",

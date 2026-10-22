@@ -7,6 +7,7 @@ import {
 	discoverExternalSkills,
 	validateExternalSelection,
 } from "../src/external-skills.js";
+
 function fixture(t) {
 	const home = fs.realpathSync(
 		fs.mkdtempSync(path.join(os.tmpdir(), "agent-profiles-host-roots-")),

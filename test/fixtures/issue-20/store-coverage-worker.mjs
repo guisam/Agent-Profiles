@@ -1,9 +1,9 @@
 // Isolated native-fs overrides; default node --test discovery has no request.
 import fs from "node:fs";
-import net from "node:net";
 import http from "node:http";
 import https from "node:https";
 import { syncBuiltinESMExports } from "node:module";
+import net from "node:net";
 import path from "node:path";
 
 if (process.argv[2] !== undefined) {

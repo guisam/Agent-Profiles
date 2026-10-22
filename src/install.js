@@ -1,17 +1,16 @@
+import { spawnSync } from "node:child_process";
 import {
 	existsSync,
-	readFileSync,
 	readdirSync,
+	readFileSync,
 	realpathSync,
 	rmSync,
 	statSync,
 } from "node:fs";
-import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveInstructions } from "./resolve.js";
 import { readConfiguration } from "./configure.js";
-import { safePath, readLocal, applyChanges } from "./files.js";
+import { applyChanges, readLocal, safePath } from "./files.js";
 import {
 	blockProtocol,
 	expectedBlock,
@@ -19,6 +18,7 @@ import {
 	managedSpan,
 	PROTOCOL,
 } from "./integrations.js";
+import { resolveInstructions } from "./resolve.js";
 
 const packageRoot = fileURLToPath(new URL("../", import.meta.url));
 const protocolFile = ".agent-profiles/BOOTSTRAP.md";

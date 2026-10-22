@@ -1,20 +1,14 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import * as observedFs from "node:fs";
+import { spawnSync } from "node:child_process";
+import fs, * as observedFs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { syncBuiltinESMExports } from "node:module";
 import { parse, stringify } from "yaml";
-import {
-	canonicalJSON,
-	hashEvaluationRecord,
-	hashRecord,
-	parseRecord,
-	readPackage,
-} from "../src/packages.js";
+import * as migrations from "../src/migrations.js";
+import { installDependencies } from "../src/package-lock.js";
 import {
 	encodeComponent,
 	importPackage,
@@ -22,14 +16,19 @@ import {
 	readStoreFile,
 } from "../src/package-store.js";
 import {
+	canonicalJSON,
+	hashEvaluationRecord,
+	hashRecord,
+	parseRecord,
+	readPackage,
+} from "../src/packages.js";
+import { resolveInstructions } from "../src/resolve.js";
+import {
 	lookupRevisionManifest,
 	readRevisionRecord,
 	retainRevisionManifest,
 } from "../src/revisions.js";
-import { installDependencies } from "../src/package-lock.js";
-import { resolveInstructions } from "../src/resolve.js";
 import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
-import * as migrations from "../src/migrations.js";
 
 const promotionExports = [
 	"previewMigrationPromotion",
@@ -262,7 +261,7 @@ function fixture(
 	const base = createStamp(input),
 		pkg = packages.get(versions[0]),
 		workspace = path.join(root, migration.workspace);
-	const after = pkg.entry + "Check stale evidence before reporting.\r\n",
+	const after = `${pkg.entry}Check stale evidence before reporting.\r\n`,
 		proposalFile = path.join(dir, "proposal.json");
 	put(
 		proposalFile,

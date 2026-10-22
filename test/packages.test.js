@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import childProcess from "node:child_process";
 import { createHash } from "node:crypto";
 import fs, {
 	existsSync,
@@ -7,20 +7,20 @@ import fs, {
 	lstatSync,
 	mkdirSync,
 	mkdtempSync,
-	readFileSync,
 	readdirSync,
+	readFileSync,
 	realpathSync,
 	rmSync,
 	symlinkSync,
 	utimesSync,
 	writeFileSync,
 } from "node:fs";
-import path from "node:path";
-import os from "node:os";
-import childProcess from "node:child_process";
 import http from "node:http";
 import https from "node:https";
 import { syncBuiltinESMExports } from "node:module";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
 import { parseAllDocuments, stringify } from "yaml";
 import { skillMetadata } from "../src/resolve.js";
 
@@ -416,7 +416,7 @@ for (const field of [
 }
 const yamlBase = stringify(manifest());
 const yamlCases = [
-	["duplicate top key", yamlBase + "schema_version: 1\n", /schema_version/],
+	["duplicate top key", `${yamlBase}schema_version: 1\n`, /schema_version/],
 	[
 		"duplicate package key",
 		yamlBase.replace(
@@ -459,8 +459,8 @@ const yamlCases = [
 		yamlBase.replace("  type: skill", "  type: !custom skill"),
 		/tag|warning/,
 	],
-	["multiple documents", yamlBase + "---\n" + yamlBase, /document/],
-	["YAML warning", "%YAML 1.3\n---\n" + yamlBase, /warning|version|YAML/],
+	["multiple documents", `${yamlBase}---\n${yamlBase}`, /document/],
+	["YAML warning", `%YAML 1.3\n---\n${yamlBase}`, /warning|version|YAML/],
 ];
 for (const [name, raw, diagnostic] of yamlCases) {
 	behavior(`C01 strict YAML rejects ${name}`, () =>
@@ -954,7 +954,7 @@ for (const [name, alter, diagnostic] of [
 		(root, m) =>
 			writeFileSync(
 				path.join(root, m.entrypoint),
-				"---\ndescription: " + "x".repeat(65536) + "\n---\n",
+				`---\ndescription: ${"x".repeat(65536)}\n---\n`,
 			),
 		/64 KiB|frontmatter/,
 	],
@@ -1202,7 +1202,7 @@ behavior(
 			'"' +
 				Array.from(
 					{ length: 32 },
-					(_, i) => "\\u00" + i.toString(16).padStart(2, "0"),
+					(_, i) => `\\u00${i.toString(16).padStart(2, "0")}`,
 				).join("") +
 				'"',
 		);

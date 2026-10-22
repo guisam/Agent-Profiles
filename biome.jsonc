@@ -1,0 +1,47 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.6.2/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"includes": [
+			"src/**",
+			"bin/**",
+			"scripts/**",
+			"test/**",
+			"*.json",
+			"!src/visualizer/index.html"
+		]
+	},
+	"formatter": {
+		"lineEnding": "lf"
+	},
+	"linter": {
+		"rules": {
+			"preset": "recommended",
+			"suspicious": {
+				// Control-character ranges are the point of our input sanitizers and validators.
+				"noControlCharactersInRegex": "off"
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["test/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						// Fixtures deliberately contain literal `${...}` placeholder text.
+						"noTemplateCurlyInString": "off"
+					},
+					"performance": {
+						// Tests reach into imported modules by name; bundle size is irrelevant here.
+						"noDynamicNamespaceImportAccess": "off"
+					}
+				}
+			}
+		}
+	]
+}

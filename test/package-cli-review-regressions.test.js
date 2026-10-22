@@ -1,10 +1,10 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
 import { readPackage } from "../src/packages.js";
 import { parseYaml } from "../src/resolve.js";
 
@@ -171,7 +171,7 @@ function rejectsEscapedMetadata(t, json) {
 	);
 	fs.writeFileSync(
 		path.join(f.source, "package.yaml"),
-		MANIFEST + ESCAPED_FIELD + "\n",
+		`${MANIFEST + ESCAPED_FIELD}\n`,
 	);
 	const roots = [f.project, f.source, f.storeRoot, f.home, f.ambient],
 		before = roots.map(fingerprint);

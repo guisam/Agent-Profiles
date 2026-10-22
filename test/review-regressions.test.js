@@ -1,22 +1,22 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
-import { configureRoles, selectSkills } from "../src/wizard.js";
+import { formatContext } from "../src/diagnostics.js";
 import {
 	bootstrapAvailability,
 	doctor,
 	install,
 	uninstall,
 } from "../src/install.js";
-import { formatContext } from "../src/diagnostics.js";
-import { resolveInstructions } from "../src/resolve.js";
 import { runPreset } from "../src/preset-wizard.js";
+import { resolveInstructions } from "../src/resolve.js";
 import { startVisualizer } from "../src/visualize.js";
+import { configureRoles, selectSkills } from "../src/wizard.js";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 const version = JSON.parse(
@@ -324,12 +324,12 @@ test("review #7: visualizer initial family reflects input rather than inferred r
 		app.server.close();
 		app.server.closeAllConnections();
 	});
-	const { initial } = await (await fetch(app.url + "api/config")).json();
+	const { initial } = await (await fetch(`${app.url}api/config`)).json();
 	assert.equal(initial.family, null);
 	const query = new URLSearchParams({ model: "beta-1" });
 	if (initial.family) query.set("family", initial.family);
 	assert.equal(
-		(await (await fetch(app.url + "api/resolve?" + query)).json()).profile,
+		(await (await fetch(`${app.url}api/resolve?${query}`)).json()).profile,
 		"scaffolded",
 	);
 });

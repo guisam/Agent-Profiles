@@ -2,16 +2,15 @@ import {
 	closeSync,
 	fstatSync,
 	openSync,
-	readSync,
 	readdirSync,
+	readSync,
 	realpathSync,
 	statSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { parseYaml, skillMetadata } from "./resolve.js";
-
 import { discoveryError } from "./discovery-diagnostics.js";
+import { parseYaml, skillMetadata } from "./resolve.js";
 
 const nativeId = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -389,7 +388,7 @@ export function validateExternalSelection(selection, options = {}) {
 	const match = inventory.skills.find((skill) =>
 		fields.every((key) => skill[key] === selection[key]),
 	);
-	if (!match || !match.selectable) {
+	if (!match?.selectable) {
 		throw new Error(
 			"external selection: skill disappeared, changed, repointed, is ambiguous, or is outside approved roots; refresh the external catalog and select again",
 		);

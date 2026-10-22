@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { request } from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { spawn, spawnSync } from "node:child_process";
-import { request } from "node:http";
 import test from "node:test";
-import { startVisualizer } from "../src/visualize.js";
-import { resolveInstructions } from "../src/resolve.js";
+import { fileURLToPath } from "node:url";
 import { formatProof } from "../src/diagnostics.js";
+import { resolveInstructions } from "../src/resolve.js";
+import { startVisualizer } from "../src/visualize.js";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 function repository(t) {
@@ -49,7 +49,7 @@ test("visualizer selections, skill projections and provenance exactly match reso
 		skills: ["testing"],
 	});
 	assert.equal(server.address().address, "127.0.0.1");
-	const config = await (await fetch(url + "api/config")).json();
+	const config = await (await fetch(`${url}api/config`)).json();
 	assert.ok(config.models.includes("example-model"));
 	assert.ok(config.families.includes("example-family"));
 	assert.ok(
@@ -69,7 +69,7 @@ test("visualizer selections, skill projections and provenance exactly match reso
 		for (const role of ["reviewer", "implementer"]) {
 			const query = new URLSearchParams({ model, role });
 			if (family) query.set("family", family);
-			const result = await (await fetch(url + "api/resolve?" + query)).json();
+			const result = await (await fetch(`${url}api/resolve?${query}`)).json();
 			assert.deepEqual(
 				result,
 				resolveInstructions({ root, model, family, role }),
@@ -89,9 +89,9 @@ test("visualizer selections, skill projections and provenance exactly match reso
 			);
 		}
 	}
-	const base = await (await fetch(url + "api/resolve?role=reviewer")).json();
+	const base = await (await fetch(`${url}api/resolve?role=reviewer`)).json();
 	const loaded = await (
-		await fetch(url + "api/resolve?role=reviewer&skill=testing")
+		await fetch(`${url}api/resolve?role=reviewer&skill=testing`)
 	).json();
 	assert.equal(base.required[0].id, "code-review");
 	assert.equal(base.available[0].id, "testing");
@@ -130,7 +130,7 @@ test("visualizer selections, skill projections and provenance exactly match reso
 		"\nUpdated source.\n",
 	);
 	const refreshed = await (
-		await fetch(url + "api/resolve?role=reviewer")
+		await fetch(`${url}api/resolve?role=reviewer`)
 	).json();
 	assert.ok(
 		refreshed.diagnostics.managed.role.bytes >
@@ -172,12 +172,12 @@ test("visualizer is read-only, token protected, same-origin and serves only its 
 		assert.equal((await fetch(url + endpoint)).status, 404);
 	assert.equal((await fetch(new URL("/api/config", url))).status, 404);
 	assert.equal(
-		(await fetch(url + "api/config", { method: "POST" })).status,
+		(await fetch(`${url}api/config`, { method: "POST" })).status,
 		405,
 	);
 	assert.equal(
 		(
-			await fetch(url + "api/config", {
+			await fetch(`${url}api/config`, {
 				headers: { Origin: "https://foreign.example" },
 			})
 		).status,
@@ -185,7 +185,7 @@ test("visualizer is read-only, token protected, same-origin and serves only its 
 	);
 	assert.equal(
 		(
-			await fetch(url + "api/config", {
+			await fetch(`${url}api/config`, {
 				headers: { "Sec-Fetch-Site": "cross-site" },
 			})
 		).status,
@@ -193,7 +193,7 @@ test("visualizer is read-only, token protected, same-origin and serves only its 
 	);
 	const hostStatus = await new Promise((resolve, reject) => {
 		const req = request(
-			url + "api/config",
+			`${url}api/config`,
 			{ headers: { Host: "foreign.example" } },
 			(response) => {
 				response.resume();
@@ -211,7 +211,7 @@ test("visualizer is read-only, token protected, same-origin and serves only its 
 		"model=",
 		"role=reviewer&role=implementer",
 	]) {
-		const response = await fetch(url + "api/resolve?" + query);
+		const response = await fetch(`${url}api/resolve?${query}`);
 		assert.equal(response.status, 400);
 		assert.ok((await response.json()).error);
 	}
@@ -289,7 +289,7 @@ test("visualize CLI serves initial selections, rejects bad flags, and reports po
 			}
 		});
 	});
-	const config = await (await fetch(url + "api/config")).json();
+	const config = await (await fetch(`${url}api/config`)).json();
 	assert.equal(config.initial.role, "reviewer");
 	assert.deepEqual(config.initial.skills, ["testing"]);
 	await assert.rejects(

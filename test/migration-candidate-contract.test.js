@@ -1,22 +1,22 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import { canonicalJSON, readPackage } from "../src/packages.js";
+import * as migrations from "../src/migrations.js";
+import { installDependencies } from "../src/package-lock.js";
 import { importPackage, lookupPackage } from "../src/package-store.js";
+import { canonicalJSON, readPackage } from "../src/packages.js";
+import { resolveInstructions } from "../src/resolve.js";
 import {
-	retainRevisionManifest,
 	lookupRevisionManifest,
 	readRevisionRecord,
+	retainRevisionManifest,
 } from "../src/revisions.js";
-import { installDependencies } from "../src/package-lock.js";
-import { resolveInstructions } from "../src/resolve.js";
-import { createStamp, verifyStamp, reconstructStamp } from "../src/stamps.js";
-import * as migrations from "../src/migrations.js";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
 
 const exportsNeeded = ["publishMigrationCandidate", "migrationCandidate"];
 const ready = exportsNeeded.every(
@@ -215,7 +215,7 @@ function fixture(t) {
 		pkg = packages.get(versions[0]),
 		workspace = path.join(root, migration.workspace);
 	const target = `packages/${pkg.sha256}/SKILL.md`,
-		after = pkg.entry + "Check stale evidence before reporting.\r\n";
+		after = `${pkg.entry}Check stale evidence before reporting.\r\n`;
 	const proposal = {
 		proposalVersion: 1,
 		classification: "package",
@@ -574,7 +574,7 @@ candidateTest(
 		assert.deepEqual(publication(f), { ...first, status: "reused" });
 		assert.deepEqual(roots(f), before);
 		const index = fs.readFileSync(indexPath(f));
-		put(path.join(f.tree, "SKILL.md"), f.after + "Different candidate bytes\n");
+		put(path.join(f.tree, "SKILL.md"), `${f.after}Different candidate bytes\n`);
 		f.manifest.expectedTreeSha256 = readPackage({ root: f.tree }).sha256;
 		put(f.manifestFile, JSON.stringify(f.manifest));
 		const changed = roots(f);
@@ -853,7 +853,7 @@ for (const fault of [
 					true,
 				);
 			} else
-				put(path.join(f.tree, "SKILL.md"), f.after + "Concurrent edit\r\n");
+				put(path.join(f.tree, "SKILL.md"), `${f.after}Concurrent edit\r\n`);
 			put(f.manifestFile, JSON.stringify(f.manifest));
 			const diagnostic =
 				fault === "foreign base"
@@ -961,8 +961,8 @@ candidateTest(
 	},
 );
 
-import { syncBuiltinESMExports } from "node:module";
 import * as observedFs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 
 function observeCandidateRename(t, observe, operation) {
 	const io = {
@@ -1162,7 +1162,7 @@ candidateTest(
 		const f = fixture(t);
 		put(
 			path.join(f.tree, "SKILL.md"),
-			f.after + "Unapproved additional task obligation\r\n",
+			`${f.after}Unapproved additional task obligation\r\n`,
 		);
 		f.manifest.expectedTreeSha256 = readPackage({ root: f.tree }).sha256;
 		put(f.manifestFile, JSON.stringify(f.manifest));
@@ -1239,7 +1239,7 @@ candidateTest(
 			indexAttempts = 0;
 		observeCandidateRename(
 			t,
-			(from, to, rename, io) => {
+			(_from, to, rename, io) => {
 				if (sameCandidatePath(to, indexPath(f))) indexAttempts++;
 				if (!sameCandidatePath(to, object)) return rename();
 				assert.equal(io.existsSync(object), false);
@@ -1308,13 +1308,13 @@ candidateTest(
 			false,
 			"this race control qualifies a fresh object path",
 		);
-		const edited = Buffer.from(f.after + "Concurrent developer task edit\r\n"),
+		const edited = Buffer.from(`${f.after}Concurrent developer task edit\r\n`),
 			submitted = f.manifest.expectedTreeSha256;
 		let mutations = 0,
 			indexAttempts = 0;
 		observeCandidateRename(
 			t,
-			(from, to, rename, io) => {
+			(_from, to, rename, io) => {
 				if (sameCandidatePath(to, indexPath(f))) indexAttempts++;
 				if (!sameCandidatePath(to, object)) return rename();
 				assert.equal(io.existsSync(object), false);
@@ -1428,9 +1428,9 @@ candidateTest(
 	},
 );
 
-import { revisionClosure } from "../src/revisions.js";
-import { validateConfiguration } from "../src/resolve.js";
 import { readLockState } from "../src/package-lock.js";
+import { validateConfiguration } from "../src/resolve.js";
+import { revisionClosure } from "../src/revisions.js";
 
 function reviewAttempt(operation) {
 	try {

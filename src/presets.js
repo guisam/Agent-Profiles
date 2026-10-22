@@ -3,6 +3,8 @@ import path from "node:path";
 import { stringify } from "yaml";
 import { readConfiguration } from "./configure.js";
 import { applyChanges, readLocal, safePath } from "./files.js";
+import { detectAgents } from "./install.js";
+import { integrations } from "./integrations.js";
 import {
 	identifier,
 	localFile,
@@ -11,8 +13,6 @@ import {
 	resolveInstructions,
 	skillMetadata,
 } from "./resolve.js";
-import { integrations } from "./integrations.js";
-import { detectAgents } from "./install.js";
 
 const configFile = ".agent-profiles/agents.yaml";
 const originFile = ".agent-profiles/preset-origins.yaml";
@@ -26,7 +26,9 @@ function text(value, entry) {
 function ids(value, entry) {
 	if (!Array.isArray(value))
 		throw new Error(`${entry}: expected a list of IDs`);
-	value.forEach((id) => identifier(id, entry));
+	value.forEach((id) => {
+		identifier(id, entry);
+	});
 	if (new Set(value).size !== value.length)
 		throw new Error(`${entry}: duplicate IDs`);
 	return value;
@@ -361,7 +363,9 @@ export function planPresetImport({
 	for (const [id, target] of roleNames) {
 		if (!target.skip || target.pending)
 			for (const list of preset.roles.get(id).get("skills").values())
-				list.forEach((skill) => needed.add(skill));
+				list.forEach((skill) => {
+					needed.add(skill);
+				});
 	}
 	const skillNames = new Map();
 	for (const id of needed) {
@@ -511,7 +515,7 @@ export function planPresetImport({
 	if (before.includes(Buffer.from("\r\n")))
 		serialized = serialized.replace(/\n/g, "\r\n");
 	if (before.toString("utf8").startsWith("\uFEFF"))
-		serialized = "\uFEFF" + serialized;
+		serialized = `\uFEFF${serialized}`;
 	if (!before.toString("utf8").endsWith("\n"))
 		serialized = serialized.replace(/\r?\n$/, "");
 	// Keep an exact no-op when all definitions and mappings were kept.
@@ -612,7 +616,9 @@ export function exportChoices(root, { storeRoot } = {}) {
 	const profiles = files
 		.filter((file) => file.endsWith(".md"))
 		.map((file) => file.slice(0, -3));
-	profiles.forEach((id) => identifier(id, "profiles"));
+	profiles.forEach((id) => {
+		identifier(id, "profiles");
+	});
 	// Package profiles are listed so that selecting one is refused honestly, not reported missing.
 	return {
 		...state,

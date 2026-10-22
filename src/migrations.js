@@ -8,29 +8,32 @@ import {
 	rmSync,
 } from "node:fs";
 import path from "node:path";
-import {
-	canonicalEvaluationJSON,
-	hashEvaluationRecord,
-	parseEvaluationRecord,
-	canonicalJSON,
-	hashRecord,
-	parseRecord,
-	readPackage,
-	validateMembers,
-} from "./packages.js";
+import { applyChanges } from "./files.js";
+import { integrations } from "./integrations.js";
+import { installDependencies } from "./package-lock.js";
 import {
 	candidateIndex,
 	candidateReservation,
 	lookupPackage,
+	storeRoot as packageStoreRoot,
 	publish,
 	readStoreFile,
 	readTree,
 	retainPackageObject,
 	rootPath,
 	safePath,
-	storeRoot as packageStoreRoot,
 	writeFlushed,
 } from "./package-store.js";
+import {
+	canonicalEvaluationJSON,
+	canonicalJSON,
+	hashEvaluationRecord,
+	hashRecord,
+	parseEvaluationRecord,
+	parseRecord,
+	readPackage,
+	validateMembers,
+} from "./packages.js";
 import {
 	parseYaml,
 	parseYamlDocument,
@@ -38,11 +41,6 @@ import {
 	resolveSharingSelection,
 	validateConfiguration,
 } from "./resolve.js";
-import {
-	createCandidateStamp,
-	createStamp,
-	reconstructStamp,
-} from "./stamps.js";
 import {
 	labelPath,
 	lookupRevisionManifest,
@@ -52,9 +50,11 @@ import {
 	retainCandidateRevision,
 	validateDecision,
 } from "./revisions.js";
-import { installDependencies } from "./package-lock.js";
-import { applyChanges } from "./files.js";
-import { integrations } from "./integrations.js";
+import {
+	createCandidateStamp,
+	createStamp,
+	reconstructStamp,
+} from "./stamps.js";
 
 const directory = ".agent-profiles/migrations";
 const writer = ".agent-profiles/.migration-writer";

@@ -1,9 +1,9 @@
 // Exercise the packed artifact in isolation, including its npm-generated executable.
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse, stringify } from "yaml";
 
@@ -680,7 +680,7 @@ try {
 				assert.equal((await fetch(visualizer.url + asset)).status, 200);
 			const visual = await (
 				await fetch(
-					visualizer.url + "api/resolve?role=preset-reviewer&skill=testing",
+					`${visualizer.url}api/resolve?role=preset-reviewer&skill=testing`,
 				)
 			).json();
 			assert.deepEqual(visual, requested);
@@ -1564,8 +1564,7 @@ try {
 				changes: [],
 			},
 		);
-		const candidateAfter =
-			taskBytes.toString("utf8") + "Check stale evidence before reporting.\r\n";
+		const candidateAfter = `${taskBytes.toString("utf8")}Check stale evidence before reporting.\r\n`;
 		const candidateProposalFile = path.join(
 			temporary,
 			"candidate-proposal.json",

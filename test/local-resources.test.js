@@ -1,41 +1,41 @@
-import test, { before } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import vm from "node:vm";
-import { createHash } from "node:crypto";
-import { syncBuiltinESMExports } from "node:module";
+import test, { before } from "node:test";
 import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
+import vm from "node:vm";
 import { stringify } from "yaml";
-import { parseYaml, resolveInstructions } from "../src/resolve.js";
-import { validateMembers } from "../src/packages.js";
-import { importPackage, readStoreFile } from "../src/package-store.js";
-import { installDependencies } from "../src/package-lock.js";
-import { createStamp, verifyStamp, reconstructStamp } from "../src/stamps.js";
 import {
-	readConfiguration,
-	planRoleChange,
 	applyRoleChange,
+	planRoleChange,
+	readConfiguration,
 } from "../src/configure.js";
-import { discoverSkills } from "../src/skills.js";
-import { selectSkills, configureRoles } from "../src/wizard.js";
 import {
 	formatContext,
 	formatProof,
 	resolutionOutput,
 } from "../src/diagnostics.js";
 import { inspectRepository } from "../src/inspect.js";
-import { startVisualizer } from "../src/visualize.js";
-import {
-	planPresetExport,
-	applyPresetExport,
-	readPreset,
-	planPresetImport,
-	applyPresetImport,
-} from "../src/presets.js";
+import { installDependencies } from "../src/package-lock.js";
+import { importPackage, readStoreFile } from "../src/package-store.js";
+import { validateMembers } from "../src/packages.js";
 import { runPreset } from "../src/preset-wizard.js";
+import {
+	applyPresetExport,
+	applyPresetImport,
+	planPresetExport,
+	planPresetImport,
+	readPreset,
+} from "../src/presets.js";
+import { parseYaml, resolveInstructions } from "../src/resolve.js";
+import { discoverSkills } from "../src/skills.js";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
+import { startVisualizer } from "../src/visualize.js";
+import { configureRoles, selectSkills } from "../src/wizard.js";
 
 const CONFIG = ".agent-profiles/agents.yaml";
 const LOCK = ".agent-profiles/agent-profiles.lock";
@@ -88,7 +88,7 @@ function record(value, domain = "agent-profiles/stamp/v1") {
 	length.writeBigUInt64BE(BigInt(bytes.length));
 	return {
 		bytes,
-		digest: sha(Buffer.concat([Buffer.from(domain + "\0"), length, bytes])),
+		digest: sha(Buffer.concat([Buffer.from(`${domain}\0`), length, bytes])),
 	};
 }
 function configDigest(config) {
@@ -1897,10 +1897,10 @@ function frontend(f) {
 		},
 	});
 	vm.runInContext(
-		fs.readFileSync(
+		`${fs.readFileSync(
 			new URL("../src/visualizer/app.js", import.meta.url),
 			"utf8",
-		) + "\nrequested = new Set(['first']); render(result);",
+		)}\nrequested = new Set(['first']); render(result);`,
 		context,
 	);
 	const texts = (node) =>
@@ -2258,7 +2258,7 @@ for (const [owner, label, invalid] of [
 			declaration.resources = invalid;
 			f.save();
 			const patterns = [
-				new RegExp(binding.replaceAll(".", "\\.") + ".*resources"),
+				new RegExp(`${binding.replaceAll(".", "\\.")}.*resources`),
 				Array.isArray(invalid) ? /\bstrings?\b/i : /\b(?:array|list)\b/i,
 			];
 			const refuse = () => {

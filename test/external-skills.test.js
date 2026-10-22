@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import {
 	mkdirSync,
 	mkdtempSync,
@@ -9,7 +10,6 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import test from "node:test";
 import {
 	discoverExternalSkills,
@@ -212,7 +212,7 @@ test("bad or invalid metadata warns without normalizing native identifiers", (t)
 	const huge = skill(root, "huge");
 	writeFileSync(
 		huge,
-		"---\nname: huge\ndescription: " + "x".repeat(65536) + "\n---\nBODY",
+		`---\nname: huge\ndescription: ${"x".repeat(65536)}\n---\nBODY`,
 	);
 	const bom = skill(root, "bom");
 	writeFileSync(

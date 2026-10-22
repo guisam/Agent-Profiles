@@ -1,19 +1,19 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import test from "node:test";
 import vm from "node:vm";
 import { stringify } from "yaml";
-import { importPackage } from "../src/package-store.js";
-import { retainRevisionManifest } from "../src/revisions.js";
-import { installDependencies } from "../src/package-lock.js";
-import { resolveInstructions } from "../src/resolve.js";
 import {
 	formatContext,
 	formatProof,
 	resolutionOutput,
 } from "../src/diagnostics.js";
+import { installDependencies } from "../src/package-lock.js";
+import { importPackage } from "../src/package-store.js";
+import { resolveInstructions } from "../src/resolve.js";
+import { retainRevisionManifest } from "../src/revisions.js";
 
 const put = (file, bytes) => {
 	fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -617,10 +617,10 @@ function render(result) {
 		fetch: () => new Promise(() => {}),
 	});
 	vm.runInContext(
-		fs.readFileSync(
+		`${fs.readFileSync(
 			new URL("../src/visualizer/app.js", import.meta.url),
 			"utf8",
-		) + "\nrender(result);",
+		)}\nrender(result);`,
 		context,
 	);
 	const descend = (node) => [node, ...node.children.flatMap(descend)];
@@ -975,10 +975,10 @@ function secondReviewerUse(t, requested) {
 	};
 }
 function reviewerUse(item, id, state) {
-	assert.ok(item, "actual direct descriptor for " + id);
+	assert.ok(item, `actual direct descriptor for ${id}`);
 	assert.equal(item.id, id);
 	assert.deepEqual(item.package, {
-		binding: "skills." + id,
+		binding: `skills.${id}`,
 		name: state.reviewer.name,
 		version: state.reviewer.version,
 		sha256: state.reviewer.sha256,
@@ -1104,6 +1104,6 @@ test("R2 DOM second requested reviewer alias is checked without repeating requir
 	assert.equal(sourceLabel(view, reviewer, "WORKFLOW.md"), true);
 	assert.equal(
 		view.nodes.get("available-total").textContent,
-		Buffer.byteLength(f.note).toLocaleString("en-US") + " B",
+		`${Buffer.byteLength(f.note).toLocaleString("en-US")} B`,
 	);
 });

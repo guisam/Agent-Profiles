@@ -10,13 +10,13 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { parseDocument } from "yaml";
-import { safePath } from "./files.js";
 import { contextDiagnostics, measureFile, measureText } from "./diagnostics.js";
+import { safePath } from "./files.js";
 import { integrations, managedSurface } from "./integrations.js";
 import { readLockState } from "./package-lock.js";
 import {
-	lookupPackage,
 	safePath as guardedPath,
+	lookupPackage,
 	verifyObject,
 } from "./package-store.js";
 import { parseManifest, validateMembers } from "./packages.js";
@@ -585,15 +585,12 @@ export function validateConfiguration({
 					["package", "version"],
 					["revision"],
 				);
-			bindings
-				.get(binding)
-				.rules.push({
-					id,
-					when,
-					version:
-						config.get("version") === 3 ? version.get("version") : version,
-					...(config.get("version") === 3 ? { source: version } : {}),
-				});
+			bindings.get(binding).rules.push({
+				id,
+				when,
+				version: config.get("version") === 3 ? version.get("version") : version,
+				...(config.get("version") === 3 ? { source: version } : {}),
+			});
 		}
 	}
 	for (const [binding, { source, rules }] of bindings) {
@@ -1008,7 +1005,9 @@ function resolveCore(
 		);
 	if (!Array.isArray(skills))
 		fail("skills", "expected a list of requested skill IDs");
-	skills.forEach((id, index) => identifier(id, `skills[${index}]`));
+	skills.forEach((id, index) => {
+		identifier(id, `skills[${index}]`);
+	});
 
 	const validated = validateConfiguration({
 		root,
@@ -1642,7 +1641,7 @@ function resolveCore(
 					}
 					return { ...entry, content, ...measureText(content) };
 				} catch (error) {
-					fail(file, `cannot load instructions: ${error.message}`);
+					return fail(file, `cannot load instructions: ${error.message}`);
 				}
 			});
 	if (composed) {
@@ -1738,7 +1737,7 @@ function resolveCore(
 			}
 			return { ...skill, ...measured };
 		} catch (error) {
-			fail(
+			return fail(
 				skill.path,
 				`cannot measure available instructions: ${error.message}`,
 			);

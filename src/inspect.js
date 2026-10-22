@@ -1,16 +1,17 @@
 import {
+	closeSync,
+	fstatSync,
+	openSync,
 	readdirSync,
+	readSync,
 	realpathSync,
 	statSync,
-	openSync,
-	fstatSync,
-	readSync,
-	closeSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { discoverSkills } from "./skills.js";
 import { readConfiguration } from "./configure.js";
+import { safePath } from "./files.js";
+import { integrations, managedSpan } from "./integrations.js";
 import {
 	identifier,
 	localDeclaration,
@@ -18,8 +19,7 @@ import {
 	mapping,
 	parseYaml,
 } from "./resolve.js";
-import { safePath } from "./files.js";
-import { integrations, managedSpan } from "./integrations.js";
+import { discoverSkills } from "./skills.js";
 
 const limit = 65536;
 const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
@@ -318,7 +318,9 @@ function configurationMetadata(root) {
 						]);
 						for (const list of lists.values()) {
 							if (!Array.isArray(list)) throw new Error("Expected skill IDs");
-							list.forEach((skill) => identifier(skill, `roles.${id}.skills`));
+							list.forEach((skill) => {
+								identifier(skill, `roles.${id}.skills`);
+							});
 						}
 					}
 				}

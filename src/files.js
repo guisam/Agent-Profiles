@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
 	existsSync,
 	lstatSync,
@@ -9,7 +10,6 @@ import {
 	writeFileSync,
 } from "node:fs";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
 
 export function safePath(root, file) {
 	const target = path.resolve(root, file);

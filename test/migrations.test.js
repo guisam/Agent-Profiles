@@ -1,16 +1,16 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { syncBuiltinESMExports } from "node:module";
 import { stringify } from "yaml";
-import { importPackage } from "../src/package-store.js";
 import { installDependencies } from "../src/package-lock.js";
-import { createStamp, reconstructStamp } from "../src/stamps.js";
+import { importPackage } from "../src/package-store.js";
 import { resolveInstructions } from "../src/resolve.js";
+import { createStamp, reconstructStamp } from "../src/stamps.js";
 
 const target = new URL("../src/migrations.js", import.meta.url);
 let migrations;

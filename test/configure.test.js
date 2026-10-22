@@ -1,19 +1,19 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { syncBuiltinESMExports } from "node:module";
-import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { parseDocument, stringify } from "yaml";
 import {
 	applyRoleChange,
 	planRoleChange,
 	readConfiguration,
 } from "../src/configure.js";
-import { discoverSkills } from "../src/skills.js";
 import { resolveInstructions } from "../src/resolve.js";
+import { discoverSkills } from "../src/skills.js";
 import { configureRoles, selectSkills } from "../src/wizard.js";
 
 const project = fileURLToPath(new URL("../", import.meta.url));

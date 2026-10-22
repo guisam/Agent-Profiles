@@ -1,24 +1,24 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
 import {
 	applyRoleChange,
 	planRoleChange,
 	readConfiguration,
 } from "../src/configure.js";
-import { discoverSkills } from "../src/skills.js";
-import { resolveInstructions } from "../src/resolve.js";
 import {
-	planPresetExport,
 	applyPresetExport,
-	planPresetImport,
 	applyPresetImport,
+	planPresetExport,
+	planPresetImport,
 } from "../src/presets.js";
+import { resolveInstructions } from "../src/resolve.js";
+import { discoverSkills } from "../src/skills.js";
 import { configureRoles, selectSkills } from "../src/wizard.js";
 
 const project = fileURLToPath(new URL("../", import.meta.url));

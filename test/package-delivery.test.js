@@ -1,17 +1,17 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { applyChanges, readLocal } from "../src/files.js";
+import { installDependencies } from "../src/package-lock.js";
+import { parseManifest, readPackage } from "../src/packages.js";
 import {
 	parseYaml,
 	parseYamlDocument,
 	resolveInstructions,
 } from "../src/resolve.js";
-import { readLocal, applyChanges } from "../src/files.js";
-import { installDependencies } from "../src/package-lock.js";
-import { parseManifest, readPackage } from "../src/packages.js";
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
 const CONFIG = ".agent-profiles/agents.yaml";
@@ -96,7 +96,7 @@ function scalarCandidate(before) {
 		"only validated v1 gets a scalar candidate",
 	);
 	const [start, end] = document.get("version", true).range;
-	return Buffer.from(text.slice(0, start) + "2" + text.slice(end));
+	return Buffer.from(`${text.slice(0, start)}2${text.slice(end)}`);
 }
 function links(file) {
 	// Only ordinary inline local links and ATX headings on this finite doc surface.
@@ -309,7 +309,7 @@ test("P9b-01 complete guide examples preserve real v1/v2 routing, native metadat
 });
 
 test("P9b-02 documented manual scalar edit validates then repeats as a byte-identical no-op", (t) => {
-	const f = fixture(t, "\uFEFF" + examples()[0].replace(/\r?\n/g, "\r\n"));
+	const f = fixture(t, `\uFEFF${examples()[0].replace(/\r?\n/g, "\r\n")}`);
 	put(f.root, LOCK, Buffer.from("unrelated leftover lock\r\n\uFEFF"));
 	const before = readLocal(f.root, CONFIG),
 		protectedBefore = snapshot(f.root, [CONFIG]);
@@ -389,7 +389,7 @@ test("P9b-03 invalid sources refuse before a scalar candidate while valid v1 ins
 	for (const [yaml, diagnostic] of [
 		[source.replace(/version: 1\r?\n/, ""), /version: required field/],
 		...['"1"', "1.5", "0", "4", "null"].map((token) => [
-			source.replace("version: 1", "version: " + token),
+			source.replace("version: 1", `version: ${token}`),
 			/version: only versions 1, 2 and 3 are supported/,
 		]),
 		[
@@ -439,7 +439,7 @@ test("P9b-04 manual approval, drift and guarded rollback preserve other actor by
 	}, /exact preview approval required/);
 	assert.deepEqual(snapshot(f.root), initial);
 	const otherActor = Buffer.from(
-		before.toString("utf8") + "# another actor\r\n",
+		`${before.toString("utf8")}# another actor\r\n`,
 	);
 	put(f.root, CONFIG, otherActor);
 	assert.throws(

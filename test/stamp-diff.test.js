@@ -1,15 +1,15 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { createHash } from "node:crypto";
-import { syncBuiltinESMExports } from "node:module";
+import test from "node:test";
 import { stringify } from "yaml";
-import * as stamps from "../src/stamps.js";
-import { importPackage, lookupPackage } from "../src/package-store.js";
-import { installDependencies } from "../src/package-lock.js";
 import { integrations } from "../src/integrations.js";
+import { installDependencies } from "../src/package-lock.js";
+import { importPackage, lookupPackage } from "../src/package-store.js";
+import * as stamps from "../src/stamps.js";
 
 const CONFIG = ".agent-profiles/agents.yaml";
 const PROFILE = ".agent-profiles/mapped/base.md";
@@ -57,7 +57,7 @@ function record(snapshot, domain = "agent-profiles/stamp/v1") {
 	return {
 		bytes,
 		digest: sha(
-			Buffer.concat([Buffer.from(domain + "\0"), u64(bytes.length), bytes]),
+			Buffer.concat([Buffer.from(`${domain}\0`), u64(bytes.length), bytes]),
 		),
 	};
 }
@@ -481,7 +481,7 @@ scenario(
 		};
 		put(
 			path.join(root, CONFIG),
-			"# changed formatting\n" + stringify(config, { sortMapEntries: true }),
+			`# changed formatting\n${stringify(config, { sortMapEntries: true })}`,
 		);
 		installDependencies({ root, storeRoot });
 		const b = capture(f, { root, storeRoot });
@@ -2176,7 +2176,7 @@ const malformed = [
 	[
 		"C17-72",
 		"whitespace after",
-		{ before: "VALID", after: " " + "a".repeat(64) },
+		{ before: "VALID", after: ` ${"a".repeat(64)}` },
 		/^Error: after: expected 64 lowercase hexadecimal characters$/,
 	],
 	[

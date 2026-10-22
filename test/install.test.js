@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
-import { syncBuiltinESMExports } from "node:module";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
 	detectAgents,
 	doctor,
@@ -60,7 +60,7 @@ function withPackage(root) {
 	if (process.platform === "win32") {
 		fs.writeFileSync(bin, "#!/bin/sh\n");
 		fs.writeFileSync(
-			bin + ".cmd",
+			`${bin}.cmd`,
 			'@echo off\r\nnode "%~dp0..\\agent-profiles\\bin\\agent-profiles.js" %*\r\n',
 		);
 	} else if (!fs.existsSync(bin)) {
