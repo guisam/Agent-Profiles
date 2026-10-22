@@ -7,13 +7,22 @@ import { errorMessage } from "./files.ts";
 import { resolveInstructions } from "./resolve.js";
 
 // Only these package assets are served; repository paths never become HTTP paths.
-const assets = new Map([
+const assets = new Map<string, [string, string]>([
 	["", ["index.html", "text/html"]],
 	["app.js", ["app.js", "text/javascript"]],
 	["style.css", ["style.css", "text/css"]],
 ]);
 
-/** @param {{root?: string, port?: number, model?: string, family?: string, role?: string, skills?: string[], storeRoot?: string}} options */
+export type VisualizerOptions = {
+	root?: string;
+	port?: number;
+	model?: string;
+	family?: string;
+	role?: string;
+	skills?: string[];
+	storeRoot?: string;
+};
+
 export async function startVisualizer({
 	root = process.cwd(),
 	port = 0,
@@ -22,7 +31,7 @@ export async function startVisualizer({
 	role,
 	skills = [],
 	storeRoot,
-} = {}) {
+}: VisualizerOptions = {}) {
 	if (!Number.isInteger(port) || port < 0 || port > 65535)
 		throw new Error("port must be an integer from 0 to 65535");
 	const initial = resolveInstructions({
@@ -35,7 +44,7 @@ export async function startVisualizer({
 	});
 	const token = randomBytes(24).toString("hex");
 	const prefix = `/${token}/`;
-	let origin;
+	let origin = "";
 	const server = createServer((request, response) => {
 		response.setHeader("Cache-Control", "no-store");
 		response.setHeader("X-Content-Type-Options", "nosniff");
@@ -44,7 +53,7 @@ export async function startVisualizer({
 			"Content-Security-Policy",
 			"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
 		);
-		const send = (status, data) => {
+		const send = (status: number, data: unknown) => {
 			response.writeHead(status, {
 				"Content-Type": "application/json; charset=utf-8",
 			});
@@ -59,12 +68,13 @@ export async function startVisualizer({
 		if (request.method !== "GET")
 			return send(405, { error: "Read-only: GET required" });
 		try {
-			const url = new URL(request.url, origin);
+			const url = new URL(request.url ?? "", origin);
 			if (!url.pathname.startsWith(prefix))
 				return send(404, { error: "Not found" });
 			const route = url.pathname.slice(prefix.length);
-			if (assets.has(route)) {
-				const [file, type] = assets.get(route);
+			const asset = assets.get(route);
+			if (asset) {
+				const [file, type] = asset;
 				const body = readFileSync(
 					new URL(`./visualizer/${file}`, import.meta.url),
 				);

@@ -29,7 +29,7 @@ import {
 } from "../src/presets.js";
 import { parseYaml, resolveInstructions } from "../src/resolve.js";
 import { discoverSkills } from "../src/skills.js";
-import { startVisualizer } from "../src/visualize.js";
+import { startVisualizer } from "../src/visualize.ts";
 import { configureRoles } from "../src/wizard.js";
 
 // P4 slice 2 (docs/development/issue-20-p4-handoff.md section 6, contract section 9): caller integration.

@@ -8,7 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { formatProof } from "../src/diagnostics.js";
 import { resolveInstructions } from "../src/resolve.js";
-import { startVisualizer } from "../src/visualize.js";
+import { startVisualizer } from "../src/visualize.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 function repository(t) {

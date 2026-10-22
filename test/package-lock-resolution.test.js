@@ -22,7 +22,7 @@ import {
 	planPresetImport,
 } from "../src/presets.js";
 import { resolveInstructions } from "../src/resolve.js";
-import { startVisualizer } from "../src/visualize.js";
+import { startVisualizer } from "../src/visualize.ts";
 import { configureRoles } from "../src/wizard.js";
 
 // P5b RED (contract section 6 "Resolver lock modes and store-root propagation", test map C10-C12/C20-C22):

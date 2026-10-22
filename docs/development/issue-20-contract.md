@@ -562,7 +562,7 @@ rejects a validation-mode selection even if its reported lockState happens to be
 Explicit storeRoot propagates unchanged through configure plans/apply, wizard and
 preset-wizard plans/apply, preset preview/import/export validation, skills/inventory,
 inspect, diagnostics, install doctor and CLI selectors, and startVisualizer's initial
-and HTTP re-resolve calls in `src/visualize.js`. It is an operational server option,
+and HTTP re-resolve calls in `src/visualize.ts`. It is an operational server option,
 not a query-selectable store path. Materialization/stamp/verify/diff APIs and commands
 also propagate it; wrappers must not discard it and fall back to environment/home.
 

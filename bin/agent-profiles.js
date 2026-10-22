@@ -45,7 +45,7 @@ import { resolveInstructions } from "../src/resolve.js";
 import { retainRevisionManifest } from "../src/revisions.js";
 import { discoverSkills } from "../src/skills.js";
 import { createStamp, diffStamps, verifyStamp } from "../src/stamps.js";
-import { startVisualizer } from "../src/visualize.js";
+import { startVisualizer } from "../src/visualize.ts";
 import { configureRoles, display as displayText } from "../src/wizard.js";
 
 const agentChoices = integrations.map((adapter) => adapter.id).join(", ");

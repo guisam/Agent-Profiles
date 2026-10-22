@@ -39,7 +39,7 @@ The CI matrix runs these checks on Windows, macOS, and Linux with Node 24.
   measurement, and proof/JSON presentation with explicit host boundaries.
 - `src/inspect.js`: read-only setup inventory; keep repository metadata bounded,
   machine facts separate, and skill scanning in the existing discovery adapters.
-- `src/visualize.js`, `src/visualizer/`: loopback-only HTTP adapter and static
+- `src/visualize.ts`, `src/visualizer/`: loopback-only HTTP adapter and static
   browser UI consuming resolver diagnostics; no build step or UI dependencies.
 - `src/integrations.js`: agent instruction targets and managed bootstrap text.
 - `src/install.js`, `src/files.ts`: installer lifecycle and guarded file writes.

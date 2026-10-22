@@ -15,7 +15,7 @@ import {
 } from "../src/install.js";
 import { runPreset } from "../src/preset-wizard.js";
 import { resolveInstructions } from "../src/resolve.js";
-import { startVisualizer } from "../src/visualize.js";
+import { startVisualizer } from "../src/visualize.ts";
 import { configureRoles, selectSkills } from "../src/wizard.js";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
