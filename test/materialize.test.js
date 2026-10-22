@@ -244,8 +244,8 @@ async function noDispatch(body) {
   assert.equal(calls, 0, 'archived code/native/network must remain inert');
 }
 
-function child(t, dir, request, noRequest = false) {
-  const c = spawn(process.execPath, [WORKER, ...noRequest ? [] : [JSON.stringify({ ownedRoot: dir, ...request })]], {
+function child(t, dir, request, noRequest = false, preload = []) {
+  const c = spawn(process.execPath, [...preload, WORKER, ...noRequest ? [] : [JSON.stringify({ ownedRoot: dir, ...request })]], {
     env: { ...process.env, TMP: dir, TEMP: dir, TMPDIR: dir, HOME: path.join(dir, 'home'), USERPROFILE: path.join(dir, 'home'), AGENT_PROFILES_STORE: path.join(dir, 'empty') }, stdio: ['ignore', 'pipe', 'pipe'],
   });
   let stdout = '', stderr = '';
@@ -1054,4 +1054,59 @@ behavior('M07 safe ancestor alias strictly above outputRoot exports exact conten
   assert.equal(fs.lstatSync(observed.outputRoot).isSymbolicLink(), false);
   assert.deepEqual(fs.readdirSync(observed.canonicalOutputRoot), ['run']);
   assert.deepEqual([fingerprint(f.root), fingerprint(f.storeRoot)], before);
+});
+
+test('M12 readiness marker stays absent until the actual worker phase payload is complete', async t => {
+  const f = fixture(t, { packaged: true });
+  const before = [fingerprint(f.root), fingerprint(f.storeRoot)];
+  const control = fs.mkdtempSync(path.join(f.dir, 'marker-gate-'));
+  const marker = path.join(control, 'ready.marker'), release = path.join(control, 'worker.release');
+  const writeRelease = path.join(control, 'write.release'), signal = path.join(control, 'write-open.json');
+  const preload = new URL('./fixtures/issue-20/materialize-marker-preload.mjs', import.meta.url);
+  const run = child(t, f.dir, { args: f.args, storeRoot: f.storeRoot, markerGate: { root: control },
+    barrier: { phase: 'after-rename', marker, release } }, false, ['--import', preload.href]);
+  let ended, failed;
+  run.closed.then(r => { ended = r; }, error => { failed = error; });
+  const waitFor = async (file, label) => {
+    for (const start = Date.now(); !fs.existsSync(file); await delay(10)) {
+      if (failed) throw failed;
+      if (ended) assert.fail(`child ended before ${label}: ${JSON.stringify(ended)}`);
+      assert.ok(Date.now() - start < 20000, `${label} not reached`);
+    }
+  };
+  try {
+    await waitFor(signal, 'marker write-open');
+    const opened = JSON.parse(fs.readFileSync(signal, 'utf8'));
+    assert.equal(path.dirname(opened.target), control);
+    const stat = fs.lstatSync(opened.target);
+    assert.equal(stat.isFile(), true); assert.equal(stat.isSymbolicLink(), false);
+    assert.equal(stat.size, 0, 'actual marker payload target is open before its phase bytes are written');
+    assert.equal(fs.existsSync(marker), false, 'final readiness marker must be absent while phase payload write is held');
+
+    fs.writeFileSync(writeRelease, 'release');
+    await waitFor(marker, 'after-rename');
+    assert.equal(fs.readFileSync(marker, 'utf8'), 'after-rename');
+    const owner = checkOwner(f), stage = path.join(f.outputRoot, owner.staging);
+    exactOutput(f);
+    fs.writeFileSync(release, 'release');
+    const r = await result(run);
+    assert.equal(r.ok, true); assert.equal(r.committed, true); assert.equal(r.counts.renames, 1);
+    assert.deepEqual(r.phases, ['before-rename', 'after-rename']);
+    assert.equal(r.stage, stage); assert.deepEqual(r.result, f.expectedReceipt);
+    assert.deepEqual(fs.readdirSync(control).sort(cmp), ['ready.marker', 'worker.release', 'write-open.json', 'write.release'].sort(cmp));
+    exactOutput(f);
+    assert.deepEqual(await f.verify(), { verified: true, findings: [] });
+    assert.equal(fs.existsSync(lockPath(f)), false); assert.equal(fs.existsSync(stage), false);
+    assert.deepEqual(fs.readdirSync(f.outputRoot), ['run']);
+    assert.deepEqual([fingerprint(f.root), fingerprint(f.storeRoot)], before);
+  } finally {
+    try {
+      fs.writeFileSync(writeRelease, 'release'); fs.writeFileSync(release, 'release');
+    } finally {
+      try {
+        if (run.c.exitCode === null && run.c.signalCode === null) run.c.kill('SIGKILL');
+        await run.closed.catch(() => {});
+      } finally { fs.rmSync(control, { recursive: true, force: true }); }
+    }
+  }
 });

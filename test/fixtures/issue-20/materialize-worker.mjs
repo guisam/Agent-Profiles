@@ -25,7 +25,9 @@ if (process.argv[2] !== undefined) {
   function hold(phase) {
     phases.push(phase);
     if (phase !== q.barrier?.phase) return;
-    original.writeFileSync(q.barrier.marker, phase);
+    const pending = q.barrier.marker + '.pending';
+    original.writeFileSync(pending, phase);
+    original.renameSync(pending, q.barrier.marker);
     const wait = new Int32Array(new SharedArrayBuffer(4));
     while (!original.existsSync(q.barrier.release)) Atomics.wait(wait, 0, 0, 10);
   }
