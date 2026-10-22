@@ -222,7 +222,7 @@ A prompt-free example, run from a module in the trusted checkout (adjust imports
 if using the installed packed package):
 
 ```js
-import { planRoleChange, applyRoleChange } from './src/configure.js';
+import { planRoleChange, applyRoleChange } from './src/configure.ts';
 import { inspectRepository } from './src/inspect.js';
 
 const root = '/path/to/project'; // Existing approved init completed.

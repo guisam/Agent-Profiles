@@ -7,7 +7,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
-import { applyRoleChange, planRoleChange } from "../src/configure.js";
+import { applyRoleChange, planRoleChange } from "../src/configure.ts";
 import { formatInventory, inspectRepository } from "../src/inspect.js";
 import { doctor, install } from "../src/install.js";
 import { applyPresetExport, planPresetExport } from "../src/presets.ts";

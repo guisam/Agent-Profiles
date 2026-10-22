@@ -7,7 +7,7 @@ import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
 import { parse, stringify } from "yaml";
-import { planRoleChange } from "../src/configure.js";
+import { planRoleChange } from "../src/configure.ts";
 import { formatContext, resolutionOutput } from "../src/diagnostics.js";
 import { inspectRepository } from "../src/inspect.js";
 import { installDependencies } from "../src/package-lock.js";

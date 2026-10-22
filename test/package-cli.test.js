@@ -8,7 +8,7 @@ import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import { readConfiguration } from "../src/configure.js";
+import { readConfiguration } from "../src/configure.ts";
 import { formatContext, resolutionOutput } from "../src/diagnostics.js";
 import { inspectRepository } from "../src/inspect.js";
 import { doctor, install } from "../src/install.js";

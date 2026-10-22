@@ -13,7 +13,7 @@ import {
 	applyRoleChange,
 	planRoleChange,
 	readConfiguration,
-} from "../src/configure.js";
+} from "../src/configure.ts";
 import {
 	formatContext,
 	formatProof,

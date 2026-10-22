@@ -15,7 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
 import { parse, stringify } from "yaml";
-import { applyRoleChange, planRoleChange } from "../src/configure.js";
+import { applyRoleChange, planRoleChange } from "../src/configure.ts";
 import { formatProof, resolutionOutput } from "../src/diagnostics.js";
 import { inspectRepository } from "../src/inspect.js";
 import { doctor } from "../src/install.js";

@@ -1,7 +1,7 @@
 import { existsSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { isNode, visit } from "yaml";
-import { applyChanges, readLocal, safePath } from "./files.ts";
+import { applyChanges, type FileChange, readLocal, safePath } from "./files.ts";
 import {
 	identifier,
 	localFile,
@@ -14,14 +14,25 @@ import { validateSkillSelection } from "./skills.js";
 
 const configFile = ".agent-profiles/agents.yaml";
 
-/** @param {string} root
- * @param {{metadataOnly?: boolean, content?: Buffer, storeRoot?: string, lockMode?: 'required' | 'validation'}} options
+export type ReadOptions = {
+	metadataOnly?: boolean;
+	content?: Buffer;
+	storeRoot?: string;
+	lockMode?: "required" | "validation";
+};
+
+/**
  * A bounded inspection may supply already-read bytes; mutation callers always read disk.
  * Mutation workflows validate a possibly stale-locked project; public readers pass lockMode 'required'.
  */
 export function readConfiguration(
-	root,
-	{ metadataOnly = false, content, storeRoot, lockMode = "validation" } = {},
+	root: string,
+	{
+		metadataOnly = false,
+		content,
+		storeRoot,
+		lockMode = "validation",
+	}: ReadOptions = {},
 ) {
 	root = realpathSync(root);
 	const before =
@@ -42,12 +53,41 @@ export function readConfiguration(
 	return { root, before, document, configuration };
 }
 
-/**
- * Build a validated, reviewable plan; this function never writes files.
- * @param {{root: string, action: string, id: string, file?: string, description?: string,
- *   required?: (string | Record<string, any>)[], available?: (string | Record<string, any>)[],
- *   defaultRole?: string, expectedConfiguration?: Buffer, sourceOptions?: object, storeRoot?: string}} options
- */
+export type PackageSelection = {
+	name: string;
+	version: string;
+	sha256: string;
+	revisionDigest: string;
+	binding: string;
+};
+
+/** A skill ID, or a discovered skill: a local path, a host-native skill, or a package binding. */
+export type SkillSelection =
+	| string
+	| {
+			id?: string;
+			path?: string;
+			host?: string;
+			scope?: string;
+			hostId?: string;
+			package?: PackageSelection;
+	  };
+
+export type RoleChangeOptions = {
+	root: string;
+	action: string;
+	id: string;
+	file?: string;
+	description?: string;
+	required?: SkillSelection[];
+	available?: SkillSelection[];
+	defaultRole?: string;
+	expectedConfiguration?: Buffer;
+	sourceOptions?: object;
+	storeRoot?: string;
+};
+
+/** Build a validated, reviewable plan; this function never writes files. */
 export function planRoleChange({
 	root,
 	action,
@@ -60,7 +100,7 @@ export function planRoleChange({
 	expectedConfiguration,
 	sourceOptions,
 	storeRoot,
-}) {
+}: RoleChangeOptions) {
 	const state = readConfiguration(root, { storeRoot });
 	({ root } = state);
 	const { document, configuration, before } = state;
@@ -95,11 +135,11 @@ export function planRoleChange({
 				shared = true;
 			},
 		});
-	const aliases = [];
-	const selectionChecks = [];
-	const packageSelections = [];
-	const changes = [];
-	let newRoleFile;
+	const aliases: { id: string; originalId: string; path: string }[] = [];
+	const selectionChecks: SkillSelection[] = [];
+	const packageSelections: { id: string; package: PackageSelection }[] = [];
+	const changes: FileChange[] = [];
+	let newRoleFile: { path: string; content: string } | undefined;
 
 	if (action === "delete") {
 		if (configuration.get("default_role") === id) {
@@ -125,7 +165,7 @@ export function planRoleChange({
 			throw new Error("Required and available skills must be lists");
 		if (description !== undefined && typeof description !== "string")
 			throw new Error("Role description must be text");
-		file ??= previous?.get("file") ?? `roles/${id}.md`;
+		file ??= (previous?.get("file") as string | undefined) ?? `roles/${id}.md`;
 		localFile(
 			path.join(root, ".agent-profiles"),
 			file,
@@ -137,30 +177,30 @@ export function planRoleChange({
 		if (!existsSync(path.join(root, roleFile))) {
 			const title = id
 				.split("-")
-				.map((word) => word[0].toUpperCase() + word.slice(1))
+				.map((word: string) => word[0].toUpperCase() + word.slice(1))
 				.join(" ");
-			newRoleFile = {
-				path: file,
-				content: `# ${title}\n\n${description?.trim() || `Describe the responsibilities of ${id} here.`}\n`,
-			};
+			const content = `# ${title}\n\n${description?.trim() || `Describe the responsibilities of ${id} here.`}\n`;
+			newRoleFile = { path: file, content };
 			changes.push({
 				file: roleFile,
 				before: null,
-				after: Buffer.from(newRoleFile.content),
+				after: Buffer.from(content),
 			});
 		}
-		const sources = new Map(configuration.get("skills") ?? []);
-		const binding = (skillId) =>
+		const sources = new Map<string, Map<string, unknown>>(
+			configuration.get("skills") ?? [],
+		);
+		const binding = (skillId: string) =>
 			sources.has(skillId)
-				? (sources.get(skillId).get("file") ?? null)
+				? ((sources.get(skillId)?.get("file") as string | undefined) ?? null)
 				: `.agent-profiles/skills/${skillId}/SKILL.md`;
-		const targetOf = (skillId) => {
+		const targetOf = (skillId: string) => {
 			const candidate = binding(skillId);
 			return candidate && existsSync(path.join(root, candidate))
 				? localFile(root, candidate, skillId, "repository")
 				: null;
 		};
-		const bind = (selection, entry) => {
+		const bind = (selection: SkillSelection, entry: string) => {
 			if (typeof selection !== "string") {
 				validateSkillSelection(root, selection, sourceOptions);
 				if (selection.host && selection.path)
@@ -186,7 +226,7 @@ export function planRoleChange({
 						`${entry}: ${skillId} is not the current package binding ${selection.package.name}; reload the role`,
 					);
 				}
-				packageSelections.push(selection);
+				packageSelections.push({ id: skillId, package: selection.package });
 				return skillId;
 			}
 			if (typeof selection !== "string" && selection.host) {
@@ -243,7 +283,7 @@ export function planRoleChange({
 				aliases.push({
 					id: reference,
 					originalId: skillId,
-					path: selectedPath,
+					path: selectedPath as string, // localFile rejected anything else
 				});
 			return reference;
 		};
@@ -332,7 +372,9 @@ export function planRoleChange({
 	};
 }
 
-export function applyRoleChange(plan) {
+export type RoleChangePlan = ReturnType<typeof planRoleChange>;
+
+export function applyRoleChange(plan: RoleChangePlan) {
 	if (!readLocal(plan.root, configFile)?.equals(plan.before))
 		throw new Error(
 			"Configuration changed after preview; reload before saving",

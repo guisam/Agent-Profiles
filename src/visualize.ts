@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
-import { readConfiguration } from "./configure.js";
+import { readConfiguration } from "./configure.ts";
 import { resolutionOutput } from "./diagnostics.js";
 import { errorMessage } from "./files.ts";
 import { resolveInstructions } from "./resolve.js";

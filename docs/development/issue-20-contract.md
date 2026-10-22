@@ -39,7 +39,7 @@ cannot silently amend it. Relevant implemented seams:
   then requested instruction order, and native/injected delivery separation.
 - [files.ts](../../src/files.ts): guarded paths and rollback after caught errors;
   **not** an immutable concurrent store publication protocol.
-- [configure.js](../../src/configure.js) and [presets.ts](../../src/presets.ts):
+- [configure.ts](../../src/configure.ts) and [presets.ts](../../src/presets.ts):
   preview through the resolver, then stale-input checks before mutation.
 - [diagnostics.js](../../src/diagnostics.js): decoded-text accounting and presentation;
   `.trim()` presentation and UTF-8 decoding must not become snapshot backing bytes.

@@ -3,7 +3,7 @@ import {
 	applyRoleChange,
 	planRoleChange,
 	readConfiguration,
-} from "./configure.js";
+} from "./configure.ts";
 import { errorMessage } from "./files.ts";
 import { resolveInstructions } from "./resolve.js";
 import { discoverSkills } from "./skills.js";

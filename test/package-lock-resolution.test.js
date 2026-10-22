@@ -9,7 +9,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { stringify } from "yaml";
-import { applyRoleChange, planRoleChange } from "../src/configure.js";
+import { applyRoleChange, planRoleChange } from "../src/configure.ts";
 import { inspectRepository } from "../src/inspect.js";
 import { doctor } from "../src/install.js";
 import { installDependencies } from "../src/package-lock.js";

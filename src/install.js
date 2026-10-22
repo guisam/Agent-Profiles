@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { readConfiguration } from "./configure.js";
+import { readConfiguration } from "./configure.ts";
 import { applyChanges, errorMessage, readLocal, safePath } from "./files.ts";
 import {
 	blockProtocol,

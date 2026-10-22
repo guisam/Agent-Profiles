@@ -10,7 +10,7 @@ import {
 	applyRoleChange,
 	planRoleChange,
 	readConfiguration,
-} from "../src/configure.js";
+} from "../src/configure.ts";
 import { formatContext, formatProof } from "../src/diagnostics.js";
 import {
 	bootstrapAvailability,

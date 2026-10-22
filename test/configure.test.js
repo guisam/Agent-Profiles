@@ -11,7 +11,7 @@ import {
 	applyRoleChange,
 	planRoleChange,
 	readConfiguration,
-} from "../src/configure.js";
+} from "../src/configure.ts";
 import { resolveInstructions } from "../src/resolve.js";
 import { discoverSkills } from "../src/skills.js";
 import { configureRoles, selectSkills } from "../src/wizard.js";

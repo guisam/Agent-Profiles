@@ -192,7 +192,7 @@ and shared skill contents are never modified by a role edit.
 The prompt-free API is shared with the wizard:
 
 ```js
-import { planRoleChange, applyRoleChange } from './src/configure.js';
+import { planRoleChange, applyRoleChange } from './src/configure.ts';
 
 const plan = planRoleChange({
   root: '/path/to/repository',

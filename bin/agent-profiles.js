@@ -3,7 +3,7 @@ import { realpathSync } from "node:fs";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
-import { readConfiguration } from "../src/configure.js";
+import { readConfiguration } from "../src/configure.ts";
 import {
 	formatContext,
 	formatProof,

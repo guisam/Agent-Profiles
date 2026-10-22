@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { stringify } from "yaml";
-import { readConfiguration } from "./configure.js";
+import { readConfiguration } from "./configure.ts";
 import {
 	applyChanges,
 	errorCode,
