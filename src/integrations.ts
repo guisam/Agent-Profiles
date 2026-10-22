@@ -28,7 +28,7 @@ export type Integration = {
 	capabilities: Record<string, string>;
 };
 
-function adapterFor(host: string): Integration {
+export function adapterFor(host: string): Integration {
 	const adapter = integrations.find((item) => item.id === host);
 	if (!adapter) throw new Error(`Unknown integration ${host}`);
 	return adapter;

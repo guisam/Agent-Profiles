@@ -78,7 +78,7 @@ configuration, is reported for manual repair rather than overwritten.
 ## Adapters
 
 The small adapter table lives in [integrations.ts](../src/integrations.ts).
-Shared editing and validation stay in [install.js](../src/install.js).
+Shared editing and validation stay in [install.ts](../src/install.ts).
 
 | Agent ID | Instruction target |
 | --- | --- |

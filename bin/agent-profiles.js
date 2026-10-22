@@ -19,7 +19,7 @@ import {
 	install,
 	installPackage,
 	uninstall,
-} from "../src/install.js";
+} from "../src/install.ts";
 import { integrations } from "../src/integrations.ts";
 import { materializeStamp } from "../src/materialize.js";
 import {

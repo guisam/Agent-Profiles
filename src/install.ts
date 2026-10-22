@@ -10,26 +10,41 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readConfiguration } from "./configure.ts";
-import { applyChanges, errorMessage, readLocal, safePath } from "./files.ts";
 import {
+	applyChanges,
+	errorMessage,
+	type FileChange,
+	readLocal,
+	safePath,
+} from "./files.ts";
+import {
+	adapterFor,
 	blockProtocol,
 	expectedBlock,
+	type Integration,
 	integrations,
 	managedSpan,
 	PROTOCOL,
+	type SurfaceRecord,
 } from "./integrations.ts";
-import { resolveInstructions } from "./resolve.ts";
+import type { Untyped } from "./packages.ts";
+import { type ResolvedSkill, resolveInstructions } from "./resolve.ts";
 
 // Sources run from src/; the published build runs from dist/src/.
-const packageRoot = ["../", "../../"]
+const located = ["../", "../../"]
 	.map((up) => fileURLToPath(new URL(up, import.meta.url)))
 	.find((dir) => existsSync(path.join(dir, "package.json")));
+if (!located)
+	throw new Error(
+		"Cannot locate the agent-profiles package root (package.json)",
+	);
+const packageRoot: string = located;
 const protocolFile = ".agent-profiles/BOOTSTRAP.md";
 const ownershipFile = ".agent-profiles/permissions.json";
 // BOOTSTRAP.md is a managed reference, compared without regard to line endings, which Git may convert.
 const packagedProtocol = () =>
 	readFileSync(path.join(packageRoot, protocolFile));
-const sameText = (a, b) =>
+const sameText = (a: Buffer, b: Buffer) =>
 	a.toString("utf8").replace(/\r\n/g, "\n") ===
 	b.toString("utf8").replace(/\r\n/g, "\n");
 
@@ -49,8 +64,8 @@ export function findRoot(start = process.cwd()) {
 	return current;
 }
 
-function integrationState(root, adapter) {
-	const records = adapter.files.map((file) => {
+function integrationState(root: string, adapter: Integration) {
+	const records: SurfaceRecord[] = adapter.files.map((file) => {
 		const before = readLocal(root, file);
 		return {
 			file,
@@ -81,7 +96,7 @@ function integrationState(root, adapter) {
 	};
 }
 
-export function detectAgents(root) {
+export function detectAgents(root: string) {
 	root = realpathSync(root);
 	return integrations.map((adapter) => integrationState(root, adapter));
 }
@@ -94,9 +109,12 @@ const ownVersion = JSON.parse(
  * Whether `npx --no agent-profiles` can run from this repository without a download,
  * Verify npm's local/self or ancestor binary without executing package code.
  * Unknown/custom shims are unverified rather than attributed to nearby metadata.
- * @param {string} root
  */
-export function bootstrapAvailability(root) {
+export function bootstrapAvailability(root: string): {
+	runnable: boolean;
+	version: string | null;
+	reason: string | null;
+} {
 	let prefix = root;
 	while (
 		!existsSync(path.join(prefix, "package.json")) &&
@@ -105,7 +123,7 @@ export function bootstrapAvailability(root) {
 	)
 		prefix = path.dirname(prefix);
 	// npm cannot run anything from a project whose manifest it cannot parse.
-	const read = (file) => {
+	const read = (file: string): Untyped => {
 		try {
 			return existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : null;
 		} catch (error) {
@@ -117,14 +135,14 @@ export function bootstrapAvailability(root) {
 			);
 		}
 	};
-	let version = null;
+	let version: string | null = null;
 	try {
 		const project = read(path.join(prefix, "package.json"));
 		const selfBin =
 			typeof project?.bin === "string" && project.name === "agent-profiles"
 				? project.bin
 				: project?.bin?.["agent-profiles"];
-		let executable;
+		let executable: string | undefined;
 		if (selfBin) executable = realpathSync(path.resolve(prefix, selfBin));
 		else {
 			// libnpmexec walks upward for the extensionless .bin entry before package lookup.
@@ -200,7 +218,10 @@ export function bootstrapAvailability(root) {
 	return { runnable: true, version, reason: null };
 }
 
-function readSettings(root, file) {
+function readSettings(
+	root: string,
+	file: string,
+): { before: Buffer | null; settings: Untyped } {
 	const before = readLocal(root, file);
 	if (before === null) return { before, settings: null };
 	try {
@@ -213,7 +234,7 @@ function readSettings(root, file) {
 }
 
 /** Missing permission rules for an adapter's bootstrap command, across its settings files. */
-function missingPermissions(root, adapter) {
+function missingPermissions(root: string, adapter: Integration) {
 	if (!adapter.permissions) return [];
 	const allowed = new Set(
 		[adapter.permissions.file, ...adapter.permissions.also].flatMap(
@@ -223,7 +244,10 @@ function missingPermissions(root, adapter) {
 	return adapter.permissions.rules.filter((rule) => !allowed.has(rule));
 }
 
-function permissionOwnership(root) {
+function permissionOwnership(root: string): {
+	before: Buffer | null;
+	hosts: Record<string, string[]>;
+} {
 	const before = readLocal(root, ownershipFile);
 	const hosts = before === null ? {} : JSON.parse(before.toString("utf8"));
 	if (!hosts || typeof hosts !== "object" || Array.isArray(hosts))
@@ -234,14 +258,21 @@ function permissionOwnership(root) {
 		if (
 			!allowed ||
 			!Array.isArray(rules) ||
-			rules.some((rule) => !allowed.includes(rule))
+			rules.some((rule) => typeof rule !== "string" || !allowed.includes(rule))
 		)
 			throw new Error(`${ownershipFile}: invalid owned rules for ${host}`);
 	}
 	return { before, hosts };
 }
 
-function permissionChange(root, adapter, add, owned = []) {
+function permissionChange(
+	root: string,
+	adapter: Integration,
+	add: boolean,
+	owned: string[] = [],
+): (FileChange & { added: string[] }) | null {
+	// Callers pass only adapters that declare permission rules.
+	if (!adapter.permissions) return null;
 	const { file, rules } = adapter.permissions;
 	const { before, settings } = readSettings(root, file);
 	if (!add && settings === null) return null;
@@ -255,7 +286,7 @@ function permissionChange(root, adapter, add, owned = []) {
 	const added = rules.filter((rule) => !allow.includes(rule));
 	next.permissions.allow = add
 		? [...allow, ...added]
-		: allow.filter((rule) => !owned.includes(rule));
+		: allow.filter((rule: string) => !owned.includes(rule));
 	// Untouched when nothing changes, so an existing file keeps its exact bytes.
 	if (add ? !added.length : !owned.some((rule) => allow.includes(rule)))
 		return null;
@@ -271,22 +302,24 @@ function permissionChange(root, adapter, add, owned = []) {
 	};
 }
 
-/** @param {string} root @param {{storeRoot?: string}} [options] */
-export function doctor(root, { storeRoot } = {}) {
+export function doctor(
+	root: string,
+	{ storeRoot }: { storeRoot?: string } = {},
+) {
 	root = realpathSync(root);
-	const errors = [];
-	const notes = [];
-	const capabilities = [];
-	const hostSkills = new Map();
-	const legacy = [];
-	let resolution,
-		roleIDs = [];
+	const errors: string[] = [];
+	const notes: string[] = [];
+	const capabilities: string[] = [];
+	const hostSkills = new Map<string, ResolvedSkill>();
+	const legacy: string[] = [];
+	let resolution: ReturnType<typeof resolveInstructions> | undefined,
+		roleIDs: string[] = [];
 	try {
 		resolution = resolveInstructions({ root, storeRoot });
 		const { configuration } = readConfiguration(root, { storeRoot });
 		roleIDs = [...configuration.get("roles").keys()];
 		if (configuration.get("version") === 3) {
-			const actors = new Map();
+			const actors = new Map<string, Record<string, Untyped>>();
 			for (const link of configuration.get("workflow_links")?.values() ?? []) {
 				for (const peer of [link.get("consumer"), ...link.get("providers")]) {
 					const actor = Object.fromEntries(peer.get("assignment"));
@@ -316,7 +349,7 @@ export function doctor(root, { storeRoot } = {}) {
 				(item) =>
 					item.skills?.project &&
 					hostId &&
-					item.skills.project.path(hostId) === file,
+					item.skills.project.path?.(hostId) === file,
 			);
 			if (adapter)
 				legacy.push(
@@ -331,8 +364,8 @@ export function doctor(root, { storeRoot } = {}) {
 	} catch (error) {
 		errors.push(errorMessage(error));
 	}
-	const agents = [];
-	const stale = [];
+	const agents: Omit<ReturnType<typeof integrationState>, "records">[] = [];
+	const stale: string[] = [];
 	for (const adapter of integrations) {
 		try {
 			const { records, ...state } = integrationState(root, adapter);
@@ -340,9 +373,13 @@ export function doctor(root, { storeRoot } = {}) {
 			// A block from another protocol version tells the agent something this CLI no longer means.
 			const record = records.find((item) => item.file === state.file);
 			const span =
-				state.installed &&
-				record.before.subarray(record.span.start, record.span.end);
-			if (span && !span.equals(expectedBlock(adapter.id, record.before))) {
+				state.installed && record?.before && record.span
+					? record.before.subarray(record.span.start, record.span.end)
+					: null;
+			if (
+				span &&
+				!span.equals(expectedBlock(adapter.id, record?.before ?? null))
+			) {
 				const version = blockProtocol(span);
 				const found =
 					version === PROTOCOL
@@ -387,7 +424,7 @@ export function doctor(root, { storeRoot } = {}) {
 		// A native package names supported hosts, not an installed host skill.
 		if (skill.package) {
 			notes.push(
-				`Skill ${skill.id} is native package ${skill.package.name}@${skill.package.version} (sha256 ${skill.package.sha256}) for ${skill.supportedHosts.join(", ") || "no declared host"}: package bytes verified in the store; host installation and invocation are not verified`,
+				`Skill ${skill.id} is native package ${skill.package.name}@${skill.package.version} (sha256 ${skill.package.sha256}) for ${skill.supportedHosts?.join(", ") || "no declared host"}: package bytes verified in the store; host installation and invocation are not verified`,
 			);
 			continue;
 		}
@@ -402,7 +439,7 @@ export function doctor(root, { storeRoot } = {}) {
 			? `; its metadata could not be read (${skill.metadataError})`
 			: "";
 		notes.push(
-			`Skill ${skill.id} is ${adapter.name} skill ${skill.hostId}: ${state}${unreadable}${agent && !agent.installed ? `; the ${adapter.name} integration is not installed` : ""}`,
+			`Skill ${skill.id} is ${adapter?.name} skill ${skill.hostId}: ${state}${unreadable}${agent && !agent.installed ? `; the ${adapter?.name} integration is not installed` : ""}`,
 		);
 	}
 	if (hostSkills.size)
@@ -414,14 +451,14 @@ export function doctor(root, { storeRoot } = {}) {
 	const availability = bootstrapAvailability(root);
 	const bootstrap = [...stale];
 	for (const agent of agents.filter((item) => item.installed)) {
-		const adapter = integrations.find((item) => item.id === agent.id);
+		const adapter = adapterFor(agent.id);
 		if (!availability.runnable)
 			bootstrap.push(`${agent.name}: ${availability.reason}`);
 		try {
 			const missing = missingPermissions(root, adapter);
 			if (missing.length)
 				bootstrap.push(
-					`${agent.name}: ${adapter.permissions.file} does not allow ${missing.join(" or ")}; run init to add the rules`,
+					`${agent.name}: ${adapter.permissions?.file} does not allow ${missing.join(" or ")}; run init to add the rules`,
 				);
 		} catch (error) {
 			bootstrap.push(`${agent.name}: ${errorMessage(error)}`);
@@ -452,7 +489,7 @@ export function doctor(root, { storeRoot } = {}) {
 	};
 }
 
-function templateFiles(directory, prefix = "") {
+function templateFiles(directory: string, prefix = ""): string[] {
 	return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
 		const file = prefix + entry.name;
 		if (entry.isDirectory())
@@ -462,7 +499,15 @@ function templateFiles(directory, prefix = "") {
 	});
 }
 
-export function install({ root, agents, storeRoot = undefined }) {
+export function install({
+	root,
+	agents,
+	storeRoot = undefined,
+}: {
+	root: string;
+	agents: string[];
+	storeRoot?: string;
+}) {
 	root = realpathSync(root);
 	const choices = integrations.map((adapter) => adapter.id).join(", ");
 	if (!Array.isArray(agents) || !agents.length)
@@ -472,7 +517,7 @@ export function install({ root, agents, storeRoot = undefined }) {
 		if (!adapter) throw new Error(`Unknown agent ${id}; choose ${choices}`);
 		return integrationState(root, adapter);
 	});
-	const changes = [];
+	const changes: FileChange[] = [];
 	const config = readLocal(root, ".agent-profiles/agents.yaml");
 	if (config === null) {
 		const directory = safePath(root, ".agent-profiles");
@@ -504,33 +549,39 @@ export function install({ root, agents, storeRoot = undefined }) {
 				agent.installed && !selected.some((item) => item.id === agent.id),
 		);
 	for (const agent of [...selected, ...installed]) {
-		const { file, before, span } = agent.records.find(
-			(record) => record.file === agent.file,
-		);
+		const record = agent.records.find((item) => item.file === agent.file);
+		// select() always returns one of the adapter's own files.
+		if (!record) throw new Error(`${agent.name}: no record for ${agent.file}`);
+		const { file, before, span } = record;
 		const block = expectedBlock(agent.id, before);
 		// An outdated managed block is replaced in place; bytes outside the markers are preserved.
-		if (agent.installed && before.subarray(span.start, span.end).equals(block))
+		if (
+			agent.installed &&
+			before &&
+			span &&
+			before.subarray(span.start, span.end).equals(block)
+		)
 			continue;
 		changes.push({
 			file,
 			before,
-			after: agent.installed
-				? Buffer.concat([
-						before.subarray(0, span.start),
-						block,
-						before.subarray(span.end),
-					])
-				: Buffer.concat([before ?? Buffer.alloc(0), block]),
+			after:
+				agent.installed && before && span
+					? Buffer.concat([
+							before.subarray(0, span.start),
+							block,
+							before.subarray(span.end),
+						])
+					: Buffer.concat([before ?? Buffer.alloc(0), block]),
 		});
 	}
 	const permissionAgents = [...selected, ...installed].filter(
-		(agent) =>
-			integrations.find((adapter) => adapter.id === agent.id).permissions,
+		(agent) => adapterFor(agent.id).permissions,
 	);
 	if (permissionAgents.length) {
 		const ownership = permissionOwnership(root);
 		for (const agent of permissionAgents) {
-			const adapter = integrations.find((item) => item.id === agent.id);
+			const adapter = adapterFor(agent.id);
 			const change = permissionChange(root, adapter, true);
 			if (change) {
 				changes.push(change);
@@ -572,10 +623,9 @@ function npmCli() {
 
 /**
  * Install the package the bootstrap runs, as a dev dependency of the repository.
- * @param {string} root
- * @param {string} spec npm package spec, such as agent-profiles@0.1.0 or a tarball path
+ * spec is an npm package spec, such as agent-profiles@0.1.0 or a tarball path.
  */
-export function installPackage(root, spec) {
+export function installPackage(root: string, spec: string) {
 	root = realpathSync(root);
 	if (typeof spec !== "string" || !spec.trim())
 		throw new Error("--package requires an npm package spec or tarball path");
@@ -591,20 +641,28 @@ export function installPackage(root, spec) {
 	return bootstrapAvailability(root);
 }
 
-export function uninstall({ root, deleteConfig = false, confirmed = false }) {
+export function uninstall({
+	root,
+	deleteConfig = false,
+	confirmed = false,
+}: {
+	root: string;
+	deleteConfig?: boolean;
+	confirmed?: boolean;
+}) {
 	root = realpathSync(root);
 	if (typeof deleteConfig !== "boolean" || typeof confirmed !== "boolean")
 		throw new Error("Deletion options must be booleans");
 	if (deleteConfig && !confirmed)
 		throw new Error("Deleting .agent-profiles requires explicit confirmation");
-	const changes = [];
+	const changes: FileChange[] = [];
 	// Inspect every known path, even when an override now shadows a previously installed block.
 	for (const file of new Set(
 		integrations.flatMap((adapter) => adapter.files),
 	)) {
 		const before = readLocal(root, file);
 		const span = before === null ? null : managedSpan(before, file);
-		if (span)
+		if (before && span)
 			changes.push({
 				file,
 				before,

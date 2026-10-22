@@ -12,7 +12,7 @@ import {
 	findRoot,
 	install,
 	uninstall,
-} from "../src/install.js";
+} from "../src/install.ts";
 import { bootstrapBlock, END, START } from "../src/integrations.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));

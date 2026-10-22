@@ -18,7 +18,7 @@ import {
 	install,
 	installPackage,
 	uninstall,
-} from "../src/install.js";
+} from "../src/install.ts";
 import { bootstrapBlock, END, START } from "../src/integrations.ts";
 import {
 	applyPresetExport,

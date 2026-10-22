@@ -18,7 +18,7 @@ import { parse, stringify } from "yaml";
 import { applyRoleChange, planRoleChange } from "../src/configure.ts";
 import { formatProof, resolutionOutput } from "../src/diagnostics.ts";
 import { inspectRepository } from "../src/inspect.js";
-import { doctor } from "../src/install.js";
+import { doctor } from "../src/install.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage } from "../src/package-store.ts";
 import {

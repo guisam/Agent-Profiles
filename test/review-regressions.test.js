@@ -12,7 +12,7 @@ import {
 	doctor,
 	install,
 	uninstall,
-} from "../src/install.js";
+} from "../src/install.ts";
 import { runPreset } from "../src/preset-wizard.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 import { startVisualizer } from "../src/visualize.ts";

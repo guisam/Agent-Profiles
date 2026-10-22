@@ -11,7 +11,7 @@ import { stringify } from "yaml";
 import { readConfiguration } from "../src/configure.ts";
 import { formatContext, resolutionOutput } from "../src/diagnostics.ts";
 import { inspectRepository } from "../src/inspect.js";
-import { doctor, install } from "../src/install.js";
+import { doctor, install } from "../src/install.ts";
 import * as materializer from "../src/materialize.js";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, lookupPackage } from "../src/package-store.ts";

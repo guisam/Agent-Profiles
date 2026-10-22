@@ -10,7 +10,7 @@ import {
 	readLocal,
 	safePath,
 } from "./files.ts";
-import { detectAgents } from "./install.js";
+import { detectAgents } from "./install.ts";
 import { integrations } from "./integrations.ts";
 import {
 	identifier,
