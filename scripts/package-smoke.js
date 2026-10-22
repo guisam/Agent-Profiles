@@ -13,6 +13,8 @@ const temporary = fs.mkdtempSync(
 );
 const npm = process.env.npm_execpath;
 assert.ok(npm, "Run with npm run test:package");
+// Code ships as the dist/ build of src/ and bin/; npm run test:package builds it first.
+const built = (file) => file.replace(/^(bin|src)\//, "dist/$1/");
 const environment = { ...process.env };
 for (const key of Object.keys(environment))
 	if (/^npm_config_/i.test(key)) delete environment[key];
@@ -139,7 +141,7 @@ try {
 		"docs/migrations/prompts/config-v1-to-v2.md",
 		"docs/migrations/config-v2-to-v3.md",
 		"docs/migrations/prompts/config-v2-to-v3.md",
-	];
+	].map(built);
 	for (const file of [
 		"LICENSE",
 		"README.md",
@@ -173,11 +175,11 @@ try {
 		"docs/hosts/hermes.md",
 		"examples/presets/release-review/preset.yaml",
 		...versionedFiles,
-	])
+	].map(built))
 		assert.ok(files.has(file), `Missing package file: ${file}`);
 	for (const file of files) {
 		assert.ok(
-			/^(bin\/|src\/|docs\/|examples\/presets\/|\.agent-profiles\/|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(
+			/^(dist\/|docs\/|examples\/presets\/|\.agent-profiles\/|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(
 				file,
 			),
 			`Unexpected package file: ${file}`,
@@ -225,7 +227,7 @@ try {
 		const firstLF = expected.indexOf(0x0a);
 		// npm bin-links removes only the CR ending a CRLF hashbang line.
 		if (
-			file === "bin/agent-profiles.js" &&
+			file === "dist/bin/agent-profiles.js" &&
 			expected[0] === 0x23 &&
 			expected[1] === 0x21 &&
 			firstLF > 1 &&
@@ -272,23 +274,25 @@ try {
 	])
 		assert.match(cli(command, "--help"), new RegExp(command));
 	const { configureRoles } = await import(
-		pathToFileURL(path.join(installed, "src/wizard.js")).href
+		pathToFileURL(path.join(installed, "dist/src/wizard.js")).href
 	);
 	const { resolveInstructions } = await import(
-		pathToFileURL(path.join(installed, "src/resolve.js")).href
+		pathToFileURL(path.join(installed, "dist/src/resolve.js")).href
 	);
 	const { planRoleChange, applyRoleChange } = await import(
-		pathToFileURL(path.join(installed, "src/configure.js")).href
+		pathToFileURL(path.join(installed, "dist/src/configure.js")).href
 	);
 	const { startVisualizer } = await import(
-		pathToFileURL(path.join(installed, "src/visualize.js")).href
+		pathToFileURL(path.join(installed, "dist/src/visualize.js")).href
 	);
 	const {
 		planPresetExport,
 		applyPresetExport,
 		planPresetImport,
 		applyPresetImport,
-	} = await import(pathToFileURL(path.join(installed, "src/presets.js")).href);
+	} = await import(
+		pathToFileURL(path.join(installed, "dist/src/presets.js")).href
+	);
 	assert.match(
 		cli(
 			"preset",
@@ -1067,10 +1071,10 @@ try {
 			),
 		);
 		const { hashRecord, canonicalJSON, readPackage } = await import(
-			pathToFileURL(path.join(installed, "src/packages.js")).href
+			pathToFileURL(path.join(installed, "dist/src/packages.js")).href
 		);
 		const { lookupRevisionManifest } = await import(
-			pathToFileURL(path.join(installed, "src/revisions.js")).href
+			pathToFileURL(path.join(installed, "dist/src/revisions.js")).href
 		);
 		assert.deepEqual(adopted, {
 			identity: adoptedIdentity,
@@ -1381,7 +1385,7 @@ try {
 		);
 		assert.equal(workflowReceipt.status, "committed");
 		const workflowMaterializer = await import(
-			pathToFileURL(path.join(installed, "src/materialize.js")).href
+			pathToFileURL(path.join(installed, "dist/src/materialize.js")).href
 		);
 		const workflowPlan = workflowMaterializer.planMaterialization({
 			stampDigest: workflowStamp.digest,
@@ -1686,16 +1690,16 @@ try {
 			true,
 		);
 		const { migrationCandidate } = await import(
-			pathToFileURL(path.join(installed, "src/migrations.js")).href
+			pathToFileURL(path.join(installed, "dist/src/migrations.js")).href
 		);
 		const { readRevisionRecord } = await import(
-			pathToFileURL(path.join(installed, "src/revisions.js")).href
+			pathToFileURL(path.join(installed, "dist/src/revisions.js")).href
 		);
 		const { reconstructStamp: reconstructCandidate } = await import(
-			pathToFileURL(path.join(installed, "src/stamps.js")).href
+			pathToFileURL(path.join(installed, "dist/src/stamps.js")).href
 		);
 		const { lookupPackage } = await import(
-			pathToFileURL(path.join(installed, "src/package-store.js")).href
+			pathToFileURL(path.join(installed, "dist/src/package-store.js")).href
 		);
 		const { status: candidateStatus, ...candidateIndex } = candidateResult;
 		assert.equal(candidateStatus, "published");
@@ -1758,10 +1762,10 @@ try {
 		);
 		// Retain caller-supplied paired claims through the installed CLI; no evaluator runs.
 		const { canonicalEvaluationJSON, hashEvaluationRecord } = await import(
-			pathToFileURL(path.join(installed, "src/packages.js")).href
+			pathToFileURL(path.join(installed, "dist/src/packages.js")).href
 		);
 		const { migrationEvaluationPlan, migrationEvaluationReport } = await import(
-			pathToFileURL(path.join(installed, "src/migrations.js")).href
+			pathToFileURL(path.join(installed, "dist/src/migrations.js")).href
 		);
 		const evaluationSelection = candidateBase.snapshot.selection;
 		const evaluationAssignment = {
@@ -1974,7 +1978,7 @@ try {
 		);
 		// Explicit synthetic promotion of the exact evaluated tuple; preview and blocked correctness never write.
 		const { migrationPromotion } = await import(
-			pathToFileURL(path.join(installed, "src/migrations.js")).href
+			pathToFileURL(path.join(installed, "dist/src/migrations.js")).href
 		);
 		const refusal = (...args) =>
 			spawnSync(
@@ -2383,10 +2387,10 @@ try {
 		assert.equal(fs.existsSync(sources), false);
 
 		const { reconstructStamp } = await import(
-			pathToFileURL(path.join(installed, "src/stamps.js")).href
+			pathToFileURL(path.join(installed, "dist/src/stamps.js")).href
 		);
 		const { verifyMaterialization } = await import(
-			pathToFileURL(path.join(installed, "src/materialize.js")).href
+			pathToFileURL(path.join(installed, "dist/src/materialize.js")).href
 		);
 		const storeBefore = snapshot(store),
 			freshBefore = snapshot(fresh),

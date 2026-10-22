@@ -8,11 +8,14 @@
 		"target": "ES2023",
 		"module": "NodeNext",
 		"types": ["node"],
+		"allowImportingTsExtensions": true,
+		"rewriteRelativeImportExtensions": true,
+		"erasableSyntaxOnly": true,
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
 		"allowUnreachableCode": false,
 		"allowUnusedLabels": false,
 		"noFallthroughCasesInSwitch": true
 	},
-	"include": ["src/**/*.js", "bin/**/*.js", "scripts/**/*.js"]
+	"include": ["src/**/*", "bin/**/*", "scripts/**/*"]
 }

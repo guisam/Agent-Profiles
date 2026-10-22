@@ -20,7 +20,10 @@ import {
 } from "./integrations.js";
 import { resolveInstructions } from "./resolve.js";
 
-const packageRoot = fileURLToPath(new URL("../", import.meta.url));
+// Sources run from src/; the published build runs from dist/src/.
+const packageRoot = ["../", "../../"]
+	.map((up) => fileURLToPath(new URL(up, import.meta.url)))
+	.find((dir) => existsSync(path.join(dir, "package.json")));
 const protocolFile = ".agent-profiles/BOOTSTRAP.md";
 const ownershipFile = ".agent-profiles/permissions.json";
 // BOOTSTRAP.md is a managed reference, compared without regard to line endings, which Git may convert.

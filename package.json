@@ -18,11 +18,10 @@
 	],
 	"type": "module",
 	"bin": {
-		"agent-profiles": "bin/agent-profiles.js"
+		"agent-profiles": "dist/bin/agent-profiles.js"
 	},
 	"files": [
-		"bin/",
-		"src/",
+		"dist/",
 		".agent-profiles/",
 		"docs/",
 		"examples/presets/",
@@ -33,12 +32,14 @@
 		"node": ">=24"
 	},
 	"scripts": {
-		"typecheck": "tsc",
+		"typecheck": "tsc && tsc -p tsconfig.strict.json",
 		"lint": "biome lint",
 		"format": "biome format --write",
 		"check": "biome check --write",
+		"build": "node scripts/build.js",
+		"prepack": "npm run build",
 		"test": "node --test",
-		"test:package": "node scripts/package-smoke.js",
+		"test:package": "npm run build && node scripts/package-smoke.js",
 		"resolve": "node bin/agent-profiles.js resolve --json"
 	},
 	"dependencies": {

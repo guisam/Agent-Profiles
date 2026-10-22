@@ -11,16 +11,22 @@ npm test
 npm run test:package
 ```
 
-`typecheck` uses TypeScript's `checkJs` on runtime JavaScript and scripts,
-without a build step, including unused bindings, unreachable code, unused
-labels, and switch fallthrough. `lint` runs [Biome](https://biomejs.dev)'s
+Sources are moving from JavaScript to TypeScript one file at a time. Node 24
+runs both directly, so development and tests need no build step. `typecheck`
+runs two passes: `tsconfig.json` checks every file, including unused bindings,
+unreachable code, unused labels, and switch fallthrough; `tsconfig.strict.json`
+holds converted `.ts` files to full `strict`. Import converted modules with
+their `.ts` extension. `lint` runs [Biome](https://biomejs.dev)'s
 recommended rules over sources and tests; `check` also formats and sorts
 imports in place. CI runs `biome ci`, which fails on lint errors or unformatted
 files. TypeScript, Biome, and Node type declarations are development-only
 dependencies. Runtime needs only `yaml` for parsing, validation, and
 comment-preserving edits.
 
-`test:package` packs the actual npm artifact, checks its contents, installs it in
+Node will not strip types inside `node_modules`, so the published package ships
+`dist/`: `npm run build` (also run by `prepack`) emits it with `tsc`.
+
+`test:package` builds `dist/`, packs the actual npm artifact, checks its contents, installs it in
 an isolated temporary project, invokes the npm executable, and exercises the
 installer, wizard, resolver, doctor, and uninstall. It may need registry access
 for `yaml`; it never publishes. Temporary repositories are removed afterward.
