@@ -36,10 +36,10 @@
 		"lint": "biome lint",
 		"format": "biome format --write",
 		"check": "biome check --write",
-		"build": "node scripts/build.js",
+		"build": "node scripts/build.ts",
 		"prepack": "npm run build",
 		"test": "node --test",
-		"test:affected": "node scripts/affected-tests.js",
+		"test:affected": "node scripts/affected-tests.ts",
 		"test:package": "npm run build && node scripts/package-smoke.js",
 		"resolve": "node bin/agent-profiles.ts resolve --json"
 	},

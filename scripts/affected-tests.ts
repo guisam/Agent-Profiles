@@ -1,10 +1,10 @@
-// Runs only the test files a change can reach: node scripts/affected-tests.js [base] [--list]
+// Runs only the test files a change can reach: node scripts/affected-tests.ts [base] [--list]
 // base defaults to HEAD (uncommitted changes); a..b checks a commit range. Unmapped changes run everything.
 import { execFileSync, spawnSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-const git = (...args) =>
+const git = (...args: string[]) =>
 	execFileSync("git", args, { encoding: "utf8" }).split("\n").filter(Boolean);
 const args = process.argv.slice(2);
 const base = args.find((a) => !a.startsWith("--")) ?? "HEAD";
@@ -17,14 +17,19 @@ const changes = [
 ]
 	.map((line) => line.split("\t"))
 	// Trail tooling rewrites its own files; they never affect tests.
-	.filter((parts) => !parts.at(-1).startsWith(".trail/"));
-const changed = new Set(changes.map((parts) => parts.at(-1)));
+	.filter((parts) => !last(parts).startsWith(".trail/"));
+const changed = new Set(changes.map(last));
 
-const imports = new Map();
-function closure(file, seen = new Set()) {
+// git rows are "status<TAB>path" (or two paths for renames); the last field is the current path.
+function last(parts: string[]) {
+	return parts.at(-1) ?? "";
+}
+
+const imports = new Map<string, string>();
+function closure(file: string, seen = new Set<string>()) {
 	if (seen.has(file)) return seen;
 	seen.add(file);
-	let source;
+	let source: string;
 	try {
 		source = readFileSync(file, "utf8");
 	} catch {
@@ -46,25 +51,25 @@ const reach = new Map(
 	tests.map((test) => {
 		const deps = closure(test);
 		// Tests that spawn the CLI depend on everything it imports.
-		if (imports.get(test).includes("bin/agent-profiles"))
+		if (imports.get(test)?.includes("bin/agent-profiles"))
 			for (const f of cli) deps.add(f);
-		return [test, deps];
+		return [test, deps] as const;
 	}),
 );
 
-const selected = new Set();
+const selected = new Set<string>();
 let all = false;
 for (const [status, ...paths] of changes) {
-	const file = paths.at(-1);
+	const file = last(paths);
 	// Renames and deletions can break doc links; P9b-10 checks them.
 	if (/^[RD]/.test(status) || file.endsWith(".md"))
 		selected.add("test/package-delivery.test.js");
 	const hits = tests.filter(
 		(t) =>
-			reach.get(t).has(file) ||
-			paths.some((p) => reach.get(t).has(p)) ||
-			imports.get(t).includes(file) ||
-			imports.get(t).includes(path.basename(file)),
+			reach.get(t)?.has(file) ||
+			paths.some((p) => reach.get(t)?.has(p)) ||
+			imports.get(t)?.includes(file) ||
+			imports.get(t)?.includes(path.basename(file)),
 	);
 	for (const t of hits) selected.add(t);
 	if (!hits.length && !file.endsWith(".md")) {

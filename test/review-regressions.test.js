@@ -78,7 +78,7 @@ function executable(root, installedVersion = version, realCLI = false) {
 	);
 	if (realCLI) {
 		// Node won't strip types under node_modules, so install the build like npm would.
-		built ??= spawnSync(process.execPath, ["scripts/build.js"], {
+		built ??= spawnSync(process.execPath, ["scripts/build.ts"], {
 			cwd: project,
 			encoding: "utf8",
 		});
