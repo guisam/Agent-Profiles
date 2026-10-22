@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { discoveryError } from "./discovery-diagnostics.js";
+import { discoveryError } from "./discovery-diagnostics.ts";
 import { errorCode, errorMessage } from "./files.js";
 import { parseYaml, skillMetadata } from "./resolve.js";
 

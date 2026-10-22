@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
-import { discoveryError } from "./discovery-diagnostics.js";
+import { discoveryError } from "./discovery-diagnostics.ts";
 import {
 	discoverExternalSkills,
 	externalMetadata,
