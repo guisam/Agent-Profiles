@@ -9,7 +9,7 @@ import { stringify } from "yaml";
 import { integrations } from "../src/integrations.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, lookupPackage } from "../src/package-store.ts";
-import * as stamps from "../src/stamps.js";
+import * as stamps from "../src/stamps.ts";
 
 const CONFIG = ".agent-profiles/agents.yaml";
 const PROFILE = ".agent-profiles/mapped/base.md";
@@ -1665,7 +1665,7 @@ for (const c of cases) {
 	test(`${c.cid} diff ${c.name}`, {
 		skip:
 			typeof stamps.diffStamps !== "function"
-				? "blocked: src/stamps.js does not export diffStamps"
+				? "blocked: src/stamps.ts does not export diffStamps"
 				: false,
 	}, (t) => {
 		const { f, a, b, rows } = c.prepare(t);
@@ -1869,7 +1869,7 @@ for (const [cid, name, field, status, diagnostic] of damageCases) {
 		test(`${cid} diff ${name} ${direction}`, {
 			skip:
 				typeof stamps.diffStamps !== "function"
-					? "blocked: src/stamps.js does not export diffStamps"
+					? "blocked: src/stamps.ts does not export diffStamps"
 					: false,
 		}, (t) => {
 			const { f, a, b } = damaged(t, name);
@@ -1905,7 +1905,7 @@ test("C17-52 fixture both invalid reports have distinct findings", (t) => {
 test("C17-52 diff both invalid reports have distinct findings", {
 	skip:
 		typeof stamps.diffStamps !== "function"
-			? "blocked: src/stamps.js does not export diffStamps"
+			? "blocked: src/stamps.ts does not export diffStamps"
 			: false,
 }, (t) => {
 	const first = damaged(t, "missing snapshot"),
@@ -1975,7 +1975,7 @@ test("C17-53 fixture immutable read interception and raw oracle controls", (t) =
 test("C17-53 diff equal digest rereads snapshots every tree and blob without mutable reads", {
 	skip:
 		typeof stamps.diffStamps !== "function"
-			? "blocked: src/stamps.js does not export diffStamps"
+			? "blocked: src/stamps.ts does not export diffStamps"
 			: false,
 }, (t) => {
 	const f = fixture(t);
@@ -2208,7 +2208,7 @@ for (const [cid, name, input, diagnostic] of malformed)
 	test(`${cid} diff strict preflight ${name}`, {
 		skip:
 			typeof stamps.diffStamps !== "function"
-				? "blocked: src/stamps.js does not export diffStamps"
+				? "blocked: src/stamps.ts does not export diffStamps"
 				: false,
 	}, (t) => {
 		const f = fixture(t),
@@ -2286,7 +2286,7 @@ test("C17-73 fixture explicit empty misleading and absent stores", (t) => {
 test("C17-73 diff explicit store beats empty misleading environment and home", {
 	skip:
 		typeof stamps.diffStamps !== "function"
-			? "blocked: src/stamps.js does not export diffStamps"
+			? "blocked: src/stamps.ts does not export diffStamps"
 			: false,
 }, (t) => {
 	const { f, a, ambient, empty, missing, home } = storeFixture(t);
@@ -2334,7 +2334,7 @@ test("C17-73 diff explicit store beats empty misleading environment and home", {
 test("C17-74 diff store safety rejects nonlocal and malformed roots without creation", {
 	skip:
 		typeof stamps.diffStamps !== "function"
-			? "blocked: src/stamps.js does not export diffStamps"
+			? "blocked: src/stamps.ts does not export diffStamps"
 			: false,
 }, (t) => {
 	const f = fixture(t),

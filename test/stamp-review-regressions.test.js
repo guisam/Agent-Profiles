@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { resolveInstructions } from "../src/resolve.ts";
-import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.ts";
 
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const compare = (a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b));

@@ -33,7 +33,7 @@ import {
 } from "../src/presets.ts";
 import { parseYaml, resolveInstructions } from "../src/resolve.ts";
 import { discoverSkills } from "../src/skills.ts";
-import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.ts";
 import { startVisualizer } from "../src/visualize.ts";
 import { configureRoles, selectSkills } from "../src/wizard.ts";
 
@@ -1428,7 +1428,7 @@ for (const owner of ["profile", "role", "file-skill"])
 				[instructions, Buffer.from("# reviewer\r\n"), skillBytes("required")],
 			);
 			fs.rmSync(f.root, { recursive: true });
-			const moduleURL = new URL("../src/stamps.js", import.meta.url).href;
+			const moduleURL = new URL("../src/stamps.ts", import.meta.url).href;
 			const code = `import fs from 'node:fs'; import path from 'node:path'; import { syncBuiltinESMExports } from 'node:module';
     import { reconstructStamp } from ${JSON.stringify(moduleURL)};
     const deleted = ${JSON.stringify(f.root)};

@@ -12,7 +12,7 @@ import {
 	recoverMaterialization,
 	verifyMaterialization,
 } from "../src/materialize.js";
-import { createStamp } from "../src/stamps.js";
+import { createStamp } from "../src/stamps.ts";
 
 const WORKER = fileURLToPath(
 	new URL("./fixtures/issue-20/materialize-worker.mjs", import.meta.url),

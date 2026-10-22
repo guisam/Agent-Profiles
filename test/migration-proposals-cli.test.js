@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
 import { migrationProposals, proposeMigration } from "../src/migrations.js";
 import { installDependencies } from "../src/package-lock.ts";
-import { createStamp, reconstructStamp } from "../src/stamps.js";
+import { createStamp, reconstructStamp } from "../src/stamps.ts";
 
 const cli = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));
 const instruction = "local/.agent-profiles/roles/reviewer.md";

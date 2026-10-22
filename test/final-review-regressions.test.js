@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { verifyMaterialization } from "../src/materialize.js";
 import { installDependencies } from "../src/package-lock.ts";
 import { lookupPackage } from "../src/package-store.ts";
-import { createStamp, verifyStamp } from "../src/stamps.js";
+import { createStamp, verifyStamp } from "../src/stamps.ts";
 
 const CLI_WORKER = fileURLToPath(
 	new URL("./fixtures/issue-20/package-cli-worker.mjs", import.meta.url),

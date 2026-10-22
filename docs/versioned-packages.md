@@ -249,7 +249,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { verifyMaterialization } from './src/materialize.js';
-import { reconstructStamp } from './src/stamps.js';
+import { reconstructStamp } from './src/stamps.ts';
 const storeRoot = path.join(process.env.AP_DEMO, 'store');
 const digest = process.env.AP_STAMP_A;
 assert.deepEqual(verifyMaterialization({ destination: path.join(process.env.AP_DEMO, 'exports/small'), expectedStampDigest: digest, storeRoot }), { verified: true, findings: [] });

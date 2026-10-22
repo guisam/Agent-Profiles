@@ -24,7 +24,7 @@ import {
 	diffStamps,
 	reconstructStamp,
 	verifyStamp,
-} from "../src/stamps.js";
+} from "../src/stamps.ts";
 import { configureRoles } from "../src/wizard.ts";
 
 // P9a RED only. No missing-CLI skip: native CLI assertions must expose actual dispatch failures.

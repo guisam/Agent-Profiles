@@ -27,7 +27,7 @@ import {
 	parseRecord,
 	validateMembers,
 } from "./packages.ts";
-import { reconstructStamp } from "./stamps.js";
+import { reconstructStamp } from "./stamps.ts";
 
 const PLAN_DOMAIN = "agent-profiles/materialization-plan/v1";
 const TREE_DOMAIN = "agent-profiles/materialized-tree/v1";

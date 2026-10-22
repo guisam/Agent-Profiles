@@ -9,7 +9,7 @@ import * as migrations from "../src/migrations.js";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, readStoreFile } from "../src/package-store.ts";
 import { resolveInstructions } from "../src/resolve.ts";
-import { createStamp, reconstructStamp } from "../src/stamps.js";
+import { createStamp, reconstructStamp } from "../src/stamps.ts";
 
 const exports = [
 	"proposeMigration",

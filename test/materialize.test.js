@@ -26,7 +26,7 @@ import {
 	readPackage,
 	validateMembers,
 } from "../src/packages.ts";
-import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.ts";
 
 // C18/C19, M01-M14. Runtime boundaries are operational inputs, never hashed data.
 const target = new URL("../src/materialize.js", import.meta.url);

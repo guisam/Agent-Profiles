@@ -16,7 +16,7 @@ import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, lookupPackage } from "../src/package-store.ts";
 import { hashRecord } from "../src/packages.ts";
 import { resolveInstructions } from "../src/resolve.ts";
-import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.ts";
 
 const service = new URL("../src/revisions.ts", import.meta.url);
 let revisions;

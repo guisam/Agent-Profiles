@@ -28,6 +28,7 @@ import {
 	hashRecord,
 	parseManifest,
 	parseRecord,
+	type Untyped,
 	validateMembers,
 } from "./packages.ts";
 import {
@@ -41,16 +42,20 @@ import {
 import { readRevisionRecord } from "./revisions.ts";
 
 const DOMAIN = "agent-profiles/stamp/v1";
-const stampDomain = (s) =>
+const stampDomain = (s: Untyped) =>
 	s?.stampVersion === 2 ? "agent-profiles/stamp/v2" : DOMAIN;
-const pinKey = (p) => `${p.name}@${p.version}:${p.sha256}:${p.revisionDigest}`;
+const pinKey = (p: Untyped) =>
+	`${p.name}@${p.version}:${p.sha256}:${p.revisionDigest}`;
 const CONFIG = ".agent-profiles/agents.yaml";
 const LOCK = ".agent-profiles/agent-profiles.lock";
-const compare = (a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b));
-const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
-const equal = (a, b) => canonicalJSON(a).equals(canonicalJSON(b));
-const key = (p) => `${p.name}@${p.version}`;
-const packageOrder = (a, b) =>
+const compare = (a: string, b: string) =>
+	Buffer.compare(Buffer.from(a), Buffer.from(b));
+const sha = (bytes: Buffer | string) =>
+	createHash("sha256").update(bytes).digest("hex");
+const equal = (a: unknown, b: unknown) =>
+	canonicalJSON(a).equals(canonicalJSON(b));
+const key = (p: Untyped) => `${p.name}@${p.version}`;
+const packageOrder = (a: Untyped, b: Untyped) =>
 	compare(a.name, b.name) ||
 	compare(a.version, b.version) ||
 	compare(a.sha256, b.sha256);
@@ -67,14 +72,14 @@ const coverage = {
 };
 const hosts = integrations.map((adapter) => adapter.id);
 
-function fail(location, message) {
+function fail(location: string, message: string): never {
 	throw new Error(`${location}: ${message}`);
 }
-function object(value, location) {
+function object(value: Untyped, location: string) {
 	if (!value || typeof value !== "object" || Array.isArray(value))
 		fail(location, "expected an object");
 }
-function fields(value, location, keys) {
+function fields(value: Untyped, location: string, keys: string[]) {
 	object(value, location);
 	for (const k of Object.keys(value))
 		if (!keys.includes(k)) fail(`${location}.${k}`, "unknown field");
@@ -82,33 +87,33 @@ function fields(value, location, keys) {
 		if (!Object.hasOwn(value, k))
 			fail(`${location}.${k}`, "required field is missing");
 }
-function options(value, keys) {
+function options(value: Untyped, keys: string[]) {
 	object(value, "options");
 	for (const k of Object.keys(value))
 		if (!keys.includes(k)) fail(k, "unknown option");
 }
-function text(value, location) {
+function text(value: Untyped, location: string) {
 	if (typeof value !== "string" || !value.trim() || value.includes("\0"))
 		fail(location, "expected a nonempty string without NUL");
 }
-function digest(value, location = "digest") {
+function digest(value: Untyped, location = "digest") {
 	if (typeof value !== "string" || !/^[0-9a-f]{64}$/.test(value))
 		fail(location, "expected 64 lowercase hexadecimal characters");
 }
-function portable(value) {
+function portable(value: Untyped) {
 	validateMembers([{ path: value, type: "file", nlink: 1 }]);
 }
-function list(value, location) {
+function list(value: Untyped, location: string) {
 	if (!Array.isArray(value)) fail(location, "expected an array");
 }
-function unique(values, location) {
+function unique(values: Untyped, location: string) {
 	if (new Set(values).size !== values.length) fail(location, "duplicate entry");
 }
-function host(value, nullable = false) {
+function host(value: Untyped, nullable = false) {
 	if (!(nullable && value === null) && !hosts.includes(value))
 		fail("host", "unknown host");
 }
-function identity(p, location) {
+function identity(p: Untyped, location: string) {
 	if (
 		typeof p.name !== "string" ||
 		!/^@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/.test(p.name)
@@ -117,12 +122,12 @@ function identity(p, location) {
 	if (
 		typeof p.version !== "string" ||
 		!/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(p.version) ||
-		p.version.split(".").some((n) => !Number.isSafeInteger(Number(n)))
+		p.version.split(".").some((n: Untyped) => !Number.isSafeInteger(Number(n)))
 	)
 		fail(location, "expected exact safe release version");
 	digest(p.sha256);
 }
-function backing(b, location) {
+function backing(b: Untyped, location: string) {
 	object(b, `${location}.backing`);
 	fields(
 		b,
@@ -139,7 +144,7 @@ function backing(b, location) {
 		fail(location, "invalid blob bytes length");
 }
 
-function validateSelection(s) {
+function validateSelection(s: Untyped) {
 	const sel = s.selection;
 	fields(sel, "selection", [
 		"host",
@@ -186,10 +191,10 @@ function validateSelection(s) {
 	return sel;
 }
 
-function validateObservations(s, skills, packages) {
+function validateObservations(s: Untyped, skills: Untyped, packages: Untyped) {
 	const sel = s.selection;
 	unique(
-		s.shared.map((e) => e.path),
+		s.shared.map((e: Untyped) => e.path),
 		"shared",
 	);
 	for (const e of s.shared) {
@@ -208,7 +213,7 @@ function validateObservations(s, skills, packages) {
 			fail("shared", "unobserved/absent backing must be null");
 	}
 	unique(
-		s.hostReferences.map((e) => e.key),
+		s.hostReferences.map((e: Untyped) => e.key),
 		"hostReferences",
 	);
 	const native = [...skills.values()].filter((e) => e.type === "host");
@@ -240,7 +245,7 @@ function validateObservations(s, skills, packages) {
 			fail("hostReferences", "native association/backing/order mismatch");
 		list(e.supportedHosts, "supportedHosts");
 		unique(e.supportedHosts, "supportedHosts");
-		e.supportedHosts.forEach((v) => {
+		e.supportedHosts.forEach((v: Untyped) => {
 			host(v);
 		});
 		if (e.scope === "package") {
@@ -261,13 +266,13 @@ function validateObservations(s, skills, packages) {
 				skill.package !== null ||
 				!["project", "user", "plugin"].includes(e.scope) ||
 				typeof e.hostId !== "string" ||
-				!adapter.skills?.[e.scope]?.id.test(e.hostId) ||
+				!adapter?.skills?.[e.scope]?.id.test(e.hostId) ||
 				!equal(e.supportedHosts, [e.host])
 			)
 				fail("hostReferences", "invalid native scope/identifier");
 			if (
 				e.scope === "project" &&
-				e.backing?.path !== adapter.skills.project.path(e.hostId)
+				e.backing?.path !== adapter?.skills?.project?.path?.(e.hostId)
 			)
 				fail("hostReferences", "project native path mismatch");
 		}
@@ -294,23 +299,23 @@ function validateObservations(s, skills, packages) {
 	);
 }
 
-const pinOrder = (a, b) =>
+const pinOrder = (a: Untyped, b: Untyped) =>
 	packageOrder(a, b) || compare(a.revisionDigest ?? "", b.revisionDigest ?? "");
-const actorKey = (assignment) =>
+const actorKey = (assignment: Untyped) =>
 	JSON.stringify([assignment.role, assignment.model, assignment.host]);
-function bindingName(value) {
+function bindingName(value: Untyped) {
 	if (
 		typeof value !== "string" ||
 		!/^(profiles|roles|skills)\.[a-z0-9][a-z0-9-]*$/.test(value)
 	)
 		fail("binding", "invalid binding");
 }
-function pin(p, location) {
+function pin(p: Untyped, location: string) {
 	fields(p, location, ["name", "version", "sha256", "revisionDigest"]);
 	identity(p, location);
 	if (p.revisionDigest !== null) digest(p.revisionDigest, location);
 }
-function descriptor(p, context) {
+function descriptor(p: Untyped, context: Untyped) {
 	fields(p, "package", [
 		"binding",
 		"name",
@@ -336,10 +341,10 @@ function descriptor(p, context) {
 	if (p.selectedBy === "binding-default" && Object.keys(p.selectors).length)
 		fail("selectors", "binding-default must have no selectors");
 }
-function validateSnapshot(s) {
+function validateSnapshot(s: Untyped) {
 	return s?.stampVersion === 2 ? validateSnapshot2(s) : validateSnapshot1(s);
 }
-function validateSnapshot2(s) {
+function validateSnapshot2(s: Untyped) {
 	fields(s, "snapshot", [
 		"stampVersion",
 		"configurationVersion",
@@ -398,7 +403,7 @@ function validateSnapshot2(s) {
 		"workflowActors",
 	])
 		list(s[name], name);
-	s.requested.forEach((value) => {
+	s.requested.forEach((value: Untyped) => {
 		identifier(value, "requested");
 	});
 	unique(s.requested, "requested");
@@ -418,14 +423,14 @@ function validateSnapshot2(s) {
 			list(p.behavior[name], name);
 			unique(p.behavior[name], name);
 		}
-		p.behavior.hosts.forEach((value) => {
+		p.behavior.hosts.forEach((value: Untyped) => {
 			host(value);
 		});
 		if (
 			!["native", "instruction"].includes(p.behavior.delivery) ||
 			(p.behavior.delivery === "native") !== p.behavior.hosts.length > 0 ||
 			p.behavior.effects.some(
-				(value) =>
+				(value: Untyped) =>
 					![
 						"commands",
 						"substitution",
@@ -443,11 +448,11 @@ function validateSnapshot2(s) {
 		if (pinOrder(s.packages[i - 1], s.packages[i]) >= 0)
 			fail("packages", "expected sorted unique pins");
 	const pins = new Set(s.packages.map(pinKey));
-	const checkPin = (p) => {
+	const checkPin = (p: Untyped) => {
 		if (!pins.has(pinKey(p)))
 			fail("snapshot relation package", "missing exact inventory pin");
 	};
-	const entry = (e, binding) => {
+	const entry = (e: Untyped, binding: Untyped) => {
 		if (e.backing !== null) backing(e.backing, binding);
 		else if (e.type !== "host" || e.package !== null)
 			fail(binding, "missing backing");
@@ -550,9 +555,9 @@ function validateSnapshot2(s) {
 			`${e.kind === "profile" ? "profiles" : e.kind === "role" ? "roles" : "skills"}.${e.id}`;
 		entry(e, binding);
 	}
-	const bindings = (rows, context) => {
+	const bindings = (rows: Untyped, context: Untyped) => {
 		unique(
-			rows.map((row) => row.root?.binding),
+			rows.map((row: Untyped) => row.root?.binding),
 			"bindings",
 		);
 		for (const row of rows) {
@@ -565,7 +570,7 @@ function validateSnapshot2(s) {
 				checkPin(p);
 			}
 			unique(
-				row.closure.map((p) => p.name),
+				row.closure.map((p: Untyped) => p.name),
 				"closure",
 			);
 			if (
@@ -577,7 +582,7 @@ function validateSnapshot2(s) {
 	};
 	bindings(s.selectionBindings, context);
 	unique(
-		s.workflowActors.map((actor) => actorKey(actor.assignment)),
+		s.workflowActors.map((actor: Untyped) => actorKey(actor.assignment)),
 		"workflowActors",
 	);
 	for (const actor of s.workflowActors) {
@@ -633,13 +638,13 @@ function validateSnapshot2(s) {
 		}
 	}
 	unique(
-		s.workflowPeers.map((row) => canonicalJSON(row).toString("hex")),
+		s.workflowPeers.map((row: Untyped) => canonicalJSON(row).toString("hex")),
 		"workflowPeers",
 	);
 	validateObservations(s, skills, packages);
 }
 
-function validateSnapshot1(s) {
+function validateSnapshot1(s: Untyped) {
 	fields(s, "snapshot", [
 		"stampVersion",
 		"configurationVersion",
@@ -683,7 +688,7 @@ function validateSnapshot1(s) {
 		"hostReferences",
 	])
 		list(s[k], k);
-	s.requested.forEach((v) => {
+	s.requested.forEach((v: Untyped) => {
 		identifier(v, "requested");
 	});
 	unique(s.requested, "requested");
@@ -698,12 +703,12 @@ function validateSnapshot1(s) {
 			list(p.behavior[k], `behavior.${k}`);
 			unique(p.behavior[k], `behavior.${k}`);
 		}
-		p.behavior.hosts.forEach((v) => {
+		p.behavior.hosts.forEach((v: Untyped) => {
 			host(v);
 		});
 		if (
 			p.behavior.effects.some(
-				(v) =>
+				(v: Untyped) =>
 					![
 						"commands",
 						"substitution",
@@ -720,8 +725,8 @@ function validateSnapshot1(s) {
 	for (let i = 1; i < s.packages.length; i++)
 		if (packageOrder(s.packages[i - 1], s.packages[i]) >= 0)
 			fail("packages", "expected sorted unique revisions");
-	const used = new Set();
-	const entry = (e, binding, location) => {
+	const used = new Set<string>();
+	const entry = (e: Untyped, binding: Untyped, location: string) => {
 		if (e.backing === null) {
 			if (e.type !== "host" || e.package !== null)
 				fail(location, "missing backing");
@@ -745,7 +750,7 @@ function validateSnapshot1(s) {
 				fail(location, "package binding/revision/backing closure mismatch");
 			identifier(p.selectedBy, `${location}.selectedBy`);
 			object(p.selectors, `${location}.selectors`);
-			const context = {
+			const context: Record<string, unknown> = {
 				model: id.canonical,
 				role: sel.role,
 				profile: sel.profile,
@@ -814,7 +819,7 @@ function validateSnapshot1(s) {
 		}
 	for (const v of s.requested)
 		if (!skills.has(v)) fail("requested", `unpermitted skill ${v}`);
-	s.composition.forEach((e, i) => {
+	s.composition.forEach((e: Untyped, i: Untyped) => {
 		fields(e, "composition", ["kind", "id", "backing", "package", "resources"]);
 		identifier(e.id, "composition.id");
 		if (i < 2) {
@@ -846,18 +851,20 @@ function validateSnapshot1(s) {
 	});
 	const wanted = [
 		...s.required
-			.filter((e) => e.type === "instruction")
-			.map((e) => ["required-skill", e.id]),
+			.filter((e: Untyped) => e.type === "instruction")
+			.map((e: Untyped) => ["required-skill", e.id]),
 		...s.requested
-			.filter((v) =>
-				s.available.some((e) => e.id === v && e.type === "instruction"),
+			.filter((v: Untyped) =>
+				s.available.some(
+					(e: Untyped) => e.id === v && e.type === "instruction",
+				),
 			)
-			.map((v) => ["requested-skill", v]),
+			.map((v: Untyped) => ["requested-skill", v]),
 	];
 	if (
 		s.composition.length < 2 ||
 		!equal(
-			s.composition.slice(2).map((e) => [e.kind, e.id]),
+			s.composition.slice(2).map((e: Untyped) => [e.kind, e.id]),
 			wanted,
 		)
 	)
@@ -867,7 +874,7 @@ function validateSnapshot1(s) {
 	validateObservations(s, skills, packages);
 }
 
-function allBackings(s) {
+function allBackings(s: Untyped) {
 	return [
 		...s.composition,
 		...s.required,
@@ -875,13 +882,18 @@ function allBackings(s) {
 		...s.shared,
 		...s.hostReferences,
 	]
-		.flatMap((e) => [e.backing, ...(e.resources ?? []).map((r) => r.backing)])
+		.flatMap((e) => [
+			e.backing,
+			...(e.resources ?? []).map((r: Untyped) => r.backing),
+		])
 		.filter(Boolean);
 }
 
-function readBacking(root, b, packages) {
+function readBacking(root: string, b: Untyped, packages: Untyped) {
 	if (b.type === "package") {
-		const file = packages.get(b.sha256)?.files.find((f) => f.path === b.path);
+		const file = packages
+			.get(b.sha256)
+			?.files.find((f: Untyped) => f.path === b.path);
 		if (!file) fail("package backing", `missing path ${b.path}`);
 		return file.bytes;
 	}
@@ -891,7 +903,7 @@ function readBacking(root, b, packages) {
 	return bytes;
 }
 
-function physicalIdentity(root, p) {
+function physicalIdentity(root: string, p: Untyped) {
 	if (p.revisionDigest === null || p.revisionDigest === undefined) return p;
 	const record = readRevisionRecord({
 		storeRoot: root,
@@ -906,7 +918,7 @@ function physicalIdentity(root, p) {
 	return record.content.identity;
 }
 
-function readPackages(root, s) {
+function readPackages(root: string, s: Untyped) {
 	const packages = new Map();
 	for (const p of s.packages) {
 		lstatSync(safePath(root, `objects/sha256/${p.sha256}/tree`));
@@ -926,16 +938,18 @@ function readPackages(root, s) {
 			s.stampVersion === 2 ? physicalIdentity(root, p) : p,
 		);
 		const manifest = parseManifest(
-			files.find((f) => f.path === "package.yaml").bytes,
+			files.find((f) => f.path === "package.yaml")?.bytes,
 		);
 		packages.set(p.sha256, { files, manifest });
 	}
 	return packages;
 }
 
-function manifestRelations2(s, packages, root) {
+function manifestRelations2(s: Untyped, packages: Untyped, root: string) {
 	const records = new Map(),
-		pins = new Map(s.packages.map((p) => [pinKey(p), p]));
+		pins = new Map<string, Untyped>(
+			s.packages.map((p: Untyped) => [pinKey(p), p]),
+		);
 	for (const row of s.revisions) {
 		const record = readRevisionRecord({
 			storeRoot: root,
@@ -1000,13 +1014,13 @@ function manifestRelations2(s, packages, root) {
 			recordDigest: record.parent,
 		});
 		const selected = base.selectionBindings.find(
-			(row) => row.root.binding === provenance.binding,
+			(row: Untyped) => row.root.binding === provenance.binding,
 		)?.root;
 		// A stamp2 authoring base names its selected root; its dependency-first composition can tag a dependency with the root binding.
 		const origin =
 			original.stampVersion === 2
 				? original.selectionBindings.find(
-						(row) => row.root.binding === provenance.binding,
+						(row: Untyped) => row.root.binding === provenance.binding,
 					)?.root
 				: [
 						...original.composition,
@@ -1023,10 +1037,10 @@ function manifestRelations2(s, packages, root) {
 			origin.version !== parent.identity.version
 		)
 			fail("snapshot relation candidate", "parent origin/selection mismatch");
-		const project = (value) => {
+		const project = (value: Untyped): Untyped => {
 			if (Array.isArray(value)) return value.map(project);
 			if (!value || typeof value !== "object") return value;
-			const copy = Object.fromEntries(
+			const copy: Untyped = Object.fromEntries(
 				Object.entries(value).map(([key, child]) => [key, project(child)]),
 			);
 			if (copy.revisionDigest === record.parent) {
@@ -1044,20 +1058,20 @@ function manifestRelations2(s, packages, root) {
 			return copy;
 		};
 		// Only the primary assignment's target is projected; other actors keep their original exact pins.
-		const replaceBindings = (rows) =>
-			rows.map((row) =>
+		const replaceBindings = (rows: Untyped) =>
+			rows.map((row: Untyped) =>
 				row.root.binding === provenance.binding ? project(row) : row,
 			);
 		if (!equal(s.selectionBindings, replaceBindings(base.selectionBindings)))
 			fail("snapshot relation candidate", "unapproved primary binding change");
-		const actors = base.workflowActors.map((actor) =>
+		const actors = base.workflowActors.map((actor: Untyped) =>
 			equal(actor.assignment, actual)
 				? { ...actor, bindings: replaceBindings(actor.bindings) }
 				: actor,
 		);
-		const peers = base.workflowPeers.map((row) =>
+		const peers = base.workflowPeers.map((row: Untyped) =>
 			Object.fromEntries(
-				Object.entries(row).map(([key, side]) => [
+				Object.entries(row).map(([key, side]: [string, Untyped]) => [
 					key,
 					["consumer", "provider"].includes(key) &&
 					equal(side.assignment, actual) &&
@@ -1069,8 +1083,8 @@ function manifestRelations2(s, packages, root) {
 		);
 		if (!equal(s.workflowActors, actors) || !equal(s.workflowPeers, peers))
 			fail("snapshot relation candidate", "unapproved actor/peer change");
-		const direct = (entries) =>
-			entries.map((e) => {
+		const direct = (entries: Untyped) =>
+			entries.map((e: Untyped) => {
 				if (e.package?.binding !== provenance.binding) return e;
 				const projected = project(e);
 				if (Object.hasOwn(e, "nameSource")) {
@@ -1078,8 +1092,9 @@ function manifestRelations2(s, packages, root) {
 						metadata = skillMetadata(
 							"unused",
 							e.id,
-							found.files.find((f) => f.path === found.manifest.entrypoint)
-								.bytes,
+							found.files.find(
+								(f: Untyped) => f.path === found.manifest.entrypoint,
+							).bytes,
 							found.manifest.entrypoint,
 						);
 					if (
@@ -1087,7 +1102,7 @@ function manifestRelations2(s, packages, root) {
 						path.posix.dirname(found.manifest.entrypoint) === "."
 					)
 						metadata.name = record.identity.name.split("/")[1];
-					for (const field of ["name", "nameSource", "description"])
+					for (const field of ["name", "nameSource", "description"] as const)
 						projected[field] = metadata[field];
 				}
 				return projected;
@@ -1112,7 +1127,7 @@ function manifestRelations2(s, packages, root) {
 			"snapshot relation candidate",
 			"active capture cannot select unpublished candidate",
 		);
-	const revision = (p) => {
+	const revision = (p: Untyped) => {
 		if (p.revisionDigest === null) return null;
 		const record = records.get(p.revisionDigest);
 		if (
@@ -1129,12 +1144,13 @@ function manifestRelations2(s, packages, root) {
 			fail("snapshot relation behavior", "manifest disagreement");
 		revision(p);
 	}
-	const used = new Set();
-	function closure(root) {
-		const result = [],
-			seen = new Map(),
-			active = new Set();
-		function visit(p) {
+	const used = new Set<string>();
+	function closure(root: Untyped) {
+		// the root package pin
+		const result: Untyped[] = [],
+			seen = new Map<string, string>(),
+			active = new Set<string>();
+		function visit(p: Untyped) {
 			const pin = pinKey(p);
 			if (!pins.has(pin))
 				fail("snapshot relation closure", "missing package pin");
@@ -1160,7 +1176,7 @@ function manifestRelations2(s, packages, root) {
 		visit(root);
 		return result;
 	}
-	function checkBindings(rows) {
+	function checkBindings(rows: Untyped) {
 		const names = new Map();
 		for (const row of rows) {
 			if (!equal(row.closure, closure(row.root)))
@@ -1206,8 +1222,9 @@ function manifestRelations2(s, packages, root) {
 				metadata = skillMetadata(
 					"unused",
 					entry.id,
-					found.files.find((file) => file.path === found.manifest.entrypoint)
-						.bytes,
+					found.files.find(
+						(file: Untyped) => file.path === found.manifest.entrypoint,
+					).bytes,
 					found.manifest.entrypoint,
 				);
 			if (
@@ -1222,14 +1239,14 @@ function manifestRelations2(s, packages, root) {
 					(found.manifest.behavior.delivery === "native")
 			)
 				fail("snapshot relation skill", "type/entrypoint disagreement");
-			for (const name of ["name", "nameSource", "description"])
+			for (const name of ["name", "nameSource", "description"] as const)
 				if (entry[name] !== metadata[name])
 					fail("snapshot relation skill metadata", name);
 		}
 	if (
 		used.size !== pins.size ||
 		s.revisions.some(
-			(row) =>
+			(row: Untyped) =>
 				![...used].some(
 					(key) => pins.get(key).revisionDigest === row.recordDigest,
 				),
@@ -1240,12 +1257,12 @@ function manifestRelations2(s, packages, root) {
 		`profiles.${s.selection.profile}`,
 		`roles.${s.selection.role}`,
 		...new Set([
-			...s.required.map((e) => `skills.${e.id}`),
-			...s.requested.map((id) => `skills.${id}`),
+			...s.required.map((e: Untyped) => `skills.${e.id}`),
+			...s.requested.map((id: string) => `skills.${id}`),
 		]),
 	];
-	const byBinding = new Map(
-		s.selectionBindings.map((row) => [row.root.binding, row]),
+	const byBinding = new Map<string, Untyped>(
+		s.selectionBindings.map((row: Untyped) => [row.root.binding, row]),
 	);
 	const direct = [...s.required, ...s.available];
 	const wantedBindings = owners.filter((owner) =>
@@ -1255,7 +1272,7 @@ function manifestRelations2(s, packages, root) {
 	);
 	if (
 		!equal(
-			s.selectionBindings.map((row) => row.root.binding),
+			s.selectionBindings.map((row: Untyped) => row.root.binding),
 			wantedBindings,
 		)
 	)
@@ -1269,7 +1286,7 @@ function manifestRelations2(s, packages, root) {
 		if (!equal(byBinding.get(e.package.binding)?.root, e.package))
 			fail("snapshot relation selectionBindings", "direct provenance mismatch");
 	}
-	const physical = [];
+	const physical: Untyped[] = [];
 	for (const owner of owners) {
 		const row = byBinding.get(owner);
 		if (!row) continue;
@@ -1282,7 +1299,7 @@ function manifestRelations2(s, packages, root) {
 					? "profile"
 					: owner.startsWith("roles.")
 						? "role"
-						: s.required.some((e) => owner === `skills.${e.id}`)
+						: s.required.some((e: Untyped) => owner === `skills.${e.id}`)
 							? "required-skill"
 							: "requested-skill"
 				: "dependency";
@@ -1351,7 +1368,7 @@ function manifestRelations2(s, packages, root) {
 		const local =
 			skill ??
 			s.composition.find(
-				(e) => e.kind === kind && e.id === id && e.package === null,
+				(e: Untyped) => e.kind === kind && e.id === id && e.package === null,
 			);
 		if (!local || local.package !== null || !local.backing)
 			fail("snapshot relation composition", "missing local root");
@@ -1369,8 +1386,11 @@ function manifestRelations2(s, packages, root) {
 			"snapshot relation composition",
 			"physical order/owner/raw backing or direct provenance disagreement",
 		);
-	const actors = new Map(
-		s.workflowActors.map((actor) => [actorKey(actor.assignment), actor]),
+	const actors = new Map<string, Untyped>(
+		s.workflowActors.map((actor: Untyped) => [
+			actorKey(actor.assignment),
+			actor,
+		]),
 	);
 	const current = {
 		role: s.selection.role,
@@ -1380,9 +1400,11 @@ function manifestRelations2(s, packages, root) {
 	if (current.model !== null && current.host !== null) {
 		const actor = actors.get(actorKey(current));
 		const required = s.selectionBindings.filter(
-			(row) =>
+			(row: Untyped) =>
 				!row.root.binding.startsWith("skills.") ||
-				s.required.some((e) => e.package?.binding === row.root.binding),
+				s.required.some(
+					(e: Untyped) => e.package?.binding === row.root.binding,
+				),
 		);
 		if (
 			!actor ||
@@ -1410,9 +1432,9 @@ function manifestRelations2(s, packages, root) {
 			actors.has(actorKey(current)) ? [actorKey(current)] : [],
 		),
 		covered = new Set();
-	const taskMembers = (row) =>
+	const taskMembers = (row: Untyped) =>
 		row.closure.filter(
-			(p) =>
+			(p: Untyped) =>
 				packages.get(p.sha256).manifest.behavior.delivery === "instruction",
 		);
 	for (const peer of s.workflowPeers) {
@@ -1423,7 +1445,7 @@ function manifestRelations2(s, packages, root) {
 			const spec = peer[side],
 				actor = actors.get(actorKey(spec.assignment));
 			const row = actor?.bindings.find(
-				(row) => row.root.binding === spec.binding,
+				(row: Untyped) => row.root.binding === spec.binding,
 			);
 			if (
 				!row ||
@@ -1438,22 +1460,23 @@ function manifestRelations2(s, packages, root) {
 			if (
 				side === "provider" &&
 				members.some(
-					(p) =>
+					(p: Untyped) =>
 						revision(p)?.workflow === undefined ||
 						revision(p).workflow === null,
 				)
 			)
 				fail("snapshot relation workflow peer", "unknown provider closure");
-			const declaring = members.filter((p) =>
+			const declaring = members.filter((p: Untyped) =>
 				revision(p)?.workflow?.[direction].some(
-					(d) => d.protocol === peer.protocol,
+					(d: Untyped) => d.protocol === peer.protocol,
 				),
 			);
 			if (
 				declaring.length !== 1 ||
 				declaring[0].revisionDigest !== spec.revisionDigest ||
 				!revision(declaring[0]).workflow[direction].some(
-					(d) => d.protocol === peer.protocol && d.major === peer.major,
+					(d: Untyped) =>
+						d.protocol === peer.protocol && d.major === peer.major,
 				)
 			)
 				fail(
@@ -1463,13 +1486,13 @@ function manifestRelations2(s, packages, root) {
 			if (side === "provider") {
 				const all = new Map(
 					actor.bindings
-						.flatMap((row) => taskMembers(row))
-						.map((p) => [pinKey(p), p]),
+						.flatMap((row: Untyped) => taskMembers(row))
+						.map((p: Untyped) => [pinKey(p), p]),
 				);
 				if (
 					[...all.values()].filter((p) =>
 						revision(p)?.workflow?.provides.some(
-							(d) => d.protocol === peer.protocol,
+							(d: Untyped) => d.protocol === peer.protocol,
 						),
 					).length !== 1
 				)
@@ -1531,7 +1554,7 @@ function manifestRelations2(s, packages, root) {
 			}
 }
 
-function manifestRelations(s, packages, root) {
+function manifestRelations(s: Untyped, packages: Untyped, root: string) {
 	if (s.stampVersion === 2) return manifestRelations2(s, packages, root);
 	for (const p of s.packages)
 		if (!equal(p.behavior, packages.get(p.sha256).manifest.behavior))
@@ -1572,7 +1595,7 @@ function manifestRelations(s, packages, root) {
 	}
 }
 
-function localContent(root, s, packages) {
+function localContent(root: string, s: Untyped, packages: Untyped) {
 	const entries = [
 		...(s.stampVersion === 2 ? s.composition : s.composition.slice(0, 2)),
 		...s.required,
@@ -1588,15 +1611,29 @@ function localContent(root, s, packages) {
 		new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
 		if (e.type === "instruction" && e.backing.type === "blob") {
 			const metadata = skillMetadata("unused", e.id, bytes, e.backing.path);
-			for (const k of ["name", "nameSource", "description"])
+			for (const k of ["name", "nameSource", "description"] as const)
 				if (e[k] !== metadata[k])
 					fail("snapshot relation skill metadata", `${e.id}.${k} disagreement`);
 		}
 	}
 }
 
-/** @param {{root?: string, storeRoot?: string, host?: string, model?: string, family?: string, identitySource?: 'host'|'host-stated'|'user', role?: string, skills?: string[], sharedFiles?: string[]}} input */
-function captureStamp(input = {}, candidateDigest = null) {
+export type StampInput = {
+	root?: string;
+	storeRoot?: string;
+	host?: string;
+	model?: string;
+	family?: string;
+	identitySource?: "host" | "host-stated" | "user";
+	role?: string;
+	skills?: string[];
+	sharedFiles?: string[];
+};
+
+function captureStamp(
+	input: StampInput = {},
+	candidateDigest: string | null = null,
+) {
 	options(input, [
 		"root",
 		"storeRoot",
@@ -1615,7 +1652,7 @@ function captureStamp(input = {}, candidateDigest = null) {
 	);
 	const inputs = new Map(),
 		blobs = new Map();
-	const capture = (relative) => {
+	const capture = (relative: string) => {
 		portable(relative);
 		if (!inputs.has(relative)) {
 			const bytes = readStoreFile(root, relative),
@@ -1632,7 +1669,7 @@ function captureStamp(input = {}, candidateDigest = null) {
 			: resolveCandidateCapture(captureInput, candidateDigest);
 	const v3 = configuration.get("version") === 3;
 	if (resolved.lockState === "valid") capture(LOCK);
-	const blob = (relative, instruction = false) => {
+	const blob = (relative: string, instruction = false) => {
 		const bytes = capture(relative);
 		if (instruction)
 			new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
@@ -1640,19 +1677,19 @@ function captureStamp(input = {}, candidateDigest = null) {
 		blobs.set(sha256, bytes);
 		return { type: "blob", path: relative, sha256, bytes: bytes.length };
 	};
-	const base = (e) => ({
+	const base = (e: Untyped) => ({
 		backing: e.package
 			? { ...e.backing }
 			: e.path
 				? blob(e.path, e.type !== "host")
 				: null,
 		package: e.package ?? null,
-		resources: (e.resources ?? []).map((relative) => ({
+		resources: (e.resources ?? []).map((relative: string) => ({
 			binding: `${e.kind === "profile" ? "profiles" : e.kind === "role" ? "roles" : "skills"}.${e.id}`,
 			backing: blob(relative),
 		})),
 	});
-	const skill = (e) => ({
+	const skill = (e: Untyped) => ({
 		id: e.id,
 		type: e.type,
 		delivery: e.delivery,
@@ -1668,7 +1705,7 @@ function captureStamp(input = {}, candidateDigest = null) {
 		kind: e.kind,
 		id: e.id,
 		...base(e),
-		...(v3 ? { owner: e.owner ?? null } : {}),
+		...(v3 ? { owner: "owner" in e ? e.owner : null } : {}),
 	}));
 	const destination = storeRoot(input.storeRoot);
 	const selections = [...composition, ...required, ...available]
@@ -1682,7 +1719,7 @@ function captureStamp(input = {}, candidateDigest = null) {
 					v3 ? physicalIdentity(destination, p) : p,
 				),
 				manifest = parseManifest(
-					files.find((f) => f.path === "package.yaml").bytes,
+					files.find((f) => f.path === "package.yaml")?.bytes,
 				);
 			return {
 				name: p.name,
@@ -1696,7 +1733,7 @@ function captureStamp(input = {}, candidateDigest = null) {
 	if (v3) {
 		const pins = new Map(),
 			active = new Set();
-		function retain(p) {
+		function retain(p: Untyped) {
 			const pin = pinKey(p);
 			if (active.has(pin))
 				fail("snapshot relation closure", "cycle during capture");
@@ -1708,7 +1745,7 @@ function captureStamp(input = {}, candidateDigest = null) {
 					physicalIdentity(destination, p),
 				),
 				manifest = parseManifest(
-					files.find((file) => file.path === "package.yaml").bytes,
+					files.find((file) => file.path === "package.yaml")?.bytes,
 				);
 			if (p.revisionDigest !== null) {
 				const record = readRevisionRecord({
@@ -1755,9 +1792,9 @@ function captureStamp(input = {}, candidateDigest = null) {
 		unique(sharedFiles, "sharedFiles");
 		sharedFiles.forEach(portable);
 	}
-	const shared = (sharedFiles ?? ["AGENTS.md"]).map((relative) => {
-		let backing = null,
-			status;
+	const shared = (sharedFiles ?? ["AGENTS.md"]).map((relative: string) => {
+		let backing: Untyped = null,
+			status: string;
 		try {
 			backing = blob(relative);
 			status = "captured";
@@ -1768,13 +1805,15 @@ function captureStamp(input = {}, candidateDigest = null) {
 		}
 		return { path: relative, status, backing, delivery: "host-controlled" };
 	});
-	const hostReferences = ["required", "available"].flatMap((group) =>
+	const hostReferences = (["required", "available"] as const).flatMap((group) =>
 		resolved[group]
-			.filter((e) => e.type === "host")
-			.map((e) => {
+			.filter((e: Untyped) => e.type === "host")
+			.map((e: Untyped) => {
 				const skill = (group === "required" ? required : available).find(
 					(s) => s.id === e.id,
 				);
+				// required/available were mapped from these same resolved lists.
+				if (!skill) fail("capture", `host skill ${e.id} missing from capture`);
 				const supportedHosts = e.supportedHosts ?? [e.host];
 				return {
 					key: skill.hostReference,
@@ -1802,15 +1841,17 @@ function captureStamp(input = {}, candidateDigest = null) {
 		configurationVersion: configuration.get("version"),
 		resolverContract: `agent-profiles/resolver/v${configuration.get("version")}`,
 		selection: Object.fromEntries(
-			[
-				"host",
-				"identity",
-				"family",
-				"familySource",
-				"profile",
-				"role",
-				"roleSource",
-			].map((k) => [k, resolved[k]]),
+			(
+				[
+					"host",
+					"identity",
+					"family",
+					"familySource",
+					"profile",
+					"role",
+					"roleSource",
+				] as const
+			).map((k) => [k, resolved[k]]),
 		),
 		requested: [...new Set(input.skills ?? [])],
 		composition,
@@ -1835,7 +1876,7 @@ function captureStamp(input = {}, candidateDigest = null) {
 							}).provenance.migrationId,
 							candidate: candidateDigest,
 						},
-			workflowPeers: resolved.workflow.peers,
+			workflowPeers: resolved.workflow?.peers ?? [], // always set for config v3
 			revisions: [...revisions.values()].sort((a, b) =>
 				compare(a.recordDigest, b.recordDigest),
 			),
@@ -1857,7 +1898,7 @@ function captureStamp(input = {}, candidateDigest = null) {
 		if (errorCode(error) === "EEXIST") fail("store-busy", "writer lock exists");
 		throw error;
 	}
-	let staging;
+	let staging: string | undefined;
 	try {
 		writeFlushed(
 			path.join(writer, "owner.json"),
@@ -1919,17 +1960,20 @@ function captureStamp(input = {}, candidateDigest = null) {
 	}
 }
 
-function createStampOperation(input = {}) {
+function createStampOperation(input: StampInput = {}) {
 	return captureStamp(input);
 }
 
 // Internal typed capture only; active public options and legacy bytes remain unchanged.
-function createCandidateStampOperation(input, recordDigest) {
+function createCandidateStampOperation(
+	input: StampInput,
+	recordDigest: string,
+) {
 	digest(recordDigest, "candidate");
 	return captureStamp(input, recordDigest);
 }
 
-function loadStamp(root, hash) {
+function loadStamp(root: string, hash: string) {
 	const relative = `stamps/sha256/${hash}`;
 	const directory = safePath(root, relative);
 	const bytes = readStoreFile(root, `${relative}/snapshot.json`);
@@ -1944,7 +1988,7 @@ function loadStamp(root, hash) {
 	return snapshot;
 }
 
-function inspect(input) {
+function inspect(input: { digest: string; storeRoot?: string }) {
 	digest(input.digest);
 	const report = {
 		snapshotIntegrity: "unverified",
@@ -1957,9 +2001,11 @@ function inspect(input) {
 		managedReproducible: false,
 		declaredHostDependenciesSatisfied: false,
 		completeRuntimeReproducible: false,
-		findings: [],
+		findings: [] as string[],
 	};
-	let root, snapshot, packages;
+	let root: string | undefined,
+		snapshot: Untyped,
+		packages: Map<string, Untyped> | undefined;
 	try {
 		root = storeRoot(input.storeRoot);
 		snapshot = loadStamp(root, input.digest);
@@ -1989,15 +2035,15 @@ function inspect(input) {
 	}
 	const peerNative =
 		snapshot.stampVersion === 2 &&
-		snapshot.workflowActors.some((actor) =>
+		snapshot.workflowActors.some((actor: Untyped) =>
 			actor.bindings.some(
-				(row) =>
+				(row: Untyped) =>
 					packages.get(row.root.sha256).manifest.behavior.delivery === "native",
 			),
 		);
 	report.declaredHostDependenciesSatisfied =
 		!peerNative &&
-		!snapshot.hostReferences.some((e) => e.requirement === "required");
+		!snapshot.hostReferences.some((e: Untyped) => e.requirement === "required");
 	if (snapshot.hostReferences.length || peerNative)
 		report.findings.push(
 			"Host dependencies and native invocation remain unverified",
@@ -2006,13 +2052,13 @@ function inspect(input) {
 }
 
 /** @param {{digest: string, storeRoot?: string}} input */
-function verifyStampOperation(input) {
+function verifyStampOperation(input: Untyped) {
 	options(input, ["digest", "storeRoot"]);
 	return inspect(input).report;
 }
 
 /** @param {{before: string, after: string, storeRoot?: string}} input */
-function diffStampsOperation(input) {
+function diffStampsOperation(input: Untyped) {
 	options(input, ["before", "after", "storeRoot"]);
 	digest(input.before, "before");
 	digest(input.after, "after");
@@ -2021,8 +2067,8 @@ function diffStampsOperation(input) {
 	const complete =
 		before.report.managedReproducible === true &&
 		after.report.managedReproducible === true;
-	const changes = [];
-	function walk(a, b, location) {
+	const changes: Untyped[] = [];
+	function walk(a: Untyped, b: Untyped, location: string) {
 		if (a === b) return;
 		if (
 			a !== null &&
@@ -2068,48 +2114,56 @@ function diffStampsOperation(input) {
 }
 
 /** @param {{digest: string, storeRoot?: string, nativeReady?: boolean}} input */
-function reconstructStampOperation(input) {
+function reconstructStampOperation(input: Untyped) {
 	options(input, ["digest", "storeRoot", "nativeReady"]);
 	if (input.nativeReady !== undefined && typeof input.nativeReady !== "boolean")
 		fail("nativeReady", "expected boolean");
 	const { report, root, snapshot: s, packages } = inspect(input);
 	if (!report.managedReproducible)
 		fail("reconstruction", report.findings.join("; "));
+	// A reproducible report means the store root and packages were read.
+	if (root === undefined || packages === undefined)
+		fail("reconstruction", "incomplete inspection");
 	if (input.nativeReady)
 		fail("unsupported-native", "native-ready reconstruction is not supported");
-	const bytes = (e) =>
+	const bytes = (e: Untyped) =>
 		e.backing ? readBacking(root, e.backing, packages) : null;
 	return {
-		composition: s.composition.map((e) => ({ ...e, bytes: bytes(e) })),
+		composition: s.composition.map((e: Untyped) => ({ ...e, bytes: bytes(e) })),
 		required: s.required,
-		available: s.available.map((e) =>
+		available: s.available.map((e: Untyped) =>
 			e.type === "instruction" ? { ...e, bytes: bytes(e) } : e,
 		),
 		resources: [
 			...(s.stampVersion === 2
-				? s.composition.filter((e) => e.kind === "profile" || e.kind === "role")
+				? s.composition.filter(
+						(e: Untyped) => e.kind === "profile" || e.kind === "role",
+					)
 				: s.composition.slice(0, 2)),
 			...s.required,
 			...s.available,
 		].flatMap((e) =>
-			e.resources.map((r) => ({
+			e.resources.map((r: Untyped) => ({
 				...r,
 				bytes: readBacking(root, r.backing, packages),
 			})),
 		),
-		packages: s.packages.map((p) => ({
+		packages: s.packages.map((p: Untyped) => ({
 			...p,
 			files: packages.get(p.sha256).files,
 		})),
-		shared: s.shared.map((e) => ({ ...e, bytes: bytes(e) })),
-		hostReferences: s.hostReferences.map((e) => ({ ...e, bytes: bytes(e) })),
+		shared: s.shared.map((e: Untyped) => ({ ...e, bytes: bytes(e) })),
+		hostReferences: s.hostReferences.map((e: Untyped) => ({
+			...e,
+			bytes: bytes(e),
+		})),
 		...(s.stampVersion === 2
 			? {
 					capture: s.capture,
 					workflowPeers: s.workflowPeers,
 					selectionBindings: s.selectionBindings,
 					workflowActors: s.workflowActors,
-					revisions: s.revisions.map((row) => ({
+					revisions: s.revisions.map((row: Untyped) => ({
 						...row,
 						bytes: canonicalJSON(
 							readRevisionRecord({

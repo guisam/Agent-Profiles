@@ -16,7 +16,7 @@ import {
 	readRevisionRecord,
 	retainRevisionManifest,
 } from "../src/revisions.ts";
-import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.ts";
 
 const exportsNeeded = ["publishMigrationCandidate", "migrationCandidate"];
 const ready = exportsNeeded.every(

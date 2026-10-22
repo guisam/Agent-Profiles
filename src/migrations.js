@@ -55,7 +55,7 @@ import {
 	createCandidateStamp,
 	createStamp,
 	reconstructStamp,
-} from "./stamps.js";
+} from "./stamps.ts";
 
 const directory = ".agent-profiles/migrations";
 const writer = ".agent-profiles/.migration-writer";

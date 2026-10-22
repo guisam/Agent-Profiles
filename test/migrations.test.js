@@ -10,7 +10,7 @@ import { stringify } from "yaml";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage } from "../src/package-store.ts";
 import { resolveInstructions } from "../src/resolve.ts";
-import { createStamp, reconstructStamp } from "../src/stamps.js";
+import { createStamp, reconstructStamp } from "../src/stamps.ts";
 
 const target = new URL("../src/migrations.js", import.meta.url);
 let migrations;
@@ -828,7 +828,7 @@ migrationTest(
 );
 
 const { retainRevisionManifest } = await import("../src/revisions.ts");
-const { verifyStamp } = await import("../src/stamps.js");
+const { verifyStamp } = await import("../src/stamps.ts");
 const { parseYaml } = await import("../src/resolve.ts");
 const workspaceBoundaryOriginalStore = process.env.AGENT_PROFILES_STORE;
 function workspaceBoundaryFixture(t) {
