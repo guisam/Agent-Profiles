@@ -17,7 +17,7 @@ import test, { after } from "node:test";
 import { parse, stringify } from "yaml";
 import { applyRoleChange, planRoleChange } from "../src/configure.ts";
 import { formatProof, resolutionOutput } from "../src/diagnostics.ts";
-import { inspectRepository } from "../src/inspect.js";
+import { inspectRepository } from "../src/inspect.ts";
 import { doctor } from "../src/install.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage } from "../src/package-store.ts";

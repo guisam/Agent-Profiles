@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
 import { readConfiguration } from "../src/configure.ts";
 import { formatContext, resolutionOutput } from "../src/diagnostics.ts";
-import { inspectRepository } from "../src/inspect.js";
+import { inspectRepository } from "../src/inspect.ts";
 import { doctor, install } from "../src/install.ts";
 import * as materializer from "../src/materialize.ts";
 import { installDependencies } from "../src/package-lock.ts";

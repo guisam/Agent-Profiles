@@ -19,7 +19,7 @@ import {
 	formatProof,
 	resolutionOutput,
 } from "../src/diagnostics.ts";
-import { inspectRepository } from "../src/inspect.js";
+import { inspectRepository } from "../src/inspect.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, readStoreFile } from "../src/package-store.ts";
 import { validateMembers } from "../src/packages.ts";

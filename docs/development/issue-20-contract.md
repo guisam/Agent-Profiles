@@ -44,7 +44,7 @@ cannot silently amend it. Relevant implemented seams:
 - [diagnostics.ts](../../src/diagnostics.ts): decoded-text accounting and presentation;
   `.trim()` presentation and UTF-8 decoding must not become snapshot backing bytes.
 - [skills.ts](../../src/skills.ts), [wizard.ts](../../src/wizard.ts),
-  [inspect.js](../../src/inspect.js), [install.ts](../../src/install.ts), and
+  [inspect.ts](../../src/inspect.ts), [install.ts](../../src/install.ts), and
   [CLI](../../bin/agent-profiles.js): consumers requiring compatibility changes.
 
 **D1 accepted, with the maintainer's later clarification:** use configuration

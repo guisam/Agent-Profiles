@@ -223,7 +223,7 @@ if using the installed packed package):
 
 ```js
 import { planRoleChange, applyRoleChange } from './src/configure.ts';
-import { inspectRepository } from './src/inspect.js';
+import { inspectRepository } from './src/inspect.ts';
 
 const root = '/path/to/project'; // Existing approved init completed.
 const inventory = inspectRepository({ root });

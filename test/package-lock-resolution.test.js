@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { stringify } from "yaml";
 import { applyRoleChange, planRoleChange } from "../src/configure.ts";
-import { inspectRepository } from "../src/inspect.js";
+import { inspectRepository } from "../src/inspect.ts";
 import { doctor } from "../src/install.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, lookupPackage } from "../src/package-store.ts";
