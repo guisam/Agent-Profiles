@@ -2,19 +2,45 @@ import { createHash } from "node:crypto";
 import { lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { isAlias, isScalar, parseDocument, visit } from "yaml";
-import { integrations } from "./integrations.js";
+import { errorMessage } from "./files.ts";
+import { integrations } from "./integrations.ts";
 import {
 	mapping,
 	parseYaml,
 	parseYamlDocument,
 	skillMetadata,
-} from "./resolve.js";
+} from "./resolve.ts";
 
-function fail(location, message) {
+// biome-ignore lint/suspicious/noExplicitAny: parsed records whose shape is validated by their readers (revisions.ts, stamps.ts).
+export type Untyped = any;
+
+/** package.yaml after parseManifest has validated every field. */
+export type PackageManifest = {
+	schema_version: 1;
+	package: {
+		name: string;
+		version: string;
+		type: "skill" | "instruction";
+		description?: string;
+		license?: string;
+	};
+	entrypoint: string;
+	behavior: {
+		delivery: "instruction" | "native";
+		hosts: string[];
+		effects: string[];
+	};
+};
+
+export type PackageFile = { path: string; bytes: Buffer };
+/** A package tree member; nlink matters only for files. */
+export type Member = { path: string; type: string; nlink?: number };
+
+function fail(location: string, message: string): never {
 	throw new Error(`${location}: ${message}`);
 }
 
-function decode(bytes, location, allowBOM = true) {
+function decode(bytes: unknown, location: string, allowBOM = true): string {
 	if (!Buffer.isBuffer(bytes)) fail(location, "expected a Buffer");
 	try {
 		const text = new TextDecoder("utf-8", {
@@ -25,11 +51,11 @@ function decode(bytes, location, allowBOM = true) {
 			fail(location, "JSON BOM is not allowed");
 		return text;
 	} catch (error) {
-		fail(location, `invalid UTF-8 encoding: ${error.message}`);
+		return fail(location, `invalid UTF-8 encoding: ${errorMessage(error)}`);
 	}
 }
 
-function portablePath(value, location = "member path") {
+function portablePath(value: unknown, location = "member path"): string {
 	if (
 		typeof value !== "string" ||
 		!value ||
@@ -56,7 +82,7 @@ function portablePath(value, location = "member path") {
 	return value;
 }
 
-export function parseManifest(bytes) {
+export function parseManifest(bytes: unknown): PackageManifest {
 	const document = parseYamlDocument(decode(bytes, "package.yaml"));
 	visit(document, {
 		Node(_key, node) {
@@ -81,7 +107,9 @@ export function parseManifest(bytes) {
 		!isScalar(schemaVersion) ||
 		schemaVersion.value !== 1 ||
 		(schemaVersion.tag && schemaVersion.tag !== "tag:yaml.org,2002:int") ||
-		!/^(?:[-+]?[0-9]+|0x[0-9a-fA-F]+|0o[0-7]+)$/.test(schemaVersion.source)
+		!/^(?:[-+]?[0-9]+|0x[0-9a-fA-F]+|0o[0-7]+)$/.test(
+			schemaVersion.source ?? "",
+		)
 	)
 		fail("schema_version", "expected integer 1");
 	const identity = mapping(
@@ -134,7 +162,7 @@ export function parseManifest(bytes) {
 			"effects",
 			["commands", "substitution", "external-references", "host-configuration"],
 		],
-	]) {
+	] as [string, string[]][]) {
 		const list = behavior.get(field);
 		if (
 			!Array.isArray(list) ||
@@ -158,11 +186,11 @@ export function parseManifest(bytes) {
 	return document.toJS();
 }
 
-export function validateMembers(members) {
-	const spellings = new Map();
-	const explicit = new Map();
-	const files = new Set();
-	const parents = new Set();
+export function validateMembers(members: Member[]) {
+	const spellings = new Map<string, string>();
+	const explicit = new Map<string, string>();
+	const files = new Set<string>();
+	const parents = new Set<string>();
 	for (const member of members) {
 		const name = portablePath(member.path);
 		if (!["file", "directory"].includes(member.type))
@@ -170,7 +198,7 @@ export function validateMembers(members) {
 				name,
 				`unsupported member type ${member.type}; links and special files are forbidden`,
 			);
-		if (member.type === "file" && member.nlink > 1)
+		if (member.type === "file" && (member.nlink ?? 1) > 1)
 			fail(name, "hard-linked file (nlink > 1) is forbidden");
 		const folded = name.toLowerCase();
 		if (explicit.has(folded)) fail(name, "duplicate member collision");
@@ -191,13 +219,19 @@ export function validateMembers(members) {
 	}
 }
 
-function sortFiles(files) {
+function sortFiles<T extends { path: string }>(files: Iterable<T>): T[] {
 	return [...files].sort((a, b) =>
 		Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)),
 	);
 }
 
-export function readPackage({ root, approvedRoot = undefined }) {
+export function readPackage({
+	root,
+	approvedRoot = undefined,
+}: {
+	root: string;
+	approvedRoot?: string;
+}) {
 	let selected = path.resolve(root);
 	if (approvedRoot !== undefined) {
 		const boundary = realpathSync(approvedRoot);
@@ -222,7 +256,7 @@ export function readPackage({ root, approvedRoot = undefined }) {
 	if (rootStat.isSymbolicLink()) fail("root", "link/junction is forbidden");
 	if (!rootStat.isDirectory()) fail("root", "expected a directory");
 	const canonicalRoot = realpathSync(selected);
-	const members = [];
+	const members: Member[] = [];
 	function scan(relative = "") {
 		for (const name of readdirSync(path.join(canonicalRoot, relative))) {
 			const memberPath = relative ? `${relative}/${name}` : name;
@@ -270,9 +304,11 @@ export function readPackage({ root, approvedRoot = undefined }) {
 		);
 	if (manifest.behavior.delivery === "native") {
 		const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
+		// A native package is a skill, whose frontmatter skillMetadata required above.
+		if (!match) fail(manifest.entrypoint, "expected YAML frontmatter");
 		const metadata = parseYaml(match[1]);
 		const body = text.slice(match[0].length);
-		const signals = [
+		const signals: [string, boolean][] = [
 			["commands", /!`|^```!/m.test(body)],
 			["substitution", /\$ARGUMENTS|\$\{[A-Za-z0-9_.]+\}/.test(body)],
 			["external-references", /^@\S+/m.test(body)],
@@ -301,7 +337,7 @@ export function readPackage({ root, approvedRoot = undefined }) {
 	return { manifest, files, sha256: hashTree(files) };
 }
 
-function u64(value) {
+function u64(value: number) {
 	if (!Number.isSafeInteger(value) || value < 0)
 		fail("length", "expected a nonnegative safe integer");
 	const bytes = Buffer.alloc(8);
@@ -309,7 +345,7 @@ function u64(value) {
 	return bytes;
 }
 
-function validString(value) {
+function validString(value: unknown): string {
 	if (
 		typeof value !== "string" ||
 		/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(
@@ -321,7 +357,10 @@ function validString(value) {
 	return value;
 }
 
-export function hashTree(files, domain = "agent-profiles/package-tree/v1") {
+export function hashTree(
+	files: PackageFile[],
+	domain = "agent-profiles/package-tree/v1",
+) {
 	validateMembers(
 		files.map((file) => ({ path: file.path, type: "file", nlink: 1 })),
 	);
@@ -343,9 +382,9 @@ export function hashTree(files, domain = "agent-profiles/package-tree/v1") {
 	return hash.digest("hex");
 }
 
-function canonicalRecord(value, evaluation) {
-	const active = new Set();
-	function string(text) {
+function canonicalRecord(value: unknown, evaluation: boolean): Buffer {
+	const active = new Set<object>();
+	function string(text: unknown) {
 		return (
 			'"' +
 			validString(text).replace(/["\\\u0000-\u001F]/g, (character) =>
@@ -356,7 +395,7 @@ function canonicalRecord(value, evaluation) {
 			'"'
 		);
 	}
-	function encode(item) {
+	function encode(item: unknown): string {
 		if (item === null) return "null";
 		if (typeof item === "boolean") return String(item);
 		if (typeof item === "string") return string(item);
@@ -384,7 +423,7 @@ function canonicalRecord(value, evaluation) {
 			fail("record", "expected a plain JSON value");
 		if (active.has(item)) fail("record", "cyclic value");
 		active.add(item);
-		let result;
+		let result: string;
 		if (Array.isArray(item)) {
 			if (
 				Object.keys(item).length !== item.length ||
@@ -397,7 +436,7 @@ function canonicalRecord(value, evaluation) {
 							item,
 							String(index),
 						);
-						if (!Object.hasOwn(descriptor, "value"))
+						if (!descriptor || !Object.hasOwn(descriptor, "value"))
 							fail("record", "accessor properties are not JSON data");
 						return descriptor.value;
 					})
@@ -414,7 +453,7 @@ function canonicalRecord(value, evaluation) {
 				keys
 					.map((key) => {
 						const descriptor = Object.getOwnPropertyDescriptor(item, key);
-						if (!Object.hasOwn(descriptor, "value"))
+						if (!descriptor || !Object.hasOwn(descriptor, "value"))
 							fail("record", "accessor properties are not JSON data");
 						return `${string(key)}:${encode(descriptor.value)}`;
 					})
@@ -427,14 +466,14 @@ function canonicalRecord(value, evaluation) {
 	return Buffer.from(encode(value));
 }
 
-export function canonicalJSON(value) {
+export function canonicalJSON(value: unknown) {
 	return canonicalRecord(value, false);
 }
-export function canonicalEvaluationJSON(value) {
+export function canonicalEvaluationJSON(value: unknown) {
 	return canonicalRecord(value, true);
 }
 
-function framedRecordHash(domain, bytes) {
+function framedRecordHash(domain: string, bytes: Buffer) {
 	return createHash("sha256")
 		.update(Buffer.from(validString(domain)))
 		.update(Buffer.from([0]))
@@ -443,11 +482,11 @@ function framedRecordHash(domain, bytes) {
 		.digest("hex");
 }
 
-export function hashRecord(domain, value) {
+export function hashRecord(domain: string, value: unknown) {
 	return framedRecordHash(domain, canonicalJSON(value));
 }
 
-export function hashEvaluationRecord(domain, value) {
+export function hashEvaluationRecord(domain: string, value: unknown) {
 	if (
 		![
 			"agent-profiles/evaluation-plan/v1",
@@ -458,7 +497,7 @@ export function hashEvaluationRecord(domain, value) {
 	return framedRecordHash(domain, canonicalEvaluationJSON(value));
 }
 
-function parseJSONRecord(bytes, evaluation) {
+function parseJSONRecord(bytes: unknown, evaluation: boolean): Untyped {
 	const text = decode(bytes, "record", false);
 	const value = JSON.parse(text);
 	// JSON.parse enforces JSON syntax; the existing YAML AST parser detects decoded duplicate keys.
@@ -475,7 +514,7 @@ function parseJSONRecord(bytes, evaluation) {
 			if (
 				!evaluation &&
 				typeof node.value === "number" &&
-				!/^-?(?:0|[1-9][0-9]*)$/.test(node.source)
+				!/^-?(?:0|[1-9][0-9]*)$/.test(node.source ?? "")
 			)
 				fail("record", "expected a decimal integer literal");
 		},
@@ -484,9 +523,9 @@ function parseJSONRecord(bytes, evaluation) {
 	return value;
 }
 
-export function parseRecord(bytes) {
+export function parseRecord(bytes: unknown) {
 	return parseJSONRecord(bytes, false);
 }
-export function parseEvaluationRecord(bytes) {
+export function parseEvaluationRecord(bytes: unknown) {
 	return parseJSONRecord(bytes, true);
 }

@@ -10,24 +10,24 @@ import {
 	applyRoleChange,
 	planRoleChange,
 	readConfiguration,
-} from "../src/configure.js";
-import { formatContext, formatProof } from "../src/diagnostics.js";
+} from "../src/configure.ts";
+import { formatContext, formatProof } from "../src/diagnostics.ts";
 import {
 	bootstrapAvailability,
 	doctor,
 	install,
 	installPackage,
 	uninstall,
-} from "../src/install.js";
-import { bootstrapBlock, END, START } from "../src/integrations.js";
+} from "../src/install.ts";
+import { bootstrapBlock, END, START } from "../src/integrations.ts";
 import {
 	applyPresetExport,
 	applyPresetImport,
 	planPresetExport,
 	planPresetImport,
-} from "../src/presets.js";
-import { resolveInstructions } from "../src/resolve.js";
-import { discoverSkills } from "../src/skills.js";
+} from "../src/presets.ts";
+import { resolveInstructions } from "../src/resolve.ts";
+import { discoverSkills } from "../src/skills.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 
@@ -512,7 +512,7 @@ test("resolve prints agent context with supersession and re-run guidance", (t) =
 		spawnSync(
 			process.execPath,
 			[
-				path.join(project, "bin/agent-profiles.js"),
+				path.join(project, "bin/agent-profiles.ts"),
 				"resolve",
 				"--root",
 				repo.root,
@@ -1163,7 +1163,7 @@ test("init exits nonzero while the bootstrap cannot run", (t) => {
 		spawnSync(
 			process.execPath,
 			[
-				path.join(project, "bin/agent-profiles.js"),
+				path.join(project, "bin/agent-profiles.ts"),
 				...args,
 				"--root",
 				repo.root,
@@ -1386,7 +1386,7 @@ test("bootstrap mode records host-stated identity provenance and keeps it on re-
 		spawnSync(
 			process.execPath,
 			[
-				path.join(project, "bin/agent-profiles.js"),
+				path.join(project, "bin/agent-profiles.ts"),
 				"resolve",
 				"--root",
 				repo.root,

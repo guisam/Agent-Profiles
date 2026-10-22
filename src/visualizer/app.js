@@ -1,17 +1,30 @@
-const byId = (id) => document.getElementById(id);
+// The page's elements are fixed in index.html; a missing one is a bug, so fail loudly.
+/** @param {string} id */
+const byId = (id) => {
+	const node = document.getElementById(id);
+	if (!node) throw new Error(`Missing #${id}`);
+	return node;
+};
 const model = /** @type {HTMLSelectElement} */ (byId("model"));
 const family = /** @type {HTMLSelectElement} */ (byId("family"));
 const role = /** @type {HTMLSelectElement} */ (byId("role"));
 const pin = /** @type {HTMLButtonElement} */ (byId("pin"));
-let current,
-	pinned,
-	requestNumber = 0;
+// Resolution JSON from the local server (src/visualize.ts); its shape is the resolver's output.
+/** @type {any} */
+let current;
+/** @type {any} */
+let pinned;
+let requestNumber = 0;
+/** @type {Set<string>} */
 let requested = new Set();
+/** @param {number} value */
 const bytes = (value) => `${value.toLocaleString("en-US")} B`;
+/** @param {{bytes: number, characters: number}} entry */
 const size = (entry) =>
 	`${bytes(entry.bytes)} · ${entry.characters.toLocaleString("en-US")} characters`;
 
 // Configuration and instruction text are always text nodes, never HTML/Markdown.
+/** @param {string} tag */
 function element(tag, text = "", className = "") {
 	const node = document.createElement(tag);
 	node.textContent = text;
@@ -19,6 +32,7 @@ function element(tag, text = "", className = "") {
 	return node;
 }
 
+/** @param {string} endpoint @returns {Promise<any>} */
 async function get(endpoint) {
 	const response = await fetch(endpoint, { cache: "no-store" });
 	const data = await response.json();
@@ -27,6 +41,12 @@ async function get(endpoint) {
 	return data;
 }
 
+/**
+ * @param {HTMLSelectElement} select
+ * @param {string[]} choices
+ * @param {string | null} empty
+ * @param {string} [selected]
+ */
 function options(select, choices, empty, selected) {
 	select.replaceChildren();
 	if (empty) select.add(new Option(empty, ""));
@@ -36,6 +56,7 @@ function options(select, choices, empty, selected) {
 	select.value = selected ?? "";
 }
 
+/** @param {any} entry @param {string} provenance */
 function inspect(entry, provenance) {
 	const details = document.createElement("details");
 	// Package integrity does not establish a host-visible invocation address.
@@ -73,7 +94,7 @@ function inspect(entry, provenance) {
 function compare() {
 	byId("comparison").hidden = !pinned;
 	if (!pinned) return;
-	const label = (result) =>
+	const label = (/** @type {any} */ result) =>
 		`${result.model ?? "Default model"} / ${result.family ?? "no family"} / ${result.role} / ${result.profile}`;
 	byId("comparison-label").textContent = `${label(pinned)} → ${label(current)}`;
 	const rows = byId("comparison-rows");
@@ -108,6 +129,7 @@ function compare() {
 	}
 }
 
+/** @param {any} result */
 function render(result) {
 	current = result;
 	const { managed, availableNotLoaded } = result.diagnostics;
@@ -127,7 +149,9 @@ function render(result) {
 				kind === "profile" ? "01 / Model profile" : "02 / Assigned role",
 			),
 		);
-		for (const entry of result.loaded.filter((item) => item.kind === kind)) {
+		for (const entry of result.loaded.filter(
+			(/** @type {any} */ item) => item.kind === kind,
+		)) {
 			const card = element("div", "", "entry");
 			card.append(
 				inspect(
@@ -141,7 +165,7 @@ function render(result) {
 		}
 		layers.append(layer);
 	}
-	for (const entry of result.loaded.filter((item) =>
+	for (const entry of result.loaded.filter((/** @type {any} */ item) =>
 		["dependency", "workflow"].includes(item.kind),
 	)) {
 		const card = element("div", "", "entry");
@@ -156,13 +180,15 @@ function render(result) {
 	const required = byId("required");
 	required.replaceChildren(element("p", size(managed.requiredSkills), "muted"));
 	for (const entry of result.loaded.filter(
-		(item) => item.kind === "required-skill",
+		(/** @type {any} */ item) => item.kind === "required-skill",
 	)) {
 		const card = element("div", "", "entry");
 		card.append(inspect(entry, `Required by role: ${result.role}`));
 		required.append(card);
 	}
-	for (const entry of result.required.filter((item) => item.type === "host")) {
+	for (const entry of result.required.filter(
+		(/** @type {any} */ item) => item.type === "host",
+	)) {
 		const card = element("div", "", "entry");
 		card.append(
 			inspect(
@@ -191,14 +217,15 @@ function render(result) {
 			continue;
 		}
 		const loaded = result.loaded.find(
-			(item) => item.kind === "requested-skill" && item.id === entry.id,
+			(/** @type {any} */ item) =>
+				item.kind === "requested-skill" && item.id === entry.id,
 		);
 		const shared =
 			!loaded &&
 			entry.package &&
 			result.requestedSkills?.includes(entry.id) &&
 			result.loaded.find(
-				(part) =>
+				(/** @type {any} */ part) =>
 					part.package?.name === entry.package.name &&
 					part.package.version === entry.package.version &&
 					part.package.sha256 === entry.package.sha256 &&
@@ -241,14 +268,17 @@ function render(result) {
 	compare();
 }
 
+/** @param {unknown} error */
 function failure(error) {
-	byId("error").textContent = error.message;
+	byId("error").textContent =
+		error instanceof Error ? error.message : String(error);
 	byId("error").hidden = false;
 	byId("view").hidden = true;
 	byId("status").textContent =
 		"Unable to resolve. Fix the configuration or change the selection, then refresh.";
 }
 
+/** @param {string} [focusId] */
 async function update(focusId) {
 	const number = ++requestNumber;
 	pin.disabled = true;
@@ -270,7 +300,8 @@ async function update(focusId) {
 		byId("view").hidden = false;
 		byId("status").textContent =
 			`Resolved ${result.role} / ${result.profile}. Temporary skill selections do not change files.`;
-		if (focusId) byId(focusId)?.focus();
+		// The focused checkbox may be gone after re-rendering; that is not an error.
+		if (focusId) document.getElementById(focusId)?.focus();
 	} catch (error) {
 		if (number === requestNumber) failure(error);
 	} finally {

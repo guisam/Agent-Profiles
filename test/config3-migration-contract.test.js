@@ -8,22 +8,22 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import { integrations } from "../src/integrations.js";
-import * as migrations from "../src/migrations.js";
-import { installDependencies } from "../src/package-lock.js";
-import { importPackage, lookupPackage } from "../src/package-store.js";
-import { readPackage } from "../src/packages.js";
-import { resolveInstructions } from "../src/resolve.js";
+import { integrations } from "../src/integrations.ts";
+import * as migrations from "../src/migrations.ts";
+import { installDependencies } from "../src/package-lock.ts";
+import { importPackage, lookupPackage } from "../src/package-store.ts";
+import { readPackage } from "../src/packages.ts";
+import { resolveInstructions } from "../src/resolve.ts";
 import {
 	readRevisionRecord,
 	retainRevisionManifest,
-} from "../src/revisions.js";
-import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
+} from "../src/revisions.ts";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.ts";
 
 // The only refusal allowed to block downstream bodies: the existing config3 start guard.
 const GUARD =
 	"migration start: configuration version 3 workspaces are not supported; use configuration version 1 or 2";
-const cli = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));
+const cli = fileURLToPath(new URL("../bin/agent-profiles.ts", import.meta.url));
 const originalStore = process.env.AGENT_PROFILES_STORE;
 const tuple = (model, host = "claude") => ({ role: "worker", model, host });
 const primary = tuple("local-llm");

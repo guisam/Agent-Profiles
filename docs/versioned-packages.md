@@ -3,7 +3,7 @@
 This checkout implements configuration v2 and opt-in v3; the walkthrough below
 remains v2, including its existing snapshot1 behavior. The manifest
 is still **0.1.0, unpublished**; no published v2-supporting release is claimed.
-Use a trusted checkout with Node.js 22+ and its dependencies already available.
+Use a trusted checkout with Node.js 24+ and its dependencies already available.
 Preparing/installing the executable needs separate authorization. Dependency
 `install` below is distinct from `init --package`, which installs the Agent
 Profiles npm executable into a project.
@@ -112,15 +112,15 @@ Run from the same checkout directory. `add` imports without editing configuratio
 `install` locks every base/override pin, including unselected and available declarations.
 
 ```powershell
-node bin/agent-profiles.js add '@example/security-review@1.0.0' --source $V1 --store $Store --json
+node bin/agent-profiles.ts add '@example/security-review@1.0.0' --source $V1 --store $Store --json
 if ($LASTEXITCODE -ne 0) { throw 'first import failed' }
-node bin/agent-profiles.js add '@example/security-review@2.0.0' --source $V2 --store $Store --json
+node bin/agent-profiles.ts add '@example/security-review@2.0.0' --source $V2 --store $Store --json
 if ($LASTEXITCODE -ne 0) { throw 'second import failed' }
-node bin/agent-profiles.js install --root $Project --store $Store --offline --source '@example/security-review' 1.0.0 $V1 --source '@example/security-review' 2.0.0 $V2 --json
+node bin/agent-profiles.ts install --root $Project --store $Store --offline --source '@example/security-review' 1.0.0 $V1 --source '@example/security-review' 2.0.0 $V2 --json
 if ($LASTEXITCODE -ne 0) { throw 'dependency lock failed' }
-node bin/agent-profiles.js resolve --root $Project --store $Store --host codex --model fictional-small --identity-source user --role reviewer --json --contents
+node bin/agent-profiles.ts resolve --root $Project --store $Store --host codex --model fictional-small --identity-source user --role reviewer --json --contents
 if ($LASTEXITCODE -ne 0) { throw 'small resolution failed' }
-node bin/agent-profiles.js resolve --root $Project --store $Store --host codex --model fictional-large --identity-source user --role reviewer --json --contents
+node bin/agent-profiles.ts resolve --root $Project --store $Store --host codex --model fictional-large --identity-source user --role reviewer --json --contents
 if ($LASTEXITCODE -ne 0) { throw 'large resolution failed' }
 ```
 
@@ -143,15 +143,15 @@ root/store/selectors on reentry. CLI load/rerun commands include operational con
 when resolution used `--store`; the default API formatter remains store-free.
 
 ```powershell
-$RawA = node bin/agent-profiles.js stamp --root $Project --store $Store --host codex --model fictional-small --identity-source user --role reviewer --json
+$RawA = node bin/agent-profiles.ts stamp --root $Project --store $Store --host codex --model fictional-small --identity-source user --role reviewer --json
 if ($LASTEXITCODE -ne 0) { throw 'first capture failed' }
 $A = ($RawA | ConvertFrom-Json).digest
-$RawB = node bin/agent-profiles.js stamp --root $Project --store $Store --host codex --model fictional-large --identity-source user --role reviewer --json
+$RawB = node bin/agent-profiles.ts stamp --root $Project --store $Store --host codex --model fictional-large --identity-source user --role reviewer --json
 if ($LASTEXITCODE -ne 0) { throw 'second capture failed' }
 $B = ($RawB | ConvertFrom-Json).digest
-node bin/agent-profiles.js verify $A --store $Store --json
+node bin/agent-profiles.ts verify $A --store $Store --json
 if ($LASTEXITCODE -ne 0) { throw 'verification failed' }
-node bin/agent-profiles.js diff $A $B --store $Store --json
+node bin/agent-profiles.ts diff $A $B --store $Store --json
 if ($LASTEXITCODE -ne 0) { throw 'comparison incomplete' }
 ```
 
@@ -179,10 +179,10 @@ New-Item -ItemType Directory -Path $Fresh,$FreshStore | Out-Null
 Copy-Item -LiteralPath (Join-Path $Project '.agent-profiles') -Destination (Join-Path $Fresh '.agent-profiles') -Recurse
 Copy-Item -LiteralPath (Join-Path $Project 'AGENTS.md') -Destination (Join-Path $Fresh 'AGENTS.md')
 $LockBefore = (Get-FileHash -LiteralPath (Join-Path $Fresh '.agent-profiles/agent-profiles.lock') -Algorithm SHA256).Hash
-node bin/agent-profiles.js install --root $Fresh --store $FreshStore --frozen-lockfile --offline --source '@example/security-review' 1.0.0 $V1 --source '@example/security-review' 2.0.0 $V2 --json
+node bin/agent-profiles.ts install --root $Fresh --store $FreshStore --frozen-lockfile --offline --source '@example/security-review' 1.0.0 $V1 --source '@example/security-review' 2.0.0 $V2 --json
 if ($LASTEXITCODE -ne 0) { throw 'fresh frozen install failed' }
 if ((Get-FileHash -LiteralPath (Join-Path $Fresh '.agent-profiles/agent-profiles.lock') -Algorithm SHA256).Hash -ne $LockBefore) { throw 'frozen lock changed' }
-node bin/agent-profiles.js resolve --root $Fresh --store $FreshStore --host codex --model fictional-large --identity-source user --role reviewer --json --contents
+node bin/agent-profiles.ts resolve --root $Fresh --store $FreshStore --host codex --model fictional-large --identity-source user --role reviewer --json --contents
 if ($LASTEXITCODE -ne 0) { throw 'fresh resolution failed' }
 ```
 
@@ -204,9 +204,9 @@ as the automatically protected project/store boundaries.
 ```powershell
 $OutA = Join-Path $Outputs 'small'
 $OutB = Join-Path $Outputs 'large'
-node bin/agent-profiles.js materialize $A --root $Project --store $Store --adapter filesystem-v1 --output-root $Outputs --destination $OutA --protect-root $Sources --json
+node bin/agent-profiles.ts materialize $A --root $Project --store $Store --adapter filesystem-v1 --output-root $Outputs --destination $OutA --protect-root $Sources --json
 if ($LASTEXITCODE -ne 0) { throw 'first export failed' }
-node bin/agent-profiles.js materialize $B --root $Project --store $Store --adapter filesystem-v1 --output-root $Outputs --destination $OutB --protect-root $Sources --json
+node bin/agent-profiles.ts materialize $B --root $Project --store $Store --adapter filesystem-v1 --output-root $Outputs --destination $OutB --protect-root $Sources --json
 if ($LASTEXITCODE -ne 0) { throw 'second export failed' }
 ```
 
@@ -248,8 +248,8 @@ $env:AP_STAMP_A = $A
 import path from 'node:path';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { verifyMaterialization } from './src/materialize.js';
-import { reconstructStamp } from './src/stamps.js';
+import { verifyMaterialization } from './src/materialize.ts';
+import { reconstructStamp } from './src/stamps.ts';
 const storeRoot = path.join(process.env.AP_DEMO, 'store');
 const digest = process.env.AP_STAMP_A;
 assert.deepEqual(verifyMaterialization({ destination: path.join(process.env.AP_DEMO, 'exports/small'), expectedStampDigest: digest, storeRoot }), { verified: true, findings: [] });
@@ -270,10 +270,10 @@ if ($LASTEXITCODE -ne 0) { throw 'reconstruction/output verification failed' }
 Recovery is a separate manual operation, **not normal walkthrough execution**.
 Only after independently confirming no writer is active, an authorized operator
 may call `recoverStore({storeRoot, confirmNoActiveWriter: true})` from
-`src/package-store.js`. It removes recognized uncommitted staging/writer-lock state,
+`src/package-store.ts`. It removes recognized uncommitted staging/writer-lock state,
 preserving published objects/identities. Old age/PID guesses never authorize lock deletion.
 Output API `recoverMaterialization({destination, outputRoot, expectedStampDigest,
-storeRoot, deniedRoots, confirmNoActiveWriter: true})` from `src/materialize.js`
+storeRoot, deniedRoots, confirmNoActiveWriter: true})` from `src/materialize.ts`
 checks ownership, verifies committed output and clears only recognized leftovers.
 Committed targets remain; mismatches are reported without repair or republication.
 Verify committed-but-unacknowledged output independently: retry to its existing
@@ -332,3 +332,26 @@ interruption may leave staging/locks or complete unacknowledged outputs. No auto
 lock stealing, visible-copy fallback, universal concurrent-edit or power-loss guarantee.
 Source/offline tests do not qualify every OS/filesystem/browser/installed artifact/live
 host. See [release gates](release.md) and [architecture](architecture.md).
+
+## Store read caching
+
+Each store command checks the store's directories for links and junctions and
+verifies every package object it reads. By default it does that once per command:
+within one operation, directories already checked and objects and revision records
+already verified (all content-addressed) are reused. Between commands, an object is
+reused only while every file's metadata (inode, size, timestamps, link count) still
+matches what was hashed. `verify`, `diff` and `reconstruct` always re-read every byte
+independently, with no caching.
+
+The trade-off: if another process swaps a store directory for a link partway through
+a single command, the store may not notice until the next command. Files are always
+opened without following links and checked for identity, and every new command
+re-verifies objects. If you ever cannot trust reads from your store (a shared
+store another account can write to, or a writer you do not control), turn caching off:
+
+```sh
+AGENT_PROFILES_STORE_CACHE=off agent-profiles resolve --root /path/to/project
+```
+
+`off` makes every command re-check every path and re-read every object, like the
+audit commands. Accepted values are `on` (default) and `off`; anything else is refused.

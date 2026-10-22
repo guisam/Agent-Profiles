@@ -1,6 +1,6 @@
 # Installer CLI
 
-Agent Profiles requires Node.js 22 or newer. The CLI exposes `init`, `configure`,
+Agent Profiles requires Node.js 24 or newer. The CLI exposes `init`, `configure`,
 `doctor`, and `uninstall`, plus [presets](presets.md) and [context proof](proof.md).
 The [configure guide](configure.md) covers the role/skill
 wizard; this guide covers installation and removal.
@@ -9,9 +9,9 @@ wizard; this guide covers installation and removal.
 
 ```sh
 npm ci
-node bin/agent-profiles.js init --root /path/to/repository
-node bin/agent-profiles.js doctor --root /path/to/repository
-node bin/agent-profiles.js uninstall --root /path/to/repository
+node bin/agent-profiles.ts init --root /path/to/repository
+node bin/agent-profiles.ts doctor --root /path/to/repository
+node bin/agent-profiles.ts uninstall --root /path/to/repository
 ```
 
 Without `--root`, commands walk upward to the nearest Agent Profiles configuration
@@ -77,8 +77,8 @@ configuration, is reported for manual repair rather than overwritten.
 
 ## Adapters
 
-The small adapter table lives in [integrations.js](../src/integrations.js).
-Shared editing and validation stay in [install.js](../src/install.js).
+The small adapter table lives in [integrations.ts](../src/integrations.ts).
+Shared editing and validation stay in [install.ts](../src/install.ts).
 
 | Agent ID | Instruction target |
 | --- | --- |

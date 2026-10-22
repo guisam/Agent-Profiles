@@ -7,12 +7,12 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import { installDependencies } from "../src/package-lock.js";
-import { importPackage } from "../src/package-store.js";
-import { resolveInstructions } from "../src/resolve.js";
-import { createStamp, reconstructStamp } from "../src/stamps.js";
+import { installDependencies } from "../src/package-lock.ts";
+import { importPackage } from "../src/package-store.ts";
+import { resolveInstructions } from "../src/resolve.ts";
+import { createStamp, reconstructStamp } from "../src/stamps.ts";
 
-const target = new URL("../src/migrations.js", import.meta.url);
+const target = new URL("../src/migrations.ts", import.meta.url);
 let migrations;
 try {
 	migrations = await import(target.href);
@@ -40,7 +40,7 @@ const put = (file, bytes) => {
 	fs.mkdirSync(path.dirname(file), { recursive: true });
 	fs.writeFileSync(file, bytes);
 };
-const cli = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));
+const cli = fileURLToPath(new URL("../bin/agent-profiles.ts", import.meta.url));
 function fixture(t) {
 	const dir = fs.realpathSync(
 		fs.mkdtempSync(path.join(os.tmpdir(), "ap-migration-")),
@@ -161,7 +161,7 @@ function invoke(f, ...args) {
 test("migration start/status/abandon public API exists", () => {
 	assert.ok(
 		migrations,
-		"src/migrations.js must implement the migration workspace lifecycle",
+		"src/migrations.ts must implement the migration workspace lifecycle",
 	);
 	for (const name of ["startMigration", "migrationStatus", "abandonMigration"])
 		assert.equal(typeof migrations[name], "function", name);
@@ -827,9 +827,9 @@ migrationTest(
 	},
 );
 
-const { retainRevisionManifest } = await import("../src/revisions.js");
-const { verifyStamp } = await import("../src/stamps.js");
-const { parseYaml } = await import("../src/resolve.js");
+const { retainRevisionManifest } = await import("../src/revisions.ts");
+const { verifyStamp } = await import("../src/stamps.ts");
+const { parseYaml } = await import("../src/resolve.ts");
 const workspaceBoundaryOriginalStore = process.env.AGENT_PROFILES_STORE;
 function workspaceBoundaryFixture(t) {
 	const f = fixture(t),
@@ -872,7 +872,7 @@ function workspaceBoundarySnapshot(root) {
 const workspaceBoundaryState = (f) =>
 	[f.root, f.storeRoot, f.ambient].map(workspaceBoundarySnapshot);
 const { integrations: workspaceConfig3Hosts } = await import(
-	"../src/integrations.js"
+	"../src/integrations.ts"
 );
 // A successful native start may add only the migration namespace and immutable stamp/blob backing; everything else is preserved.
 function workspaceConfig3Started(f, record, before, sharing) {

@@ -3,8 +3,8 @@
 From a checkout with dependencies installed:
 
 ```sh
-node bin/agent-profiles.js visualize --root /path/to/project
-node bin/agent-profiles.js visualize --model example-model --role reviewer --skill testing
+node bin/agent-profiles.ts visualize --root /path/to/project
+node bin/agent-profiles.ts visualize --model example-model --role reviewer --skill testing
 ```
 
 The installed CLI exposes the same command as `agent-profiles visualize`.
@@ -94,7 +94,7 @@ inferred from a model prefix is shown in the resolution, not promoted into selec
 state; changing the model recalculates prefix routing.
 
 ```js
-import { startVisualizer } from './src/visualize.js';
+import { startVisualizer } from './src/visualize.ts';
 
 const { server, url } = await startVisualizer({
   root: '/path/to/project', model: 'example-model', role: 'reviewer',

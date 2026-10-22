@@ -3,14 +3,15 @@ import { realpathSync } from "node:fs";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
-import { readConfiguration } from "../src/configure.js";
+import { readConfiguration } from "../src/configure.ts";
 import {
 	formatContext,
 	formatProof,
 	resolutionOutput,
-} from "../src/diagnostics.js";
-import { defaultUserRoots } from "../src/external-skills.js";
-import { formatInventory, inspectRepository } from "../src/inspect.js";
+} from "../src/diagnostics.ts";
+import { defaultUserRoots } from "../src/external-skills.ts";
+import { errorMessage } from "../src/files.ts";
+import { formatInventory, inspectRepository } from "../src/inspect.ts";
 import {
 	detectAgents,
 	doctor,
@@ -18,9 +19,9 @@ import {
 	install,
 	installPackage,
 	uninstall,
-} from "../src/install.js";
-import { integrations } from "../src/integrations.js";
-import { materializeStamp } from "../src/materialize.js";
+} from "../src/install.ts";
+import { integrations } from "../src/integrations.ts";
+import { materializeStamp } from "../src/materialize.ts";
 import {
 	abandonMigration,
 	acceptMigrationProposal,
@@ -35,22 +36,23 @@ import {
 	publishMigrationCandidate,
 	rejectMigrationProposal,
 	startMigration,
-} from "../src/migrations.js";
-import { installDependencies } from "../src/package-lock.js";
-import { importPackage, rootPath } from "../src/package-store.js";
-import { readPackage } from "../src/packages.js";
-import { runPreset } from "../src/preset-wizard.js";
-import { resolveInstructions } from "../src/resolve.js";
-import { retainRevisionManifest } from "../src/revisions.js";
-import { discoverSkills } from "../src/skills.js";
-import { createStamp, diffStamps, verifyStamp } from "../src/stamps.js";
-import { startVisualizer } from "../src/visualize.js";
-import { configureRoles, display as displayText } from "../src/wizard.js";
+} from "../src/migrations.ts";
+import { installDependencies } from "../src/package-lock.ts";
+import { importPackage, rootPath } from "../src/package-store.ts";
+import { readPackage } from "../src/packages.ts";
+import { runPreset } from "../src/preset-wizard.ts";
+import { type ResolveOptions, resolveInstructions } from "../src/resolve.ts";
+import { retainRevisionManifest } from "../src/revisions.ts";
+import { discoverSkills } from "../src/skills.ts";
+import { createStamp, diffStamps, verifyStamp } from "../src/stamps.ts";
+import { startVisualizer } from "../src/visualize.ts";
+import { configureRoles, display as displayText } from "../src/wizard.ts";
 
 const agentChoices = integrations.map((adapter) => adapter.id).join(", ");
-const display = (text) => displayText(text).replace(/[\x80-\x9f]/g, " ");
+const display = (text: unknown) =>
+	displayText(text).replace(/[\x80-\x9f]/g, " ");
 
-async function question(prompt) {
+async function question(prompt: string) {
 	if (!stdin.isTTY || !stdout.isTTY)
 		throw new Error(
 			"Interactive input is unavailable; configure requires a terminal, as do preset import/export. For init use --agent; for uninstall omit --delete-config.",
@@ -110,9 +112,10 @@ try {
 		"migrate",
 		"revision",
 	];
-	const sources = [];
-	const sourceOperands = new Set();
-	const seen = new Set();
+	const sources: { name: string; version: string; directory: string }[] = [];
+	// The exact version/directory tokens consumed by --source, excluded from positionals.
+	const sourceOperands = new Set<(typeof tokens)[number]>();
+	const seen = new Set<string>();
 	for (const [index, token] of tokens.entries()) {
 		if (token.kind !== "option") continue;
 		if (
@@ -243,7 +246,7 @@ Examples:
 					throw new Error(`--${option} is not supported by revision record`);
 		} else if (command === "migrate") {
 			const action = positionals[1];
-			const counts = {
+			const counts: Record<string, number[]> = {
 				start: [2],
 				status: [2, 3],
 				abandon: [3],
@@ -278,14 +281,17 @@ Examples:
 				if (!allowed.includes(option))
 					throw new Error(`--${option} is not supported by migrate ${action}`);
 		} else if (packageCommands.includes(command)) {
-			const count = {
-				add: 2,
-				install: 1,
-				stamp: 1,
-				verify: 2,
-				diff: 3,
-				materialize: 2,
-			}[command];
+			// packageCommands lists exactly these commands.
+			const count = (
+				{
+					add: 2,
+					install: 1,
+					stamp: 1,
+					verify: 2,
+					diff: 3,
+					materialize: 2,
+				} as Record<string, number>
+			)[command];
 			if (positionals.length !== count)
 				throw new Error(
 					`Usage: ${command} accepts exactly ${count - 1} positional argument(s)${command === "diff" ? ": two digests, before and after" : ""}`,
@@ -330,9 +336,9 @@ Examples:
 			throw new Error(
 				"--role is only supported by preset, resolve, proof, visualize, stamp, or migrate start",
 			);
-		if (resolving && values.role?.length > 1)
+		if (resolving && (values.role?.length ?? 0) > 1)
 			throw new Error(`${command} accepts one --role`);
-		if (command === "migrate" && values.role?.length > 1)
+		if (command === "migrate" && (values.role?.length ?? 0) > 1)
 			throw new Error("migrate start accepts one --role");
 		if (
 			(values.model !== undefined ||
@@ -410,7 +416,7 @@ Examples:
 					);
 		}
 		if (command === "materialize") {
-			for (const name of ["adapter", "output-root", "destination"])
+			for (const name of ["adapter", "output-root", "destination"] as const)
 				if (values[name] === undefined || !values[name].trim())
 					throw new Error(
 						`--${name} is required for materialize${name === "adapter" ? "; use filesystem-v1" : ""}`,
@@ -476,11 +482,14 @@ Examples:
 			host: values.host,
 			model: values.model,
 			family: values.family,
-			identitySource: /** @type {any} */ (values["identity-source"]),
+			// resolveCore rejects anything but host, host-stated or user.
+			identitySource: values[
+				"identity-source"
+			] as ResolveOptions["identitySource"],
 			role: values.role?.[0],
 			skills: values.skill,
 		};
-		const report = (result, label) =>
+		const report = (result: unknown, label: string) =>
 			console.log(
 				values.json
 					? JSON.stringify(result, null, 2)
@@ -500,7 +509,7 @@ Examples:
 				"Revision metadata recorded (declarations only)",
 			);
 		} else if (command === "migrate") {
-			let result;
+			let result: unknown;
 			switch (positionals[1]) {
 				case "start":
 					result = startMigration({
@@ -592,7 +601,7 @@ Examples:
 					});
 					break;
 			}
-			const notes = {
+			const notes: Record<string, string> = {
 				report: ` ${positionals[2]} — external claims; runtime unverified; promotion not authorized`,
 				preview:
 					" (read-only; nothing applied) — correctness is an external claim; runtime unverified",
@@ -604,7 +613,8 @@ Examples:
 				`Migration ${positionals[1]}${notes[positionals[1]] ?? ""}`,
 			);
 		} else if (command === "add") {
-			const sourceDirectory = rootPath(values.source[0], "source");
+			// Validated above: add takes exactly one --source.
+			const sourceDirectory = rootPath(values.source?.[0], "source");
 			const inspected = readPackage({ root: sourceDirectory });
 			const identity = inspected.manifest.package;
 			if (`${identity.name}@${identity.version}` !== positionals[1])
@@ -826,7 +836,7 @@ Examples:
 				);
 			for (const note of result.notes) console.log(note);
 			// Three independent questions: is the configuration valid, can the bootstrap run, can each host satisfy each role?
-			const section = (title, problems, ok) => {
+			const section = (title: string, problems: string[], ok: string) => {
 				console.log(
 					`\n${title}: ${problems.length ? `${problems.length} problem${problems.length === 1 ? "" : "s"}` : ok}`,
 				);
@@ -892,6 +902,6 @@ Examples:
 		}
 	}
 } catch (error) {
-	console.error(`Agent Profiles: ${display(error.message)}`);
+	console.error(`Agent Profiles: ${display(errorMessage(error))}`);
 	process.exitCode = 1;
 }

@@ -22,7 +22,7 @@ They are never passed to `hermes -p`, `hermes profile`, or a Hermes configuratio
 
 ## Install from a checkout or a shared package
 
-Requires Node.js 22 or newer. Until publication, use a tarball built from the
+Requires Node.js 24 or newer. Until publication, use a tarball built from the
 checkout containing this adapter; an older `0.1.0` tarball does not contain it.
 The development package version is still `0.1.0`: equality of version strings is
 not proof that two tarballs contain the same code. Share the actual tested artifact.
@@ -44,7 +44,7 @@ version from inside it. On Windows, use a quoted path when it contains spaces.
 Alternatively, from the checkout:
 
 ```sh
-node bin/agent-profiles.js init --root /path/to/project --agent hermes --package /path/to/agent-profiles-0.1.0.tgz
+node bin/agent-profiles.ts init --root /path/to/project --agent hermes --package /path/to/agent-profiles-0.1.0.tgz
 ```
 
 To enable all supported hosts, repeat `--agent` for `claude`, `codex`, and `hermes`.

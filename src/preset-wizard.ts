@@ -4,14 +4,26 @@ import {
 	applyPresetExport,
 	applyPresetImport,
 	exportChoices,
+	type PresetImportPlan,
 	planPresetExport,
 	planPresetImport,
 	readPreset,
-} from "./presets.js";
-import { resolveInstructions } from "./resolve.js";
-import { configureRoles, display, selectSkills } from "./wizard.js";
+} from "./presets.ts";
+import { resolveInstructions } from "./resolve.ts";
+import {
+	type Ask,
+	configureRoles,
+	display,
+	selectSkills,
+	type Write,
+} from "./wizard.ts";
 
-async function choose(ids, label, ask, write) {
+async function choose(
+	ids: string[],
+	label: string,
+	ask: Ask,
+	write: Write,
+): Promise<string[]> {
 	if (!ids.length) return [];
 	const choices = ids.map((id) => ({
 		id,
@@ -25,7 +37,12 @@ async function choose(ids, label, ask, write) {
 	).map((item) => item.id);
 }
 
-function describe(preset, write, contents = false) {
+// Exports describe a just-built preset, which has no source directory or manifest bytes yet.
+function describe(
+	preset: Omit<ReturnType<typeof readPreset>, "source" | "manifest">,
+	write: Write,
+	contents = false,
+) {
 	const meta = preset.metadata;
 	write(
 		`${display(meta.get("display_name"))} (${display(meta.get("name"))}@${display(meta.get("version"))})`,
@@ -62,7 +79,7 @@ function describe(preset, write, contents = false) {
 		}
 }
 
-function preview(plan, write) {
+function preview(plan: PresetImportPlan, write: Write) {
 	for (const action of plan.actions) write(display(action));
 	for (const conflict of plan.conflicts)
 		write(`Conflict: ${display(conflict.key)} (${display(conflict.file)})`);
@@ -77,7 +94,17 @@ function preview(plan, write) {
 	);
 }
 
-/** @param {{command: string, location: string, root?: string, roles?: string[], contents?: boolean, ask: (prompt: string) => Promise<string>, write?: typeof console.log, storeRoot?: string}} options */
+export type PresetCommandOptions = {
+	command: string;
+	location: string;
+	root?: string;
+	roles?: string[];
+	contents?: boolean;
+	ask: Ask;
+	write?: Write;
+	storeRoot?: string;
+};
+
 export async function runPreset({
 	command,
 	location,
@@ -87,12 +114,13 @@ export async function runPreset({
 	ask,
 	write = console.log,
 	storeRoot,
-}) {
+}: PresetCommandOptions) {
 	if (!["inspect", "import", "export"].includes(command) || !location?.trim())
 		throw new Error(
 			"Usage: agent-profiles preset <inspect|import|export> <directory> [--root <repository>]",
 		);
 	if (command === "export") {
+		if (!root) throw new Error("preset export requires --root <repository>");
 		const state = exportChoices(root, { storeRoot });
 		const selectedRoles =
 			roles ??
@@ -108,7 +136,7 @@ export async function runPreset({
 			ask,
 			write,
 		);
-		const skills = new Set();
+		const skills = new Set<string>();
 		for (const role of selectedRoles) {
 			const result = resolveInstructions({
 				root,
@@ -131,7 +159,7 @@ export async function runPreset({
 			ask,
 			write,
 		);
-		const metadata = {};
+		const metadata: Record<string, string> = {};
 		for (const key of [
 			"name",
 			"display_name",
@@ -183,6 +211,7 @@ export async function runPreset({
 		);
 		return;
 	}
+	if (!root) throw new Error("preset import requires --root <repository>");
 	const selectedRoles =
 		roles ??
 		(await choose([...preset.roles.keys()], "Roles to import", ask, write));
@@ -192,7 +221,7 @@ export async function runPreset({
 				.trim()
 				.toLowerCase() === "y"
 		: false;
-	let plan;
+	let plan: PresetImportPlan;
 	for (;;) {
 		plan = planPresetImport({
 			root,

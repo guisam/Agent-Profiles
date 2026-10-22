@@ -6,12 +6,26 @@ import {
 	readFileSync,
 	renameSync,
 	rmdirSync,
+	type Stats,
 	unlinkSync,
 	writeFileSync,
 } from "node:fs";
 import path from "node:path";
 
-export function safePath(root, file) {
+// Catch variables are `unknown`; these read errno codes and messages without assuming an Error was thrown.
+export function errorCode(error: unknown): string | undefined {
+	return error instanceof Error &&
+		"code" in error &&
+		typeof error.code === "string"
+		? error.code
+		: undefined;
+}
+
+export function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+export function safePath(root: string, file: string): string {
 	const target = path.resolve(root, file);
 	const relative = path.relative(root, target);
 	if (
@@ -25,11 +39,11 @@ export function safePath(root, file) {
 	let current = root;
 	for (const part of relative.split(path.sep)) {
 		current = path.join(current, part);
-		let stat;
+		let stat: Stats;
 		try {
 			stat = lstatSync(current);
 		} catch (error) {
-			if (error.code === "ENOENT") continue;
+			if (errorCode(error) === "ENOENT") continue;
 			throw error;
 		}
 		if (stat.isSymbolicLink() || (stat.isFile() && stat.nlink > 1)) {
@@ -43,23 +57,30 @@ export function safePath(root, file) {
 	return target;
 }
 
-export function readLocal(root, file) {
+export function readLocal(root: string, file: string): Buffer | null {
 	const target = safePath(root, file);
 	try {
 		return readFileSync(target);
 	} catch (error) {
-		if (error.code === "ENOENT") return null;
-		throw new Error(`${file}: ${error.message}`);
+		if (errorCode(error) === "ENOENT") return null;
+		throw new Error(`${file}: ${errorMessage(error)}`);
 	}
 }
 
-function snapshotMatches(actual, expected) {
+function snapshotMatches(actual: Buffer | null, expected: Buffer | null) {
 	return actual === null
 		? expected === null
 		: expected !== null && actual.equals(expected);
 }
 
-function writeChange(root, { file, before, after }) {
+/** A whole-file replacement; null means the file is absent. */
+export type FileChange = {
+	file: string;
+	before: Buffer | null;
+	after: Buffer | null;
+};
+
+function writeChange(root: string, { file, before, after }: FileChange) {
 	const target = safePath(root, file);
 	if (!snapshotMatches(readLocal(root, file), before))
 		throw new Error(`${file}: changed during the operation; retry`);
@@ -84,13 +105,17 @@ function writeChange(root, { file, before, after }) {
 	}
 }
 
-export function applyChanges(root, changes, validate = () => {}) {
-	const written = [];
-	const directories = [];
+export function applyChanges(
+	root: string,
+	changes: FileChange[],
+	validate: () => unknown = () => {},
+): string[] {
+	const written: FileChange[] = [];
+	const directories: string[] = [];
 	try {
 		for (const change of changes) {
 			const target = safePath(root, change.file);
-			const missing = [];
+			const missing: string[] = [];
 			for (
 				let dir = path.dirname(target);
 				dir !== root && !existsSync(dir);
@@ -106,7 +131,7 @@ export function applyChanges(root, changes, validate = () => {}) {
 		}
 		validate();
 	} catch (error) {
-		const failures = [];
+		const failures: string[] = [];
 		for (const change of written.reverse()) {
 			try {
 				writeChange(root, {
@@ -115,7 +140,7 @@ export function applyChanges(root, changes, validate = () => {}) {
 					after: change.before,
 				});
 			} catch (rollback) {
-				failures.push(rollback.message);
+				failures.push(errorMessage(rollback));
 			}
 		}
 		for (const dir of directories.reverse()) {
@@ -126,7 +151,7 @@ export function applyChanges(root, changes, validate = () => {}) {
 			}
 		}
 		throw new Error(
-			`${error.message}\n${failures.length ? `Rollback incomplete: ${failures.join("; ")}. Run doctor.` : "No file changes retained; completed writes were rolled back."}`,
+			`${errorMessage(error)}\n${failures.length ? `Rollback incomplete: ${failures.join("; ")}. Run doctor.` : "No file changes retained; completed writes were rolled back."}`,
 		);
 	}
 	return changes.map((change) => change.file);

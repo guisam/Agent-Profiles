@@ -7,28 +7,28 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
-import * as migrations from "../src/migrations.js";
-import { installDependencies } from "../src/package-lock.js";
+import * as migrations from "../src/migrations.ts";
+import { installDependencies } from "../src/package-lock.ts";
 import {
 	encodeComponent,
 	importPackage,
 	lookupPackage,
 	readStoreFile,
-} from "../src/package-store.js";
+} from "../src/package-store.ts";
 import {
 	canonicalJSON,
 	hashEvaluationRecord,
 	hashRecord,
 	parseRecord,
 	readPackage,
-} from "../src/packages.js";
-import { resolveInstructions } from "../src/resolve.js";
+} from "../src/packages.ts";
+import { resolveInstructions } from "../src/resolve.ts";
 import {
 	lookupRevisionManifest,
 	readRevisionRecord,
 	retainRevisionManifest,
-} from "../src/revisions.js";
-import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
+} from "../src/revisions.ts";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.ts";
 
 const promotionExports = [
 	"previewMigrationPromotion",
@@ -48,7 +48,7 @@ const promotionTest = (name, body) =>
 		},
 		body,
 	);
-const cli = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));
+const cli = fileURLToPath(new URL("../bin/agent-profiles.ts", import.meta.url));
 const originalStore = process.env.AGENT_PROFILES_STORE;
 const DECISION = "agent-profiles/promotion-decision/v1",
 	REVISION_V2 = "agent-profiles/revision/v2";
@@ -950,7 +950,7 @@ test("promotion preview, apply and readback interfaces exist on the migrations m
 	assert.deepEqual(
 		promotionExports.filter((name) => typeof migrations[name] !== "function"),
 		[],
-		"src/migrations.js must expose the promotion preview/apply/readback seam",
+		"src/migrations.ts must expose the promotion preview/apply/readback seam",
 	);
 });
 

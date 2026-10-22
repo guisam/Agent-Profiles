@@ -7,16 +7,16 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
-import { applyRoleChange, planRoleChange } from "../src/configure.js";
-import { runPreset } from "../src/preset-wizard.js";
+import { applyRoleChange, planRoleChange } from "../src/configure.ts";
+import { runPreset } from "../src/preset-wizard.ts";
 import {
 	applyPresetExport,
 	applyPresetImport,
 	planPresetExport,
 	planPresetImport,
 	readPreset,
-} from "../src/presets.js";
-import { resolveInstructions } from "../src/resolve.js";
+} from "../src/presets.ts";
+import { resolveInstructions } from "../src/resolve.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 const metadata = {
@@ -512,7 +512,7 @@ test("interactive import/export reuse selection, support cancellation and CLI in
 	const cli = (...args) =>
 		spawnSync(
 			process.execPath,
-			[path.join(project, "bin/agent-profiles.js"), ...args],
+			[path.join(project, "bin/agent-profiles.ts"), ...args],
 			{ cwd: directory, encoding: "utf8" },
 		);
 	const inspect = cli("preset", "inspect", source, "--contents");

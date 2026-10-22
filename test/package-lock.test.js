@@ -12,17 +12,17 @@ import path from "node:path";
 import test from "node:test";
 import tls from "node:tls";
 import { fileURLToPath } from "node:url";
-import { importPackage, lookupPackage } from "../src/package-store.js";
+import { importPackage, lookupPackage } from "../src/package-store.ts";
 import {
 	canonicalJSON,
 	hashRecord,
 	hashTree,
 	readPackage,
-} from "../src/packages.js";
-import { parseYaml, resolveInstructions } from "../src/resolve.js";
+} from "../src/packages.ts";
+import { parseYaml, resolveInstructions } from "../src/resolve.ts";
 
 // P5a tests only: the accepted seam has no required return shape or helper exports.
-const moduleURL = new URL("../src/package-lock.js", import.meta.url);
+const moduleURL = new URL("../src/package-lock.ts", import.meta.url);
 let installDependencies,
 	absent = false;
 try {
@@ -37,7 +37,7 @@ try {
 	absent = true;
 }
 const blocked = absent
-	? "P5a blocked: src/package-lock.js is absent; install assertions unexecuted"
+	? "P5a blocked: src/package-lock.ts is absent; install assertions unexecuted"
 	: false;
 const configPath = ".agent-profiles/agents.yaml";
 const lockPath = ".agent-profiles/agent-profiles.lock";
@@ -691,7 +691,7 @@ test("P5a installDependencies public seam exists", () => {
 	assert.equal(
 		typeof installDependencies,
 		"function",
-		"missing accepted src/package-lock.js installDependencies API",
+		"missing accepted src/package-lock.ts installDependencies API",
 	);
 });
 

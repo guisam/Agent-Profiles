@@ -5,11 +5,11 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { stringify } from "yaml";
-import * as migrations from "../src/migrations.js";
-import { installDependencies } from "../src/package-lock.js";
-import { importPackage, readStoreFile } from "../src/package-store.js";
-import { resolveInstructions } from "../src/resolve.js";
-import { createStamp, reconstructStamp } from "../src/stamps.js";
+import * as migrations from "../src/migrations.ts";
+import { installDependencies } from "../src/package-lock.ts";
+import { importPackage, readStoreFile } from "../src/package-store.ts";
+import { resolveInstructions } from "../src/resolve.ts";
+import { createStamp, reconstructStamp } from "../src/stamps.ts";
 
 const exports = [
 	"proposeMigration",
@@ -222,7 +222,7 @@ test("proposal import/accept/reject/list public API exists", () => {
 	assert.deepEqual(
 		missing,
 		[],
-		"implement the four proposal exports in src/migrations.js",
+		"implement the four proposal exports in src/migrations.ts",
 	);
 });
 

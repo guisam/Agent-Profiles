@@ -10,16 +10,16 @@ import {
 	applyRoleChange,
 	planRoleChange,
 	readConfiguration,
-} from "../src/configure.js";
+} from "../src/configure.ts";
 import {
 	applyPresetExport,
 	applyPresetImport,
 	planPresetExport,
 	planPresetImport,
-} from "../src/presets.js";
-import { resolveInstructions } from "../src/resolve.js";
-import { discoverSkills } from "../src/skills.js";
-import { configureRoles, selectSkills } from "../src/wizard.js";
+} from "../src/presets.ts";
+import { resolveInstructions } from "../src/resolve.ts";
+import { discoverSkills } from "../src/skills.ts";
+import { configureRoles, selectSkills } from "../src/wizard.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 function fixture(t) {
@@ -549,7 +549,7 @@ test("picker shows scope/status, includes source-aware filtering and refuses dis
 
 test("metadata inventory CLI is read-only JSON, validates flag scope and exposes opted-in sources", (t) => {
 	const f = fixture(t);
-	const file = path.join(project, "bin/agent-profiles.js");
+	const file = path.join(project, "bin/agent-profiles.ts");
 	const preferences = {
 		version: 1,
 		roots: [

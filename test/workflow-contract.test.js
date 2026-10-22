@@ -6,19 +6,19 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import { formatContext, formatProof } from "../src/diagnostics.js";
+import { formatContext, formatProof } from "../src/diagnostics.ts";
 import {
 	materializeStamp,
 	planMaterialization,
 	verifyMaterialization,
-} from "../src/materialize.js";
-import { installDependencies } from "../src/package-lock.js";
-import { importPackage, lookupPackage } from "../src/package-store.js";
-import { hashRecord } from "../src/packages.js";
-import { resolveInstructions } from "../src/resolve.js";
-import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
+} from "../src/materialize.ts";
+import { installDependencies } from "../src/package-lock.ts";
+import { importPackage, lookupPackage } from "../src/package-store.ts";
+import { hashRecord } from "../src/packages.ts";
+import { resolveInstructions } from "../src/resolve.ts";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.ts";
 
-const service = new URL("../src/revisions.js", import.meta.url);
+const service = new URL("../src/revisions.ts", import.meta.url);
 let revisions;
 try {
 	revisions = await import(service.href);
@@ -43,7 +43,7 @@ const workflowTest = (name, body) =>
 		},
 		body,
 	);
-const cli = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));
+const cli = fileURLToPath(new URL("../bin/agent-profiles.ts", import.meta.url));
 const protocol = "@example/agent-checkin";
 const versions = ["1.2.3", "1.4.5", "2.3.4"];
 const models = ["local-llm", "opus", "slim-llm"];
@@ -426,7 +426,7 @@ test("workflow foundation public revision service exists", () => {
 	assert.equal(
 		typeof revisions?.retainRevisionManifest,
 		"function",
-		"src/revisions.js must export retainRevisionManifest",
+		"src/revisions.ts must export retainRevisionManifest",
 	);
 });
 
@@ -1626,7 +1626,7 @@ test("C rehashed snapshot refuses a valid but wrongly selected peer revision", a
 	);
 	const digest = hashRecord("agent-profiles/stamp/v2", changed);
 	assert.notEqual(digest, captured.digest);
-	const { canonicalJSON } = await import("../src/packages.js");
+	const { canonicalJSON } = await import("../src/packages.ts");
 	const file = path.join(f.storeRoot, "stamps/sha256", digest, "snapshot.json");
 	assert.equal(
 		fs.existsSync(path.dirname(file)),

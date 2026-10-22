@@ -8,24 +8,24 @@ import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import { readConfiguration } from "../src/configure.js";
-import { formatContext, resolutionOutput } from "../src/diagnostics.js";
-import { inspectRepository } from "../src/inspect.js";
-import { doctor, install } from "../src/install.js";
-import * as materializer from "../src/materialize.js";
-import { installDependencies } from "../src/package-lock.js";
-import { importPackage, lookupPackage } from "../src/package-store.js";
-import { readPackage } from "../src/packages.js";
-import { runPreset } from "../src/preset-wizard.js";
-import { resolveInstructions } from "../src/resolve.js";
-import { discoverSkills } from "../src/skills.js";
+import { readConfiguration } from "../src/configure.ts";
+import { formatContext, resolutionOutput } from "../src/diagnostics.ts";
+import { inspectRepository } from "../src/inspect.ts";
+import { doctor, install } from "../src/install.ts";
+import * as materializer from "../src/materialize.ts";
+import { installDependencies } from "../src/package-lock.ts";
+import { importPackage, lookupPackage } from "../src/package-store.ts";
+import { readPackage } from "../src/packages.ts";
+import { runPreset } from "../src/preset-wizard.ts";
+import { resolveInstructions } from "../src/resolve.ts";
+import { discoverSkills } from "../src/skills.ts";
 import {
 	createStamp,
 	diffStamps,
 	reconstructStamp,
 	verifyStamp,
-} from "../src/stamps.js";
-import { configureRoles } from "../src/wizard.js";
+} from "../src/stamps.ts";
+import { configureRoles } from "../src/wizard.ts";
 
 // P9a RED only. No missing-CLI skip: native CLI assertions must expose actual dispatch failures.
 // Only the new digest-to-export API body is skipped when its exact export is absent.

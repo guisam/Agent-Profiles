@@ -3,7 +3,7 @@
 From an installed package, run `agent-profiles configure`. From this checkout:
 
 ```sh
-node bin/agent-profiles.js configure --root /path/to/repository
+node bin/agent-profiles.ts configure --root /path/to/repository
 ```
 
 Use `init` first if the repository has no configuration. The wizard uses the
@@ -103,7 +103,7 @@ Other roles can continue to reference the original `testing`. Skill files are
 never copied, rewritten, or deleted. Unused source mappings are retained.
 
 Additional repository layouts can be added through the source adapter table in
-[skills.js](../src/skills.js) or explicit repository-local file mappings.
+[skills.ts](../src/skills.ts) or explicit repository-local file mappings.
 External discovery is opt-in as described below; no remote registry is queried.
 Manual user/plugin native references remain supported and installation-unverified.
 Editing a role retains these references even when their metadata is unavailable.
@@ -192,7 +192,7 @@ and shared skill contents are never modified by a role edit.
 The prompt-free API is shared with the wizard:
 
 ```js
-import { planRoleChange, applyRoleChange } from './src/configure.js';
+import { planRoleChange, applyRoleChange } from './src/configure.ts';
 
 const plan = planRoleChange({
   root: '/path/to/repository',

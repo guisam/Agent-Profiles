@@ -81,7 +81,7 @@ consume host skills should always pass it.
 
 ## Implementation flow
 
-`bin/agent-profiles.js` parses commands and owns terminal input. It passes an
+`bin/agent-profiles.ts` parses commands and owns terminal input. It passes an
 explicit repository root to the synchronous installer and configuration APIs.
 
 - `resolve.js` parses YAML using `yaml`, rejects duplicate keys and invalid
@@ -95,7 +95,7 @@ explicit repository root to the synchronous installer and configuration APIs.
   and bootstrap changes (replacing outdated managed blocks), then checks the
   result with doctor. Uninstall removes managed spans even if routing
   configuration is broken.
-- `files.js` checks mutation paths and snapshots, writes temporary sibling files,
+- `files.ts` checks mutation paths and snapshots, writes temporary sibling files,
   and rolls completed writes back after reported failures. Existing user files
   are preserved; configuration deletion requires separate explicit confirmation.
 - `wizard.js` gathers a proposed role edit using local discovery from `skills.js`.
@@ -165,7 +165,7 @@ roles/<role-id>.md
 skills/<skill-id>/SKILL.md
 ```
 
-Version 1 uses plain YAML mappings and lists, enforced by [the resolver](../src/resolve.js).
+Version 1 uses plain YAML mappings and lists, enforced by [the resolver](../src/resolve.ts).
 
 | Field | Type | Meaning |
 | --- | --- | --- |

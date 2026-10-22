@@ -18,11 +18,10 @@
 	],
 	"type": "module",
 	"bin": {
-		"agent-profiles": "bin/agent-profiles.js"
+		"agent-profiles": "dist/bin/agent-profiles.js"
 	},
 	"files": [
-		"bin/",
-		"src/",
+		"dist/",
 		".agent-profiles/",
 		"docs/",
 		"examples/presets/",
@@ -30,23 +29,26 @@
 		"CONTRIBUTING.md"
 	],
 	"engines": {
-		"node": ">=22"
+		"node": ">=24"
 	},
 	"scripts": {
 		"typecheck": "tsc",
 		"lint": "biome lint",
 		"format": "biome format --write",
 		"check": "biome check --write",
+		"build": "node scripts/build.ts",
+		"prepack": "npm run build",
 		"test": "node --test",
-		"test:package": "node scripts/package-smoke.js",
-		"resolve": "node bin/agent-profiles.js resolve --json"
+		"test:affected": "node scripts/affected-tests.ts",
+		"test:package": "npm run build && node scripts/package-smoke.ts",
+		"resolve": "node bin/agent-profiles.ts resolve --json"
 	},
 	"dependencies": {
 		"yaml": "^2.9.1"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.6.2",
-		"@types/node": "^22.20.4",
-		"typescript": "5.9"
+		"@types/node": "^24.19.2",
+		"typescript": "7.0.2"
 	}
 }

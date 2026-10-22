@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+	type BigIntStats,
 	lstatSync,
 	mkdirSync,
 	readdirSync,
@@ -8,6 +9,7 @@ import {
 	rmSync,
 } from "node:fs";
 import path from "node:path";
+import { errorCode, errorMessage } from "./files.ts";
 import {
 	encodeComponent,
 	publish,
@@ -18,15 +20,16 @@ import {
 	statOrNull,
 	storeRoot,
 	writeFlushed,
-} from "./package-store.js";
+} from "./package-store.ts";
 import {
 	canonicalJSON,
 	hashRecord,
 	hashTree,
 	parseRecord,
+	type Untyped,
 	validateMembers,
-} from "./packages.js";
-import { reconstructStamp } from "./stamps.js";
+} from "./packages.ts";
+import { reconstructStamp } from "./stamps.ts";
 
 const PLAN_DOMAIN = "agent-profiles/materialization-plan/v1";
 const TREE_DOMAIN = "agent-profiles/materialized-tree/v1";
@@ -39,21 +42,23 @@ const capabilities = {
 	hostVisibilityIsolation: "unverified",
 	runtimeRendering: "unverified",
 };
-const compare = (a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b));
-const equal = (a, b) => canonicalJSON(a).equals(canonicalJSON(b));
-const nullable = (a, b) =>
+const compare = (a: Untyped, b: Untyped) =>
+	Buffer.compare(Buffer.from(a), Buffer.from(b));
+const equal = (a: Untyped, b: Untyped) =>
+	canonicalJSON(a).equals(canonicalJSON(b));
+const nullable = (a: Untyped, b: Untyped) =>
 	a === b ? 0 : a === null ? -1 : b === null ? 1 : compare(a, b);
-const mappingOrder = (a, b) =>
+const mappingOrder = (a: Untyped, b: Untyped) =>
 	compare(a.outputPath, b.outputPath) ||
 	nullable(a.binding, b.binding) ||
 	compare(a.sourcePath, b.sourcePath) ||
 	compare(a.sourceKind, b.sourceKind) ||
 	compare(a.sourceDigest, b.sourceDigest);
 
-function fail(location, message) {
+function fail(location: string, message: string) {
 	throw new Error(`${location}: ${message}`);
 }
-function object(value, location) {
+function object(value: Untyped, location: string) {
 	if (
 		!value ||
 		typeof value !== "object" ||
@@ -69,7 +74,12 @@ function object(value, location) {
 	)
 		fail(location, "expected enumerable data fields");
 }
-function keys(value, location, required, optional = []) {
+function keys(
+	value: Untyped,
+	location: string,
+	required: readonly string[],
+	optional: readonly string[] = [],
+) {
 	object(value, location);
 	for (const key of Object.keys(value))
 		if (![...required, ...optional].includes(key))
@@ -78,22 +88,22 @@ function keys(value, location, required, optional = []) {
 		if (!Object.hasOwn(value, key))
 			fail(`${location}.${key}`, "required field missing");
 }
-function digest(value, location) {
+function digest(value: Untyped, location: string) {
 	if (typeof value !== "string" || !/^[0-9a-f]{64}$/.test(value))
 		fail(location, "expected 64 lowercase hexadecimal characters");
 }
-function portable(value) {
+function portable(value: Untyped) {
 	validateMembers([{ path: value, type: "file", nlink: 1 }]);
-	if (value.split("/").some((part) => Buffer.byteLength(part) > 255))
+	if (value.split("/").some((part: Untyped) => Buffer.byteLength(part) > 255))
 		fail("path-length", value);
 }
-function contract(selected, options) {
+function contract(selected: Untyped, options: Untyped) {
 	keys(selected, "adapter", ["id", "contractVersion"]);
 	if (!equal(selected, adapter))
 		fail("adapter", "unsupported adapter or contractVersion");
 	keys(options, "options", []);
 }
-function mappings(rows) {
+function mappings(rows: Untyped) {
 	if (!Array.isArray(rows)) fail("mappings", "expected array");
 	for (const row of rows) {
 		keys(row, "mapping", [
@@ -134,9 +144,9 @@ function mappings(rows) {
 			fail("mappings", "expected sorted unique mappings");
 }
 
-function build(stampDigest, selected) {
+function build(stampDigest: Untyped, selected: Untyped) {
 	digest(stampDigest, "stampDigest");
-	let root, snapshotBytes;
+	let root: string, snapshotBytes: Buffer;
 	try {
 		root = storeRoot(selected);
 		snapshotBytes = readStoreFile(
@@ -144,7 +154,7 @@ function build(stampDigest, selected) {
 			`stamps/sha256/${stampDigest}/snapshot.json`,
 		);
 	} catch (error) {
-		throw new Error(`stamp-missing:${stampDigest}: ${error.message}`, {
+		throw new Error(`stamp-missing:${stampDigest}: ${errorMessage(error)}`, {
 			cause: error,
 		});
 	}
@@ -159,11 +169,11 @@ function build(stampDigest, selected) {
 		) !== stampDigest
 	)
 		fail("stamp-mismatch", stampDigest);
-	let retained;
+	let retained: Untyped;
 	try {
 		retained = reconstructStamp({ digest: stampDigest, storeRoot: root });
 	} catch (error) {
-		throw new Error(`backing-missing:${error.message}`, { cause: error });
+		throw new Error(`backing-missing:${errorMessage(error)}`, { cause: error });
 	}
 	if (
 		!readStoreFile(root, `stamps/sha256/${stampDigest}/snapshot.json`).equals(
@@ -171,10 +181,15 @@ function build(stampDigest, selected) {
 		)
 	)
 		fail("stamp-mismatch", "snapshot changed during reconstruction");
-	const files = [],
-		rows = [],
-		content = [];
-	const add = (outputPath, backing, binding, bytes) => {
+	const files: Untyped[] = [],
+		rows: Untyped[] = [],
+		content: Untyped[] = [];
+	const add = (
+		outputPath: Untyped,
+		backing: Untyped,
+		binding: Untyped,
+		bytes: Untyped,
+	) => {
 		portable(outputPath);
 		files.push({ path: outputPath, backing: { ...backing } });
 		content.push({ path: outputPath.slice("content/".length), bytes });
@@ -194,11 +209,11 @@ function build(stampDigest, selected) {
 		null,
 		snapshotBytes,
 	);
-	const owner = (e) =>
+	const owner = (e: Untyped) =>
 		snapshot.stampVersion === 2 && e.package
 			? (e.owner ?? e.package.binding)
 			: `${e.kind === "profile" ? "profiles" : e.kind === "role" ? "roles" : "skills"}.${e.id}`;
-	retained.composition.forEach((entry, i) => {
+	retained.composition.forEach((entry: Untyped, i: Untyped) => {
 		add(
 			`content/instructions/${String(i).padStart(4, "0")}.md`,
 			entry.backing,
@@ -210,7 +225,9 @@ function build(stampDigest, selected) {
 			for (const direct of [
 				...retained.required,
 				...retained.available,
-				...retained.selectionBindings.map((row) => ({ package: row.root })),
+				...retained.selectionBindings.map((row: Untyped) => ({
+					package: row.root,
+				})),
 			])
 				if (
 					direct.package &&
@@ -221,13 +238,15 @@ function build(stampDigest, selected) {
 					rows.push({ ...mapping, binding: direct.package.binding });
 		}
 	});
-	const composed = new Set(retained.composition.slice(2).map((e) => e.id));
+	const composed = new Set(
+		retained.composition.slice(2).map((e: Untyped) => e.id),
+	);
 	for (const entry of retained.available)
 		if (
 			entry.type === "instruction" &&
 			!(snapshot.stampVersion === 2
 				? retained.composition.some(
-						(part) =>
+						(part: Untyped) =>
 							part.backing.type === entry.backing.type &&
 							part.backing.sha256 === entry.backing.sha256 &&
 							part.backing.path === entry.backing.path &&
@@ -256,10 +275,12 @@ function build(stampDigest, selected) {
 					...retained.composition,
 					...retained.required,
 					...retained.available,
-					...retained.selectionBindings.map((row) => ({ package: row.root })),
-					...retained.workflowActors.flatMap((actor) =>
-						actor.bindings.flatMap((row) =>
-							row.closure.map((pin) => ({
+					...retained.selectionBindings.map((row: Untyped) => ({
+						package: row.root,
+					})),
+					...retained.workflowActors.flatMap((actor: Untyped) =>
+						actor.bindings.flatMap((row: Untyped) =>
+							row.closure.map((pin: Untyped) => ({
 								package: { ...pin, binding: row.root.binding },
 							})),
 						),
@@ -271,14 +292,14 @@ function build(stampDigest, selected) {
 					...retained.available,
 				];
 	if (snapshot.stampVersion === 2) {
-		const records = new Map(
-				retained.revisions.map((row) => [
+		const records = new Map<string, Untyped>(
+				retained.revisions.map((row: Untyped) => [
 					row.recordDigest,
 					parseRecord(row.bytes),
 				]),
 			),
-			seen = new Set();
-		function attribute(p, binding) {
+			seen = new Set<string>();
+		function attribute(p: Untyped, binding: Untyped) {
 			const key = `${binding}:${p.name}@${p.version}:${p.sha256}:${p.revisionDigest}`;
 			if (seen.has(key)) return;
 			seen.add(key);
@@ -355,7 +376,7 @@ function build(stampDigest, selected) {
 }
 
 /** @param {{stampDigest: string, storeRoot?: string, adapterId: string, adapterContractVersion: number, options?: object}} input */
-export function planMaterialization(input) {
+export function planMaterialization(input: Untyped) {
 	keys(
 		input,
 		"input",
@@ -372,7 +393,7 @@ export function planMaterialization(input) {
 }
 
 /** @param {{stampDigest: string, storeRoot?: string, adapterId: string, adapterContractVersion: number, options?: object, destination: string, outputRoot: string, deniedRoots: string[]}} input */
-export function materializeStamp(input) {
+export function materializeStamp(input: Untyped) {
 	keys(
 		input,
 		"input",
@@ -400,7 +421,7 @@ export function materializeStamp(input) {
 	});
 }
 
-function receiptFor(plan, content) {
+function receiptFor(plan: Untyped, content: Untyped) {
 	return {
 		receiptVersion: 1,
 		stampDigest: plan.stampDigest,
@@ -413,7 +434,7 @@ function receiptFor(plan, content) {
 		status: "committed",
 	};
 }
-function receiptSchema(receipt) {
+function receiptSchema(receipt: Untyped) {
 	keys(receipt, "receipt", [
 		"receiptVersion",
 		"stampDigest",
@@ -434,18 +455,18 @@ function receiptSchema(receipt) {
 	if (!equal(receipt.capabilities, capabilities))
 		fail("capabilities", "unsupported claims");
 }
-function directory(target) {
+function directory(target: Untyped) {
 	const stat = lstatSync(target, { bigint: true });
 	if (stat.isSymbolicLink()) fail(target, "link/junction is forbidden");
 	if (!stat.isDirectory()) fail(target, "expected an ordinary directory");
 	return stat;
 }
-function identity(target, expected) {
+function identity(target: Untyped, expected: Untyped) {
 	const actual = directory(target);
 	if (actual.dev !== expected.dev || actual.ino !== expected.ino)
 		fail(target, "directory identity changed");
 }
-function localAbsolute(value, location) {
+function localAbsolute(value: Untyped, location: string) {
 	if (typeof value !== "string" || !value.trim() || value.includes("\0"))
 		fail(location, "expected absolute local path");
 	if (
@@ -455,12 +476,12 @@ function localAbsolute(value, location) {
 		fail(location, "unsupported-filesystem: nonlocal path");
 	if (
 		!path.isAbsolute(value) ||
-		value.split(/[\\/]/).some((part) => part === ".." || part === ".")
+		value.split(/[\\/]/).some((part: Untyped) => part === ".." || part === ".")
 	)
 		fail(location, "expected absolute path without traversal");
 	return path.resolve(value);
 }
-function inside(a, b) {
+function inside(a: Untyped, b: Untyped) {
 	const relative = path.relative(a, b);
 	return (
 		!path.isAbsolute(relative) &&
@@ -468,12 +489,12 @@ function inside(a, b) {
 		!relative.startsWith(`..${path.sep}`)
 	);
 }
-function boundary(input, absent) {
+function boundary(input: Untyped, absent: Untyped) {
 	const output = localAbsolute(input.outputRoot, "outputRoot");
 	const requested = localAbsolute(input.destination, "destination");
 	if (!Array.isArray(input.deniedRoots) || input.deniedRoots.length === 0)
 		fail("boundary-context-required", "deniedRoots must be a nonempty array");
-	const denied = input.deniedRoots.map((value) =>
+	const denied = input.deniedRoots.map((value: Untyped) =>
 		rootPath(localAbsolute(value, "deniedRoots"), "deniedRoots"),
 	);
 	denied.push(storeRoot(input.storeRoot));
@@ -486,7 +507,7 @@ function boundary(input, absent) {
 	portable(target);
 	const destination = path.join(root, target);
 	const prefix = `.materialize-${encodeComponent(target.toLowerCase())}`;
-	const check = (relative) => {
+	const check = (relative: string) => {
 		portable(relative);
 		const full = safePath(root, relative);
 		for (const protectedRoot of denied)
@@ -514,9 +535,9 @@ function boundary(input, absent) {
 }
 
 // Guard every descendant and read regular members through the shared no-follow reader.
-function tree(root) {
-	const members = [],
-		files = [],
+function tree(root: string) {
+	const members: Untyped[] = [],
+		files: Untyped[] = [],
 		rootStat = directory(root);
 	function walk(relative = "") {
 		const current = relative ? safePath(root, relative) : root;
@@ -551,25 +572,25 @@ function tree(root) {
 }
 
 /** @param {{destination: string, expectedStampDigest: string, storeRoot?: string}} input */
-export function verifyMaterialization(input) {
+export function verifyMaterialization(input: Untyped) {
 	keys(input, "input", ["destination", "expectedStampDigest"], ["storeRoot"]);
 	digest(input.expectedStampDigest, "expectedStampDigest");
-	const findings = [];
+	const findings: string[] = [];
 	const result = () => ({ verified: findings.length === 0, findings });
-	let destination;
+	let destination: string;
 	try {
 		const selected = localAbsolute(input.destination, "destination");
 		directory(selected);
 		destination = realpathSync(selected);
 	} catch (error) {
-		findings.push(`output-missing:${error.message}`);
+		findings.push(`output-missing:${errorMessage(error)}`);
 		return result();
 	}
-	let bytes, receipt;
+	let bytes: Buffer, receipt: Untyped;
 	try {
 		bytes = readStoreFile(destination, "receipt.json");
 	} catch (error) {
-		findings.push(`receipt-missing:receipt.json: ${error.message}`);
+		findings.push(`receipt-missing:receipt.json: ${errorMessage(error)}`);
 		return result();
 	}
 	try {
@@ -577,22 +598,22 @@ export function verifyMaterialization(input) {
 		if (!canonicalJSON(receipt).equals(bytes))
 			fail("receipt.json", "noncanonical encoding");
 	} catch (error) {
-		findings.push(`receipt-malformed:receipt.json: ${error.message}`);
+		findings.push(`receipt-malformed:receipt.json: ${errorMessage(error)}`);
 		return result();
 	}
 	try {
 		receiptSchema(receipt);
 	} catch (error) {
-		findings.push(`receipt-schema:receipt.json: ${error.message}`);
+		findings.push(`receipt-schema:receipt.json: ${errorMessage(error)}`);
 		return result();
 	}
 	if (receipt.stampDigest !== input.expectedStampDigest)
 		findings.push(`stamp-mismatch:${input.expectedStampDigest}`);
-	let expected;
+	let expected: Untyped;
 	try {
 		expected = build(input.expectedStampDigest, input.storeRoot);
 	} catch (error) {
-		findings.push(error.message);
+		findings.push(errorMessage(error));
 		return result();
 	}
 	const wanted = receiptFor(expected.plan, expected.content);
@@ -604,28 +625,37 @@ export function verifyMaterialization(input) {
 		!equal(receipt.capabilities, wanted.capabilities)
 	)
 		findings.push("plan-mismatch:receipt.json");
-	let actual;
+	let actual: Untyped;
 	try {
 		actual = tree(destination);
 	} catch (error) {
-		findings.push(`output-mismatch:${error.message}`);
+		findings.push(`output-mismatch:${errorMessage(error)}`);
 		return result();
 	}
-	const expectedFiles = new Map(
-		expected.content.map((file) => [`content/${file.path}`, file.bytes]),
+	const expectedFiles = new Map<string, Buffer>(
+		expected.content.map((file: Untyped) => [
+			`content/${file.path}`,
+			file.bytes,
+		]),
 	);
-	const actualFiles = new Map(actual.map((file) => [file.path, file.bytes]));
+	const actualFiles = new Map<string, Buffer>(
+		actual.map((file: Untyped) => [file.path, file.bytes]),
+	);
 	for (const [name, content] of expectedFiles) {
-		if (!actualFiles.has(name)) findings.push(`output-missing:${name}`);
-		else if (!content.equals(actualFiles.get(name)))
+		const actualBytes = actualFiles.get(name);
+		if (!actualBytes) findings.push(`output-missing:${name}`);
+		else if (!content.equals(actualBytes))
 			findings.push(`output-mismatch:${name}`);
 	}
 	for (const name of actualFiles.keys())
 		if (name !== "receipt.json" && !expectedFiles.has(name))
 			findings.push(`output-extra:${name}`);
 	const content = actual
-		.filter((file) => file.path.startsWith("content/"))
-		.map((file) => ({ ...file, path: file.path.slice("content/".length) }));
+		.filter((file: Untyped) => file.path.startsWith("content/"))
+		.map((file: Untyped) => ({
+			...file,
+			path: file.path.slice("content/".length),
+		}));
 	if (
 		hashTree(content, TREE_DOMAIN) !== receipt.outputDigest ||
 		wanted.outputDigest !== receipt.outputDigest
@@ -634,7 +664,7 @@ export function verifyMaterialization(input) {
 	return result();
 }
 
-function readOwner(context, stampDigest) {
+function readOwner(context: Untyped, stampDigest: Untyped) {
 	directory(context.lock);
 	if (readdirSync(context.lock).join(",") !== "owner.json")
 		fail("ownership", "unknown lock membership");
@@ -658,7 +688,7 @@ function readOwner(context, stampDigest) {
 }
 
 /** @param {{plan: ReturnType<typeof planMaterialization>, storeRoot?: string, destination: string, outputRoot: string, deniedRoots: string[]}} input */
-export function materialize(input) {
+export function materialize(input: Untyped) {
 	keys(
 		input,
 		"input",
@@ -695,11 +725,12 @@ export function materialize(input) {
 	try {
 		mkdirSync(context.lock);
 	} catch (error) {
-		if (error.code === "EEXIST") fail("materialization-busy", context.target);
+		if (errorCode(error) === "EEXIST")
+			fail("materialization-busy", context.target);
 		throw error;
 	}
 	const lockStat = directory(context.lock);
-	let stageStat,
+	let stageStat: BigIntStats | null | undefined,
 		committed = false,
 		ownerWritten = false;
 	const owned = () => {
@@ -760,7 +791,7 @@ export function materialize(input) {
 		return receipt;
 	} catch (error) {
 		if (committed)
-			throw new Error(`committed-but-unacknowledged: ${error.message}`, {
+			throw new Error(`committed-but-unacknowledged: ${errorMessage(error)}`, {
 				cause: error,
 			});
 		try {
@@ -776,16 +807,19 @@ export function materialize(input) {
 			}
 			rmSync(context.lock, { recursive: true });
 		} catch (cleanup) {
-			throw new Error(`${error.message}; cleanup: ${cleanup.message}`, {
-				cause: error,
-			});
+			throw new Error(
+				`${errorMessage(error)}; cleanup: ${errorMessage(cleanup)}`,
+				{
+					cause: error,
+				},
+			);
 		}
 		throw error;
 	}
 }
 
 /** @param {{destination: string, outputRoot: string, expectedStampDigest: string, storeRoot?: string, deniedRoots: string[], confirmNoActiveWriter: boolean}} input */
-export function recoverMaterialization(input) {
+export function recoverMaterialization(input: Untyped) {
 	keys(
 		input,
 		"input",
@@ -802,7 +836,10 @@ export function recoverMaterialization(input) {
 	digest(input.expectedStampDigest, "expectedStampDigest");
 	const context = boundary(input, false);
 	const locked = statOrNull(context.lock);
-	let owner, stage, stageStat;
+	// Set together when the writer lock exists.
+	let owner: Untyped,
+		stage: string | undefined,
+		stageStat: BigIntStats | null | undefined;
 	if (locked) {
 		owner = readOwner(context, input.expectedStampDigest);
 		stage = context.check(owner.staging);
@@ -837,18 +874,18 @@ export function recoverMaterialization(input) {
 				storeRoot: input.storeRoot,
 			})
 		: null;
-	const removed = [];
+	const removed: string[] = [];
 	if (verification && !verification.verified) return { removed, verification };
 	if (owner) {
 		context.recheck();
 		identity(context.lock, locked);
 		if (!equal(readOwner(context, input.expectedStampDigest), owner))
 			fail("ownership", "recovery owner changed");
-		if (stageStat) {
+		if (stageStat && stage) {
 			identity(stage, stageStat);
 			tree(stage);
 		}
-		if (stageStat) {
+		if (stageStat && stage) {
 			rmSync(stage, { recursive: true });
 			removed.push(owner.staging);
 		}

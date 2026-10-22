@@ -26,7 +26,7 @@ preview and approval.
 From a trusted prepared checkout with Node.js 24 and dependencies installed:
 
 ```sh
-node bin/agent-profiles.js migrate start --root /path/to/project --store /path/to/store --role reviewer --model example-model --host codex --sharing fork --json
+node bin/agent-profiles.ts migrate start --root /path/to/project --store /path/to/store --role reviewer --model example-model --host codex --sharing fork --json
 ```
 
 Use an initialized project whose ordinary `resolve` works with that store. Supply
@@ -80,8 +80,8 @@ are not hard links to the originals or store.
 ## Inspect changes
 
 ```sh
-node bin/agent-profiles.js migrate status <generated-id> --root /path/to/project --json
-node bin/agent-profiles.js migrate status --root /path/to/project --json
+node bin/agent-profiles.ts migrate status <generated-id> --root /path/to/project --json
+node bin/agent-profiles.ts migrate status --root /path/to/project --json
 ```
 
 Status reads only local records/workspaces; it needs no store argument. Omitting
@@ -155,8 +155,8 @@ NUL and invalid Unicode refuse.
 Import and list using the explicit migration ID returned by start:
 
 ```sh
-node bin/agent-profiles.js migrate propose <migration-id> proposal.json --root /path/to/project --store /path/to/store --json
-node bin/agent-profiles.js migrate proposals <migration-id> --root /path/to/project --json
+node bin/agent-profiles.ts migrate propose <migration-id> proposal.json --root /path/to/project --store /path/to/store --json
+node bin/agent-profiles.ts migrate proposals <migration-id> --root /path/to/project --json
 ```
 
 Import is advisory and **does not apply** any workspace or active change. It retains
@@ -168,8 +168,8 @@ writes or store access; `--store` is irrelevant and refused for `proposals`.
 ## Explicitly accept or reject
 
 ```sh
-node bin/agent-profiles.js migrate accept <migration-id> <proposal-id> --root /path/to/project --store /path/to/store --json
-node bin/agent-profiles.js migrate reject <migration-id> <proposal-id> --reason "Keep the rule narrower" --root /path/to/project --store /path/to/store --json
+node bin/agent-profiles.ts migrate accept <migration-id> <proposal-id> --root /path/to/project --store /path/to/store --json
+node bin/agent-profiles.ts migrate reject <migration-id> <proposal-id> --reason "Keep the rule narrower" --root /path/to/project --store /path/to/store --json
 ```
 
 Acceptance re-verifies retained bases, classification and safe selected paths, then
@@ -197,7 +197,7 @@ are strict; repeated options refuse.
 ## Abandon without deleting evidence
 
 ```sh
-node bin/agent-profiles.js migrate abandon <generated-id> --root /path/to/project --reason "Trying a narrower change" --json
+node bin/agent-profiles.ts migrate abandon <generated-id> --root /path/to/project --reason "Trying a narrower change" --json
 ```
 
 A nonempty reason is required. Abandon updates the record to `abandoned`, releases
@@ -426,7 +426,7 @@ success index; valid immutable orphan backing may remain. A postcommit error rep
 incomplete publication with retained index for inspection. These guards are not a
 universal race, power-loss or recovery guarantee. No source repair occurs on read.
 
-Programmatic entry points in `src/migrations.js` are `planMigrationEvaluation`,
+Programmatic entry points in `src/migrations.ts` are `planMigrationEvaluation`,
 `migrationEvaluationPlan`, `importMigrationEvaluationResults` and
 `migrationEvaluationReport`. Paired claims do not activate the reserved candidate;
 only the explicit promotion below can. Broader forks/batches, session continuity and

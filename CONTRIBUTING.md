@@ -1,6 +1,6 @@
 # Contributing
 
-Use Node.js 22 or newer and npm. From a checkout:
+Use Node.js 24 or newer and npm. From a checkout:
 
 ```sh
 npm ci
@@ -11,16 +11,30 @@ npm test
 npm run test:package
 ```
 
-`typecheck` uses TypeScript's `checkJs` on runtime JavaScript and scripts,
-without a build step, including unused bindings, unreachable code, unused
-labels, and switch fallthrough. `lint` runs [Biome](https://biomejs.dev)'s
+Sources, the CLI and scripts are TypeScript; Node 24 runs them directly, so
+development and tests need no build step. The visualizer's browser script,
+`src/visualizer/app.js`, stays JavaScript (the server sends it as-is) and is
+typed with JSDoc. `typecheck` runs `tsc` with full `strict` over every file,
+including unused bindings, unreachable code, unused labels, and switch
+fallthrough. Import local modules with their `.ts` extension. Data from parsed
+records whose shape is validated at runtime uses the `Untyped` alias from
+`src/packages.ts`, not scattered `any`. `lint` runs [Biome](https://biomejs.dev)'s
 recommended rules over sources and tests; `check` also formats and sorts
 imports in place. CI runs `biome ci`, which fails on lint errors or unformatted
 files. TypeScript, Biome, and Node type declarations are development-only
 dependencies. Runtime needs only `yaml` for parsing, validation, and
 comment-preserving edits.
 
-`test:package` packs the actual npm artifact, checks its contents, installs it in
+Node will not strip types inside `node_modules`, so the published package ships
+`dist/`: `npm run build` (also run by `prepack`) emits it with `tsc`.
+
+`npm run test:affected` runs only the test files your uncommitted changes can
+reach (`-- <base>` or `-- a..b` for commits, `--list` to preview). It follows
+imports, treats tests that spawn the CLI as importing everything the CLI does,
+and falls back to the full suite for any change it cannot map. CI still runs
+`npm test`.
+
+`test:package` builds `dist/`, packs the actual npm artifact, checks its contents, installs it in
 an isolated temporary project, invokes the npm executable, and exercises the
 installer, wizard, resolver, doctor, and uninstall. It may need registry access
 for `yaml`; it never publishes. Temporary repositories are removed afterward.
@@ -28,26 +42,26 @@ The CI matrix runs these checks on Windows, macOS, and Linux with Node 24.
 
 ## Where things live
 
-- `src/resolve.js`: YAML validation and deterministic instruction composition.
-- `src/diagnostics.js`: exact resolved-text accounting, streaming available-skill
+- `src/resolve.ts`: YAML validation and deterministic instruction composition.
+- `src/diagnostics.ts`: exact resolved-text accounting, streaming available-skill
   measurement, and proof/JSON presentation with explicit host boundaries.
-- `src/inspect.js`: read-only setup inventory; keep repository metadata bounded,
+- `src/inspect.ts`: read-only setup inventory; keep repository metadata bounded,
   machine facts separate, and skill scanning in the existing discovery adapters.
-- `src/visualize.js`, `src/visualizer/`: loopback-only HTTP adapter and static
+- `src/visualize.ts`, `src/visualizer/`: loopback-only HTTP adapter and static
   browser UI consuming resolver diagnostics; no build step or UI dependencies.
-- `src/integrations.js`: agent instruction targets and managed bootstrap text.
-- `src/install.js`, `src/files.js`: installer lifecycle and guarded file writes.
-- `src/configure.js`, `src/skills.js`, `src/wizard.js`: validated role edits, local
+- `src/integrations.ts`: agent instruction targets and managed bootstrap text.
+- `src/install.ts`, `src/files.ts`: installer lifecycle and guarded file writes.
+- `src/configure.ts`, `src/skills.ts`, `src/wizard.ts`: validated role edits, local
   skill discovery, and terminal prompts.
-- `src/presets.js`, `src/preset-wizard.js`: local preset inspection, import/export
+- `src/presets.ts`, `src/preset-wizard.ts`: local preset inspection, import/export
   plans, and prompts reusing the existing selector and role wizard.
-- `bin/agent-profiles.js`: public CLI, including the agent-facing `resolve` command.
+- `bin/agent-profiles.ts`: public CLI, including the agent-facing `resolve` command.
 - `.agent-profiles/`: complete, minimal example shipped with the package.
 - `examples/presets/`: small, inspectable preset examples; see [the format](docs/presets.md).
 - `test/`: Node's built-in test runner; `docs/`: contracts and user guides.
 
 Start with the [architecture](docs/architecture.md). For a new agent integration,
-add a small adapter in `src/integrations.js` following the
+add a small adapter in `src/integrations.ts` following the
 [adapter contract](docs/installer.md#integration-contract). Verify its instruction
 discovery against official host documentation and add tests for fresh and existing
 files, precedence, reruns, and exact uninstall preservation. Keep file mutation

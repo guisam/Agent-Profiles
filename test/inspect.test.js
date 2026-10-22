@@ -7,15 +7,15 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { parseDocument } from "yaml";
-import { applyRoleChange, planRoleChange } from "../src/configure.js";
-import { formatInventory, inspectRepository } from "../src/inspect.js";
-import { doctor, install } from "../src/install.js";
-import { applyPresetExport, planPresetExport } from "../src/presets.js";
-import { resolveInstructions } from "../src/resolve.js";
-import { discoverSkills } from "../src/skills.js";
+import { applyRoleChange, planRoleChange } from "../src/configure.ts";
+import { formatInventory, inspectRepository } from "../src/inspect.ts";
+import { doctor, install } from "../src/install.ts";
+import { applyPresetExport, planPresetExport } from "../src/presets.ts";
+import { resolveInstructions } from "../src/resolve.ts";
+import { discoverSkills } from "../src/skills.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
-const cliFile = path.join(project, "bin/agent-profiles.js");
+const cliFile = path.join(project, "bin/agent-profiles.ts");
 function fixture(t) {
 	const root = fs.realpathSync(
 		fs.mkdtempSync(path.join(os.tmpdir(), "agent-profiles-inspect-")),
@@ -922,4 +922,18 @@ test("unreadable bounded metadata is distinguished from malformed syntax", (t) =
 		result.hosts.find((host) => host.id === "claude").problems.join(" "),
 		/unreadable|EACCES/i,
 	);
+});
+
+test("a Windows environment without PATH never reads a variable named undefined", (t) => {
+	const { root, write } = fixture(t);
+	write("bin/claude.cmd", "@echo off");
+	const result = inspectRepository({
+		root,
+		environmentOptions: {
+			platform: "win32",
+			env: { undefined: path.join(root, "bin"), PATHEXT: ".CMD" },
+		},
+	});
+	const claude = result.hosts.find((host) => host.id === "claude");
+	assert.equal(claude.executable.availability, "not-found");
 });

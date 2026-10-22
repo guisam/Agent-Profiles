@@ -6,8 +6,8 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
-import { formatProof } from "../src/diagnostics.js";
-import { resolveInstructions } from "../src/resolve.js";
+import { formatProof } from "../src/diagnostics.ts";
+import { resolveInstructions } from "../src/resolve.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 function repository(t) {
@@ -234,7 +234,7 @@ test("proof human/JSON output and debug contents mode agree; invalid flags and r
 		spawnSync(
 			process.execPath,
 			[
-				path.join(project, "bin/agent-profiles.js"),
+				path.join(project, "bin/agent-profiles.ts"),
 				"proof",
 				"--root",
 				root,
@@ -264,7 +264,7 @@ test("proof human/JSON output and debug contents mode agree; invalid flags and r
 	const debug = spawnSync(
 		process.execPath,
 		[
-			path.join(project, "bin/agent-profiles.js"),
+			path.join(project, "bin/agent-profiles.ts"),
 			"resolve",
 			"--json",
 			"--root",

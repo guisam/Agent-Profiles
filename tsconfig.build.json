@@ -1,0 +1,11 @@
+{
+	// Emits dist/ for publishing: Node won't strip types from files under node_modules.
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": false,
+		"outDir": "dist",
+		"rootDir": ".",
+		"target": "ESNext"
+	},
+	"include": ["src/**/*", "bin/**/*"]
+}

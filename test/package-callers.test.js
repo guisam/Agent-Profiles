@@ -15,22 +15,22 @@ import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
 import { parse, stringify } from "yaml";
-import { applyRoleChange, planRoleChange } from "../src/configure.js";
-import { formatProof, resolutionOutput } from "../src/diagnostics.js";
-import { inspectRepository } from "../src/inspect.js";
-import { doctor } from "../src/install.js";
-import { installDependencies } from "../src/package-lock.js";
-import { importPackage } from "../src/package-store.js";
+import { applyRoleChange, planRoleChange } from "../src/configure.ts";
+import { formatProof, resolutionOutput } from "../src/diagnostics.ts";
+import { inspectRepository } from "../src/inspect.ts";
+import { doctor } from "../src/install.ts";
+import { installDependencies } from "../src/package-lock.ts";
+import { importPackage } from "../src/package-store.ts";
 import {
 	applyPresetExport,
 	applyPresetImport,
 	planPresetExport,
 	planPresetImport,
-} from "../src/presets.js";
-import { parseYaml, resolveInstructions } from "../src/resolve.js";
-import { discoverSkills } from "../src/skills.js";
-import { startVisualizer } from "../src/visualize.js";
-import { configureRoles } from "../src/wizard.js";
+} from "../src/presets.ts";
+import { parseYaml, resolveInstructions } from "../src/resolve.ts";
+import { discoverSkills } from "../src/skills.ts";
+import { startVisualizer } from "../src/visualize.ts";
+import { configureRoles } from "../src/wizard.ts";
 
 // P4 slice 2 (docs/development/issue-20-p4-handoff.md section 6, contract section 9): caller integration.
 // Every test gets a fresh explicit store, a fake HOME, and AGENT_PROFILES_STORE naming an empty store (or a

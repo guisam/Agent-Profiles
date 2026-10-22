@@ -12,8 +12,8 @@ import {
 	findRoot,
 	install,
 	uninstall,
-} from "../src/install.js";
-import { bootstrapBlock, END, START } from "../src/integrations.js";
+} from "../src/install.ts";
+import { bootstrapBlock, END, START } from "../src/integrations.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 
@@ -364,7 +364,7 @@ test("CLI supports explicit agents, root detection, doctor exit codes, and safe 
 	const run = (...args) =>
 		spawnSync(
 			process.execPath,
-			[path.join(project, "bin/agent-profiles.js"), ...args],
+			[path.join(project, "bin/agent-profiles.ts"), ...args],
 			{ cwd: path.join(root, "nested"), encoding: "utf8" },
 		);
 	const help = run("--help");

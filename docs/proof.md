@@ -10,10 +10,10 @@ in the resolver's `loaded` list.
 From a checkout, after `npm ci`:
 
 ```sh
-node bin/agent-profiles.js proof --model example-model --role reviewer
-node bin/agent-profiles.js proof --model example-model --role reviewer --skill testing
-node bin/agent-profiles.js proof --model example-model --role reviewer --json
-node bin/agent-profiles.js proof --model example-model --role reviewer --json --contents
+node bin/agent-profiles.ts proof --model example-model --role reviewer
+node bin/agent-profiles.ts proof --model example-model --role reviewer --skill testing
+node bin/agent-profiles.ts proof --model example-model --role reviewer --json
+node bin/agent-profiles.ts proof --model example-model --role reviewer --json --contents
 ```
 
 With the executable installed, use `agent-profiles proof` with the same flags.
@@ -148,7 +148,7 @@ runtime equivalence result follows from matching bytes or counts.
 ## Programmatic access
 
 ```js
-import { resolveInstructions } from './src/resolve.js';
+import { resolveInstructions } from './src/resolve.ts';
 
 const result = resolveInstructions({ root: '/path/to/project', role: 'reviewer' });
 console.log(result.diagnostics.managed.total);

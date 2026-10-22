@@ -47,7 +47,7 @@ model instruction profiles from Hermes runtime profiles and preserving shared
 repository rules. See the [Hermes adapter guide](hosts/hermes.md); it does not
 configure Hermes profiles or install native lifecycle hooks.
 
-The wording is maintained in [integrations.js](../src/integrations.js). Each block
+The wording is maintained in [integrations.ts](../src/integrations.ts). Each block
 declares its protocol version; `init` replaces outdated blocks in every installed
 integration, and `doctor` reports them.
 
@@ -183,7 +183,7 @@ and no partial output.
 ## JSON and API
 
 ```js
-import { resolveInstructions } from './src/resolve.js';
+import { resolveInstructions } from './src/resolve.ts';
 
 const result = resolveInstructions({
   root: process.cwd(),

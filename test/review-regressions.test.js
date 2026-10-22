@@ -6,17 +6,17 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
-import { formatContext } from "../src/diagnostics.js";
+import { formatContext } from "../src/diagnostics.ts";
 import {
 	bootstrapAvailability,
 	doctor,
 	install,
 	uninstall,
-} from "../src/install.js";
-import { runPreset } from "../src/preset-wizard.js";
-import { resolveInstructions } from "../src/resolve.js";
-import { startVisualizer } from "../src/visualize.js";
-import { configureRoles, selectSkills } from "../src/wizard.js";
+} from "../src/install.ts";
+import { runPreset } from "../src/preset-wizard.ts";
+import { resolveInstructions } from "../src/resolve.ts";
+import { startVisualizer } from "../src/visualize.ts";
+import { configureRoles, selectSkills } from "../src/wizard.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 const version = JSON.parse(
@@ -62,6 +62,7 @@ function nativeSkills(root) {
 		config.roles.researcher.skills = { required: ["one"], available: ["two"] };
 	});
 }
+let built;
 function executable(root, installedVersion = version, realCLI = false) {
 	write(root, "package.json", '{"private":true}');
 	const target = path.join(root, "node_modules/agent-profiles");
@@ -76,10 +77,20 @@ function executable(root, installedVersion = version, realCLI = false) {
 		}),
 	);
 	if (realCLI) {
-		for (const dir of ["src", "bin", ".agent-profiles"])
-			fs.cpSync(path.join(project, dir), path.join(target, dir), {
-				recursive: true,
-			});
+		// Node won't strip types under node_modules, so install the build like npm would.
+		built ??= spawnSync(process.execPath, ["scripts/build.ts"], {
+			cwd: project,
+			encoding: "utf8",
+		});
+		assert.equal(built.status, 0, built.stderr);
+		for (const dir of ["dist/src", "dist/bin", ".agent-profiles"])
+			fs.cpSync(
+				path.join(project, dir),
+				path.join(target, path.basename(dir)),
+				{
+					recursive: true,
+				},
+			);
 		fs.cpSync(
 			path.join(project, "node_modules/yaml"),
 			path.join(root, "node_modules/yaml"),
@@ -381,7 +392,7 @@ test("review #10: doctor describes host compatibility without proving invocation
 	install({ root, agents: ["claude"] });
 	const output = spawnSync(
 		process.execPath,
-		[path.join(project, "bin/agent-profiles.js"), "doctor", "--root", root],
+		[path.join(project, "bin/agent-profiles.ts"), "doctor", "--root", root],
 		{ encoding: "utf8" },
 	).stdout;
 	assert.ok(!output.includes("every role is satisfiable"));

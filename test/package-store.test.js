@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import childProcess, { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
+import fs, {
 	existsSync,
 	lstatSync,
 	mkdirSync,
@@ -25,7 +25,7 @@ import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import { parseRecord, readPackage } from "../src/packages.js";
+import { parseRecord, readPackage } from "../src/packages.ts";
 
 // P3 provisional seam (C05-C07), to be frozen by parent RED assessment; no production stub.
 // importPackage({sourceDirectory, storeRoot?, expectedDigest?, onPhase?, rename?})
@@ -45,7 +45,7 @@ import { parseRecord, readPackage } from "../src/packages.js";
 // encodeComponent(s) / decodeComponent(s): contract E(s) and its strict inverse.
 // Diagnostics are asserted by contract tokens only: store-busy, identity-conflict,
 // unsupported-filesystem, publication-denied (+ observed code).
-const moduleUrl = new URL("../src/package-store.js", import.meta.url);
+const moduleUrl = new URL("../src/package-store.ts", import.meta.url);
 let sut;
 let missing;
 try {
@@ -56,14 +56,14 @@ try {
 	missing = error;
 }
 const blocked = missing
-	? "BLOCKED: src/package-store.js absent; behavioral assertions did not execute"
+	? "BLOCKED: src/package-store.ts absent; behavioral assertions did not execute"
 	: false;
 const behavior = (name, fn) => test(name, { skip: blocked }, fn);
 
-test("P3 production seam src/package-store.js exists with the provisional exports", () => {
+test("P3 production seam src/package-store.ts exists with the provisional exports", () => {
 	assert.ok(
 		sut,
-		`Missing intended src/package-store.js (${missing?.code}); not behavioral evidence`,
+		`Missing intended src/package-store.ts (${missing?.code}); not behavioral evidence`,
 	);
 	for (const name of [
 		"importPackage",
@@ -75,7 +75,7 @@ test("P3 production seam src/package-store.js exists with the provisional export
 		assert.equal(
 			typeof sut[name],
 			"function",
-			`src/package-store.js export ${name}`,
+			`src/package-store.ts export ${name}`,
 		);
 	}
 });
@@ -1503,5 +1503,54 @@ behavior(
 			exactTree(listFiles(objectTree(store, GOLDEN)), pkg());
 		await sut.importPackage({ sourceDirectory: src, storeRoot: store });
 		checkPublished(store, pkg());
+	},
+);
+
+behavior(
+	"store cache switch: off re-reads every object file; unknown values are refused",
+	async (t) => {
+		const dir = scratch(t);
+		const src = writeTree(path.join(dir, "src"), pkg());
+		const store = path.join(dir, "store");
+		await sut.importPackage({ sourceDirectory: src, storeRoot: store });
+		const previous = process.env.AGENT_PROFILES_STORE_CACHE;
+		t.after(() => {
+			if (previous === undefined) delete process.env.AGENT_PROFILES_STORE_CACHE;
+			else process.env.AGENT_PROFILES_STORE_CACHE = previous;
+		});
+		const treeOpens = (setting) => {
+			process.env.AGENT_PROFILES_STORE_CACHE = setting;
+			let opens = 0;
+			const real = fs.openSync;
+			const mock = t.mock.method(fs, "openSync", (file, ...args) => {
+				if (String(file).includes(`${path.sep}tree${path.sep}`)) opens++;
+				return real(file, ...args);
+			});
+			syncBuiltinESMExports();
+			try {
+				sut.storeSession(() => {
+					for (let i = 0; i < 2; i++)
+						sut.lookupPackage({
+							storeRoot: store,
+							name: NAME,
+							version: "1.0.0",
+						});
+				});
+			} finally {
+				mock.mock.restore();
+				syncBuiltinESMExports();
+			}
+			return opens;
+		};
+		const files = pkg().length;
+		assert.equal(treeOpens("off"), 2 * files);
+		// At most one read per file in a session; fewer when an earlier verification is still valid.
+		assert.ok(treeOpens("on") <= files);
+		process.env.AGENT_PROFILES_STORE_CACHE = "false";
+		assert.throws(
+			() =>
+				sut.lookupPackage({ storeRoot: store, name: NAME, version: "1.0.0" }),
+			/AGENT_PROFILES_STORE_CACHE: expected on or off, got "false"/,
+		);
 	},
 );

@@ -1,4 +1,5 @@
 import {
+	type BigIntStats,
 	closeSync,
 	constants,
 	fstatSync,
@@ -15,34 +16,81 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { safePath } from "./files.js";
+import { errorCode, errorMessage, safePath } from "./files.ts";
 import {
 	candidateReservation,
 	importPackage,
+	inStoreSession,
 	lookupPackage,
-} from "./package-store.js";
+	sameStat,
+} from "./package-store.ts";
 import {
 	canonicalJSON,
 	hashRecord,
 	parseRecord,
 	readPackage,
+	type Untyped,
 	validateMembers,
-} from "./packages.js";
+} from "./packages.ts";
 import {
 	identifier,
+	type PackageBinding,
 	packageReferences,
 	parseYaml,
+	type StorePackage,
 	validateConfiguration,
 	validatePackageBindings,
-} from "./resolve.js";
-import { releasedPackage, revisionClosure } from "./revisions.js";
+	type YamlMap,
+} from "./resolve.ts";
+import { releasedPackage, revisionClosure } from "./revisions.ts";
 
 const configurationFile = ".agent-profiles/agents.yaml";
 const lockFile = ".agent-profiles/agent-profiles.lock";
-const compare = (a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b));
-const identityKey = ({ name, version }) => `${name}@${version}`;
-const pinKey = (pin) => JSON.stringify([pin.binding, pin.rule]);
-const pinOrder = (a, b) =>
+export type LockPin = {
+	binding: string;
+	rule: string | null;
+	package: string;
+	version: string;
+	revisionDigest?: string | null;
+	sha256?: string;
+};
+export type LockSource =
+	| { type: "provided" }
+	| { type: "local-directory"; locator: string }
+	| { type: "git"; repository: string; commit: string; subdirectory: string };
+export type LockPackage = {
+	name: string;
+	version: string;
+	sha256: string;
+	source: LockSource;
+	revisionDigests?: string[];
+};
+/** agent-profiles.lock after readLock: lock1 for config v2, lock2 for config v3. */
+export type Lock = {
+	lockVersion: 1 | 2;
+	configurationVersion: 2 | 3;
+	resolverContract: string;
+	configSha256: string;
+	pins: LockPin[];
+	packages: LockPackage[];
+};
+type WantedPackage = {
+	name: string;
+	version: string;
+	revisionDigests?: string[];
+};
+export type LockState = {
+	state: "valid" | "missing" | "stale" | "invalid";
+	error?: string;
+	locked?: Map<string, LockPackage>;
+};
+
+const compare = (a: string, b: string) =>
+	Buffer.compare(Buffer.from(a), Buffer.from(b));
+const identityKey = ({ name, version }: { name: string; version: string }) =>
+	`${name}@${version}`;
+const pinKey = (pin: LockPin) => JSON.stringify([pin.binding, pin.rule]);
+const pinOrder = (a: LockPin, b: LockPin) =>
 	compare(a.binding, b.binding) ||
 	(a.rule === b.rule
 		? 0
@@ -51,14 +99,14 @@ const pinOrder = (a, b) =>
 			: b.rule === null
 				? 1
 				: compare(a.rule, b.rule));
-const packageOrder = (a, b) =>
+const packageOrder = (a: WantedPackage, b: WantedPackage) =>
 	compare(a.name, b.name) || compare(a.version, b.version);
 
-function fail(location, message) {
+function fail(location: string, message: string): never {
 	throw new Error(`${location}: ${message}`);
 }
 
-function fields(value, location, keys) {
+function fields(value: Untyped, location: string, keys: string[]) {
 	if (!value || typeof value !== "object" || Array.isArray(value))
 		fail(location, "expected an object");
 	for (const key of Object.keys(value))
@@ -68,7 +116,7 @@ function fields(value, location, keys) {
 			fail(`${location}.${key}`, "required field is missing");
 }
 
-function identity(value, location) {
+function identity(value: Record<string, Untyped>, location: string) {
 	if (
 		typeof value.name !== "string" ||
 		!/^@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/.test(value.name)
@@ -84,20 +132,21 @@ function identity(value, location) {
 		fail(`${location}.version`, "expected exact safe release version");
 }
 
-function digest(value, location) {
+function digest(value: unknown, location: string): asserts value is string {
 	if (typeof value !== "string" || !/^[a-f0-9]{64}$/.test(value))
 		fail(location, "expected sha256 digest");
 }
 
-function portable(value, location) {
+function portable(value: unknown, location: string) {
 	try {
-		validateMembers([{ path: value, type: "directory" }]);
+		// validateMembers rejects a non-string path itself.
+		validateMembers([{ path: value as string, type: "directory" }]);
 	} catch (error) {
-		fail(location, error.message);
+		fail(location, errorMessage(error));
 	}
 }
 
-function localPath(value, location) {
+function localPath(value: unknown, location: string): string {
 	if (typeof value !== "string" || !value.trim())
 		fail(location, "expected nonempty local directory path");
 	if (
@@ -109,7 +158,7 @@ function localPath(value, location) {
 	return value;
 }
 
-const inside = (base, target) => {
+const inside = (base: string, target: string) => {
 	const relative = path.relative(base, target);
 	return (
 		!path.isAbsolute(relative) &&
@@ -117,13 +166,8 @@ const inside = (base, target) => {
 		!relative.startsWith(`..${path.sep}`)
 	);
 };
-const sameStat = (a, b) =>
-	["dev", "ino", "mode", "nlink", "size", "mtimeNs", "ctimeNs"].every(
-		(key) => a[key] === b[key],
-	);
-
-function canonicalStore(selected) {
-	const suffix = [];
+function canonicalStore(selected: string) {
+	const suffix: string[] = [];
 	let existing = selected;
 	for (;;) {
 		try {
@@ -132,7 +176,7 @@ function canonicalStore(selected) {
 				fail("store", "expected an unlinked directory");
 			return path.join(realpathSync(existing), ...suffix);
 		} catch (error) {
-			if (error.code !== "ENOENT") throw error;
+			if (errorCode(error) !== "ENOENT") throw error;
 			if (path.dirname(existing) === existing)
 				fail(
 					"store",
@@ -144,13 +188,16 @@ function canonicalStore(selected) {
 	}
 }
 
-function input(root, relative) {
+function input(
+	root: string,
+	relative: string,
+): { bytes: Buffer; stat: BigIntStats } | null {
 	const target = safePath(root, relative);
-	let stat;
+	let stat: BigIntStats;
 	try {
 		stat = lstatSync(target, { bigint: true });
 	} catch (error) {
-		if (error.code === "ENOENT") return null;
+		if (errorCode(error) === "ENOENT") return null;
 		throw error;
 	}
 	if (!stat.isFile() || stat.nlink !== 1n)
@@ -171,7 +218,7 @@ function input(root, relative) {
 	}
 }
 
-function plain(value) {
+function plain(value: unknown): Untyped {
 	if (value instanceof Map)
 		return Object.fromEntries(
 			[...value].map(([key, item]) => [key, plain(item)]),
@@ -179,7 +226,7 @@ function plain(value) {
 	return Array.isArray(value) ? value.map(plain) : value;
 }
 
-function readLock(bytes) {
+function readLock(bytes: Buffer): Lock {
 	const lock = parseRecord(bytes);
 	fields(lock, "lock", [
 		"lockVersion",
@@ -199,8 +246,8 @@ function readLock(bytes) {
 	digest(lock.configSha256, "configSha256");
 	for (const key of ["pins", "packages"])
 		if (!Array.isArray(lock[key])) fail(key, "expected an array");
-	const pins = new Set(),
-		packages = new Set();
+	const pins = new Set<string>(),
+		packages = new Set<string>();
 	for (const pin of lock.pins) {
 		fields(pin, "pin", [
 			"binding",
@@ -270,10 +317,10 @@ function readLock(bytes) {
 			portable(source.subdirectory, "source.subdirectory");
 		} else fail("source.type", "unsupported source");
 	}
-	for (const [key, order] of new Map([
+	for (const [key, order] of [
 		["pins", pinOrder],
 		["packages", packageOrder],
-	])) {
+	] as const) {
 		for (let i = 1; i < lock[key].length; i++)
 			if (order(lock[key][i - 1], lock[key][i]) >= 0)
 				fail(key, "lock-coverage: entries must be unique and sorted");
@@ -281,7 +328,7 @@ function readLock(bytes) {
 	return lock;
 }
 
-function configDigest(configuration) {
+function configDigest(configuration: YamlMap) {
 	const config = plain(configuration);
 	for (const key of ["profiles", "skills", "assignments"])
 		if (!Object.hasOwn(config, key)) config[key] = {};
@@ -293,20 +340,27 @@ function configDigest(configuration) {
 	);
 }
 
-function declared(bindings, v3 = false, storeRoot = undefined) {
-	const pins = [];
-	const wanted = new Map();
-	function add(name, version, revisionDigest = null) {
+function declared(
+	bindings: Map<string, PackageBinding>,
+	v3 = false,
+	storeRoot?: string,
+) {
+	const pins: LockPin[] = [];
+	const wanted = new Map<string, WantedPackage>();
+	function add(
+		name: string,
+		version: string,
+		revisionDigest: string | null = null,
+	) {
 		const key = identityKey({ name, version });
-		if (!wanted.has(key))
-			wanted.set(key, {
-				name,
-				version,
-				...(v3 ? { revisionDigests: [] } : {}),
-			});
-		const item = wanted.get(key);
+		let item = wanted.get(key);
+		if (!item) {
+			item = { name, version, ...(v3 ? { revisionDigests: [] } : {}) };
+			wanted.set(key, item);
+		}
+		// revisionDigests exists exactly for v3.
 		if (
-			v3 &&
+			item.revisionDigests &&
 			revisionDigest !== null &&
 			!item.revisionDigests.includes(revisionDigest)
 		)
@@ -340,13 +394,13 @@ function declared(bindings, v3 = false, storeRoot = undefined) {
 		}
 	}
 	if (v3)
-		for (const item of wanted.values()) item.revisionDigests.sort(compare);
+		for (const item of wanted.values()) item.revisionDigests?.sort(compare);
 	pins.sort(pinOrder);
 	return { pins, wanted };
 }
 
 // Exact coverage of a current lock; returns its packages by identity.
-function coverage(lock, { pins, wanted }) {
+function coverage(lock: Lock, { pins, wanted }: ReturnType<typeof declared>) {
 	if (lock.pins.length !== pins.length || lock.packages.length !== wanted.size)
 		fail("lock-coverage", "missing or extra pins/packages");
 	for (let i = 0; i < pins.length; i++) {
@@ -360,13 +414,13 @@ function coverage(lock, { pins, wanted }) {
 		)
 			fail("lock-coverage", "pin mismatch");
 	}
-	const locked = new Map();
+	const locked = new Map<string, LockPackage>();
 	for (const pkg of lock.packages) {
 		if (!wanted.has(identityKey(pkg))) fail("lock-coverage", "foreign package");
 		if (
 			lock.lockVersion === 2 &&
 			JSON.stringify(pkg.revisionDigests) !==
-				JSON.stringify(wanted.get(identityKey(pkg)).revisionDigests)
+				JSON.stringify(wanted.get(identityKey(pkg))?.revisionDigests)
 		)
 			fail("lock-coverage", "revision closure mismatch");
 		locked.set(identityKey(pkg), pkg);
@@ -380,12 +434,12 @@ function coverage(lock, { pins, wanted }) {
 	return locked;
 }
 
-/**
- * Read-only lock state: never writes or repairs; v3 also verifies the declared revision closure in the explicit store.
- * @param {string} root canonical project root @param {{config: Map<string, any>, bindings: Map<string, any>}} validated
- * @returns {{state: 'valid' | 'missing' | 'stale' | 'invalid', error?: string, locked?: Map<string, {sha256: string}>}}
- */
-export function readLockState(root, validated, storeRoot = undefined) {
+/** Read-only lock state: never writes or repairs; v3 also verifies the declared revision closure in the explicit store. */
+function readLockStateOperation(
+	root: string,
+	validated: { config: YamlMap; bindings: Map<string, PackageBinding> },
+	storeRoot?: string,
+): LockState {
 	const configSha256 = configDigest(validated.config);
 	try {
 		const found = input(root, lockFile);
@@ -411,18 +465,25 @@ export function readLockState(root, validated, storeRoot = undefined) {
 			locked: coverage(lock, declared(validated.bindings, v3, storeRoot)),
 		};
 	} catch (error) {
-		return { state: "invalid", error: `${lockFile}: ${error.message}` };
+		return { state: "invalid", error: `${lockFile}: ${errorMessage(error)}` };
 	}
 }
 
-/** @param {{root: string, storeRoot?: string, sources?: {name: string, version: string, directory: string}[], frozen?: boolean, offline?: boolean}} options */
-export function installDependencies({
+export type InstallOptions = {
+	root: string;
+	storeRoot?: string;
+	sources?: { name: string; version: string; directory: string }[];
+	frozen?: boolean;
+	offline?: boolean;
+};
+
+function installDependenciesOperation({
 	root,
 	storeRoot,
 	sources = [],
 	frozen = false,
 	offline = false,
-}) {
+}: InstallOptions) {
 	if (typeof frozen !== "boolean" || typeof offline !== "boolean")
 		fail("install", "frozen and offline must be booleans");
 	root = path.resolve(localPath(root, "root"));
@@ -450,7 +511,7 @@ export function installDependencies({
 		fail("stale-lock", "configuration changed; run dependency install");
 	const locked = current ? coverage(lock, { pins, wanted }) : new Map();
 	if (!Array.isArray(sources)) fail("sources", "expected an array");
-	const supplied = new Map();
+	const supplied = new Map<string, string>();
 	for (const source of sources) {
 		fields(source, "sources", ["name", "version", "directory"]);
 		identity(source, "sources");
@@ -493,9 +554,9 @@ export function installDependencies({
 				"candidate",
 				`${item.name}@${item.version}: reserved planned release is unpublished`,
 			);
-	const records = new Map(),
-		acquisitions = new Map(),
-		packages = [];
+	const records = new Map<string, StorePackage>(),
+		acquisitions = new Map<string, { directory: string; sha256: string }>(),
+		packages: LockPackage[] = [];
 	for (const [key, item] of [...wanted].sort((a, b) =>
 		packageOrder(a[1], b[1]),
 	)) {
@@ -509,40 +570,42 @@ export function installDependencies({
 				if (!lstatSync(locator).isDirectory())
 					fail("source.locator", "expected a directory");
 			} catch (error) {
-				if (error.code !== "ENOENT") throw error;
+				if (errorCode(error) !== "ENOENT") throw error;
 			}
 		}
-		let cached;
+		let cached: StorePackage | null;
 		try {
 			cached =
 				lookupPackage({ storeRoot: selectedStore, ...item }) ??
-				released.get(key);
+				released.get(key) ??
+				null;
 		} catch (error) {
-			fail(key, `mismatched-package: ${error.message}`);
+			fail(key, `mismatched-package: ${errorMessage(error)}`);
 		}
 		const directory = supplied.get(key) ?? (!cached ? locator : undefined);
-		let record = cached,
-			provenance = prior?.source ?? { type: "provided" };
+		let record: StorePackage | null = cached,
+			provenance: LockSource = prior?.source ?? { type: "provided" };
 		if (directory !== undefined) {
 			const relative = path.relative(root, directory).split(path.sep).join("/");
 			const approvedRoot = inside(root, directory)
 				? root
 				: path.dirname(directory);
 			safePath(approvedRoot, path.relative(approvedRoot, directory));
-			let canonical;
+			let canonical: string;
 			try {
 				canonical = realpathSync(directory);
 			} catch (error) {
-				if (error.code === "ENOENT")
+				if (errorCode(error) === "ENOENT")
 					fail("missing-package", `${key}: source directory is missing`);
 				throw error;
 			}
 			if (inside(selectedStore, canonical) || inside(canonical, selectedStore))
 				fail(key, "source/store overlap is forbidden");
-			record = readPackage({ root: directory, approvedRoot });
+			const read = readPackage({ root: directory, approvedRoot });
+			record = read;
 			if (
-				record.manifest.package.name !== item.name ||
-				record.manifest.package.version !== item.version
+				read.manifest.package.name !== item.name ||
+				read.manifest.package.version !== item.version
 			)
 				fail(key, "mismatched-package: source identity mismatch");
 			if (cached && cached.sha256 !== record.sha256)
@@ -568,8 +631,11 @@ export function installDependencies({
 		configSha256,
 		pins: pins.map((pin) => ({
 			...pin,
-			sha256: records.get(
-				identityKey({ name: pin.package, version: pin.version }),
+			// Every pin's package is wanted, and every wanted package has a record.
+			sha256: (
+				records.get(
+					identityKey({ name: pin.package, version: pin.version }),
+				) as StorePackage
 			).sha256,
 		})),
 		packages,
@@ -594,7 +660,7 @@ export function installDependencies({
 	try {
 		mkdirSync(writer);
 	} catch (error) {
-		if (error.code === "EEXIST")
+		if (errorCode(error) === "EEXIST")
 			fail(
 				"install-busy",
 				"project writer exists; inspect interrupted operation before retrying",
@@ -626,3 +692,6 @@ export function installDependencies({
 		rmSync(writer, { recursive: true, force: true });
 	}
 }
+
+export const readLockState = inStoreSession(readLockStateOperation);
+export const installDependencies = inStoreSession(installDependenciesOperation);

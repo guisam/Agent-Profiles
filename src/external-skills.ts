@@ -9,12 +9,39 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { discoveryError } from "./discovery-diagnostics.js";
-import { parseYaml, skillMetadata } from "./resolve.js";
+import { discoveryError } from "./discovery-diagnostics.ts";
+import { errorCode, errorMessage } from "./files.ts";
+import type { Untyped } from "./packages.ts";
+import { parseYaml, skillMetadata } from "./resolve.ts";
+import type { DiscoveredSkill } from "./skills.ts";
 
 const nativeId = /^[a-z0-9][a-z0-9-]*$/;
 
-function validateRoots(roots) {
+/** A machine-local skill root: a user root, or a Claude plugin root with its namespace. */
+export type SourceRoot = {
+	host: "claude" | "codex";
+	scope: "user" | "plugin";
+	path: string;
+	namespace?: string;
+};
+
+export type ExternalSourceOptions = {
+	home?: string;
+	env?: NodeJS.ProcessEnv;
+	sourcesFile?: string;
+	roots?: unknown[];
+};
+
+/** A skill found in an approved external root; the host still owns invocation. */
+export type ExternalSkill = DiscoveredSkill & {
+	host: string;
+	scope: string;
+	hostId: string;
+	path: string;
+	origin: string;
+};
+
+function validateRoots(roots: unknown): SourceRoot[] {
 	if (!Array.isArray(roots))
 		throw new Error("skill sources: roots must be an array");
 	return roots.map((root) => {
@@ -47,7 +74,7 @@ function validateRoots(roots) {
 	});
 }
 
-export function externalMetadata(file, host) {
+export function externalMetadata(file: string, host: string) {
 	const { raw, content } = readRawFrontmatter(file);
 	const metadata = skillMetadata(
 		file,
@@ -69,7 +96,7 @@ export function externalMetadata(file, host) {
 	return { ...metadata, rawName: raw.get("name") };
 }
 
-function readRawFrontmatter(file) {
+function readRawFrontmatter(file: string): { raw: Untyped; content: Buffer } {
 	const descriptor = openSync(file, "r");
 	const buffer = Buffer.alloc(65536);
 	let size = 0;
@@ -99,8 +126,12 @@ function readRawFrontmatter(file) {
 	}
 }
 
-function localRoots(file, explicit, metadataOnly) {
-	let descriptor;
+function localRoots(
+	file: string,
+	explicit: boolean,
+	metadataOnly: boolean,
+): SourceRoot[] {
+	let descriptor: number | undefined;
 	try {
 		descriptor = openSync(file, "r");
 		const info = fstatSync(descriptor);
@@ -108,7 +139,7 @@ function localRoots(file, explicit, metadataOnly) {
 		if (info.size > 65536) throw new Error("preferences exceed 64 KiB");
 		const buffer = Buffer.alloc(65536);
 		let size = 0,
-			count;
+			count: number;
 		do {
 			count = readSync(descriptor, buffer, size, buffer.length - size, null);
 			size += count;
@@ -131,7 +162,7 @@ function localRoots(file, explicit, metadataOnly) {
 		}
 		return validateRoots(value.roots);
 	} catch (error) {
-		if (!explicit && error.code === "ENOENT") return [];
+		if (!explicit && errorCode(error) === "ENOENT") return [];
 		throw new Error(
 			`skill sources ${file}: ${discoveryError(error, metadataOnly)}; repair the local preferences before continuing`,
 		);
@@ -143,6 +174,9 @@ function localRoots(file, explicit, metadataOnly) {
 export function defaultUserRoots({
 	home = os.homedir(),
 	env = process.env,
+}: {
+	home?: string;
+	env?: NodeJS.ProcessEnv;
 } = {}) {
 	if (
 		env.CLAUDE_CONFIG_DIR !== undefined &&
@@ -159,19 +193,15 @@ export function defaultUserRoots({
 	};
 }
 
-/**
- * Read metadata only from known or explicitly approved machine-local roots.
- * @param {{home?: string, env?: NodeJS.ProcessEnv, sourcesFile?: string,
- * roots?: Array<{host: string, scope: string, path: string, namespace?: string}>}} options
- */
+/** Read metadata only from known or explicitly approved machine-local roots. */
 export function discoverExternalSkills(
 	{
 		home = os.homedir(),
 		env = process.env,
 		sourcesFile,
 		roots: approved = [],
-	} = {},
-	{ metadataOnly = false } = {},
+	}: ExternalSourceOptions = {},
+	{ metadataOnly = false }: { metadataOnly?: boolean } = {},
 ) {
 	const { claudeConfig, codexSkills } = defaultUserRoots({ home, env });
 	const file =
@@ -180,7 +210,7 @@ export function discoverExternalSkills(
 		path.join(home, ".config/agent-profiles/skill-sources.json");
 	if (typeof file !== "string" || !path.isAbsolute(file))
 		throw new Error("skill sources: expected an absolute preferences path");
-	const roots = [
+	const roots: SourceRoot[] = [
 		{ host: "claude", scope: "user", path: path.join(claudeConfig, "skills") },
 		{ host: "codex", scope: "user", path: codexSkills },
 		...localRoots(
@@ -191,11 +221,11 @@ export function discoverExternalSkills(
 		),
 		...validateRoots(approved),
 	];
-	const skills = [],
-		warnings = [],
-		targets = new Set();
+	const skills: ExternalSkill[] = [],
+		warnings: string[] = [],
+		targets = new Set<string>();
 	let count = 0;
-	const inside = (origin, target) => {
+	const inside = (origin: string, target: string) => {
 		const relative = path.relative(origin, target);
 		return (
 			!path.isAbsolute(relative) &&
@@ -204,22 +234,22 @@ export function discoverExternalSkills(
 		);
 	};
 	for (const root of roots) {
-		let origin;
+		let origin: string;
 		try {
 			origin = realpathSync(root.path);
 			if (!statSync(origin).isDirectory())
 				throw new Error("expected a directory");
 		} catch (error) {
-			if (error.code !== "ENOENT")
+			if (errorCode(error) !== "ENOENT")
 				warnings.push(
-					`${root.path}: cannot read root (${metadataOnly ? discoveryError(error, true) : (error.code ?? error.message)}); check the path and permissions`,
+					`${root.path}: cannot read root (${metadataOnly ? discoveryError(error, true) : (errorCode(error) ?? errorMessage(error))}); check the path and permissions`,
 				);
 			continue;
 		}
-		const visited = new Set();
-		function walk(directory, depth) {
+		const visited = new Set<string>();
+		function walk(directory: string, depth: number) {
 			if (++count > 4096) return;
-			let canonical;
+			let canonical: string;
 			try {
 				canonical = realpathSync(directory);
 				if (!inside(origin, canonical)) {
@@ -235,7 +265,7 @@ export function discoverExternalSkills(
 				visited.add(canonical);
 			} catch (error) {
 				warnings.push(
-					`${directory}: cannot inspect directory (${metadataOnly ? discoveryError(error, true) : (error.code ?? error.message)}); check permissions or restore the link`,
+					`${directory}: cannot inspect directory (${metadataOnly ? discoveryError(error, true) : (errorCode(error) ?? errorMessage(error))}); check permissions or restore the link`,
 				);
 				return;
 			}
@@ -268,17 +298,19 @@ export function discoverExternalSkills(
 					}
 					let hostId = native;
 					if (root.scope === "plugin") {
+						// validateRoots requires a namespace for every plugin root.
+						const namespace = root.namespace as string;
 						const command = metadata.rawName ?? native;
 						if (typeof command !== "string")
 							throw new Error("invalid native plugin identifier");
-						const suffix = command.startsWith(`${root.namespace}:`)
-							? command.slice(root.namespace.length + 1)
+						const suffix = command.startsWith(`${namespace}:`)
+							? command.slice(namespace.length + 1)
 							: command;
 						if (!nativeId.test(suffix))
 							throw new Error(
 								"invalid native plugin identifier; do not trim, normalize or change the namespace",
 							);
-						hostId = `${root.namespace}:${suffix}`;
+						hostId = `${namespace}:${suffix}`;
 					}
 					const key = JSON.stringify([root.host, root.scope, hostId, target]);
 					if (!targets.has(key)) {
@@ -300,7 +332,7 @@ export function discoverExternalSkills(
 						});
 					}
 				} catch (error) {
-					if (error.code !== "ENOENT" && error.code !== "ENOTDIR")
+					if (errorCode(error) !== "ENOENT" && errorCode(error) !== "ENOTDIR")
 						warnings.push(
 							`${file}: ${discoveryError(error, metadataOnly)}; repair skill metadata or permissions`,
 						);
@@ -328,7 +360,7 @@ export function discoverExternalSkills(
 				}
 			} catch (error) {
 				warnings.push(
-					`${directory}: cannot list skills (${metadataOnly ? discoveryError(error, true) : (error.code ?? error.message)}); check permissions`,
+					`${directory}: cannot list skills (${metadataOnly ? discoveryError(error, true) : (errorCode(error) ?? errorMessage(error))}); check permissions`,
 				);
 			}
 		}
@@ -338,7 +370,7 @@ export function discoverExternalSkills(
 		warnings.push(
 			"external skills: directory count limit (4096) reached; narrow the approved roots",
 		);
-	const identities = new Map();
+	const identities = new Map<string, ExternalSkill[]>();
 	for (const skill of skills) {
 		const key = JSON.stringify([skill.host, skill.scope, skill.hostId]);
 		const group = identities.get(key) ?? [];
@@ -358,10 +390,11 @@ export function discoverExternalSkills(
 /**
  * Revalidate a preview against independently approved roots immediately before use.
  * Returns the fresh descriptor; metadata discovery does not verify host invocation.
- * @param {any} selection
- * @param {Parameters<typeof discoverExternalSkills>[0]} options
  */
-export function validateExternalSelection(selection, options = {}) {
+export function validateExternalSelection(
+	selection: Untyped,
+	options: ExternalSourceOptions = {},
+) {
 	const inventory = discoverExternalSkills(options);
 	const fields = [
 		"host",
@@ -371,7 +404,7 @@ export function validateExternalSelection(selection, options = {}) {
 		"origin",
 		"name",
 		"description",
-	];
+	] as const;
 	if (
 		!selection ||
 		typeof selection !== "object" ||

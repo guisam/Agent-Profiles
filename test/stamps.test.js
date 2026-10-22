@@ -8,14 +8,14 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import { installDependencies } from "../src/package-lock.js";
-import { importPackage, lookupPackage } from "../src/package-store.js";
-import { canonicalJSON, hashRecord, readPackage } from "../src/packages.js";
-import { resolveInstructions } from "../src/resolve.js";
+import { installDependencies } from "../src/package-lock.ts";
+import { importPackage, lookupPackage } from "../src/package-store.ts";
+import { canonicalJSON, hashRecord, readPackage } from "../src/packages.ts";
+import { resolveInstructions } from "../src/resolve.ts";
 
 // P6a RED: contract sections 2-7, C13-C16 and the profile/role/request corrections.
 // Local declared resources, diff, materialization and CLI are separate phases.
-const target = new URL("../src/stamps.js", import.meta.url);
+const target = new URL("../src/stamps.ts", import.meta.url);
 let stamps;
 try {
 	stamps = await import(target.href);
@@ -31,7 +31,7 @@ try {
 }
 const blocked = stamps
 	? false
-	: "P6a blocked: src/stamps.js is absent; behavior body has not executed";
+	: "P6a blocked: src/stamps.ts is absent; behavior body has not executed";
 const stampTest = (name, body) => test(name, { skip: blocked }, body);
 const CONFIG = ".agent-profiles/agents.yaml";
 const LOCK = ".agent-profiles/agent-profiles.lock";
@@ -687,7 +687,7 @@ function observeWrites(t) {
 test("P6a seam exports createStamp, verifyStamp and reconstructStamp", () => {
 	assert.ok(
 		stamps,
-		"P6a missing interface: src/stamps.js must export createStamp, verifyStamp, reconstructStamp",
+		"P6a missing interface: src/stamps.ts must export createStamp, verifyStamp, reconstructStamp",
 	);
 	for (const name of ["createStamp", "verifyStamp", "reconstructStamp"])
 		assert.equal(typeof stamps[name], "function", name);

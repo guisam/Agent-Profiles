@@ -5,8 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { readPackage } from "../src/packages.js";
-import { parseYaml } from "../src/resolve.js";
+import { readPackage } from "../src/packages.ts";
+import { parseYaml } from "../src/resolve.ts";
 
 const WORKER = fileURLToPath(
 	new URL("./fixtures/issue-20/package-cli-worker.mjs", import.meta.url),

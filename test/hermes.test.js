@@ -5,10 +5,10 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { formatContext } from "../src/diagnostics.js";
-import { detectAgents, doctor, install, uninstall } from "../src/install.js";
-import { bootstrapBlock } from "../src/integrations.js";
-import { parseYaml, resolveInstructions } from "../src/resolve.js";
+import { formatContext } from "../src/diagnostics.ts";
+import { detectAgents, doctor, install, uninstall } from "../src/install.ts";
+import { bootstrapBlock } from "../src/integrations.ts";
+import { parseYaml, resolveInstructions } from "../src/resolve.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 
@@ -350,7 +350,7 @@ test("Hermes CLI accepts the host, preserves identity provenance, and exposes it
 	const cli = (...args) =>
 		spawnSync(
 			process.execPath,
-			[path.join(project, "bin/agent-profiles.js"), ...args],
+			[path.join(project, "bin/agent-profiles.ts"), ...args],
 			{ cwd: project, encoding: "utf8" },
 		);
 	const help = cli("--help");

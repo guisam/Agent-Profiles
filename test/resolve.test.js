@@ -14,7 +14,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
-import { resolveInstructions } from "../src/resolve.js";
+import { resolveInstructions } from "../src/resolve.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 
@@ -396,7 +396,7 @@ test("resolve --json emits inspectable JSON, optional contents, and actionable f
 		spawnSync(
 			process.execPath,
 			[
-				path.join(project, "bin/agent-profiles.js"),
+				path.join(project, "bin/agent-profiles.ts"),
 				"resolve",
 				"--root",
 				repo.root,
@@ -441,7 +441,7 @@ test("resolve --json emits inspectable JSON, optional contents, and actionable f
 	}
 	const help = spawnSync(
 		process.execPath,
-		[path.join(project, "bin/agent-profiles.js"), "--help"],
+		[path.join(project, "bin/agent-profiles.ts"), "--help"],
 		{ encoding: "utf8" },
 	);
 	assert.equal(help.status, 0);

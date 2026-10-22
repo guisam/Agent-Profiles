@@ -7,11 +7,11 @@ import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
 import { parse, stringify } from "yaml";
-import { planRoleChange } from "../src/configure.js";
-import { formatContext, resolutionOutput } from "../src/diagnostics.js";
-import { inspectRepository } from "../src/inspect.js";
-import { installDependencies } from "../src/package-lock.js";
-import { importPackage } from "../src/package-store.js";
+import { planRoleChange } from "../src/configure.ts";
+import { formatContext, resolutionOutput } from "../src/diagnostics.ts";
+import { inspectRepository } from "../src/inspect.ts";
+import { installDependencies } from "../src/package-lock.ts";
+import { importPackage } from "../src/package-store.ts";
 import {
 	applyPresetExport,
 	applyPresetImport,
@@ -19,10 +19,10 @@ import {
 	planPresetExport,
 	planPresetImport,
 	readPreset,
-} from "../src/presets.js";
-import { parseYaml, resolveInstructions } from "../src/resolve.js";
-import { discoverSkills } from "../src/skills.js";
-import { configureRoles } from "../src/wizard.js";
+} from "../src/presets.ts";
+import { parseYaml, resolveInstructions } from "../src/resolve.ts";
+import { discoverSkills } from "../src/skills.ts";
+import { configureRoles } from "../src/wizard.ts";
 
 const WORK = os.tmpdir();
 const put = (file, text) => {

@@ -7,20 +7,20 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import * as migrations from "../src/migrations.js";
-import { installDependencies } from "../src/package-lock.js";
-import { importPackage } from "../src/package-store.js";
+import * as migrations from "../src/migrations.ts";
+import { installDependencies } from "../src/package-lock.ts";
+import { importPackage } from "../src/package-store.ts";
 import {
 	canonicalEvaluationJSON as canonicalJSON,
 	hashEvaluationRecord as hashRecord,
 	readPackage,
-} from "../src/packages.js";
-import { resolveInstructions } from "../src/resolve.js";
+} from "../src/packages.ts";
+import { resolveInstructions } from "../src/resolve.ts";
 import {
 	readRevisionRecord,
 	retainRevisionManifest,
-} from "../src/revisions.js";
-import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
+} from "../src/revisions.ts";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.ts";
 
 const requiredExports = [
 	"planMigrationEvaluation",
@@ -41,7 +41,7 @@ const evidenceTest = (name, body) =>
 		},
 		body,
 	);
-const cli = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));
+const cli = fileURLToPath(new URL("../bin/agent-profiles.ts", import.meta.url));
 const put = (file, bytes) => {
 	fs.mkdirSync(path.dirname(file), { recursive: true });
 	fs.writeFileSync(file, bytes);
@@ -1457,7 +1457,7 @@ evidenceTest(
 );
 
 import * as observerFs from "node:fs";
-import { readStoreFile } from "../src/package-store.js";
+import { readStoreFile } from "../src/package-store.ts";
 
 test("observer control: safe-reader post-close edit returns original bytes and restores synchronized methods", (t) => {
 	const dir = fs.realpathSync(

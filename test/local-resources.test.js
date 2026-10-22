@@ -13,29 +13,29 @@ import {
 	applyRoleChange,
 	planRoleChange,
 	readConfiguration,
-} from "../src/configure.js";
+} from "../src/configure.ts";
 import {
 	formatContext,
 	formatProof,
 	resolutionOutput,
-} from "../src/diagnostics.js";
-import { inspectRepository } from "../src/inspect.js";
-import { installDependencies } from "../src/package-lock.js";
-import { importPackage, readStoreFile } from "../src/package-store.js";
-import { validateMembers } from "../src/packages.js";
-import { runPreset } from "../src/preset-wizard.js";
+} from "../src/diagnostics.ts";
+import { inspectRepository } from "../src/inspect.ts";
+import { installDependencies } from "../src/package-lock.ts";
+import { importPackage, readStoreFile } from "../src/package-store.ts";
+import { validateMembers } from "../src/packages.ts";
+import { runPreset } from "../src/preset-wizard.ts";
 import {
 	applyPresetExport,
 	applyPresetImport,
 	planPresetExport,
 	planPresetImport,
 	readPreset,
-} from "../src/presets.js";
-import { parseYaml, resolveInstructions } from "../src/resolve.js";
-import { discoverSkills } from "../src/skills.js";
-import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
-import { startVisualizer } from "../src/visualize.js";
-import { configureRoles, selectSkills } from "../src/wizard.js";
+} from "../src/presets.ts";
+import { parseYaml, resolveInstructions } from "../src/resolve.ts";
+import { discoverSkills } from "../src/skills.ts";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.ts";
+import { startVisualizer } from "../src/visualize.ts";
+import { configureRoles, selectSkills } from "../src/wizard.ts";
 
 const CONFIG = ".agent-profiles/agents.yaml";
 const LOCK = ".agent-profiles/agent-profiles.lock";
@@ -1428,7 +1428,7 @@ for (const owner of ["profile", "role", "file-skill"])
 				[instructions, Buffer.from("# reviewer\r\n"), skillBytes("required")],
 			);
 			fs.rmSync(f.root, { recursive: true });
-			const moduleURL = new URL("../src/stamps.js", import.meta.url).href;
+			const moduleURL = new URL("../src/stamps.ts", import.meta.url).href;
 			const code = `import fs from 'node:fs'; import path from 'node:path'; import { syncBuiltinESMExports } from 'node:module';
     import { reconstructStamp } from ${JSON.stringify(moduleURL)};
     const deleted = ${JSON.stringify(f.root)};
@@ -1745,7 +1745,7 @@ for (const command of ["resolve-json", "skills-json", "skills-text"])
 		const child = spawnSync(
 			process.execPath,
 			[
-				fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url)),
+				fileURLToPath(new URL("../bin/agent-profiles.ts", import.meta.url)),
 				...args,
 				"--root",
 				f.root,

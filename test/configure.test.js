@@ -11,10 +11,10 @@ import {
 	applyRoleChange,
 	planRoleChange,
 	readConfiguration,
-} from "../src/configure.js";
-import { resolveInstructions } from "../src/resolve.js";
-import { discoverSkills } from "../src/skills.js";
-import { configureRoles, selectSkills } from "../src/wizard.js";
+} from "../src/configure.ts";
+import { resolveInstructions } from "../src/resolve.ts";
+import { discoverSkills } from "../src/skills.ts";
+import { configureRoles, selectSkills } from "../src/wizard.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 const configFile = ".agent-profiles/agents.yaml";
@@ -490,7 +490,7 @@ test("configure fails clearly without an interactive terminal and never changes 
 	const before = snapshot(root);
 	const result = spawnSync(
 		process.execPath,
-		[path.join(project, "bin/agent-profiles.js"), "configure", "--root", root],
+		[path.join(project, "bin/agent-profiles.ts"), "configure", "--root", root],
 		{ encoding: "utf8" },
 	);
 	assert.equal(result.status, 1);

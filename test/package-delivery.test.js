@@ -4,14 +4,14 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { applyChanges, readLocal } from "../src/files.js";
-import { installDependencies } from "../src/package-lock.js";
-import { parseManifest, readPackage } from "../src/packages.js";
+import { applyChanges, readLocal } from "../src/files.ts";
+import { installDependencies } from "../src/package-lock.ts";
+import { parseManifest, readPackage } from "../src/packages.ts";
 import {
 	parseYaml,
 	parseYamlDocument,
 	resolveInstructions,
-} from "../src/resolve.js";
+} from "../src/resolve.ts";
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
 const CONFIG = ".agent-profiles/agents.yaml";
@@ -556,7 +556,7 @@ test("P9b-09 package guide manifest, public command examples and local links mat
 			.map((m) => m[1])
 			.filter((block) =>
 				new RegExp(
-					"(?:agent-profiles|bin/agent-profiles\\.js) " +
+					"(?:agent-profiles|bin/agent-profiles\\.ts) " +
 						command +
 						"(?: |\\r?\\n)",
 				).test(block),

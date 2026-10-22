@@ -229,7 +229,7 @@ if (process.argv[2] !== undefined) {
 		}
 		console.log(JSON.stringify({ raw: [...raw], counts }));
 	} else if (q.op === "drift-control") {
-		const { readPackage } = await import("../../../src/packages.js");
+		const { readPackage } = await import("../../../src/packages.ts");
 		const first = readPackage({ root: q.cwd });
 		const second = readPackage({ root: q.cwd });
 		console.log(
@@ -243,9 +243,9 @@ if (process.argv[2] !== undefined) {
 		process.chdir(q.cwd);
 		process.argv = [
 			process.execPath,
-			new URL("../../../bin/agent-profiles.js", import.meta.url).pathname,
+			new URL("../../../bin/agent-profiles.ts", import.meta.url).pathname,
 			...q.argv,
 		];
-		await import("../../../bin/agent-profiles.js");
+		await import("../../../bin/agent-profiles.ts");
 	} else throw new Error("unknown owned worker operation");
 }

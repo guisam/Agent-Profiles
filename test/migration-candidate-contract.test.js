@@ -6,17 +6,17 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import * as migrations from "../src/migrations.js";
-import { installDependencies } from "../src/package-lock.js";
-import { importPackage, lookupPackage } from "../src/package-store.js";
-import { canonicalJSON, readPackage } from "../src/packages.js";
-import { resolveInstructions } from "../src/resolve.js";
+import * as migrations from "../src/migrations.ts";
+import { installDependencies } from "../src/package-lock.ts";
+import { importPackage, lookupPackage } from "../src/package-store.ts";
+import { canonicalJSON, readPackage } from "../src/packages.ts";
+import { resolveInstructions } from "../src/resolve.ts";
 import {
 	lookupRevisionManifest,
 	readRevisionRecord,
 	retainRevisionManifest,
-} from "../src/revisions.js";
-import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
+} from "../src/revisions.ts";
+import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.ts";
 
 const exportsNeeded = ["publishMigrationCandidate", "migrationCandidate"];
 const ready = exportsNeeded.every(
@@ -32,7 +32,7 @@ const candidateTest = (name, body) =>
 		},
 		body,
 	);
-const cli = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));
+const cli = fileURLToPath(new URL("../bin/agent-profiles.ts", import.meta.url));
 const originalStore = process.env.AGENT_PROFILES_STORE;
 const versions = ["1.2.3", "1.4.5", "2.3.4"],
 	models = ["local-llm", "opus", "slim-llm"];
@@ -438,7 +438,7 @@ test("migration candidate publication and verified readback APIs exist", () => {
 	assert.deepEqual(
 		exportsNeeded.filter((name) => typeof migrations[name] !== "function"),
 		[],
-		"src/migrations.js must provide the candidate publication/readback seam",
+		"src/migrations.ts must provide the candidate publication/readback seam",
 	);
 });
 
@@ -1428,9 +1428,9 @@ candidateTest(
 	},
 );
 
-import { readLockState } from "../src/package-lock.js";
-import { validateConfiguration } from "../src/resolve.js";
-import { revisionClosure } from "../src/revisions.js";
+import { readLockState } from "../src/package-lock.ts";
+import { validateConfiguration } from "../src/resolve.ts";
+import { revisionClosure } from "../src/revisions.ts";
 
 function reviewAttempt(operation) {
 	try {

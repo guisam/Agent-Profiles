@@ -6,6 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse, stringify } from "yaml";
+// Type-only (erased at runtime): the smoke test exercises the installed package, never src/.
+import type { Untyped } from "../src/packages.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 const temporary = fs.mkdtempSync(
@@ -13,13 +15,15 @@ const temporary = fs.mkdtempSync(
 );
 const npm = process.env.npm_execpath;
 assert.ok(npm, "Run with npm run test:package");
+// Code ships as the dist/ build of src/ and bin/; npm run test:package builds it first.
+const built = (file: Untyped) => file.replace(/^(bin|src)\//, "dist/$1/");
 const environment = { ...process.env };
 for (const key of Object.keys(environment))
 	if (/^npm_config_/i.test(key)) delete environment[key];
 delete environment.NODE_OPTIONS;
 delete environment.AGENT_PROFILES_SKILL_SOURCES;
 
-function run(command, args, cwd, env = environment) {
+function run(command: Untyped, args: Untyped, cwd: Untyped, env = environment) {
 	const result = spawnSync(command, args, {
 		cwd,
 		env,
@@ -34,7 +38,7 @@ function run(command, args, cwd, env = environment) {
 	return result.stdout;
 }
 
-function snapshot(root) {
+function snapshot(root: string) {
 	return fs
 		.readdirSync(root, { recursive: true, withFileTypes: true })
 		.filter((entry) => entry.isFile())
@@ -118,7 +122,9 @@ try {
 	);
 	assert.equal(artifact.name, "agent-profiles");
 	assert.equal(artifact.version, manifest.version);
-	const files = new Set(artifact.files.map((file) => file.path));
+	const files = new Set<string>(
+		artifact.files.map((file: Untyped) => file.path),
+	);
 	const versionedFiles = [
 		"src/resolve.js",
 		"bin/agent-profiles.js",
@@ -139,7 +145,7 @@ try {
 		"docs/migrations/prompts/config-v1-to-v2.md",
 		"docs/migrations/config-v2-to-v3.md",
 		"docs/migrations/prompts/config-v2-to-v3.md",
-	];
+	].map(built);
 	for (const file of [
 		"LICENSE",
 		"README.md",
@@ -173,11 +179,11 @@ try {
 		"docs/hosts/hermes.md",
 		"examples/presets/release-review/preset.yaml",
 		...versionedFiles,
-	])
+	].map(built))
 		assert.ok(files.has(file), `Missing package file: ${file}`);
 	for (const file of files) {
 		assert.ok(
-			/^(bin\/|src\/|docs\/|examples\/presets\/|\.agent-profiles\/|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(
+			/^(dist\/|docs\/|examples\/presets\/|\.agent-profiles\/|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(
 				file,
 			),
 			`Unexpected package file: ${file}`,
@@ -225,7 +231,7 @@ try {
 		const firstLF = expected.indexOf(0x0a);
 		// npm bin-links removes only the CR ending a CRLF hashbang line.
 		if (
-			file === "bin/agent-profiles.js" &&
+			file === "dist/bin/agent-profiles.js" &&
 			expected[0] === 0x23 &&
 			expected[1] === 0x21 &&
 			firstLF > 1 &&
@@ -246,7 +252,7 @@ try {
 		fs.existsSync(path.join(consumer, "node_modules/typescript")),
 		false,
 	);
-	const cli = (...args) =>
+	const cli = (...args: string[]) =>
 		run(
 			process.execPath,
 			[npm, "exec", "--offline", "--", "agent-profiles", ...args],
@@ -272,23 +278,25 @@ try {
 	])
 		assert.match(cli(command, "--help"), new RegExp(command));
 	const { configureRoles } = await import(
-		pathToFileURL(path.join(installed, "src/wizard.js")).href
+		pathToFileURL(path.join(installed, "dist/src/wizard.js")).href
 	);
 	const { resolveInstructions } = await import(
-		pathToFileURL(path.join(installed, "src/resolve.js")).href
+		pathToFileURL(path.join(installed, "dist/src/resolve.js")).href
 	);
 	const { planRoleChange, applyRoleChange } = await import(
-		pathToFileURL(path.join(installed, "src/configure.js")).href
+		pathToFileURL(path.join(installed, "dist/src/configure.js")).href
 	);
 	const { startVisualizer } = await import(
-		pathToFileURL(path.join(installed, "src/visualize.js")).href
+		pathToFileURL(path.join(installed, "dist/src/visualize.js")).href
 	);
 	const {
 		planPresetExport,
 		applyPresetExport,
 		planPresetImport,
 		applyPresetImport,
-	} = await import(pathToFileURL(path.join(installed, "src/presets.js")).href);
+	} = await import(
+		pathToFileURL(path.join(installed, "dist/src/presets.js")).href
+	);
 	assert.match(
 		cli(
 			"preset",
@@ -321,7 +329,7 @@ try {
 			],
 			root,
 		);
-		const originals = {
+		const originals: Record<string, Buffer> = {
 			"package.json": fs.readFileSync(path.join(root, "package.json")),
 		};
 		if (scenario !== "empty") {
@@ -374,7 +382,7 @@ try {
 		])
 			assert.ok(
 				inspected.repository.workflows.some(
-					(record) =>
+					(record: Untyped) =>
 						record.path === file && record.availability === "available",
 				),
 			);
@@ -404,7 +412,8 @@ try {
 		assert.equal(configuredInventory.repository.configuration.status, "valid");
 		assert.ok(
 			configuredInventory.hosts.every(
-				(host) => host.configured && host.currentInvocation === "unverified",
+				(host: Untyped) =>
+					host.configured && host.currentInvocation === "unverified",
 			),
 		);
 		assert.deepEqual(snapshot(root), afterApproval);
@@ -479,12 +488,12 @@ try {
 		assert.equal(hermes.host, "hermes");
 		assert.equal(hermes.profile, "autonomous");
 		assert.deepEqual(
-			hermes.required.map((skill) => skill.id),
+			hermes.required.map((skill: Untyped) => skill.id),
 			["code-review"],
 		);
 		assert.ok(
 			hermes.loaded.some(
-				(entry) => entry.kind === "required-skill" && entry.content,
+				(entry: Untyped) => entry.kind === "required-skill" && entry.content,
 			),
 		);
 		const initial = snapshot(root);
@@ -525,21 +534,25 @@ try {
 			assert.equal(resolved.matchedBy, matchedBy);
 			assert.equal(resolved.role, "reviewer");
 			assert.ok(
-				resolved.loaded.some((item) =>
+				resolved.loaded.some((item: Untyped) =>
 					item.path.endsWith("code-review/SKILL.md"),
 				),
 			);
 			assert.ok(
-				!resolved.loaded.some((item) => item.path.endsWith("testing/SKILL.md")),
+				!resolved.loaded.some((item: Untyped) =>
+					item.path.endsWith("testing/SKILL.md"),
+				),
 			);
-			assert.ok(resolved.available.some((item) => item.id === "testing"));
+			assert.ok(
+				resolved.available.some((item: Untyped) => item.id === "testing"),
+			);
 		}
 		assert.ok(
 			resolveInstructions({
 				root,
 				role: "reviewer",
 				skills: ["testing"],
-			}).loaded.some((item) => item.path.endsWith("testing/SKILL.md")),
+			}).loaded.some((item: Untyped) => item.path.endsWith("testing/SKILL.md")),
 		);
 		const answers = [
 			"c",
@@ -564,11 +577,11 @@ try {
 		assert.equal(answers.length, 0);
 		const configured = resolveInstructions({ root, role: "release-reviewer" });
 		assert.deepEqual(
-			configured.required.map((skill) => skill.id),
+			configured.required.map((skill: Untyped) => skill.id),
 			["code-review"],
 		);
 		assert.deepEqual(
-			configured.available.map((skill) => skill.id),
+			configured.available.map((skill: Untyped) => skill.id),
 			["testing"],
 		);
 		for (const file of ["profiles/constrained.md", "roles/release-reviewer.md"])
@@ -637,7 +650,7 @@ try {
 		);
 		assert.deepEqual(
 			resolveInstructions({ root, role: "preset-reviewer" }).required.map(
-				(skill) => skill.id,
+				(skill: Untyped) => skill.id,
 			),
 			["code-review"],
 		);
@@ -665,7 +678,7 @@ try {
 		assert.equal(requested.diagnostics.availableNotLoaded.files, 0);
 		assert.ok(
 			proof.loaded.every(
-				(entry) =>
+				(entry: Untyped) =>
 					!Object.hasOwn(entry, "content") &&
 					typeof entry.characters === "number",
 			),
@@ -754,14 +767,16 @@ try {
 		);
 		assert.ok(
 			setupInventory.skills.skills.some(
-				(skill) => skill.host === "codex" && skill.hostId === "packaged-audit",
+				(skill: Untyped) =>
+					skill.host === "codex" && skill.hostId === "packaged-audit",
 			),
 		);
 		assert.ok(
 			!JSON.stringify(setupInventory).includes("EXTERNAL-BODY-NOT-INJECTED"),
 		);
 		const native = inventory.skills.find(
-			(skill) => skill.host === "codex" && skill.hostId === "packaged-audit",
+			(skill: Untyped) =>
+				skill.host === "codex" && skill.hostId === "packaged-audit",
 		);
 		assert.ok(
 			native,
@@ -845,11 +860,12 @@ try {
 				),
 			);
 			assert.deepEqual(
-				routed.required.map((skill) => skill.id),
+				routed.required.map((skill: Untyped) => skill.id),
 				["portable-check"],
 			);
 			assert.equal(
-				routed.loaded.find((entry) => entry.kind === "required-skill").content,
+				routed.loaded.find((entry: Untyped) => entry.kind === "required-skill")
+					.content,
 				portableBody,
 			);
 		}
@@ -876,7 +892,7 @@ try {
 			store = path.join(temporary, "package store");
 		const sources = path.join(temporary, "package sources"),
 			outputs = path.join(temporary, "package exports");
-		const put = (file, bytes) => {
+		const put = (file: Untyped, bytes: Untyped) => {
 			fs.mkdirSync(path.dirname(file), { recursive: true });
 			fs.writeFileSync(file, bytes);
 		};
@@ -984,7 +1000,7 @@ try {
 			assert.equal(selected.profile, "base");
 			assert.equal(selected.role, "reviewer");
 			assert.deepEqual(
-				selected.loaded.map((e) => e.kind),
+				selected.loaded.map((e: Untyped) => e.kind),
 				["profile", "role"],
 			);
 			assert.deepEqual(selected.loaded[0].package, {
@@ -1067,10 +1083,10 @@ try {
 			),
 		);
 		const { hashRecord, canonicalJSON, readPackage } = await import(
-			pathToFileURL(path.join(installed, "src/packages.js")).href
+			pathToFileURL(path.join(installed, "dist/src/packages.js")).href
 		);
 		const { lookupRevisionManifest } = await import(
-			pathToFileURL(path.join(installed, "src/revisions.js")).href
+			pathToFileURL(path.join(installed, "dist/src/revisions.js")).href
 		);
 		assert.deepEqual(adopted, {
 			identity: adoptedIdentity,
@@ -1157,7 +1173,9 @@ try {
 		assert.equal(diff.complete, true);
 		assert.ok(diff.changes.length > 0);
 		assert.deepEqual(
-			diff.changes.find((change) => change.path === "/packages/0/version"),
+			diff.changes.find(
+				(change: Untyped) => change.path === "/packages/0/version",
+			),
 			{
 				path: "/packages/0/version",
 				kind: "changed",
@@ -1166,7 +1184,9 @@ try {
 			},
 		);
 		assert.deepEqual(
-			diff.changes.find((change) => change.path === "/packages/0/sha256"),
+			diff.changes.find(
+				(change: Untyped) => change.path === "/packages/0/sha256",
+			),
 			{
 				path: "/packages/0/sha256",
 				kind: "changed",
@@ -1301,7 +1321,7 @@ try {
 			cli("resolve", ...workflowArgs, "--json", "--contents"),
 		);
 		assert.deepEqual(
-			workflowSelected.loaded.map((part) => part.kind),
+			workflowSelected.loaded.map((part: Untyped) => part.kind),
 			["profile", "role", "required-skill", "workflow"],
 		);
 		assert.equal(
@@ -1381,7 +1401,7 @@ try {
 		);
 		assert.equal(workflowReceipt.status, "committed");
 		const workflowMaterializer = await import(
-			pathToFileURL(path.join(installed, "src/materialize.js")).href
+			pathToFileURL(path.join(installed, "dist/src/materialize.js")).href
 		);
 		const workflowPlan = workflowMaterializer.planMaterialization({
 			stampDigest: workflowStamp.digest,
@@ -1390,7 +1410,7 @@ try {
 			adapterContractVersion: 1,
 		});
 		const workflowMapping = workflowPlan.mappings.find(
-			(row) =>
+			(row: Untyped) =>
 				row.sourcePath === "WORKFLOW.md" &&
 				row.outputPath.startsWith("content/instructions/"),
 		);
@@ -1413,7 +1433,7 @@ try {
 		);
 		assert.ok(
 			workflowPlan.mappings.some(
-				(row) =>
+				(row: Untyped) =>
 					row.sourceKind === "revision" &&
 					row.sourceDigest === workerRevision.recordDigest &&
 					row.sourcePath === "record.json" &&
@@ -1686,16 +1706,16 @@ try {
 			true,
 		);
 		const { migrationCandidate } = await import(
-			pathToFileURL(path.join(installed, "src/migrations.js")).href
+			pathToFileURL(path.join(installed, "dist/src/migrations.js")).href
 		);
 		const { readRevisionRecord } = await import(
-			pathToFileURL(path.join(installed, "src/revisions.js")).href
+			pathToFileURL(path.join(installed, "dist/src/revisions.js")).href
 		);
 		const { reconstructStamp: reconstructCandidate } = await import(
-			pathToFileURL(path.join(installed, "src/stamps.js")).href
+			pathToFileURL(path.join(installed, "dist/src/stamps.js")).href
 		);
 		const { lookupPackage } = await import(
-			pathToFileURL(path.join(installed, "src/package-store.js")).href
+			pathToFileURL(path.join(installed, "dist/src/package-store.js")).href
 		);
 		const { status: candidateStatus, ...candidateIndex } = candidateResult;
 		assert.equal(candidateStatus, "published");
@@ -1732,13 +1752,14 @@ try {
 		});
 		assert.deepEqual(
 			candidateRebuilt.composition.find(
-				(part) => part.kind === "required-skill",
+				(part: Untyped) => part.kind === "required-skill",
 			).bytes,
 			Buffer.from(candidateAfter),
 		);
 		assert.deepEqual(
-			candidateRebuilt.composition.find((part) => part.kind === "workflow")
-				.bytes,
+			candidateRebuilt.composition.find(
+				(part: Untyped) => part.kind === "workflow",
+			).bytes,
 			workflowBytes,
 		);
 		assert.equal(
@@ -1758,10 +1779,10 @@ try {
 		);
 		// Retain caller-supplied paired claims through the installed CLI; no evaluator runs.
 		const { canonicalEvaluationJSON, hashEvaluationRecord } = await import(
-			pathToFileURL(path.join(installed, "src/packages.js")).href
+			pathToFileURL(path.join(installed, "dist/src/packages.js")).href
 		);
 		const { migrationEvaluationPlan, migrationEvaluationReport } = await import(
-			pathToFileURL(path.join(installed, "src/migrations.js")).href
+			pathToFileURL(path.join(installed, "dist/src/migrations.js")).href
 		);
 		const evaluationSelection = candidateBase.snapshot.selection;
 		const evaluationAssignment = {
@@ -1974,9 +1995,9 @@ try {
 		);
 		// Explicit synthetic promotion of the exact evaluated tuple; preview and blocked correctness never write.
 		const { migrationPromotion } = await import(
-			pathToFileURL(path.join(installed, "src/migrations.js")).href
+			pathToFileURL(path.join(installed, "dist/src/migrations.js")).href
 		);
-		const refusal = (...args) =>
+		const refusal = (...args: string[]) =>
 			spawnSync(
 				process.execPath,
 				[npm, "exec", "--offline", "--", "agent-profiles", ...args],
@@ -1986,9 +2007,11 @@ try {
 			...structuredClone(evaluationResults),
 			id: "smoke-blocked-results",
 		};
-		blockedResults.outcomes.find(
-			(row) => row.caseId === "regression" && row.side === "candidate",
-		).correct = false;
+		const regression = blockedResults.outcomes.find(
+			(row: Untyped) => row.caseId === "regression" && row.side === "candidate",
+		);
+		assert.ok(regression, "fixture has a candidate regression outcome");
+		regression.correct = false;
 		const blockedResultFile = path.join(temporary, "blocked-results.json");
 		put(blockedResultFile, JSON.stringify(blockedResults));
 		const blockedImported = JSON.parse(
@@ -2005,7 +2028,7 @@ try {
 			cli("migrate", "report", blockedResults.id, "--store", store, "--json"),
 		);
 		assert.deepEqual(
-			blockedReport.eligibility.regressions.map((row) => row.caseId),
+			blockedReport.eligibility.regressions.map((row: Untyped) => row.caseId),
 			["regression"],
 		);
 		const decision = {
@@ -2153,13 +2176,14 @@ try {
 			cli("resolve", ...candidateScope, "--json", "--contents"),
 		);
 		const promotedSkill = promotedSelection.loaded.find(
-			(part) => part.kind === "required-skill",
+			(part: Untyped) => part.kind === "required-skill",
 		);
 		assert.equal(promotedSkill.content, candidateAfter);
 		assert.equal(promotedSkill.package.version, "2.0.0");
 		assert.equal(promotedSkill.package.revisionDigest, releaseDigest);
 		assert.equal(
-			promotedSelection.loaded.find((part) => part.kind === "workflow").content,
+			promotedSelection.loaded.find((part: Untyped) => part.kind === "workflow")
+				.content,
 			workflowBytes.toString("utf8"),
 		);
 		assert.deepEqual(
@@ -2175,7 +2199,7 @@ try {
 		);
 		assert.ok(
 			promotedLock.packages.some(
-				(row) =>
+				(row: Untyped) =>
 					row.name === workerName &&
 					row.version === "2.0.0" &&
 					row.sha256 === candidateResult.content.sha256 &&
@@ -2184,7 +2208,7 @@ try {
 		);
 		assert.ok(
 			promotedLock.packages.some(
-				(row) =>
+				(row: Untyped) =>
 					row.name === workerName &&
 					row.version === workerVersion &&
 					row.sha256 === worker.sha256,
@@ -2207,8 +2231,11 @@ try {
 			candidate: null,
 		});
 		assert.deepEqual(
-			promotedStamp.composition.map((part) => [part.kind, part.bytes]),
-			candidateRebuilt.composition.map((part) => [part.kind, part.bytes]),
+			promotedStamp.composition.map((part: Untyped) => [part.kind, part.bytes]),
+			candidateRebuilt.composition.map((part: Untyped) => [
+				part.kind,
+				part.bytes,
+			]),
 		);
 		assert.equal(
 			JSON.parse(
@@ -2383,10 +2410,10 @@ try {
 		assert.equal(fs.existsSync(sources), false);
 
 		const { reconstructStamp } = await import(
-			pathToFileURL(path.join(installed, "src/stamps.js")).href
+			pathToFileURL(path.join(installed, "dist/src/stamps.js")).href
 		);
 		const { verifyMaterialization } = await import(
-			pathToFileURL(path.join(installed, "src/materialize.js")).href
+			pathToFileURL(path.join(installed, "dist/src/materialize.js")).href
 		);
 		const storeBefore = snapshot(store),
 			freshBefore = snapshot(fresh),
@@ -2397,15 +2424,18 @@ try {
 				storeRoot: store,
 			});
 			assert.deepEqual(
-				rebuilt.composition.map((e) => e.bytes),
+				rebuilt.composition.map((e: Untyped) => e.bytes),
 				[revision.members["entry.md"], role],
 			);
 			assert.deepEqual(
-				rebuilt.packages.map((p) => [p.name, p.version, p.sha256]),
+				rebuilt.packages.map((p: Untyped) => [p.name, p.version, p.sha256]),
 				[[name, revision.version, revision.digest]],
 			);
 			assert.deepEqual(
-				rebuilt.packages[0].files.map((file) => [file.path, file.bytes]),
+				rebuilt.packages[0].files.map((file: Untyped) => [
+					file.path,
+					file.bytes,
+				]),
 				Object.entries(revision.members),
 			);
 			const destination = path.join(outputs, `revision-${index + 1}`);
@@ -2625,8 +2655,11 @@ try {
 			fs.readFileSync(path.join(workspace, roleTarget)),
 			Buffer.from(proposal.change.after),
 		);
-		const otherWorkspace = (entries) =>
-			entries.filter(([file]) => file.split(path.sep).join("/") !== roleTarget);
+		const otherWorkspace = (entries: Untyped) =>
+			entries.filter(
+				([file]: [string, unknown]) =>
+					file.split(path.sep).join("/") !== roleTarget,
+			);
 		assert.deepEqual(
 			otherWorkspace(snapshot(workspace)),
 			otherWorkspace(workspaceBefore),

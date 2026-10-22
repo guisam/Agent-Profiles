@@ -34,18 +34,18 @@ identity is routing input, not evidence of the model actually executing a task.
 [architecture](../architecture.md) governs existing version-1 behavior; this proposal
 cannot silently amend it. Relevant implemented seams:
 
-- [resolve.js](../../src/resolve.js): strict configuration validation, model/alias/
+- [resolve.ts](../../src/resolve.ts): strict configuration validation, model/alias/
   supplied-family/longest-prefix/default routing, independent role selection, required
   then requested instruction order, and native/injected delivery separation.
-- [files.js](../../src/files.js): guarded paths and rollback after caught errors;
+- [files.ts](../../src/files.ts): guarded paths and rollback after caught errors;
   **not** an immutable concurrent store publication protocol.
-- [configure.js](../../src/configure.js) and [presets.js](../../src/presets.js):
+- [configure.ts](../../src/configure.ts) and [presets.ts](../../src/presets.ts):
   preview through the resolver, then stale-input checks before mutation.
-- [diagnostics.js](../../src/diagnostics.js): decoded-text accounting and presentation;
+- [diagnostics.ts](../../src/diagnostics.ts): decoded-text accounting and presentation;
   `.trim()` presentation and UTF-8 decoding must not become snapshot backing bytes.
-- [skills.js](../../src/skills.js), [wizard.js](../../src/wizard.js),
-  [inspect.js](../../src/inspect.js), [install.js](../../src/install.js), and
-  [CLI](../../bin/agent-profiles.js): consumers requiring compatibility changes.
+- [skills.ts](../../src/skills.ts), [wizard.ts](../../src/wizard.ts),
+  [inspect.ts](../../src/inspect.ts), [install.ts](../../src/install.ts), and
+  [CLI](../../bin/agent-profiles.ts): consumers requiring compatibility changes.
 
 **D1 accepted, with the maintainer's later clarification:** use configuration
 **version 2** for package-enabled projects. The maintainer has one current consuming
@@ -562,7 +562,7 @@ rejects a validation-mode selection even if its reported lockState happens to be
 Explicit storeRoot propagates unchanged through configure plans/apply, wizard and
 preset-wizard plans/apply, preset preview/import/export validation, skills/inventory,
 inspect, diagnostics, install doctor and CLI selectors, and startVisualizer's initial
-and HTTP re-resolve calls in `src/visualize.js`. It is an operational server option,
+and HTTP re-resolve calls in `src/visualize.ts`. It is an operational server option,
 not a query-selectable store path. Materialization/stamp/verify/diff APIs and commands
 also propagate it; wrappers must not discard it and fall back to environment/home.
 

@@ -177,7 +177,7 @@ if (process.argv[2] !== undefined) {
 	try {
 		if (q.op === "write-control") {
 			const native = await import("node:fs");
-			const { writeFlushed } = await import("../../../src/package-store.js");
+			const { writeFlushed } = await import("../../../src/package-store.ts");
 			stage = path.join(output, "control.stage");
 			native.mkdirSync(stage);
 			try {
@@ -211,7 +211,7 @@ if (process.argv[2] !== undefined) {
 				Buffer.from([0, 255, 13, 10]),
 			);
 			if (q.mode === "device") {
-				const { publish } = await import("../../../src/package-store.js");
+				const { publish } = await import("../../../src/package-store.ts");
 				publish(from, final, native.renameSync);
 			} else if (q.entry === "promise")
 				await native.promises.rename(from, final);
@@ -225,7 +225,7 @@ if (process.argv[2] !== undefined) {
 			result = { ok: true, result: [...bytes] };
 		} else {
 			// Absent SUT is imported only for a real owned materialization request.
-			const sut = await import("../../../src/materialize.js");
+			const sut = await import("../../../src/materialize.ts");
 			result = { ok: true, result: await sut[q.op ?? "materialize"](q.args) };
 		}
 	} catch (error) {

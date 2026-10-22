@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
-import * as packages from "../src/packages.js";
+import * as packages from "../src/packages.ts";
 
 const helpers = [
 	"canonicalEvaluationJSON",

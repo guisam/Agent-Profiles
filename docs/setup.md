@@ -9,23 +9,23 @@ not a new Agent Profiles host adapter.
 
 ## 1. Inspect before installing
 
-Requires Node.js 22 or newer. **The package is not published to npm yet.** From a
+Requires Node.js 24 or newer. **The package is not published to npm yet.** From a
 trusted checkout with dependencies already available, inspection does not require
 installing Agent Profiles in the target project:
 
 ```sh
-node /path/to/Agent-Profiles/bin/agent-profiles.js inspect --root /path/to/project
-node /path/to/Agent-Profiles/bin/agent-profiles.js inspect --root /path/to/project --json
+node /path/to/Agent-Profiles/bin/agent-profiles.ts inspect --root /path/to/project
+node /path/to/Agent-Profiles/bin/agent-profiles.ts inspect --root /path/to/project --json
 # Opt in to personal/native sources, or use an explicitly approved roots file:
-node /path/to/Agent-Profiles/bin/agent-profiles.js inspect --root /path/to/project --external --json
-node /path/to/Agent-Profiles/bin/agent-profiles.js inspect --root /path/to/project --sources /absolute/local/skill-sources.json --json
+node /path/to/Agent-Profiles/bin/agent-profiles.ts inspect --root /path/to/project --external --json
+node /path/to/Agent-Profiles/bin/agent-profiles.ts inspect --root /path/to/project --sources /absolute/local/skill-sources.json --json
 ```
 
 In a fresh checkout, `npm ci` obtains its dependencies: that is a separate,
 permission-requiring preparation step, not an effect of inspection. If you received
 a trusted packed artifact, install it into a separate scratch project with
 `npm install --ignore-scripts /absolute/path/agent-profiles-0.1.0.tgz`, then run
-`node /scratch/project/node_modules/agent-profiles/bin/agent-profiles.js inspect
+`node /scratch/project/node_modules/agent-profiles/dist/bin/agent-profiles.js inspect
 --root /path/to/project --json`. This prepares the tool outside the target; review
 and approve dependency/registry access first. Do not run an unpublished package name
 from a registry and assume it is this checkout. `npm pack --pack-destination
@@ -204,9 +204,9 @@ Use existing `init`, the role wizard or its programmatic planner/applier, resolv
 and adapters. For example, after the user approves the chosen adapter and package:
 
 ```sh
-node /path/to/Agent-Profiles/bin/agent-profiles.js init --root /path/to/project --agent hermes --package /absolute/path/agent-profiles-0.1.0.tgz
+node /path/to/Agent-Profiles/bin/agent-profiles.ts init --root /path/to/project --agent hermes --package /absolute/path/agent-profiles-0.1.0.tgz
 # Interactive alternative for role edits, with its own previews/confirmation:
-node /path/to/Agent-Profiles/bin/agent-profiles.js configure --root /path/to/project
+node /path/to/Agent-Profiles/bin/agent-profiles.ts configure --root /path/to/project
 # Add --external or --sources only when the corresponding discovery was approved.
 ```
 
@@ -222,8 +222,8 @@ A prompt-free example, run from a module in the trusted checkout (adjust imports
 if using the installed packed package):
 
 ```js
-import { planRoleChange, applyRoleChange } from './src/configure.js';
-import { inspectRepository } from './src/inspect.js';
+import { planRoleChange, applyRoleChange } from './src/configure.ts';
+import { inspectRepository } from './src/inspect.ts';
 
 const root = '/path/to/project'; // Existing approved init completed.
 const inventory = inspectRepository({ root });

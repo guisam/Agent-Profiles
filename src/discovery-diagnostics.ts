@@ -1,7 +1,10 @@
 // Inspection must not render parser messages: they can embed private source text.
 // Other discovery consumers retain their existing detailed diagnostics by default.
-export function discoveryError(error, metadataOnly = false) {
-	if (!metadataOnly) return error.message;
+import { errorCode, errorMessage } from "./files.ts";
+
+export function discoveryError(error: unknown, metadataOnly = false): string {
+	if (!metadataOnly) return errorMessage(error);
+	const errno = errorCode(error);
 	const code = [
 		"EACCES",
 		"EPERM",
@@ -13,8 +16,8 @@ export function discoveryError(error, metadataOnly = false) {
 		"EIO",
 		"EMFILE",
 		"ENFILE",
-	].includes(error.code)
-		? ` (${error.code})`
+	].includes(errno ?? "")
+		? ` (${errno})`
 		: "";
 	return `Cannot safely read metadata${code}; check permissions, path containment and file type, or repair malformed/incomplete frontmatter or source preferences`;
 }

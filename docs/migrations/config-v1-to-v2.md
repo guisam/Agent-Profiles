@@ -7,7 +7,7 @@
 **Base conversion:** change that scalar only; retain local and native bindings.
 Package adoption is separate, optional work (section 8).
 
-**Implemented in this checkout:** [resolve.js](../../src/resolve.js) validates
+**Implemented in this checkout:** [resolve.ts](../../src/resolve.ts) validates
 both configuration versions 1 and 2. The [package manifest](../../package.json)
 remains CLI version `0.1.0`, **unpublished**; no published v2-supporting release
 number is established. The [v2 contract](../development/issue-20-contract.md#5-project-schema-and-deterministic-assignment-c08c09)
@@ -27,7 +27,7 @@ checkout support never grants permission to edit a real consumer. Use the
   installed package manifest; inspect `agent-profiles --help`. No invented `migrate`,
   `validate`, `--version`, package-install or v2-only flags are needed for base conversion.
   Do not use an invocation that silently downloads a missing executable.
-- The current manifest requires Node.js `>=22`; confirm the runtime and the selected local tool's documented requirements. Use an already-installed, explicitly identified
+- The current manifest requires Node.js `>=24`; confirm the runtime and the selected local tool's documented requirements. Use an already-installed, explicitly identified
   v2-capable checkout/tool whose code and documentation support both schemas and the
   read-only `resolve` operation. Also identify the source v1 validator. Missing tools
   block application; this guide does not authorize installation or upgrades.

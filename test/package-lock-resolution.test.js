@@ -9,21 +9,21 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { stringify } from "yaml";
-import { applyRoleChange, planRoleChange } from "../src/configure.js";
-import { inspectRepository } from "../src/inspect.js";
-import { doctor } from "../src/install.js";
-import { installDependencies } from "../src/package-lock.js";
-import { importPackage, lookupPackage } from "../src/package-store.js";
-import { runPreset } from "../src/preset-wizard.js";
+import { applyRoleChange, planRoleChange } from "../src/configure.ts";
+import { inspectRepository } from "../src/inspect.ts";
+import { doctor } from "../src/install.ts";
+import { installDependencies } from "../src/package-lock.ts";
+import { importPackage, lookupPackage } from "../src/package-store.ts";
+import { runPreset } from "../src/preset-wizard.ts";
 import {
 	applyPresetExport,
 	applyPresetImport,
 	planPresetExport,
 	planPresetImport,
-} from "../src/presets.js";
-import { resolveInstructions } from "../src/resolve.js";
-import { startVisualizer } from "../src/visualize.js";
-import { configureRoles } from "../src/wizard.js";
+} from "../src/presets.ts";
+import { resolveInstructions } from "../src/resolve.ts";
+import { startVisualizer } from "../src/visualize.ts";
+import { configureRoles } from "../src/wizard.ts";
 
 // P5b RED (contract section 6 "Resolver lock modes and store-root propagation", test map C10-C12/C20-C22):
 // public selection defaults to lockMode "required"; configure/preset internals use "validation".
@@ -35,7 +35,7 @@ const CONFIG = ".agent-profiles/agents.yaml";
 const LOCK = ".agent-profiles/agent-profiles.lock";
 const NAME = "@lock/review";
 const VERSIONS = ["1.0.0", "2.0.0", "3.0.0"];
-const BIN = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));
+const BIN = fileURLToPath(new URL("../bin/agent-profiles.ts", import.meta.url));
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const put = (file, bytes) => {
 	fs.mkdirSync(path.dirname(file), { recursive: true });

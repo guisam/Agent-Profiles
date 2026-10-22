@@ -1,6 +1,6 @@
 # Read-only external skill sources
 
-External inventory is opt-in. Importing `src/external-skills.js` does not scan files;
+External inventory is opt-in. Importing `src/external-skills.ts` does not scan files;
 callers must explicitly request discovery. The inventory reads local metadata, not
 skill bodies, and does not execute skills, contact a service, inspect enabled-plugin
 settings, install anything, or change host files. Machine-local paths belong in
@@ -90,7 +90,7 @@ reserved directories and rejected escapes generate actionable warning strings.
 import {
   discoverExternalSkills,
   validateExternalSelection,
-} from './src/external-skills.js';
+} from './src/external-skills.ts';
 
 const options = {
   // Optional: defaults to OS homedir and process.env.

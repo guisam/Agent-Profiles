@@ -9,22 +9,23 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { readConfiguration } from "./configure.js";
-import { safePath } from "./files.js";
-import { integrations, managedSpan } from "./integrations.js";
+import { readConfiguration } from "./configure.ts";
+import { errorCode, safePath } from "./files.ts";
+import { integrations, managedSpan } from "./integrations.ts";
+import type { Untyped } from "./packages.ts";
 import {
 	identifier,
 	localDeclaration,
 	localFile,
 	mapping,
 	parseYaml,
-} from "./resolve.js";
-import { discoverSkills } from "./skills.js";
+} from "./resolve.ts";
+import { discoverSkills } from "./skills.ts";
 
 const limit = 65536;
-const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+const compare = (a: Untyped, b: Untyped) => (a < b ? -1 : a > b ? 1 : 0);
 
-function readBounded(root, file) {
+function readBounded(root: string, file: Untyped) {
 	const descriptor = openSync(safePath(root, file), "r");
 	try {
 		const stat = fstatSync(descriptor);
@@ -32,7 +33,7 @@ function readBounded(root, file) {
 			throw new Error("Expected regular metadata within 64 KiB");
 		const bytes = Buffer.alloc(limit + 1);
 		let size = 0,
-			count;
+			count: number;
 		do {
 			count = readSync(descriptor, bytes, size, bytes.length - size, null);
 			size += count;
@@ -44,7 +45,12 @@ function readBounded(root, file) {
 	}
 }
 
-function recognizedChildren(root, directory, pattern, warnings) {
+function recognizedChildren(
+	root: string,
+	directory: Untyped,
+	pattern: Untyped,
+	warnings: Untyped,
+) {
 	try {
 		const entries = readdirSync(safePath(root, directory))
 			.filter((file) => pattern.test(file))
@@ -53,14 +59,30 @@ function recognizedChildren(root, directory, pattern, warnings) {
 			warnings.push(`${directory}: inventory limited to 128 paths`);
 		return entries.slice(0, 128).map((file) => `${directory}/${file}`);
 	} catch (error) {
-		if (error.code !== "ENOENT")
+		if (errorCode(error) !== "ENOENT")
 			warnings.push(`${directory}: cannot safely inventory directory`);
 		return [];
 	}
 }
 
-function fileMetadata(root, file, source, host = null) {
-	const record = {
+/** A repository file's presence and size; bytes is null unless it is an available regular file. */
+type FileMetadata = {
+	path: string;
+	source: string;
+	host: string | null;
+	scope: string;
+	availability: string;
+	bytes: number | null;
+	problem?: string;
+};
+
+function fileMetadata(
+	root: string,
+	file: string,
+	source: string,
+	host: string | null = null,
+): FileMetadata {
+	const record: FileMetadata = {
 		path: file,
 		source,
 		host,
@@ -78,7 +100,7 @@ function fileMetadata(root, file, source, host = null) {
 			};
 		return { ...record, availability: "available", bytes: stat.size };
 	} catch (error) {
-		return error.code === "ENOENT"
+		return errorCode(error) === "ENOENT"
 			? record
 			: {
 					...record,
@@ -89,7 +111,7 @@ function fileMetadata(root, file, source, host = null) {
 	}
 }
 
-function workflowMetadata(root) {
+function workflowMetadata(root: string) {
 	const files = [
 		"orchestrator.toml",
 		"adr-orchestrator.toml",
@@ -118,7 +140,7 @@ function workflowMetadata(root) {
 		"bun.lock",
 		"bun.lockb",
 	];
-	const warnings = [];
+	const warnings: string[] = [];
 	files.push(
 		...recognizedChildren(root, ".github/workflows", /\.ya?ml$/, warnings),
 	);
@@ -131,11 +153,11 @@ function workflowMetadata(root) {
 	};
 }
 
-function packageMetadata(root) {
+function packageMetadata(root: string) {
 	const file = fileMetadata(root, "package.json", "package");
 	if (file.availability !== "available")
 		return { ...file, status: file.availability };
-	if (file.bytes > limit)
+	if ((file.bytes ?? 0) > limit)
 		return { ...file, status: "invalid", problem: "Metadata exceeds 64 KiB" };
 	try {
 		const value = JSON.parse(readBounded(root, file.path).toString("utf8"));
@@ -164,7 +186,7 @@ function packageMetadata(root) {
 			)
 		)
 			throw new Error();
-		const text = (value) => (typeof value === "string" ? value : null);
+		const text = (value: Untyped) => (typeof value === "string" ? value : null);
 		return {
 			...file,
 			status: "valid",
@@ -180,12 +202,12 @@ function packageMetadata(root) {
 					: [],
 		};
 	} catch (error) {
-		return error.code
+		return errorCode(error)
 			? {
 					...file,
 					availability: "unavailable",
 					status: "unavailable",
-					problem: `Cannot read package metadata (${error.code})`,
+					problem: `Cannot read package metadata (${errorCode(error)})`,
 				}
 			: {
 					...file,
@@ -195,7 +217,7 @@ function packageMetadata(root) {
 	}
 }
 
-function configurationMetadata(root) {
+function configurationMetadata(root: string) {
 	const file = fileMetadata(
 		root,
 		".agent-profiles/agents.yaml",
@@ -213,7 +235,7 @@ function configurationMetadata(root) {
 	};
 	if (file.availability !== "available")
 		return { metadata: empty, configuration: new Map() };
-	if (file.bytes > limit)
+	if ((file.bytes ?? 0) > limit)
 		return {
 			metadata: { ...empty, problem: "Configuration exceeds 64 KiB" },
 			configuration: new Map(),
@@ -325,7 +347,7 @@ function configurationMetadata(root) {
 					}
 				}
 		}
-		const declaration = (value, source) => ({
+		const declaration = (value: Untyped, source: Untyped) => ({
 			path: null,
 			source,
 			host: null,
@@ -433,11 +455,11 @@ function configurationMetadata(root) {
 	} catch (error) {
 		// Parser excerpts can contain arbitrary source text. Do not echo them into an inventory.
 		return {
-			metadata: error.code
+			metadata: errorCode(error)
 				? {
 						...empty,
 						availability: "unavailable",
-						problem: `Cannot read configuration metadata (${error.code})`,
+						problem: `Cannot read configuration metadata (${errorCode(error)})`,
 					}
 				: {
 						...empty,
@@ -449,7 +471,7 @@ function configurationMetadata(root) {
 	}
 }
 
-const toolGroups = {
+const toolGroups: Record<string, string[]> = {
 	host: ["claude", "codex", "hermes"],
 	runtime: ["node", "python", "python3", "go", "rustc"],
 	packageManager: [
@@ -473,16 +495,15 @@ function environmentMetadata({
 	system = os,
 } = {}) {
 	const windows = platform === "win32";
-	const selected = (name) =>
-		env[name] ??
-		(windows
-			? env[
-					Object.keys(env)
-						.sort(compare)
-						.find((key) => key.toUpperCase() === name.toUpperCase())
-				]
-			: undefined);
-	const warnings = [];
+	// Windows environment names are case-insensitive; take the first match in a stable order.
+	const selected = (name: string) => {
+		if (env[name] !== undefined || !windows) return env[name];
+		const key = Object.keys(env)
+			.sort(compare)
+			.find((item) => item.toUpperCase() === name.toUpperCase());
+		return key === undefined ? undefined : env[key];
+	};
+	const warnings: string[] = [];
 	const rawPath = selected("PATH") ?? "";
 	const entries =
 		rawPath.length <= limit ? rawPath.split(windows ? ";" : ":") : [];
@@ -492,8 +513,10 @@ function environmentMetadata({
 		...new Set(
 			entries
 				.slice(0, 128)
-				.map((entry) => entry.replace(/^"(.*)"$/, "$1"))
-				.filter((entry) => path.isAbsolute(entry) && !entry.includes("\0")),
+				.map((entry: Untyped) => entry.replace(/^"(.*)"$/, "$1"))
+				.filter(
+					(entry: Untyped) => path.isAbsolute(entry) && !entry.includes("\0"),
+				),
 		),
 	];
 	const extensions = windows
@@ -502,9 +525,9 @@ function environmentMetadata({
 					(selected("PATHEXT") ?? ".COM;.EXE;.BAT;.CMD")
 						.slice(0, 1024)
 						.split(";")
-						.filter((ext) => /^\.[a-z0-9]{1,8}$/i.test(ext))
+						.filter((ext: Untyped) => /^\.[a-z0-9]{1,8}$/i.test(ext))
 						.slice(0, 16)
-						.map((ext) => ext.toLowerCase()),
+						.map((ext: Untyped) => ext.toLowerCase()),
 				),
 			]
 		: [""];
@@ -530,7 +553,7 @@ function environmentMetadata({
 							if (stat.isFile() && (windows || stat.mode & 0o111))
 								return { ...record, path: candidate, availability: "found" };
 						} catch (error) {
-							if (!["ENOENT", "ENOTDIR"].includes(error.code))
+							if (!["ENOENT", "ENOTDIR"].includes(errorCode(error) ?? ""))
 								inaccessible = true;
 						}
 					}
@@ -541,7 +564,7 @@ function environmentMetadata({
 			}),
 		)
 		.sort((a, b) => compare(a.id, b.id));
-	const observe = (fn) => {
+	const observe = (fn: Untyped) => {
 		try {
 			return fn();
 		} catch {
@@ -585,9 +608,9 @@ function environmentMetadata({
 			status: cpus?.length ? "observed" : "unknown",
 			logicalCores: cpus?.length || null,
 			models: cpus?.length
-				? [...new Set(cpus.map((cpu) => cpu.model).filter(Boolean))].sort(
-						compare,
-					)
+				? [
+						...new Set(cpus.map((cpu: Untyped) => cpu.model).filter(Boolean)),
+					].sort(compare)
 				: null,
 			source: "os.cpus",
 		},
@@ -607,17 +630,17 @@ function environmentMetadata({
 	};
 }
 
-function hostMetadata(root, environment) {
+function hostMetadata(root: string, environment: Untyped) {
 	return integrations
 		.map((adapter) => {
 			const files = adapter.files.map((file) =>
 				fileMetadata(root, file, "integration", adapter.id),
 			);
 			let configured = false;
-			const problems = [];
+			const problems: string[] = [];
 			for (const file of files) {
 				if (file.availability === "missing") continue;
-				if (file.availability !== "available" || file.bytes > limit) {
+				if (file.availability !== "available" || (file.bytes ?? 0) > limit) {
 					problems.push(
 						`${file.path}: unavailable or exceeds 64 KiB; bootstrap unobserved`,
 					);
@@ -628,8 +651,8 @@ function hostMetadata(root, environment) {
 						configured = true;
 				} catch (error) {
 					problems.push(
-						error.code
-							? `${file.path}: unreadable (${error.code}); bootstrap unobserved`
+						errorCode(error)
+							? `${file.path}: unreadable (${errorCode(error)}); bootstrap unobserved`
 							: `${file.path}: invalid managed markers or changed metadata; repair before init`,
 					);
 				}
@@ -641,7 +664,9 @@ function hostMetadata(root, environment) {
 				scope: "repository",
 				files,
 				configured: configured ? true : problems.length ? null : false,
-				executable: environment.tools.find((tool) => tool.id === adapter.id),
+				executable: environment.tools.find(
+					(tool: Untyped) => tool.id === adapter.id,
+				),
 				currentInvocation: "unverified",
 				nativeInventory: adapter.skills
 					? "supported-metadata-only"
@@ -653,14 +678,14 @@ function hostMetadata(root, environment) {
 		.sort((a, b) => compare(a.id, b.id));
 }
 
-function sourceMetadata(source) {
-	let availability;
+function sourceMetadata(source: Untyped) {
+	let availability: string;
 	try {
 		availability = statSync(source.path).isDirectory()
 			? "available"
 			: "unavailable";
 	} catch (error) {
-		availability = error.code === "ENOENT" ? "missing" : "unavailable";
+		availability = errorCode(error) === "ENOENT" ? "missing" : "unavailable";
 	}
 	return {
 		...source,
@@ -677,13 +702,18 @@ export function inspectRepository({
 	external = false,
 	sourceOptions = {},
 	environmentOptions = {},
+}: {
+	root: string;
+	external?: boolean;
+	sourceOptions?: object;
+	environmentOptions?: Untyped;
 }) {
 	root = realpathSync(root);
 	if (!statSync(root).isDirectory())
 		throw new Error("Inspection root must be a directory");
 	const { metadata: configuration, configuration: parsed } =
 		configurationMetadata(root);
-	const instructionWarnings = [];
+	const instructionWarnings: string[] = [];
 	const cursorRules = recognizedChildren(
 		root,
 		".cursor/rules",
@@ -731,7 +761,7 @@ export function inspectRepository({
 		try {
 			statSync(safePath(root, ".agent-profiles"));
 		} catch (error) {
-			if (error.code === "ENOENT") installationStatus = "not-installed";
+			if (errorCode(error) === "ENOENT") installationStatus = "not-installed";
 		}
 	}
 	return {
@@ -778,6 +808,6 @@ export function inspectRepository({
 	};
 }
 
-export function formatInventory(result) {
+export function formatInventory(result: Untyped) {
 	return `Read-only inventory\nRepository: ${result.repository.root}\nInstallation: ${result.repository.installation.status}\nConfiguration: ${result.repository.configuration.status}\n${JSON.stringify(result, null, 2)}\nMetadata does not verify host invocation or grant execution/install permission.`;
 }

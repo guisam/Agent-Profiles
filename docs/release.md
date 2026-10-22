@@ -8,7 +8,7 @@ anything or prove a model followed the bootstrap.
 
 - [ ] `npm ci --ignore-scripts` succeeds from a clean checkout.
 - [ ] `npm run typecheck`, `npm run lint`, and `npm test` pass.
-- [ ] `npm run test:package` passes on Windows, macOS, and Linux with Node 22/24.
+- [ ] `npm run test:package` passes on Windows, macOS, and Linux with Node 24.
 - [ ] Review `npm pack --dry-run --json`: executable, source, scaffold, docs,
       README, license, changelog, and metadata included; tests, caches, local
       agent settings, developer tooling, and generated artifacts excluded.

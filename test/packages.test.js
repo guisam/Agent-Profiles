@@ -22,7 +22,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { parseAllDocuments, stringify } from "yaml";
-import { skillMetadata } from "../src/resolve.js";
+import { skillMetadata } from "../src/resolve.ts";
 
 // P2 provisional seam, to be frozen by parent RED assessment; no production stub.
 // parseManifest(Buffer) -> the strict manifest as a plain object.
@@ -34,7 +34,7 @@ import { skillMetadata } from "../src/resolve.js";
 // canonicalJSON(value) -> Buffer containing J; hashRecord(domain,value) -> digest.
 // parseRecord(Buffer) -> strict JSON value (duplicate keys rejected at every depth).
 // Record-specific unknown-field schemas belong to their later lock/stamp packages.
-const moduleUrl = new URL("../src/packages.js", import.meta.url);
+const moduleUrl = new URL("../src/packages.ts", import.meta.url);
 let sut;
 let missing;
 try {

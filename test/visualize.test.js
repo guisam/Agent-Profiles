@@ -6,9 +6,9 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { formatProof } from "../src/diagnostics.js";
-import { resolveInstructions } from "../src/resolve.js";
-import { startVisualizer } from "../src/visualize.js";
+import { formatProof } from "../src/diagnostics.ts";
+import { resolveInstructions } from "../src/resolve.ts";
+import { startVisualizer } from "../src/visualize.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 function repository(t) {
@@ -111,7 +111,7 @@ test("visualizer selections, skill projections and provenance exactly match reso
 	const proof = spawnSync(
 		process.execPath,
 		[
-			path.join(project, "bin/agent-profiles.js"),
+			path.join(project, "bin/agent-profiles.ts"),
 			"proof",
 			"--root",
 			root,
@@ -236,7 +236,7 @@ test("visualize CLI serves initial selections, rejects bad flags, and reports po
 		const result = spawnSync(
 			process.execPath,
 			[
-				path.join(project, "bin/agent-profiles.js"),
+				path.join(project, "bin/agent-profiles.ts"),
 				"visualize",
 				"--root",
 				root,
@@ -249,7 +249,7 @@ test("visualize CLI serves initial selections, rejects bad flags, and reports po
 	const child = spawn(
 		process.execPath,
 		[
-			path.join(project, "bin/agent-profiles.js"),
+			path.join(project, "bin/agent-profiles.ts"),
 			"visualize",
 			"--root",
 			root,
