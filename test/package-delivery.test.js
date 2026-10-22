@@ -556,7 +556,7 @@ test("P9b-09 package guide manifest, public command examples and local links mat
 			.map((m) => m[1])
 			.filter((block) =>
 				new RegExp(
-					"(?:agent-profiles|bin/agent-profiles\\.js) " +
+					"(?:agent-profiles|bin/agent-profiles\\.ts) " +
 						command +
 						"(?: |\\r?\\n)",
 				).test(block),

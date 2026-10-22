@@ -44,7 +44,7 @@ version from inside it. On Windows, use a quoted path when it contains spaces.
 Alternatively, from the checkout:
 
 ```sh
-node bin/agent-profiles.js init --root /path/to/project --agent hermes --package /path/to/agent-profiles-0.1.0.tgz
+node bin/agent-profiles.ts init --root /path/to/project --agent hermes --package /path/to/agent-profiles-0.1.0.tgz
 ```
 
 To enable all supported hosts, repeat `--agent` for `claude`, `codex`, and `hermes`.

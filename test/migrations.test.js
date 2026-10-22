@@ -40,7 +40,7 @@ const put = (file, bytes) => {
 	fs.mkdirSync(path.dirname(file), { recursive: true });
 	fs.writeFileSync(file, bytes);
 };
-const cli = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));
+const cli = fileURLToPath(new URL("../bin/agent-profiles.ts", import.meta.url));
 function fixture(t) {
 	const dir = fs.realpathSync(
 		fs.mkdtempSync(path.join(os.tmpdir(), "ap-migration-")),

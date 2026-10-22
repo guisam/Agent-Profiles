@@ -15,7 +15,7 @@ import { resolveInstructions } from "../src/resolve.ts";
 import { discoverSkills } from "../src/skills.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
-const cliFile = path.join(project, "bin/agent-profiles.js");
+const cliFile = path.join(project, "bin/agent-profiles.ts");
 function fixture(t) {
 	const root = fs.realpathSync(
 		fs.mkdtempSync(path.join(os.tmpdir(), "agent-profiles-inspect-")),

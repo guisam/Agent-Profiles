@@ -10,10 +10,10 @@ dependency on the preset and no automatic synchronization.
 From this checkout, after `npm ci`, against an initialized project:
 
 ```sh
-node bin/agent-profiles.js preset inspect examples/presets/release-review --root /path/to/project
-node bin/agent-profiles.js preset inspect examples/presets/release-review --root /path/to/project --contents
-node bin/agent-profiles.js preset import examples/presets/release-review --root /path/to/project
-node bin/agent-profiles.js doctor --root /path/to/project
+node bin/agent-profiles.ts preset inspect examples/presets/release-review --root /path/to/project
+node bin/agent-profiles.ts preset inspect examples/presets/release-review --root /path/to/project --contents
+node bin/agent-profiles.ts preset import examples/presets/release-review --root /path/to/project
+node bin/agent-profiles.ts doctor --root /path/to/project
 ```
 
 The [example manifest](../examples/presets/release-review/preset.yaml) supplies a

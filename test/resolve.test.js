@@ -396,7 +396,7 @@ test("resolve --json emits inspectable JSON, optional contents, and actionable f
 		spawnSync(
 			process.execPath,
 			[
-				path.join(project, "bin/agent-profiles.js"),
+				path.join(project, "bin/agent-profiles.ts"),
 				"resolve",
 				"--root",
 				repo.root,
@@ -441,7 +441,7 @@ test("resolve --json emits inspectable JSON, optional contents, and actionable f
 	}
 	const help = spawnSync(
 		process.execPath,
-		[path.join(project, "bin/agent-profiles.js"), "--help"],
+		[path.join(project, "bin/agent-profiles.ts"), "--help"],
 		{ encoding: "utf8" },
 	);
 	assert.equal(help.status, 0);

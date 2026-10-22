@@ -512,7 +512,7 @@ test("interactive import/export reuse selection, support cancellation and CLI in
 	const cli = (...args) =>
 		spawnSync(
 			process.execPath,
-			[path.join(project, "bin/agent-profiles.js"), ...args],
+			[path.join(project, "bin/agent-profiles.ts"), ...args],
 			{ cwd: directory, encoding: "utf8" },
 		);
 	const inspect = cli("preset", "inspect", source, "--contents");

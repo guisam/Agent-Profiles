@@ -35,7 +35,7 @@ const CONFIG = ".agent-profiles/agents.yaml";
 const LOCK = ".agent-profiles/agent-profiles.lock";
 const NAME = "@lock/review";
 const VERSIONS = ["1.0.0", "2.0.0", "3.0.0"];
-const BIN = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));
+const BIN = fileURLToPath(new URL("../bin/agent-profiles.ts", import.meta.url));
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const put = (file, bytes) => {
 	fs.mkdirSync(path.dirname(file), { recursive: true });

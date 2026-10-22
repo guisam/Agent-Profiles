@@ -9,9 +9,9 @@ wizard; this guide covers installation and removal.
 
 ```sh
 npm ci
-node bin/agent-profiles.js init --root /path/to/repository
-node bin/agent-profiles.js doctor --root /path/to/repository
-node bin/agent-profiles.js uninstall --root /path/to/repository
+node bin/agent-profiles.ts init --root /path/to/repository
+node bin/agent-profiles.ts doctor --root /path/to/repository
+node bin/agent-profiles.ts uninstall --root /path/to/repository
 ```
 
 Without `--root`, commands walk upward to the nearest Agent Profiles configuration

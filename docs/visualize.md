@@ -3,8 +3,8 @@
 From a checkout with dependencies installed:
 
 ```sh
-node bin/agent-profiles.js visualize --root /path/to/project
-node bin/agent-profiles.js visualize --model example-model --role reviewer --skill testing
+node bin/agent-profiles.ts visualize --root /path/to/project
+node bin/agent-profiles.ts visualize --model example-model --role reviewer --skill testing
 ```
 
 The installed CLI exposes the same command as `agent-profiles visualize`.

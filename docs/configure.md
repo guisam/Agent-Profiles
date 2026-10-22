@@ -3,7 +3,7 @@
 From an installed package, run `agent-profiles configure`. From this checkout:
 
 ```sh
-node bin/agent-profiles.js configure --root /path/to/repository
+node bin/agent-profiles.ts configure --root /path/to/repository
 ```
 
 Use `init` first if the repository has no configuration. The wizard uses the

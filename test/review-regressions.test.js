@@ -392,7 +392,7 @@ test("review #10: doctor describes host compatibility without proving invocation
 	install({ root, agents: ["claude"] });
 	const output = spawnSync(
 		process.execPath,
-		[path.join(project, "bin/agent-profiles.js"), "doctor", "--root", root],
+		[path.join(project, "bin/agent-profiles.ts"), "doctor", "--root", root],
 		{ encoding: "utf8" },
 	).stdout;
 	assert.ok(!output.includes("every role is satisfiable"));

@@ -20,7 +20,7 @@ provided. Revision/workflow adoption is separate, optional work.
 ## 2. Tool and schema prerequisites
 
 Use an already authorized Node 24 runtime and actual supporting checkout CLI
-(`node /approved/checkout/bin/agent-profiles.js`) or a separately qualified packed
+(`node /approved/checkout/bin/agent-profiles.ts`) or a separately qualified packed
 installed executable (`agent-profiles`). Record the exact tool/package/runtime
 identity and verify its real config3 support; help or a package version alone is
 not proof. Do not install/download tooling under migration authority.

@@ -364,7 +364,7 @@ test("CLI supports explicit agents, root detection, doctor exit codes, and safe 
 	const run = (...args) =>
 		spawnSync(
 			process.execPath,
-			[path.join(project, "bin/agent-profiles.js"), ...args],
+			[path.join(project, "bin/agent-profiles.ts"), ...args],
 			{ cwd: path.join(root, "nested"), encoding: "utf8" },
 		);
 	const help = run("--help");

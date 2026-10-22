@@ -53,7 +53,7 @@ The CI matrix runs these checks on Windows, macOS, and Linux with Node 24.
   skill discovery, and terminal prompts.
 - `src/presets.ts`, `src/preset-wizard.ts`: local preset inspection, import/export
   plans, and prompts reusing the existing selector and role wizard.
-- `bin/agent-profiles.js`: public CLI, including the agent-facing `resolve` command.
+- `bin/agent-profiles.ts`: public CLI, including the agent-facing `resolve` command.
 - `.agent-profiles/`: complete, minimal example shipped with the package.
 - `examples/presets/`: small, inspectable preset examples; see [the format](docs/presets.md).
 - `test/`: Node's built-in test runner; `docs/`: contracts and user guides.

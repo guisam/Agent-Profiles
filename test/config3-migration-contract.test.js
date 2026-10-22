@@ -23,7 +23,7 @@ import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.ts";
 // The only refusal allowed to block downstream bodies: the existing config3 start guard.
 const GUARD =
 	"migration start: configuration version 3 workspaces are not supported; use configuration version 1 or 2";
-const cli = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));
+const cli = fileURLToPath(new URL("../bin/agent-profiles.ts", import.meta.url));
 const originalStore = process.env.AGENT_PROFILES_STORE;
 const tuple = (model, host = "claude") => ({ role: "worker", model, host });
 const primary = tuple("local-llm");

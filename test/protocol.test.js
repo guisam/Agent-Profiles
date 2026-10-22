@@ -512,7 +512,7 @@ test("resolve prints agent context with supersession and re-run guidance", (t) =
 		spawnSync(
 			process.execPath,
 			[
-				path.join(project, "bin/agent-profiles.js"),
+				path.join(project, "bin/agent-profiles.ts"),
 				"resolve",
 				"--root",
 				repo.root,
@@ -1163,7 +1163,7 @@ test("init exits nonzero while the bootstrap cannot run", (t) => {
 		spawnSync(
 			process.execPath,
 			[
-				path.join(project, "bin/agent-profiles.js"),
+				path.join(project, "bin/agent-profiles.ts"),
 				...args,
 				"--root",
 				repo.root,
@@ -1386,7 +1386,7 @@ test("bootstrap mode records host-stated identity provenance and keeps it on re-
 		spawnSync(
 			process.execPath,
 			[
-				path.join(project, "bin/agent-profiles.js"),
+				path.join(project, "bin/agent-profiles.ts"),
 				"resolve",
 				"--root",
 				repo.root,

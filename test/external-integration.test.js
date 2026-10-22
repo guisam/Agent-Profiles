@@ -549,7 +549,7 @@ test("picker shows scope/status, includes source-aware filtering and refuses dis
 
 test("metadata inventory CLI is read-only JSON, validates flag scope and exposes opted-in sources", (t) => {
 	const f = fixture(t);
-	const file = path.join(project, "bin/agent-profiles.js");
+	const file = path.join(project, "bin/agent-profiles.ts");
 	const preferences = {
 		version: 1,
 		roots: [

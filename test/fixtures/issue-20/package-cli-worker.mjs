@@ -243,9 +243,9 @@ if (process.argv[2] !== undefined) {
 		process.chdir(q.cwd);
 		process.argv = [
 			process.execPath,
-			new URL("../../../bin/agent-profiles.js", import.meta.url).pathname,
+			new URL("../../../bin/agent-profiles.ts", import.meta.url).pathname,
 			...q.argv,
 		];
-		await import("../../../bin/agent-profiles.js");
+		await import("../../../bin/agent-profiles.ts");
 	} else throw new Error("unknown owned worker operation");
 }

@@ -112,15 +112,15 @@ Run from the same checkout directory. `add` imports without editing configuratio
 `install` locks every base/override pin, including unselected and available declarations.
 
 ```powershell
-node bin/agent-profiles.js add '@example/security-review@1.0.0' --source $V1 --store $Store --json
+node bin/agent-profiles.ts add '@example/security-review@1.0.0' --source $V1 --store $Store --json
 if ($LASTEXITCODE -ne 0) { throw 'first import failed' }
-node bin/agent-profiles.js add '@example/security-review@2.0.0' --source $V2 --store $Store --json
+node bin/agent-profiles.ts add '@example/security-review@2.0.0' --source $V2 --store $Store --json
 if ($LASTEXITCODE -ne 0) { throw 'second import failed' }
-node bin/agent-profiles.js install --root $Project --store $Store --offline --source '@example/security-review' 1.0.0 $V1 --source '@example/security-review' 2.0.0 $V2 --json
+node bin/agent-profiles.ts install --root $Project --store $Store --offline --source '@example/security-review' 1.0.0 $V1 --source '@example/security-review' 2.0.0 $V2 --json
 if ($LASTEXITCODE -ne 0) { throw 'dependency lock failed' }
-node bin/agent-profiles.js resolve --root $Project --store $Store --host codex --model fictional-small --identity-source user --role reviewer --json --contents
+node bin/agent-profiles.ts resolve --root $Project --store $Store --host codex --model fictional-small --identity-source user --role reviewer --json --contents
 if ($LASTEXITCODE -ne 0) { throw 'small resolution failed' }
-node bin/agent-profiles.js resolve --root $Project --store $Store --host codex --model fictional-large --identity-source user --role reviewer --json --contents
+node bin/agent-profiles.ts resolve --root $Project --store $Store --host codex --model fictional-large --identity-source user --role reviewer --json --contents
 if ($LASTEXITCODE -ne 0) { throw 'large resolution failed' }
 ```
 
@@ -143,15 +143,15 @@ root/store/selectors on reentry. CLI load/rerun commands include operational con
 when resolution used `--store`; the default API formatter remains store-free.
 
 ```powershell
-$RawA = node bin/agent-profiles.js stamp --root $Project --store $Store --host codex --model fictional-small --identity-source user --role reviewer --json
+$RawA = node bin/agent-profiles.ts stamp --root $Project --store $Store --host codex --model fictional-small --identity-source user --role reviewer --json
 if ($LASTEXITCODE -ne 0) { throw 'first capture failed' }
 $A = ($RawA | ConvertFrom-Json).digest
-$RawB = node bin/agent-profiles.js stamp --root $Project --store $Store --host codex --model fictional-large --identity-source user --role reviewer --json
+$RawB = node bin/agent-profiles.ts stamp --root $Project --store $Store --host codex --model fictional-large --identity-source user --role reviewer --json
 if ($LASTEXITCODE -ne 0) { throw 'second capture failed' }
 $B = ($RawB | ConvertFrom-Json).digest
-node bin/agent-profiles.js verify $A --store $Store --json
+node bin/agent-profiles.ts verify $A --store $Store --json
 if ($LASTEXITCODE -ne 0) { throw 'verification failed' }
-node bin/agent-profiles.js diff $A $B --store $Store --json
+node bin/agent-profiles.ts diff $A $B --store $Store --json
 if ($LASTEXITCODE -ne 0) { throw 'comparison incomplete' }
 ```
 
@@ -179,10 +179,10 @@ New-Item -ItemType Directory -Path $Fresh,$FreshStore | Out-Null
 Copy-Item -LiteralPath (Join-Path $Project '.agent-profiles') -Destination (Join-Path $Fresh '.agent-profiles') -Recurse
 Copy-Item -LiteralPath (Join-Path $Project 'AGENTS.md') -Destination (Join-Path $Fresh 'AGENTS.md')
 $LockBefore = (Get-FileHash -LiteralPath (Join-Path $Fresh '.agent-profiles/agent-profiles.lock') -Algorithm SHA256).Hash
-node bin/agent-profiles.js install --root $Fresh --store $FreshStore --frozen-lockfile --offline --source '@example/security-review' 1.0.0 $V1 --source '@example/security-review' 2.0.0 $V2 --json
+node bin/agent-profiles.ts install --root $Fresh --store $FreshStore --frozen-lockfile --offline --source '@example/security-review' 1.0.0 $V1 --source '@example/security-review' 2.0.0 $V2 --json
 if ($LASTEXITCODE -ne 0) { throw 'fresh frozen install failed' }
 if ((Get-FileHash -LiteralPath (Join-Path $Fresh '.agent-profiles/agent-profiles.lock') -Algorithm SHA256).Hash -ne $LockBefore) { throw 'frozen lock changed' }
-node bin/agent-profiles.js resolve --root $Fresh --store $FreshStore --host codex --model fictional-large --identity-source user --role reviewer --json --contents
+node bin/agent-profiles.ts resolve --root $Fresh --store $FreshStore --host codex --model fictional-large --identity-source user --role reviewer --json --contents
 if ($LASTEXITCODE -ne 0) { throw 'fresh resolution failed' }
 ```
 
@@ -204,9 +204,9 @@ as the automatically protected project/store boundaries.
 ```powershell
 $OutA = Join-Path $Outputs 'small'
 $OutB = Join-Path $Outputs 'large'
-node bin/agent-profiles.js materialize $A --root $Project --store $Store --adapter filesystem-v1 --output-root $Outputs --destination $OutA --protect-root $Sources --json
+node bin/agent-profiles.ts materialize $A --root $Project --store $Store --adapter filesystem-v1 --output-root $Outputs --destination $OutA --protect-root $Sources --json
 if ($LASTEXITCODE -ne 0) { throw 'first export failed' }
-node bin/agent-profiles.js materialize $B --root $Project --store $Store --adapter filesystem-v1 --output-root $Outputs --destination $OutB --protect-root $Sources --json
+node bin/agent-profiles.ts materialize $B --root $Project --store $Store --adapter filesystem-v1 --output-root $Outputs --destination $OutB --protect-root $Sources --json
 if ($LASTEXITCODE -ne 0) { throw 'second export failed' }
 ```
 

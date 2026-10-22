@@ -32,7 +32,7 @@ const candidateTest = (name, body) =>
 		},
 		body,
 	);
-const cli = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));
+const cli = fileURLToPath(new URL("../bin/agent-profiles.ts", import.meta.url));
 const originalStore = process.env.AGENT_PROFILES_STORE;
 const versions = ["1.2.3", "1.4.5", "2.3.4"],
 	models = ["local-llm", "opus", "slim-llm"];

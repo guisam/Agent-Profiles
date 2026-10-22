@@ -490,7 +490,7 @@ test("configure fails clearly without an interactive terminal and never changes 
 	const before = snapshot(root);
 	const result = spawnSync(
 		process.execPath,
-		[path.join(project, "bin/agent-profiles.js"), "configure", "--root", root],
+		[path.join(project, "bin/agent-profiles.ts"), "configure", "--root", root],
 		{ encoding: "utf8" },
 	);
 	assert.equal(result.status, 1);

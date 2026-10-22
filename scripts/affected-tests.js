@@ -38,7 +38,7 @@ function closure(file, seen = new Set()) {
 	return seen;
 }
 
-const cli = closure("bin/agent-profiles.js");
+const cli = closure("bin/agent-profiles.ts");
 const tests = readdirSync("test")
 	.filter((f) => f.endsWith(".test.js"))
 	.map((f) => `test/${f}`);

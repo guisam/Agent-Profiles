@@ -81,7 +81,7 @@ consume host skills should always pass it.
 
 ## Implementation flow
 
-`bin/agent-profiles.js` parses commands and owns terminal input. It passes an
+`bin/agent-profiles.ts` parses commands and owns terminal input. It passes an
 explicit repository root to the synchronous installer and configuration APIs.
 
 - `resolve.js` parses YAML using `yaml`, rejects duplicate keys and invalid

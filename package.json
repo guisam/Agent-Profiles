@@ -41,7 +41,7 @@
 		"test": "node --test",
 		"test:affected": "node scripts/affected-tests.js",
 		"test:package": "npm run build && node scripts/package-smoke.js",
-		"resolve": "node bin/agent-profiles.js resolve --json"
+		"resolve": "node bin/agent-profiles.ts resolve --json"
 	},
 	"dependencies": {
 		"yaml": "^2.9.1"

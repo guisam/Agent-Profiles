@@ -111,7 +111,7 @@ test("visualizer selections, skill projections and provenance exactly match reso
 	const proof = spawnSync(
 		process.execPath,
 		[
-			path.join(project, "bin/agent-profiles.js"),
+			path.join(project, "bin/agent-profiles.ts"),
 			"proof",
 			"--root",
 			root,
@@ -236,7 +236,7 @@ test("visualize CLI serves initial selections, rejects bad flags, and reports po
 		const result = spawnSync(
 			process.execPath,
 			[
-				path.join(project, "bin/agent-profiles.js"),
+				path.join(project, "bin/agent-profiles.ts"),
 				"visualize",
 				"--root",
 				root,
@@ -249,7 +249,7 @@ test("visualize CLI serves initial selections, rejects bad flags, and reports po
 	const child = spawn(
 		process.execPath,
 		[
-			path.join(project, "bin/agent-profiles.js"),
+			path.join(project, "bin/agent-profiles.ts"),
 			"visualize",
 			"--root",
 			root,

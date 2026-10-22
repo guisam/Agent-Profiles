@@ -350,7 +350,7 @@ test("Hermes CLI accepts the host, preserves identity provenance, and exposes it
 	const cli = (...args) =>
 		spawnSync(
 			process.execPath,
-			[path.join(project, "bin/agent-profiles.js"), ...args],
+			[path.join(project, "bin/agent-profiles.ts"), ...args],
 			{ cwd: project, encoding: "utf8" },
 		);
 	const help = cli("--help");

@@ -45,7 +45,7 @@ cannot silently amend it. Relevant implemented seams:
   `.trim()` presentation and UTF-8 decoding must not become snapshot backing bytes.
 - [skills.ts](../../src/skills.ts), [wizard.ts](../../src/wizard.ts),
   [inspect.ts](../../src/inspect.ts), [install.ts](../../src/install.ts), and
-  [CLI](../../bin/agent-profiles.js): consumers requiring compatibility changes.
+  [CLI](../../bin/agent-profiles.ts): consumers requiring compatibility changes.
 
 **D1 accepted, with the maintainer's later clarification:** use configuration
 **version 2** for package-enabled projects. The maintainer has one current consuming

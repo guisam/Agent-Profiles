@@ -234,7 +234,7 @@ test("proof human/JSON output and debug contents mode agree; invalid flags and r
 		spawnSync(
 			process.execPath,
 			[
-				path.join(project, "bin/agent-profiles.js"),
+				path.join(project, "bin/agent-profiles.ts"),
 				"proof",
 				"--root",
 				root,
@@ -264,7 +264,7 @@ test("proof human/JSON output and debug contents mode agree; invalid flags and r
 	const debug = spawnSync(
 		process.execPath,
 		[
-			path.join(project, "bin/agent-profiles.js"),
+			path.join(project, "bin/agent-profiles.ts"),
 			"resolve",
 			"--json",
 			"--root",

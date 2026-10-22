@@ -43,7 +43,7 @@ const workflowTest = (name, body) =>
 		},
 		body,
 	);
-const cli = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));
+const cli = fileURLToPath(new URL("../bin/agent-profiles.ts", import.meta.url));
 const protocol = "@example/agent-checkin";
 const versions = ["1.2.3", "1.4.5", "2.3.4"];
 const models = ["local-llm", "opus", "slim-llm"];

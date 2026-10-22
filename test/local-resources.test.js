@@ -1745,7 +1745,7 @@ for (const command of ["resolve-json", "skills-json", "skills-text"])
 		const child = spawnSync(
 			process.execPath,
 			[
-				fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url)),
+				fileURLToPath(new URL("../bin/agent-profiles.ts", import.meta.url)),
 				...args,
 				"--root",
 				f.root,

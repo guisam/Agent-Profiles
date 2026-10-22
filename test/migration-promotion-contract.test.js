@@ -48,7 +48,7 @@ const promotionTest = (name, body) =>
 		},
 		body,
 	);
-const cli = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));
+const cli = fileURLToPath(new URL("../bin/agent-profiles.ts", import.meta.url));
 const originalStore = process.env.AGENT_PROFILES_STORE;
 const DECISION = "agent-profiles/promotion-decision/v1",
 	REVISION_V2 = "agent-profiles/revision/v2";

@@ -51,11 +51,11 @@ project. `--package` installs the packed tarball into the project so the bootstr
 command can run there:
 
 ```sh
-node bin/agent-profiles.js init --root /path/to/project --package ./agent-profiles-0.1.0.tgz
-node bin/agent-profiles.js configure --root /path/to/project
-node bin/agent-profiles.js doctor --root /path/to/project
-node bin/agent-profiles.js proof --root /path/to/project --role reviewer
-node bin/agent-profiles.js visualize --root /path/to/project
+node bin/agent-profiles.ts init --root /path/to/project --package ./agent-profiles-0.1.0.tgz
+node bin/agent-profiles.ts configure --root /path/to/project
+node bin/agent-profiles.ts doctor --root /path/to/project
+node bin/agent-profiles.ts proof --root /path/to/project --role reviewer
+node bin/agent-profiles.ts visualize --root /path/to/project
 ```
 
 After publication, from your Git repository, the same workflow will be:
@@ -129,7 +129,7 @@ clean per-role session in Claude Code, use a [custom agent](docs/bootstrap.md#ro
 To remove integration blocks while keeping your configuration:
 
 ```sh
-node bin/agent-profiles.js uninstall --root /path/to/project
+node bin/agent-profiles.ts uninstall --root /path/to/project
 ```
 
 See the [installer guide](docs/installer.md) for packed-package installation,
@@ -259,8 +259,8 @@ installation, working-directory requirements, instruction precedence, and limits
 ## Measure the selected context
 
 ```sh
-node bin/agent-profiles.js proof --model example-model --role reviewer
-node bin/agent-profiles.js proof --model example-model --role reviewer --skill testing
+node bin/agent-profiles.ts proof --model example-model --role reviewer
+node bin/agent-profiles.ts proof --model example-model --role reviewer --skill testing
 ```
 
 `proof` shows each profile, role, required skill, and requested skill with exact
@@ -279,7 +279,7 @@ See [context proof](docs/proof.md) for the accounting contract.
 ## Explore context visually
 
 ```sh
-node bin/agent-profiles.js visualize --model example-model --role reviewer
+node bin/agent-profiles.ts visualize --model example-model --role reviewer
 ```
 
 Open the printed local URL. Select a model, family fallback, and role to see
@@ -297,9 +297,9 @@ for refresh behavior, accounting boundaries, and the local JSON endpoints.
 Local presets can share roles, profiles, and skill assignments across projects:
 
 ```sh
-node bin/agent-profiles.js preset inspect /path/to/preset --contents
-node bin/agent-profiles.js preset import /path/to/preset --root /path/to/project
-node bin/agent-profiles.js preset export /path/to/new-preset --root /path/to/project
+node bin/agent-profiles.ts preset inspect /path/to/preset --contents
+node bin/agent-profiles.ts preset import /path/to/preset --root /path/to/project
+node bin/agent-profiles.ts preset export /path/to/new-preset --root /path/to/project
 ```
 
 Imports preview changes, require explicit conflict choices and confirmation,
