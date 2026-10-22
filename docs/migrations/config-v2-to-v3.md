@@ -26,7 +26,7 @@ identity and verify its real config3 support; help or a package version alone is
 not proof. Do not install/download tooling under migration authority.
 
 The schemas and validators are `validateConfiguration`/`resolveInstructions` in
-`src/resolve.ts` and the strict installer/readers in `src/package-lock.js`. The
+`src/resolve.ts` and the strict installer/readers in `src/package-lock.ts`. The
 source v2 configuration must be valid with its existing explicit store and current
 lock. Missing backing blocks migration; do not repair, republish or adopt metadata
 to make it pass. Obtain approved canonical root, necessary read paths, private

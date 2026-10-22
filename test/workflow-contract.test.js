@@ -12,7 +12,7 @@ import {
 	planMaterialization,
 	verifyMaterialization,
 } from "../src/materialize.js";
-import { installDependencies } from "../src/package-lock.js";
+import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, lookupPackage } from "../src/package-store.ts";
 import { hashRecord } from "../src/packages.ts";
 import { resolveInstructions } from "../src/resolve.ts";

@@ -37,7 +37,7 @@ import {
 	rejectMigrationProposal,
 	startMigration,
 } from "../src/migrations.js";
-import { installDependencies } from "../src/package-lock.js";
+import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, rootPath } from "../src/package-store.ts";
 import { readPackage } from "../src/packages.ts";
 import { runPreset } from "../src/preset-wizard.ts";

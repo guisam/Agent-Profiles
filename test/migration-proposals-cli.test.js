@@ -7,7 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
 import { migrationProposals, proposeMigration } from "../src/migrations.js";
-import { installDependencies } from "../src/package-lock.js";
+import { installDependencies } from "../src/package-lock.ts";
 import { createStamp, reconstructStamp } from "../src/stamps.js";
 
 const cli = fileURLToPath(new URL("../bin/agent-profiles.js", import.meta.url));

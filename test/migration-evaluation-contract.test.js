@@ -8,7 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
 import * as migrations from "../src/migrations.js";
-import { installDependencies } from "../src/package-lock.js";
+import { installDependencies } from "../src/package-lock.ts";
 import { importPackage } from "../src/package-store.ts";
 import {
 	canonicalEvaluationJSON as canonicalJSON,

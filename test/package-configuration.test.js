@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { readConfiguration } from "../src/configure.ts";
-import { installDependencies } from "../src/package-lock.js";
+import { installDependencies } from "../src/package-lock.ts";
 import { importPackage } from "../src/package-store.ts";
 import { readPackage } from "../src/packages.ts";
 import * as resolver from "../src/resolve.ts";
@@ -98,7 +98,7 @@ test("invalid complete configuration preserves project and store despite a valid
 	const before = fs.readFileSync(
 		path.join(f.root, ".agent-profiles/agents.yaml"),
 	);
-	const url = new URL("../src/package-lock.js", import.meta.url);
+	const url = new URL("../src/package-lock.ts", import.meta.url);
 	let installer;
 	try {
 		installer = await import(url.href);

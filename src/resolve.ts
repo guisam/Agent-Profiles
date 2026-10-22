@@ -17,7 +17,7 @@ import {
 	integrations,
 	managedSurface,
 } from "./integrations.ts";
-import { readLockState } from "./package-lock.js";
+import { readLockState } from "./package-lock.ts";
 import {
 	safePath as guardedPath,
 	inStoreSession,

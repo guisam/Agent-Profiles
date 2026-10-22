@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { verifyMaterialization } from "../src/materialize.js";
-import { installDependencies } from "../src/package-lock.js";
+import { installDependencies } from "../src/package-lock.ts";
 import { lookupPackage } from "../src/package-store.ts";
 import { createStamp, verifyStamp } from "../src/stamps.js";
 
@@ -14,7 +14,7 @@ const CLI_WORKER = fileURLToPath(
 	new URL("./fixtures/issue-20/package-cli-worker.mjs", import.meta.url),
 );
 const STORE_MODULE = new URL("../src/package-store.ts", import.meta.url).href;
-const LOCK_MODULE = new URL("../src/package-lock.js", import.meta.url).href;
+const LOCK_MODULE = new URL("../src/package-lock.ts", import.meta.url).href;
 const CONFIG = ".agent-profiles/agents.yaml";
 const PROFILE = Buffer.from("\uFEFF# Profile\r\nExact profile.\r\n");
 const ROLE = Buffer.from("# Reviewer\r\nExact role.\r\n");

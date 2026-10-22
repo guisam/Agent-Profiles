@@ -12,7 +12,7 @@ import { stringify } from "yaml";
 import { applyRoleChange, planRoleChange } from "../src/configure.ts";
 import { inspectRepository } from "../src/inspect.js";
 import { doctor } from "../src/install.js";
-import { installDependencies } from "../src/package-lock.js";
+import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, lookupPackage } from "../src/package-store.ts";
 import { runPreset } from "../src/preset-wizard.ts";
 import {

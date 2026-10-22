@@ -10,7 +10,7 @@ import {
 import path from "node:path";
 import { applyChanges, errorCode, errorMessage } from "./files.ts";
 import { integrations } from "./integrations.ts";
-import { installDependencies } from "./package-lock.js";
+import { installDependencies } from "./package-lock.ts";
 import {
 	candidateIndex,
 	candidateReservation,

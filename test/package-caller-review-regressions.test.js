@@ -10,7 +10,7 @@ import { parse, stringify } from "yaml";
 import { planRoleChange } from "../src/configure.ts";
 import { formatContext, resolutionOutput } from "../src/diagnostics.js";
 import { inspectRepository } from "../src/inspect.js";
-import { installDependencies } from "../src/package-lock.js";
+import { installDependencies } from "../src/package-lock.ts";
 import { importPackage } from "../src/package-store.ts";
 import {
 	applyPresetExport,

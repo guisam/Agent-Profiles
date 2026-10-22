@@ -7,7 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
 import * as migrations from "../src/migrations.js";
-import { installDependencies } from "../src/package-lock.js";
+import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, lookupPackage } from "../src/package-store.ts";
 import { canonicalJSON, readPackage } from "../src/packages.ts";
 import { resolveInstructions } from "../src/resolve.ts";
@@ -1428,7 +1428,7 @@ candidateTest(
 	},
 );
 
-import { readLockState } from "../src/package-lock.js";
+import { readLockState } from "../src/package-lock.ts";
 import { validateConfiguration } from "../src/resolve.ts";
 import { revisionClosure } from "../src/revisions.ts";
 
