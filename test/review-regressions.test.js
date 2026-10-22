@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
-import { formatContext } from "../src/diagnostics.js";
+import { formatContext } from "../src/diagnostics.ts";
 import {
 	bootstrapAvailability,
 	doctor,

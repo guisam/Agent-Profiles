@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
-import { formatProof } from "../src/diagnostics.js";
+import { formatProof } from "../src/diagnostics.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));

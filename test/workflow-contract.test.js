@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import { formatContext, formatProof } from "../src/diagnostics.js";
+import { formatContext, formatProof } from "../src/diagnostics.ts";
 import {
 	materializeStamp,
 	planMaterialization,

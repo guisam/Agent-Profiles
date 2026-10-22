@@ -41,7 +41,7 @@ cannot silently amend it. Relevant implemented seams:
   **not** an immutable concurrent store publication protocol.
 - [configure.ts](../../src/configure.ts) and [presets.ts](../../src/presets.ts):
   preview through the resolver, then stale-input checks before mutation.
-- [diagnostics.js](../../src/diagnostics.js): decoded-text accounting and presentation;
+- [diagnostics.ts](../../src/diagnostics.ts): decoded-text accounting and presentation;
   `.trim()` presentation and UTF-8 decoding must not become snapshot backing bytes.
 - [skills.ts](../../src/skills.ts), [wizard.ts](../../src/wizard.ts),
   [inspect.js](../../src/inspect.js), [install.js](../../src/install.js), and

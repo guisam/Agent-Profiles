@@ -11,7 +11,7 @@ import {
 	planRoleChange,
 	readConfiguration,
 } from "../src/configure.ts";
-import { formatContext, formatProof } from "../src/diagnostics.js";
+import { formatContext, formatProof } from "../src/diagnostics.ts";
 import {
 	bootstrapAvailability,
 	doctor,

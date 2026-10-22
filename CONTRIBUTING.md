@@ -41,7 +41,7 @@ The CI matrix runs these checks on Windows, macOS, and Linux with Node 24.
 ## Where things live
 
 - `src/resolve.ts`: YAML validation and deterministic instruction composition.
-- `src/diagnostics.js`: exact resolved-text accounting, streaming available-skill
+- `src/diagnostics.ts`: exact resolved-text accounting, streaming available-skill
   measurement, and proof/JSON presentation with explicit host boundaries.
 - `src/inspect.js`: read-only setup inventory; keep repository metadata bounded,
   machine facts separate, and skill scanning in the existing discovery adapters.

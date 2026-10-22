@@ -7,11 +7,12 @@ import {
 	renderResolveCommand,
 	shells,
 } from "./integrations.ts";
+import type { Untyped } from "./packages.ts";
 
-const clean = (value) =>
+const clean = (value: unknown) =>
 	stripVTControlCharacters(String(value)).replace(/[\x00-\x1f\x7f-\x9f]/g, " ");
 
-export function measureText(content) {
+export function measureText(content: string) {
 	return {
 		bytes: Buffer.byteLength(content, "utf8"),
 		characters: [...content].length,
@@ -19,7 +20,7 @@ export function measureText(content) {
 }
 
 // Scan unloaded text for exact counts without retaining its body in the result.
-export function measureFile(file) {
+export function measureFile(file: string) {
 	const descriptor = openSync(file, "r");
 	try {
 		const decoder = new StringDecoder("utf8");
@@ -41,9 +42,9 @@ export function measureFile(file) {
 	}
 }
 
-function total(entries) {
+function total(entries: { bytes: number; characters: number }[]) {
 	return entries.reduce(
-		(sum, entry) => ({
+		(sum: { files: number; bytes: number; characters: number }, entry) => ({
 			files: sum.files + 1,
 			bytes: sum.bytes + entry.bytes,
 			characters: sum.characters + entry.characters,
@@ -52,23 +53,23 @@ function total(entries) {
 	);
 }
 
-/** @param {{file: string, block: Buffer} | null} [surface] managed host instruction surface, when known */
+/** surface: the managed host instruction block actually installed, when known. */
 export function contextDiagnostics(
-	loaded,
-	available,
-	required = [],
-	consumer,
-	surface = null,
+	loaded: Untyped[],
+	available: Untyped[],
+	required: Untyped[] = [],
+	consumer?: string,
+	surface: { file: string; block: Buffer } | null = null,
 ) {
 	const loadedSkills = new Set(
 		loaded
 			.filter((entry) => entry.kind.endsWith("-skill"))
 			.map((entry) => entry.id),
 	);
-	const host = (list, requirement) =>
+	const host = (list: Untyped, requirement: Untyped) =>
 		list
-			.filter((skill) => skill.type === "host")
-			.map(({ id, host, hostId, verification, usable }) => ({
+			.filter((skill: Untyped) => skill.type === "host")
+			.map(({ id, host, hostId, verification, usable }: Untyped) => ({
 				id,
 				host,
 				hostId,
@@ -156,20 +157,20 @@ export function contextDiagnostics(
 	};
 }
 
-export function resolutionOutput(result, contents = false) {
+export function resolutionOutput(result: Untyped, contents = false) {
 	return {
 		...result,
 		loaded: contents
 			? result.loaded
-			: result.loaded.map(({ content, ...entry }) => entry),
+			: result.loaded.map(({ content, ...entry }: Untyped) => entry),
 	};
 }
 
-function injectedSkillIDs(result) {
+function injectedSkillIDs(result: Untyped) {
 	const ids = new Set(
 		result.loaded
-			.filter((entry) => entry.kind.endsWith("-skill"))
-			.map((entry) => entry.id),
+			.filter((entry: Untyped) => entry.kind.endsWith("-skill"))
+			.map((entry: Untyped) => entry.id),
 	);
 	for (const entry of result.available) {
 		if (
@@ -180,7 +181,7 @@ function injectedSkillIDs(result) {
 			continue;
 		if (
 			result.loaded.some(
-				(part) =>
+				(part: Untyped) =>
 					part.package?.name === entry.package.name &&
 					part.package.version === entry.package.version &&
 					part.package.sha256 === entry.package.sha256 &&
@@ -193,10 +194,11 @@ function injectedSkillIDs(result) {
 	return ids;
 }
 
-export function formatProof(result) {
-	const size = (entry) => `${entry.bytes} B; ${entry.characters} characters`;
+export function formatProof(result: Untyped) {
+	const size = (entry: Untyped) =>
+		`${entry.bytes} B; ${entry.characters} characters`;
 	// Package bodies have no repository path; their exact identity and digest locate them.
-	const source = (entry) =>
+	const source = (entry: Untyped) =>
 		entry.package
 			? `${entry.package.name}@${entry.package.version} sha256:${entry.package.sha256}${entry.binding ? ` ${entry.backing.path}` : ""}`
 			: entry.path;
@@ -227,7 +229,9 @@ export function formatProof(result) {
 			: []),
 	]) {
 		lines.push("", label);
-		const entries = result.loaded.filter((entry) => entry.kind === kind);
+		const entries = result.loaded.filter(
+			(entry: Untyped) => entry.kind === kind,
+		);
 		if (!entries.length) lines.push("  (none)");
 		for (const entry of entries) {
 			lines.push(`  ${clean(source(entry))}  ${size(entry)}`);
@@ -241,9 +245,9 @@ export function formatProof(result) {
 			`Workflow declarations: ${result.workflow.status}; runtime: unverified`,
 		);
 		for (const peer of result.workflow.peers) {
-			const release = (digest) => {
+			const release = (digest: Untyped) => {
 				const pkg = result.workflowPeerPackages.find(
-					(pkg) => pkg.revisionDigest === digest,
+					(pkg: Untyped) => pkg.revisionDigest === digest,
 				);
 				return `${pkg.name}@${pkg.version} revision:${digest}`;
 			};
@@ -263,7 +267,7 @@ export function formatProof(result) {
 		"Available, not injected",
 	);
 	const remaining = result.available.filter(
-		(entry) => entry.type !== "host" && !loadedIDs.has(entry.id),
+		(entry: Untyped) => entry.type !== "host" && !loadedIDs.has(entry.id),
 	);
 	if (!remaining.length) lines.push("  (none)");
 	for (const entry of remaining) {
@@ -279,7 +283,7 @@ export function formatProof(result) {
 		"Host-native skills (invoked through the host; bytes not counted)",
 	);
 	if (!result.diagnostics.hostSkills.length) lines.push("  (none)");
-	const usability = (entry) =>
+	const usability = (entry: Untyped) =>
 		entry.usable === null
 			? "; host compatibility unknown; invocation not verified"
 			: entry.usable
@@ -317,9 +321,11 @@ export function formatProof(result) {
 }
 
 // Agent-facing resolution: everything the model needs, so it never parses agents.yaml itself.
-/** @param {any} result @param {{root?: string, storeRoot?: string}} [context] */
-export function formatContext(result, { root, storeRoot } = {}) {
-	const args = [];
+export function formatContext(
+	result: Untyped,
+	{ root, storeRoot }: { root?: string; storeRoot?: string } = {},
+) {
+	const args: string[] = [];
 	if (root !== undefined) args.push("--root", root);
 	if (storeRoot !== undefined) args.push("--store", storeRoot);
 	if (result.host) args.push("--host", result.host);
@@ -332,11 +338,11 @@ export function formatContext(result, { root, storeRoot } = {}) {
 		...(
 			result.requestedSkills ??
 			result.loaded
-				.filter((entry) => entry.kind === "requested-skill")
-				.map((entry) => entry.id)
-		).flatMap((id) => ["--skill", id]),
+				.filter((entry: Untyped) => entry.kind === "requested-skill")
+				.map((entry: Untyped) => entry.id)
+		).flatMap((id: string) => ["--skill", id]),
 	);
-	const skill = (entry) => {
+	const skill = (entry: Untyped) => {
 		if (entry.package) {
 			const identity = `${clean(entry.package.name)}@${clean(entry.package.version)} (sha256 ${clean(entry.package.sha256)})`;
 			if (entry.type === "host")
@@ -353,7 +359,7 @@ export function formatContext(result, { root, storeRoot } = {}) {
 		}
 		return entry.type === "host"
 			? `Invoke the ${clean(entry.host)} skill \`${clean(entry.hostId)}\` through your host's skill mechanism.`
-			: `Read \`${clean(entry.path)}\`.${entry.resources?.length ? ` Declared resources (not injected): ${entry.resources.map((file) => `\`${clean(file)}\``).join(", ")}.` : ""}`;
+			: `Read \`${clean(entry.path)}\`.${entry.resources?.length ? ` Declared resources (not injected): ${entry.resources.map((file: Untyped) => `\`${clean(file)}\``).join(", ")}.` : ""}`;
 	};
 	const reminder = integrations.find(
 		(adapter) => adapter.id === result.host,
@@ -367,7 +373,7 @@ export function formatContext(result, { root, storeRoot } = {}) {
 		"This output supersedes Agent Profiles profile, role, and skill instructions from any earlier run in this context,",
 		"including copies your host re-attached after compaction.",
 	];
-	const titles = {
+	const titles: Record<string, string> = {
 		profile: "Profile",
 		role: "Role",
 		"required-skill": "Required skill",
@@ -395,11 +401,11 @@ export function formatContext(result, { root, storeRoot } = {}) {
 		if (entry.resources?.length)
 			lines.push(
 				"",
-				`Declared resources (not injected): ${entry.resources.map((file) => `\`${file}\``).join(", ")}.`,
+				`Declared resources (not injected): ${entry.resources.map((file: Untyped) => `\`${file}\``).join(", ")}.`,
 			);
 	}
 	const requiredHost = result.required.filter(
-		(entry) => entry.type === "host" && entry.usable !== false,
+		(entry: Untyped) => entry.type === "host" && entry.usable !== false,
 	);
 	if (requiredHost.length) {
 		lines.push(
@@ -415,7 +421,7 @@ export function formatContext(result, { root, storeRoot } = {}) {
 	const loadedIDs = injectedSkillIDs(result);
 	// Another host's skills are never exposed: this host could not invoke them.
 	const available = result.available.filter(
-		(entry) => !loadedIDs.has(entry.id) && entry.usable !== false,
+		(entry: Untyped) => !loadedIDs.has(entry.id) && entry.usable !== false,
 	);
 	if (available.length) {
 		lines.push(

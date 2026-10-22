@@ -18,7 +18,7 @@ import {
 	formatContext,
 	formatProof,
 	resolutionOutput,
-} from "../src/diagnostics.js";
+} from "../src/diagnostics.ts";
 import { inspectRepository } from "../src/inspect.js";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, readStoreFile } from "../src/package-store.ts";

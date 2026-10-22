@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { formatProof } from "../src/diagnostics.js";
+import { formatProof } from "../src/diagnostics.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 import { startVisualizer } from "../src/visualize.ts";
 

@@ -8,7 +8,7 @@ import {
 	formatContext,
 	formatProof,
 	resolutionOutput,
-} from "../src/diagnostics.js";
+} from "../src/diagnostics.ts";
 import { defaultUserRoots } from "../src/external-skills.js";
 import { errorMessage } from "../src/files.ts";
 import { formatInventory, inspectRepository } from "../src/inspect.js";

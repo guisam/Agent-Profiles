@@ -8,7 +8,7 @@ import test from "node:test";
 import vm from "node:vm";
 import { parse, stringify } from "yaml";
 import { planRoleChange } from "../src/configure.ts";
-import { formatContext, resolutionOutput } from "../src/diagnostics.js";
+import { formatContext, resolutionOutput } from "../src/diagnostics.ts";
 import { inspectRepository } from "../src/inspect.js";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage } from "../src/package-store.ts";

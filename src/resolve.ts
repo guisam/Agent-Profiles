@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { parseDocument } from "yaml";
-import { contextDiagnostics, measureFile, measureText } from "./diagnostics.js";
+import { contextDiagnostics, measureFile, measureText } from "./diagnostics.ts";
 import { errorCode, errorMessage, safePath } from "./files.ts";
 import {
 	type Integration,

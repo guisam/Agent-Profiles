@@ -9,7 +9,7 @@ import {
 	formatContext,
 	formatProof,
 	resolutionOutput,
-} from "../src/diagnostics.js";
+} from "../src/diagnostics.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage } from "../src/package-store.ts";
 import { resolveInstructions } from "../src/resolve.ts";

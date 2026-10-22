@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { formatContext } from "../src/diagnostics.js";
+import { formatContext } from "../src/diagnostics.ts";
 import { detectAgents, doctor, install, uninstall } from "../src/install.js";
 import { bootstrapBlock } from "../src/integrations.ts";
 import { parseYaml, resolveInstructions } from "../src/resolve.ts";
