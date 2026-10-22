@@ -26,6 +26,12 @@ comment-preserving edits.
 Node will not strip types inside `node_modules`, so the published package ships
 `dist/`: `npm run build` (also run by `prepack`) emits it with `tsc`.
 
+`npm run test:affected` runs only the test files your uncommitted changes can
+reach (`-- <base>` or `-- a..b` for commits, `--list` to preview). It follows
+imports, treats tests that spawn the CLI as importing everything the CLI does,
+and falls back to the full suite for any change it cannot map. CI still runs
+`npm test`.
+
 `test:package` builds `dist/`, packs the actual npm artifact, checks its contents, installs it in
 an isolated temporary project, invokes the npm executable, and exercises the
 installer, wizard, resolver, doctor, and uninstall. It may need registry access
