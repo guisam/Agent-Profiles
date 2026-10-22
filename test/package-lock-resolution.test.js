@@ -14,7 +14,7 @@ import { inspectRepository } from "../src/inspect.js";
 import { doctor } from "../src/install.js";
 import { installDependencies } from "../src/package-lock.js";
 import { importPackage, lookupPackage } from "../src/package-store.js";
-import { runPreset } from "../src/preset-wizard.js";
+import { runPreset } from "../src/preset-wizard.ts";
 import {
 	applyPresetExport,
 	applyPresetImport,

@@ -25,6 +25,7 @@ const resourceOf = (skill) =>
 			: `file\0${skill.path}`;
 const keyOf = (skill) => `${skill.id}\0${resourceOf(skill)}`;
 
+/** @param {{choices: any[], initial?: any[], label: string, ask: (prompt: string) => Promise<string>, write: (line: string) => void}} options */
 export async function selectSkills({
 	choices,
 	initial = [],
@@ -156,6 +157,7 @@ function summary(plan, write) {
 	write("Proposed configuration is valid.");
 }
 
+/** @param {{root: string, ask: (prompt: string) => Promise<string>, write?: (line: string) => void, external?: boolean, sourceOptions?: object, storeRoot?: string}} options */
 export async function configureRoles({
 	root,
 	ask,

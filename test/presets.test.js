@@ -8,7 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
 import { applyRoleChange, planRoleChange } from "../src/configure.ts";
-import { runPreset } from "../src/preset-wizard.js";
+import { runPreset } from "../src/preset-wizard.ts";
 import {
 	applyPresetExport,
 	applyPresetImport,

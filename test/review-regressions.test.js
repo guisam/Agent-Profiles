@@ -13,7 +13,7 @@ import {
 	install,
 	uninstall,
 } from "../src/install.js";
-import { runPreset } from "../src/preset-wizard.js";
+import { runPreset } from "../src/preset-wizard.ts";
 import { resolveInstructions } from "../src/resolve.js";
 import { startVisualizer } from "../src/visualize.ts";
 import { configureRoles, selectSkills } from "../src/wizard.js";
