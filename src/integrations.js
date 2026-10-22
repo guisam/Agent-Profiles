@@ -1,4 +1,4 @@
-import { readLocal } from "./files.js";
+import { readLocal } from "./files.ts";
 
 export const START = "<!-- agent-profiles:start -->";
 export const END = "<!-- agent-profiles:end -->";

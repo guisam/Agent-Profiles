@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, mkdtempSync, renameSync, rmSync } from "node:fs";
 import path from "node:path";
-import { errorCode, errorMessage } from "./files.js";
+import { errorCode, errorMessage } from "./files.ts";
 import {
 	candidateReservation,
 	encodeComponent,

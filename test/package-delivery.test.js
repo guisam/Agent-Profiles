@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { applyChanges, readLocal } from "../src/files.js";
+import { applyChanges, readLocal } from "../src/files.ts";
 import { installDependencies } from "../src/package-lock.js";
 import { parseManifest, readPackage } from "../src/packages.js";
 import {

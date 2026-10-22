@@ -37,7 +37,7 @@ cannot silently amend it. Relevant implemented seams:
 - [resolve.js](../../src/resolve.js): strict configuration validation, model/alias/
   supplied-family/longest-prefix/default routing, independent role selection, required
   then requested instruction order, and native/injected delivery separation.
-- [files.js](../../src/files.js): guarded paths and rollback after caught errors;
+- [files.ts](../../src/files.ts): guarded paths and rollback after caught errors;
   **not** an immutable concurrent store publication protocol.
 - [configure.js](../../src/configure.js) and [presets.js](../../src/presets.js):
   preview through the resolver, then stale-input checks before mutation.

@@ -17,7 +17,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { errorCode, errorMessage } from "./files.js";
+import { errorCode, errorMessage } from "./files.ts";
 import {
 	canonicalJSON,
 	hashRecord,

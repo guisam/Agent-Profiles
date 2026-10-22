@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { isAlias, isScalar, parseDocument, visit } from "yaml";
-import { errorMessage } from "./files.js";
+import { errorMessage } from "./files.ts";
 import { integrations } from "./integrations.js";
 import {
 	mapping,

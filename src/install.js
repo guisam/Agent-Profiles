@@ -10,7 +10,7 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readConfiguration } from "./configure.js";
-import { applyChanges, errorMessage, readLocal, safePath } from "./files.js";
+import { applyChanges, errorMessage, readLocal, safePath } from "./files.ts";
 import {
 	blockProtocol,
 	expectedBlock,

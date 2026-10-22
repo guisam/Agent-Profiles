@@ -8,7 +8,7 @@ import {
 	errorMessage,
 	readLocal,
 	safePath,
-} from "./files.js";
+} from "./files.ts";
 import { detectAgents } from "./install.js";
 import { integrations } from "./integrations.js";
 import {

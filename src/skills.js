@@ -6,7 +6,7 @@ import {
 	externalMetadata,
 	validateExternalSelection,
 } from "./external-skills.js";
-import { errorMessage, safePath } from "./files.js";
+import { errorMessage, safePath } from "./files.ts";
 import { integrations } from "./integrations.js";
 import {
 	identifier,

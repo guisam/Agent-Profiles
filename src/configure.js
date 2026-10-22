@@ -1,7 +1,7 @@
 import { existsSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { isNode, visit } from "yaml";
-import { applyChanges, readLocal, safePath } from "./files.js";
+import { applyChanges, readLocal, safePath } from "./files.ts";
 import {
 	identifier,
 	localFile,

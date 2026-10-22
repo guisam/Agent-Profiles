@@ -11,7 +11,7 @@ import {
 import path from "node:path";
 import { parseDocument } from "yaml";
 import { contextDiagnostics, measureFile, measureText } from "./diagnostics.js";
-import { errorCode, errorMessage, safePath } from "./files.js";
+import { errorCode, errorMessage, safePath } from "./files.ts";
 import { integrations, managedSurface } from "./integrations.js";
 import { readLockState } from "./package-lock.js";
 import {

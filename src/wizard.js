@@ -4,7 +4,7 @@ import {
 	planRoleChange,
 	readConfiguration,
 } from "./configure.js";
-import { errorMessage } from "./files.js";
+import { errorMessage } from "./files.ts";
 import { resolveInstructions } from "./resolve.js";
 import { discoverSkills } from "./skills.js";
 

@@ -6,13 +6,14 @@ import {
 	readFileSync,
 	renameSync,
 	rmdirSync,
+	type Stats,
 	unlinkSync,
 	writeFileSync,
 } from "node:fs";
 import path from "node:path";
 
 // Catch variables are `unknown`; these read errno codes and messages without assuming an Error was thrown.
-export function errorCode(error) {
+export function errorCode(error: unknown): string | undefined {
 	return error instanceof Error &&
 		"code" in error &&
 		typeof error.code === "string"
@@ -20,11 +21,11 @@ export function errorCode(error) {
 		: undefined;
 }
 
-export function errorMessage(error) {
+export function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
-export function safePath(root, file) {
+export function safePath(root: string, file: string): string {
 	const target = path.resolve(root, file);
 	const relative = path.relative(root, target);
 	if (
@@ -38,7 +39,7 @@ export function safePath(root, file) {
 	let current = root;
 	for (const part of relative.split(path.sep)) {
 		current = path.join(current, part);
-		let stat;
+		let stat: Stats;
 		try {
 			stat = lstatSync(current);
 		} catch (error) {
@@ -56,7 +57,7 @@ export function safePath(root, file) {
 	return target;
 }
 
-export function readLocal(root, file) {
+export function readLocal(root: string, file: string): Buffer | null {
 	const target = safePath(root, file);
 	try {
 		return readFileSync(target);
@@ -66,13 +67,20 @@ export function readLocal(root, file) {
 	}
 }
 
-function snapshotMatches(actual, expected) {
+function snapshotMatches(actual: Buffer | null, expected: Buffer | null) {
 	return actual === null
 		? expected === null
 		: expected !== null && actual.equals(expected);
 }
 
-function writeChange(root, { file, before, after }) {
+/** A whole-file replacement; null means the file is absent. */
+export type FileChange = {
+	file: string;
+	before: Buffer | null;
+	after: Buffer | null;
+};
+
+function writeChange(root: string, { file, before, after }: FileChange) {
 	const target = safePath(root, file);
 	if (!snapshotMatches(readLocal(root, file), before))
 		throw new Error(`${file}: changed during the operation; retry`);
@@ -97,13 +105,17 @@ function writeChange(root, { file, before, after }) {
 	}
 }
 
-export function applyChanges(root, changes, validate = () => {}) {
-	const written = [];
-	const directories = [];
+export function applyChanges(
+	root: string,
+	changes: FileChange[],
+	validate: () => unknown = () => {},
+): string[] {
+	const written: FileChange[] = [];
+	const directories: string[] = [];
 	try {
 		for (const change of changes) {
 			const target = safePath(root, change.file);
-			const missing = [];
+			const missing: string[] = [];
 			for (
 				let dir = path.dirname(target);
 				dir !== root && !existsSync(dir);
@@ -119,7 +131,7 @@ export function applyChanges(root, changes, validate = () => {}) {
 		}
 		validate();
 	} catch (error) {
-		const failures = [];
+		const failures: string[] = [];
 		for (const change of written.reverse()) {
 			try {
 				writeChange(root, {

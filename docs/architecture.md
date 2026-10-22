@@ -95,7 +95,7 @@ explicit repository root to the synchronous installer and configuration APIs.
   and bootstrap changes (replacing outdated managed blocks), then checks the
   result with doctor. Uninstall removes managed spans even if routing
   configuration is broken.
-- `files.js` checks mutation paths and snapshots, writes temporary sibling files,
+- `files.ts` checks mutation paths and snapshots, writes temporary sibling files,
   and rolls completed writes back after reported failures. Existing user files
   are preserved; configuration deletion requires separate explicit confirmation.
 - `wizard.js` gathers a proposed role edit using local discovery from `skills.js`.

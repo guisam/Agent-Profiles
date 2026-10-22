@@ -1,6 +1,6 @@
 // Inspection must not render parser messages: they can embed private source text.
 // Other discovery consumers retain their existing detailed diagnostics by default.
-import { errorCode, errorMessage } from "./files.js";
+import { errorCode, errorMessage } from "./files.ts";
 
 export function discoveryError(error: unknown, metadataOnly = false): string {
 	if (!metadataOnly) return errorMessage(error);

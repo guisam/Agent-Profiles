@@ -10,7 +10,7 @@ import {
 	resolutionOutput,
 } from "../src/diagnostics.js";
 import { defaultUserRoots } from "../src/external-skills.js";
-import { errorMessage } from "../src/files.js";
+import { errorMessage } from "../src/files.ts";
 import { formatInventory, inspectRepository } from "../src/inspect.js";
 import {
 	detectAgents,
