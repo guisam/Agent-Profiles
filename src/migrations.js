@@ -14,6 +14,7 @@ import { installDependencies } from "./package-lock.js";
 import {
 	candidateIndex,
 	candidateReservation,
+	inStoreSession,
 	lookupPackage,
 	storeRoot as packageStoreRoot,
 	publish,
@@ -292,7 +293,7 @@ function overlay(rebuilt) {
 }
 
 /** Start-only groundwork: no candidate publication, package fork or active binding mutation. */
-export function startMigration(input) {
+function startMigrationOperation(input) {
 	fields(input, ["root", "role", "model", "host"], ["storeRoot", "sharing"]);
 	const scope = { role: input.role, model: input.model, host: input.host };
 	assignment(scope);
@@ -475,7 +476,7 @@ function status(root, record) {
 	};
 }
 
-export function migrationStatus(input) {
+function migrationStatusOperation(input) {
 	fields(input, ["root"], ["id"]);
 	const root = rootDirectory(input.root);
 	return input.id === undefined
@@ -483,7 +484,7 @@ export function migrationStatus(input) {
 		: status(root, readRecord(root, input.id));
 }
 
-export function abandonMigration(input) {
+function abandonMigrationOperation(input) {
 	fields(input, ["root", "id", "reason"]);
 	migrationId(input.id);
 	text(input.reason, "reason");
@@ -729,7 +730,7 @@ function stagedProposalHistory(root, lock, record, history, entries) {
 }
 
 /** Import caller-supplied claims as advisory data; no workspace or active edits. */
-export function proposeMigration(input) {
+function proposeMigrationOperation(input) {
 	fields(input, ["root", "id", "proposalFile"], ["storeRoot"]);
 	migrationId(input.id);
 	text(input.proposalFile, "proposalFile");
@@ -780,14 +781,14 @@ export function proposeMigration(input) {
 	});
 }
 
-export function migrationProposals(input) {
+function migrationProposalsOperation(input) {
 	fields(input, ["root", "id"]);
 	const root = rootDirectory(input.root),
 		record = readRecord(root, input.id);
 	return proposalHistory(root, record).entries;
 }
 
-export function rejectMigrationProposal(input) {
+function rejectMigrationProposalOperation(input) {
 	fields(input, ["root", "id", "proposalId", "reason"], ["storeRoot"]);
 	migrationId(input.id);
 	proposalId(input.proposalId);
@@ -816,7 +817,7 @@ export function rejectMigrationProposal(input) {
 	});
 }
 
-export function acceptMigrationProposal(input) {
+function acceptMigrationProposalOperation(input) {
 	fields(input, ["root", "id", "proposalId"], ["storeRoot"]);
 	migrationId(input.id);
 	proposalId(input.proposalId);
@@ -1019,7 +1020,7 @@ function candidateManifest(value) {
 	canonicalJSON(value);
 }
 
-export function migrationCandidate(input) {
+function migrationCandidateOperation(input) {
 	fields(input, ["id"], ["storeRoot"], "candidate read");
 	const storeRoot = packageStoreRoot(input.storeRoot),
 		index = candidateIndex(storeRoot, input.id);
@@ -1039,7 +1040,7 @@ export function migrationCandidate(input) {
 	return index;
 }
 
-export function publishMigrationCandidate(input) {
+function publishMigrationCandidateOperation(input) {
 	fields(
 		input,
 		["root", "id", "manifestFile"],
@@ -1668,7 +1669,7 @@ function evaluationPlanByDigest(store, digest) {
 		throw new Error("evaluation plan: immutable index binding mismatch");
 	return evaluationPlanBacking(store, plan);
 }
-export function migrationEvaluationPlan(input) {
+function migrationEvaluationPlanOperation(input) {
 	fields(input, ["id"], ["storeRoot"], "evaluation plan read");
 	const store = packageStoreRoot(input.storeRoot),
 		index = evaluationIndex(store, "plans", input.id);
@@ -1911,7 +1912,7 @@ function evaluationReport(plan, results, planDigest, resultDigest) {
 		metrics: evaluationSummary(results.outcomes),
 	};
 }
-export function migrationEvaluationReport(input) {
+function migrationEvaluationReportOperation(input) {
 	fields(input, ["id"], ["storeRoot"], "evaluation report");
 	const store = packageStoreRoot(input.storeRoot),
 		index = evaluationIndex(store, "results", input.id);
@@ -2056,7 +2057,7 @@ function retainEvaluation(input, kind, sourceFile, validate) {
 		rmSync(storeWriter, { recursive: true, force: true });
 	}
 }
-export function planMigrationEvaluation(input) {
+function planMigrationEvaluationOperation(input) {
 	fields(
 		input,
 		["root", "candidateId", "planFile"],
@@ -2070,7 +2071,7 @@ export function planMigrationEvaluation(input) {
 		evaluationPlanBacking(store, plan);
 	});
 }
-export function importMigrationEvaluationResults(input) {
+function importMigrationEvaluationResultsOperation(input) {
 	fields(
 		input,
 		["root", "planId", "resultFile"],
@@ -2474,7 +2475,7 @@ const promotionSummary = (plan) => ({
 	},
 });
 
-export function previewMigrationPromotion(input) {
+function previewMigrationPromotionOperation(input) {
 	const plan = promotionPlan(input, "promotion preview"),
 		summary = promotionSummary(plan);
 	return {
@@ -2489,7 +2490,7 @@ export function previewMigrationPromotion(input) {
 	};
 }
 
-export function applyMigrationPromotion(input) {
+function applyMigrationPromotionOperation(input) {
 	const plan = promotionPlan(input, "promotion apply"),
 		{ store, root, decision, evidence } = plan,
 		summary = promotionSummary(plan);
@@ -2636,7 +2637,7 @@ export function applyMigrationPromotion(input) {
 }
 
 // Rootless verified readback: decision, evidence relations and public release admission.
-export function migrationPromotion(input) {
+function migrationPromotionOperation(input) {
 	fields(input, ["id"], ["storeRoot"], "promotion read");
 	const store = packageStoreRoot(input.storeRoot),
 		index = readPromotionIndex(store, input.id),
@@ -2657,3 +2658,38 @@ export function migrationPromotion(input) {
 		release,
 	};
 }
+
+export const startMigration = inStoreSession(startMigrationOperation);
+export const migrationStatus = inStoreSession(migrationStatusOperation);
+export const abandonMigration = inStoreSession(abandonMigrationOperation);
+export const proposeMigration = inStoreSession(proposeMigrationOperation);
+export const migrationProposals = inStoreSession(migrationProposalsOperation);
+export const rejectMigrationProposal = inStoreSession(
+	rejectMigrationProposalOperation,
+);
+export const acceptMigrationProposal = inStoreSession(
+	acceptMigrationProposalOperation,
+);
+export const migrationCandidate = inStoreSession(migrationCandidateOperation);
+export const publishMigrationCandidate = inStoreSession(
+	publishMigrationCandidateOperation,
+);
+export const migrationEvaluationPlan = inStoreSession(
+	migrationEvaluationPlanOperation,
+);
+export const migrationEvaluationReport = inStoreSession(
+	migrationEvaluationReportOperation,
+);
+export const planMigrationEvaluation = inStoreSession(
+	planMigrationEvaluationOperation,
+);
+export const importMigrationEvaluationResults = inStoreSession(
+	importMigrationEvaluationResultsOperation,
+);
+export const previewMigrationPromotion = inStoreSession(
+	previewMigrationPromotionOperation,
+);
+export const applyMigrationPromotion = inStoreSession(
+	applyMigrationPromotionOperation,
+);
+export const migrationPromotion = inStoreSession(migrationPromotionOperation);

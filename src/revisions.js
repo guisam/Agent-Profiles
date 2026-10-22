@@ -5,11 +5,13 @@ import { errorCode, errorMessage } from "./files.ts";
 import {
 	candidateReservation,
 	encodeComponent,
+	inStoreSession,
 	lookupPackage,
 	publish,
 	readStoreFile,
 	rootPath,
 	safePath,
+	sessionMemo,
 	statOrNull,
 	storeRoot,
 	verifyObject,
@@ -526,6 +528,15 @@ function verify(root, manifest, recordDigest, state) {
 export function readRevisionRecord({ storeRoot: selected, recordDigest }) {
 	const root = storeRoot(selected);
 	digest(recordDigest, "recordDigest");
+	// Records are content-addressed; within one store session a verified record is reused.
+	return structuredClone(
+		sessionMemo(`record\0${root}\0${recordDigest}`, () =>
+			readRecordAt(root, recordDigest),
+		),
+	);
+}
+
+function readRecordAt(root, recordDigest) {
 	const bytes = readStoreFile(root, recordPath(recordDigest)),
 		manifest = parseRecord(bytes);
 	validate(manifest);
@@ -787,7 +798,7 @@ export function lookupRevisionManifest({ storeRoot: selected, recordDigest }) {
 }
 
 // Dependency-first verified backing, without selecting an actor or asserting readiness.
-export function revisionClosure({
+function revisionClosureOperation({
 	storeRoot: selected,
 	name,
 	version,
@@ -835,7 +846,10 @@ export function revisionClosure({
 	return result;
 }
 
-export function retainRevisionManifest({ storeRoot: selected, manifestFile }) {
+function retainRevisionManifestOperation({
+	storeRoot: selected,
+	manifestFile,
+}) {
 	if (typeof manifestFile !== "string" || !manifestFile.trim())
 		fail("manifestFile", "expected local file");
 	const source = path.resolve(manifestFile),
@@ -922,3 +936,8 @@ export function retainRevisionManifest({ storeRoot: selected, manifestFile }) {
 		}
 	}
 }
+
+export const revisionClosure = inStoreSession(revisionClosureOperation);
+export const retainRevisionManifest = inStoreSession(
+	retainRevisionManifestOperation,
+);

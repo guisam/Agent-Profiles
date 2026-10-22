@@ -19,6 +19,7 @@ import { errorCode, errorMessage, safePath } from "./files.ts";
 import {
 	candidateReservation,
 	importPackage,
+	inStoreSession,
 	lookupPackage,
 } from "./package-store.js";
 import {
@@ -385,7 +386,7 @@ function coverage(lock, { pins, wanted }) {
  * @param {string} root canonical project root @param {{config: Map<string, any>, bindings: Map<string, any>}} validated
  * @returns {{state: 'valid' | 'missing' | 'stale' | 'invalid', error?: string, locked?: Map<string, {sha256: string}>}}
  */
-export function readLockState(root, validated, storeRoot = undefined) {
+function readLockStateOperation(root, validated, storeRoot = undefined) {
 	const configSha256 = configDigest(validated.config);
 	try {
 		const found = input(root, lockFile);
@@ -416,7 +417,7 @@ export function readLockState(root, validated, storeRoot = undefined) {
 }
 
 /** @param {{root: string, storeRoot?: string, sources?: {name: string, version: string, directory: string}[], frozen?: boolean, offline?: boolean}} options */
-export function installDependencies({
+function installDependenciesOperation({
 	root,
 	storeRoot,
 	sources = [],
@@ -626,3 +627,6 @@ export function installDependencies({
 		rmSync(writer, { recursive: true, force: true });
 	}
 }
+
+export const readLockState = inStoreSession(readLockStateOperation);
+export const installDependencies = inStoreSession(installDependenciesOperation);

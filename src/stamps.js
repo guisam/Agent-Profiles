@@ -11,6 +11,7 @@ import path from "node:path";
 import { errorCode, errorMessage } from "./files.ts";
 import { integrations } from "./integrations.js";
 import {
+	inStoreSession,
 	publish,
 	readStoreFile,
 	rootPath,
@@ -19,6 +20,7 @@ import {
 	statOrNull,
 	storeRoot,
 	verifyObject,
+	withFreshReads,
 	writeFlushed,
 } from "./package-store.js";
 import {
@@ -978,7 +980,7 @@ function manifestRelations2(s, packages, root) {
 			provenance.evaluationBase,
 			provenance.migrationBase,
 		])
-			reconstructStamp({ storeRoot: root, digest: reference });
+			reconstructStampOperation({ storeRoot: root, digest: reference });
 		const oldSelection = {
 			role: original.selection.role,
 			model:
@@ -1917,12 +1919,12 @@ function captureStamp(input = {}, candidateDigest = null) {
 	}
 }
 
-export function createStamp(input = {}) {
+function createStampOperation(input = {}) {
 	return captureStamp(input);
 }
 
 // Internal typed capture only; active public options and legacy bytes remain unchanged.
-export function createCandidateStamp(input, recordDigest) {
+function createCandidateStampOperation(input, recordDigest) {
 	digest(recordDigest, "candidate");
 	return captureStamp(input, recordDigest);
 }
@@ -2004,13 +2006,13 @@ function inspect(input) {
 }
 
 /** @param {{digest: string, storeRoot?: string}} input */
-export function verifyStamp(input) {
+function verifyStampOperation(input) {
 	options(input, ["digest", "storeRoot"]);
 	return inspect(input).report;
 }
 
 /** @param {{before: string, after: string, storeRoot?: string}} input */
-export function diffStamps(input) {
+function diffStampsOperation(input) {
 	options(input, ["before", "after", "storeRoot"]);
 	digest(input.before, "before");
 	digest(input.after, "after");
@@ -2066,7 +2068,7 @@ export function diffStamps(input) {
 }
 
 /** @param {{digest: string, storeRoot?: string, nativeReady?: boolean}} input */
-export function reconstructStamp(input) {
+function reconstructStampOperation(input) {
 	options(input, ["digest", "storeRoot", "nativeReady"]);
 	if (input.nativeReady !== undefined && typeof input.nativeReady !== "boolean")
 		fail("nativeReady", "expected boolean");
@@ -2120,3 +2122,11 @@ export function reconstructStamp(input) {
 			: {}),
 	};
 }
+
+export const createStamp = inStoreSession(createStampOperation);
+export const createCandidateStamp = inStoreSession(
+	createCandidateStampOperation,
+);
+export const verifyStamp = withFreshReads(verifyStampOperation);
+export const diffStamps = withFreshReads(diffStampsOperation);
+export const reconstructStamp = withFreshReads(reconstructStampOperation);

@@ -16,6 +16,7 @@ import { integrations, managedSurface } from "./integrations.js";
 import { readLockState } from "./package-lock.js";
 import {
 	safePath as guardedPath,
+	inStoreSession,
 	lookupPackage,
 	verifyObject,
 } from "./package-store.js";
@@ -1823,17 +1824,17 @@ function resolveCore(
 	};
 }
 
-export function resolveInstructions(input = {}) {
+function resolveInstructionsOperation(input = {}) {
 	return resolveCore(input).resolution;
 }
 
 // Internal capture uses the same selected roots and required-only actors as normal resolution.
-export function resolveCapture(input = {}) {
+function resolveCaptureOperation(input = {}) {
 	return resolveCore(input);
 }
 
 // Internal sharing inventory retains validated selection and composition without claiming workflow readiness.
-export function resolveSharingSelection(input = {}) {
+function resolveSharingSelectionOperation(input = {}) {
 	const { resolution, evidence } = resolveCore(input, null, false);
 	return {
 		resolution: {
@@ -1846,7 +1847,7 @@ export function resolveSharingSelection(input = {}) {
 }
 
 // Internal candidate capture validates normal selection first; no public option bypasses the lock.
-export function resolveCandidateCapture(input, recordDigest) {
+function resolveCandidateCaptureOperation(input, recordDigest) {
 	const normal = resolveCore(input).resolution,
 		record = readRevisionRecord({ storeRoot: input.storeRoot, recordDigest });
 	if (record.kind !== "candidate")
@@ -1895,3 +1896,12 @@ export function resolveCandidateCapture(input, recordDigest) {
 	};
 	return resolveCore(input, candidate);
 }
+
+export const resolveInstructions = inStoreSession(resolveInstructionsOperation);
+export const resolveCapture = inStoreSession(resolveCaptureOperation);
+export const resolveSharingSelection = inStoreSession(
+	resolveSharingSelectionOperation,
+);
+export const resolveCandidateCapture = inStoreSession(
+	resolveCandidateCaptureOperation,
+);

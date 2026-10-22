@@ -116,17 +116,64 @@ function rootPath(value, label, create = false) {
 	return target;
 }
 
+// One store operation: directories validated in it are trusted for its remainder, and
+// content-addressed objects and records verified in it are reused. Nested calls join it.
+let session = null;
+let freshDepth = 0;
+
+export function storeSession(operation) {
+	if (session || freshDepth) return operation();
+	session = { dirs: new Set(), memo: new Map() };
+	try {
+		return operation();
+	} finally {
+		session = null;
+	}
+}
+
+/** @template {(...args: any[]) => any} F @param {F} fn @returns {F} */
+export function inStoreSession(fn) {
+	return /** @type {F} */ ((...args) => storeSession(() => fn(...args)));
+}
+
+// Audit commands must independently re-read every byte, so they bypass every cache.
+/** @template {(...args: any[]) => any} F @param {F} fn @returns {F} */
+export function withFreshReads(fn) {
+	return /** @type {F} */ (
+		(...args) => {
+			const outer = session;
+			session = null;
+			freshDepth++;
+			try {
+				return fn(...args);
+			} finally {
+				freshDepth--;
+				session = outer;
+			}
+		}
+	);
+}
+
+export function sessionMemo(key, compute) {
+	if (!session) return compute();
+	if (!session.memo.has(key)) session.memo.set(key, compute());
+	return session.memo.get(key);
+}
+
 function storeRoot(value, create = false) {
-	const root = rootPath(storeSelection(value), "store", create);
-	for (const member of [
-		"objects",
-		"objects/sha256",
-		"identities",
-		".staging",
-		".writer-lock",
-	])
-		safePath(root, member);
-	return root;
+	const selected = storeSelection(value);
+	return sessionMemo(`storeRoot\0${selected}\0${create}`, () => {
+		const root = rootPath(selected, "store", create);
+		for (const member of [
+			"objects",
+			"objects/sha256",
+			"identities",
+			".staging",
+			".writer-lock",
+		])
+			safePath(root, member);
+		return root;
+	});
 }
 
 function storeSelection(value) {
@@ -137,13 +184,27 @@ function storeSelection(value) {
 }
 
 function safePath(root, relative) {
+	// Staging directories are created and renamed away mid-operation, so they are never trusted.
+	const trusted =
+		relative === ".staging" || relative.startsWith(".staging/")
+			? undefined
+			: session?.dirs;
 	let current = root;
-	if (statOrNull(root)) directory(root);
+	if (!trusted?.has(root)) {
+		const rootStat = statOrNull(root);
+		if (rootStat?.isSymbolicLink())
+			throw new Error(`${root}: link/junction is forbidden`);
+		if (rootStat && !rootStat.isDirectory())
+			throw new Error(`${root}: expected a directory`);
+		if (rootStat) trusted?.add(root);
+	}
 	const components = relative.split("/");
 	for (let i = 0; i < components.length; i++) {
 		current = path.join(current, components[i]);
+		if (trusted?.has(current)) continue;
 		const stat = statOrNull(current);
 		if (!stat) continue;
+		if (stat.isDirectory() && !stat.isSymbolicLink()) trusted?.add(current);
 		if (stat.isSymbolicLink())
 			throw new Error(`${current}: link/junction is forbidden`);
 		if (i < components.length - 1 && !stat.isDirectory())
@@ -195,16 +256,20 @@ function scan(root) {
 	return { rootStat, members };
 }
 
-function unchanged(before, after) {
-	if (
-		!sameStat(before.rootStat, after.rootStat) ||
-		before.members.length !== after.members.length ||
-		before.members.some(
+function sameSnapshot(before, after) {
+	return (
+		sameStat(before.rootStat, after.rootStat) &&
+		before.members.length === after.members.length &&
+		before.members.every(
 			(member, i) =>
-				member.path !== after.members[i].path ||
-				!sameStat(member.stat, after.members[i].stat),
+				member.path === after.members[i].path &&
+				sameStat(member.stat, after.members[i].stat),
 		)
-	) {
+	);
+}
+
+function unchanged(before, after) {
+	if (!sameSnapshot(before, after)) {
 		throw new Error(
 			"source/tree changed: membership, metadata or read identity",
 		);
@@ -278,6 +343,11 @@ export {
 };
 
 function readTree(root, copy = undefined, onFirst = undefined) {
+	return readTreeSnapshot(root, copy, onFirst).files;
+}
+
+// The snapshot is the one the bytes were read under, confirmed unchanged after reading.
+function readTreeSnapshot(root, copy = undefined, onFirst = undefined) {
 	const snapshot = scan(root);
 	const files = [];
 	for (const member of snapshot.members.filter(
@@ -293,7 +363,7 @@ function readTree(root, copy = undefined, onFirst = undefined) {
 		if (files.length === 1) onFirst?.();
 	}
 	unchanged(snapshot, scan(root));
-	return files;
+	return { files, snapshot };
 }
 
 function writeFlushed(target, bytes) {
@@ -362,26 +432,47 @@ function recordAt(root, target, name, version) {
 	return record;
 }
 
+// Verified objects, reused only while every link check and member stat still matches
+// the snapshot the bytes were hashed under; any change on disk forces a full re-read.
+// ponytail: unbounded, one entry per object a process touches; add eviction if a
+// long-running caller ever walks a large store.
+const verified = new Map();
+
 function verifyObject(root, sha256, identity) {
+	const key = `${root}\0${sha256}`;
+	const entry = sessionMemo(`object\0${key}`, () =>
+		verifyObjectAt(root, sha256, key),
+	);
+	if (entry.name !== identity.name || entry.version !== identity.version)
+		throw new Error("object: manifest identity mismatch");
+	return [...entry.files];
+}
+
+function verifyObjectAt(root, sha256, key) {
 	const object = safePath(root, `objects/sha256/${sha256}`);
-	directory(object);
+	const objectStat = directory(object);
 	if (readdirSync(object).join(",") !== "tree")
 		throw new Error("object: unexpected membership outside tree");
 	const tree = safePath(root, `objects/sha256/${sha256}/tree`);
-	const files = readTree(tree);
-	if (hashTree(files) !== sha256)
-		throw new Error(`object: digest mismatch ${sha256}`);
-	const manifestFile = files.find((file) => file.path === "package.yaml");
-	if (!manifestFile) throw new Error("object: package.yaml missing");
-	const manifest = parseManifest(manifestFile.bytes);
+	let entry = freshDepth ? undefined : verified.get(key);
 	if (
-		manifest.package.name !== identity.name ||
-		manifest.package.version !== identity.version
-	)
-		throw new Error("object: manifest identity mismatch");
-	return files.sort((a, b) =>
-		Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)),
-	);
+		!entry ||
+		!sameStat(entry.objectStat, objectStat) ||
+		!sameSnapshot(entry.snapshot, scan(tree))
+	) {
+		const { files, snapshot } = readTreeSnapshot(tree);
+		if (hashTree(files) !== sha256)
+			throw new Error(`object: digest mismatch ${sha256}`);
+		const manifestFile = files.find((file) => file.path === "package.yaml");
+		if (!manifestFile) throw new Error("object: package.yaml missing");
+		const { name, version } = parseManifest(manifestFile.bytes).package;
+		files.sort((a, b) =>
+			Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)),
+		);
+		entry = { objectStat, snapshot, files, name, version };
+		if (!freshDepth) verified.set(key, entry);
+	}
+	return entry;
 }
 
 function publish(from, to, rename) {
