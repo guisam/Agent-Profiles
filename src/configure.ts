@@ -11,7 +11,7 @@ import {
 	skillMetadata,
 	type YamlMap,
 } from "./resolve.ts";
-import { validateSkillSelection } from "./skills.js";
+import { validateSkillSelection } from "./skills.ts";
 
 const configFile = ".agent-profiles/agents.yaml";
 
@@ -57,7 +57,8 @@ export function readConfiguration(
 export type PackageSelection = {
 	name: string;
 	version: string;
-	sha256: string;
+	// Absent for declared package skills; planRoleChange then reports the binding as changed.
+	sha256?: string;
 	revisionDigest?: string | null;
 	binding: string;
 };
@@ -137,7 +138,7 @@ export function planRoleChange({
 			},
 		});
 	const aliases: { id: string; originalId: string; path: string }[] = [];
-	const selectionChecks: SkillSelection[] = [];
+	const selectionChecks: Exclude<SkillSelection, string>[] = [];
 	const packageSelections: { id: string; package: PackageSelection }[] = [];
 	const changes: FileChange[] = [];
 	let newRoleFile: { path: string; content: string } | undefined;

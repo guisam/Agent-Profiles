@@ -49,7 +49,7 @@ The CI matrix runs these checks on Windows, macOS, and Linux with Node 24.
   browser UI consuming resolver diagnostics; no build step or UI dependencies.
 - `src/integrations.ts`: agent instruction targets and managed bootstrap text.
 - `src/install.js`, `src/files.ts`: installer lifecycle and guarded file writes.
-- `src/configure.ts`, `src/skills.js`, `src/wizard.ts`: validated role edits, local
+- `src/configure.ts`, `src/skills.ts`, `src/wizard.ts`: validated role edits, local
   skill discovery, and terminal prompts.
 - `src/presets.ts`, `src/preset-wizard.ts`: local preset inspection, import/export
   plans, and prompts reusing the existing selector and role wizard.

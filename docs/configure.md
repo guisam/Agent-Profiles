@@ -103,7 +103,7 @@ Other roles can continue to reference the original `testing`. Skill files are
 never copied, rewritten, or deleted. Unused source mappings are retained.
 
 Additional repository layouts can be added through the source adapter table in
-[skills.js](../src/skills.js) or explicit repository-local file mappings.
+[skills.ts](../src/skills.ts) or explicit repository-local file mappings.
 External discovery is opt-in as described below; no remote registry is queried.
 Manual user/plugin native references remain supported and installation-unverified.
 Editing a role retains these references even when their metadata is unavailable.

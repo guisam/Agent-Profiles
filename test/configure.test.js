@@ -13,7 +13,7 @@ import {
 	readConfiguration,
 } from "../src/configure.ts";
 import { resolveInstructions } from "../src/resolve.ts";
-import { discoverSkills } from "../src/skills.js";
+import { discoverSkills } from "../src/skills.ts";
 import { configureRoles, selectSkills } from "../src/wizard.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));

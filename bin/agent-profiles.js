@@ -43,7 +43,7 @@ import { readPackage } from "../src/packages.ts";
 import { runPreset } from "../src/preset-wizard.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 import { retainRevisionManifest } from "../src/revisions.ts";
-import { discoverSkills } from "../src/skills.js";
+import { discoverSkills } from "../src/skills.ts";
 import { createStamp, diffStamps, verifyStamp } from "../src/stamps.js";
 import { startVisualizer } from "../src/visualize.ts";
 import { configureRoles, display as displayText } from "../src/wizard.ts";

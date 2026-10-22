@@ -28,7 +28,7 @@ import {
 	planPresetImport,
 } from "../src/presets.ts";
 import { parseYaml, resolveInstructions } from "../src/resolve.ts";
-import { discoverSkills } from "../src/skills.js";
+import { discoverSkills } from "../src/skills.ts";
 import { startVisualizer } from "../src/visualize.ts";
 import { configureRoles } from "../src/wizard.ts";
 

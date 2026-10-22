@@ -12,7 +12,7 @@ import { formatInventory, inspectRepository } from "../src/inspect.js";
 import { doctor, install } from "../src/install.js";
 import { applyPresetExport, planPresetExport } from "../src/presets.ts";
 import { resolveInstructions } from "../src/resolve.ts";
-import { discoverSkills } from "../src/skills.js";
+import { discoverSkills } from "../src/skills.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 const cliFile = path.join(project, "bin/agent-profiles.js");

@@ -14,10 +14,51 @@ import {
 	localFile,
 	mapping,
 	skillMetadata,
+	type YamlMap,
 } from "./resolve.ts";
 
+/** An inventory entry: a discovered local/external skill, a configured reference, or a resolved skill. */
+export type DiscoveredSkill = {
+	id: string;
+	path?: string | null;
+	host?: string | null;
+	hostId?: string | null;
+	scope?: string;
+	name?: string;
+	nameSource?: string;
+	description?: string | null;
+	type?: string;
+	source?: string;
+	availability?: string;
+	runtime?: string;
+	selectable?: boolean;
+	verification?: string;
+	canonicalPath?: string;
+	external?: boolean;
+	resources?: string[];
+	package?: {
+		binding: string;
+		name: string;
+		version: string;
+		// Declared package skills have no verified digest yet.
+		sha256?: string;
+		revisionDigest?: string | null;
+	};
+};
+
+type NativeReference = {
+	id: string;
+	host: string;
+	hostId: string;
+	scope: string;
+};
+
 // Repository instruction files continue to use the original containment rules.
-function directorySkills(root, directory, host) {
+function directorySkills(
+	root: string,
+	directory: string,
+	host?: string,
+): DiscoveredSkill[] {
 	const target = safePath(root, directory);
 	if (!existsSync(target)) return [];
 	return readdirSync(target, { withFileTypes: true })
@@ -33,22 +74,29 @@ function directorySkills(root, directory, host) {
 export const skillSources = [
 	{
 		id: "agent-profiles",
-		enumerate: (root) => directorySkills(root, ".agent-profiles/skills"),
+		enumerate: (root: string) =>
+			directorySkills(root, ".agent-profiles/skills"),
 	},
 	{
 		id: "claude",
-		enumerate: (root) => directorySkills(root, ".claude/skills", "claude"),
+		enumerate: (root: string) =>
+			directorySkills(root, ".claude/skills", "claude"),
 	},
 ];
-const nativeKey = (skill) => `${skill.host}\0${skill.scope}\0${skill.hostId}`;
+const nativeKey = (skill: Pick<DiscoveredSkill, "host" | "scope" | "hostId">) =>
+	`${skill.host}\0${skill.scope}\0${skill.hostId}`;
 
 // Codex project names are inspected only to detect conflicts with user references.
 // This does not add project bindings, copy bodies, or scan arbitrary repository files.
-function codexProjectNames(root, warnings, metadataOnly) {
-	const names = new Set();
-	const visited = new Set();
+function codexProjectNames(
+	root: string,
+	warnings: string[],
+	metadataOnly: boolean,
+) {
+	const names = new Set<string>();
+	const visited = new Set<string>();
 	let count = 0;
-	const walk = (directory, depth = 0) => {
+	const walk = (directory: string, depth = 0) => {
 		if (depth > 4 || ++count > 1000) {
 			warnings.push(
 				"Codex project conflict scan limit reached; additional names are unobserved",
@@ -88,7 +136,7 @@ function codexProjectNames(root, warnings, metadataOnly) {
 			}
 		}
 	};
-	const localFileDirectory = (directory) => {
+	const localFileDirectory = (directory: string) => {
 		const lexical = safePath(root, directory);
 		const target = realpathSync(lexical);
 		const relative = path.relative(root, target);
@@ -113,17 +161,25 @@ function codexProjectNames(root, warnings, metadataOnly) {
 }
 
 export function discoverSkills(
-	root,
-	configuration,
-	{ external = false, sourceOptions = {}, metadataOnly = false } = {},
+	root: string,
+	configuration: YamlMap,
+	{
+		external = false,
+		sourceOptions = {},
+		metadataOnly = false,
+	}: {
+		external?: boolean;
+		sourceOptions?: object;
+		metadataOnly?: boolean;
+	} = {},
 ) {
 	root = realpathSync(root);
-	const skills = [];
-	const warnings = [];
-	const seen = new Set();
-	const add = (skill, source) => {
+	const skills: DiscoveredSkill[] = [];
+	const warnings: string[] = [];
+	const seen = new Set<string>();
+	const add = (skill: DiscoveredSkill, source: string) => {
 		try {
-			identifier(skill.id, skill.path);
+			identifier(skill.id, String(skill.path));
 			const location = localFile(root, skill.path, skill.id, "repository");
 			const key = `${skill.id}\0${location}`;
 			if (seen.has(key)) return;
@@ -134,7 +190,7 @@ export function discoverSkills(
 					location,
 					skill.id,
 					undefined,
-					skill.path,
+					String(skill.path), // validated by localFile above
 					!skill.host,
 				),
 				...(skill.host &&
@@ -149,7 +205,7 @@ export function discoverSkills(
 			);
 		}
 	};
-	const references = [];
+	const references: NativeReference[] = [];
 	for (const [id, value] of configuration.get("skills") ?? []) {
 		try {
 			identifier(id, "skills");
@@ -191,7 +247,7 @@ export function discoverSkills(
 				continue;
 			}
 			if (!value.has("host")) {
-				let metadata = {};
+				let metadata: { resources?: string[] } = {};
 				if (configuration.get("version") >= 2)
 					metadata = localDeclaration(
 						root,
@@ -210,10 +266,10 @@ export function discoverSkills(
 			const scope = value.get("scope");
 			const hostId = value.has("id") ? value.get("id") : id;
 			if (
-				!adapter ||
+				!adapter?.skills ||
 				!Object.hasOwn(adapter.skills, scope) ||
 				typeof hostId !== "string" ||
-				!adapter.skills[scope].id.test(hostId)
+				!adapter.skills[scope]?.id.test(hostId)
 			)
 				throw new Error(`${id}: invalid host, scope, or skill identifier`);
 			if (value.get("scope") !== "project") {
@@ -225,7 +281,7 @@ export function discoverSkills(
 				});
 				continue;
 			}
-			const file = adapter.skills.project?.path(hostId);
+			const file = adapter.skills.project?.path?.(hostId);
 			if (file && existsSync(path.join(root, file)))
 				add(
 					{ id, path: file, host: value.get("host"), hostId, scope: "project" },
@@ -312,6 +368,7 @@ export function discoverSkills(
 			if (
 				skill.host === "codex" &&
 				skill.scope === "user" &&
+				skill.hostId != null &&
 				projectNames.has(skill.hostId)
 			) {
 				skill.selectable = false;
@@ -334,7 +391,11 @@ export function discoverSkills(
 
 // A source selected from disk is checked both before preview and immediately before save.
 // Opaque native references have no path and remain portable, never installation-verified.
-export function validateSkillSelection(root, selection, sourceOptions) {
+export function validateSkillSelection(
+	root: string,
+	selection: Partial<DiscoveredSkill>,
+	sourceOptions?: object,
+) {
 	if (selection.selectable === false)
 		throw new Error(
 			`${selection.id}: source is not selectable (${selection.availability ?? "ambiguous"})`,
@@ -344,7 +405,7 @@ export function validateSkillSelection(root, selection, sourceOptions) {
 		// Derive permission from the repository and adapter, never a descriptor's origin.
 		const file = integrations
 			.find((adapter) => adapter.id === selection.host)
-			?.skills?.project?.path(selection.hostId);
+			?.skills?.project?.path?.(String(selection.hostId));
 		if (!file || file !== selection.path)
 			throw new Error(
 				`${selection.id}: project source changed; reload the inventory`,
@@ -352,19 +413,19 @@ export function validateSkillSelection(root, selection, sourceOptions) {
 		const canonicalPath = localFile(
 			realpathSync(root),
 			file,
-			selection.id,
+			String(selection.id),
 			"repository",
 		);
 		const metadata = skillMetadata(
 			canonicalPath,
-			selection.id,
+			String(selection.id),
 			undefined,
 			file,
 			false,
 		);
 		if (
 			canonicalPath !== selection.canonicalPath ||
-			["name", "nameSource", "description"].some(
+			(["name", "nameSource", "description"] as const).some(
 				(key) => metadata[key] !== selection[key],
 			)
 		) {

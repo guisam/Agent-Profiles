@@ -18,7 +18,7 @@ import { importPackage, lookupPackage } from "../src/package-store.ts";
 import { readPackage } from "../src/packages.ts";
 import { runPreset } from "../src/preset-wizard.ts";
 import { resolveInstructions } from "../src/resolve.ts";
-import { discoverSkills } from "../src/skills.js";
+import { discoverSkills } from "../src/skills.ts";
 import {
 	createStamp,
 	diffStamps,

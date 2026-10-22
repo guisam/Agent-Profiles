@@ -8,18 +8,14 @@ import {
 	type SkillSelection,
 } from "./configure.ts";
 import { errorMessage } from "./files.ts";
-import { type ResolvedSkill, resolveInstructions } from "./resolve.ts";
-import { discoverSkills } from "./skills.js";
+import { resolveInstructions } from "./resolve.ts";
+import { type DiscoveredSkill, discoverSkills } from "./skills.ts";
 
 export type Ask = (prompt: string) => Promise<string>;
 export type Write = (line: string) => void;
 
 /** A discovered or resolved skill as the wizard lists and selects it. */
-export type SkillChoice = ResolvedSkill & {
-	source?: string;
-	availability?: string;
-	selectable?: boolean;
-};
+export type SkillChoice = DiscoveredSkill;
 
 export const display = (text: unknown) =>
 	stripVTControlCharacters(String(text)).replace(/[\x00-\x1f\x7f]/g, " ");

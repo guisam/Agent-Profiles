@@ -21,7 +21,7 @@ import {
 	readPreset,
 } from "../src/presets.ts";
 import { parseYaml, resolveInstructions } from "../src/resolve.ts";
-import { discoverSkills } from "../src/skills.js";
+import { discoverSkills } from "../src/skills.ts";
 import { configureRoles } from "../src/wizard.ts";
 
 const WORK = os.tmpdir();

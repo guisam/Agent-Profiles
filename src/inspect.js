@@ -19,7 +19,7 @@ import {
 	mapping,
 	parseYaml,
 } from "./resolve.ts";
-import { discoverSkills } from "./skills.js";
+import { discoverSkills } from "./skills.ts";
 
 const limit = 65536;
 const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
