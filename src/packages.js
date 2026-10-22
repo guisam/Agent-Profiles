@@ -197,7 +197,7 @@ export function hashTree(files, domain = 'agent-profiles/package-tree/v1') {
   return hash.digest('hex');
 }
 
-export function canonicalJSON(value) {
+function canonicalRecord(value, evaluation) {
   const active = new Set();
   function string(text) {
     return '"' + validString(text).replace(/["\\\u0000-\u001F]/g, character => character === '"' || character === '\\' ? `\\${character}` : `\\u00${character.charCodeAt(0).toString(16).padStart(2, '0')}`) + '"';
@@ -207,7 +207,9 @@ export function canonicalJSON(value) {
     if (typeof item === 'boolean') return String(item);
     if (typeof item === 'string') return string(item);
     if (typeof item === 'number') {
-      if (!Number.isSafeInteger(item) || Object.is(item, -0)) fail('record', 'expected a safe integer, not negative zero');
+      if (evaluation) {
+        if (!Number.isFinite(item) || Math.abs(item) > Number.MAX_SAFE_INTEGER || Object.is(item, -0)) fail('record', 'expected a finite safe-magnitude number, not negative zero');
+      } else if (!Number.isSafeInteger(item) || Object.is(item, -0)) fail('record', 'expected a safe integer, not negative zero');
       return String(item);
     }
     if (typeof item !== 'object' || (!Array.isArray(item) && Object.getPrototypeOf(item) !== Object.prototype && Object.getPrototypeOf(item) !== null)) fail('record', 'expected a plain JSON value');
@@ -216,7 +218,12 @@ export function canonicalJSON(value) {
     let result;
     if (Array.isArray(item)) {
       if (Object.keys(item).length !== item.length || Reflect.ownKeys(item).length !== item.length + 1) fail('record', 'expected a dense JSON array without extra properties');
-      result = '[' + Array.from(item, encode).join(',') + ']';
+      const values = evaluation ? Array.from({ length: item.length }, (_unused, index) => {
+        const descriptor = Object.getOwnPropertyDescriptor(item, String(index));
+        if (!Object.hasOwn(descriptor, 'value')) fail('record', 'accessor properties are not JSON data');
+        return descriptor.value;
+      }) : item;
+      result = '[' + Array.from(values, encode).join(',') + ']';
     } else {
       if (Reflect.ownKeys(item).length !== Object.keys(item).length) fail('record', 'expected enumerable string keys');
       const keys = Object.keys(item);
@@ -234,12 +241,21 @@ export function canonicalJSON(value) {
   return Buffer.from(encode(value));
 }
 
-export function hashRecord(domain, value) {
-  const bytes = canonicalJSON(value);
+export function canonicalJSON(value) { return canonicalRecord(value, false); }
+export function canonicalEvaluationJSON(value) { return canonicalRecord(value, true); }
+
+function framedRecordHash(domain, bytes) {
   return createHash('sha256').update(Buffer.from(validString(domain))).update(Buffer.from([0])).update(u64(bytes.length)).update(bytes).digest('hex');
 }
 
-export function parseRecord(bytes) {
+export function hashRecord(domain, value) { return framedRecordHash(domain, canonicalJSON(value)); }
+
+export function hashEvaluationRecord(domain, value) {
+  if (!['agent-profiles/evaluation-plan/v1', 'agent-profiles/evaluation-result/v1'].includes(domain)) fail('record domain', 'expected an evaluation plan or result domain');
+  return framedRecordHash(domain, canonicalEvaluationJSON(value));
+}
+
+function parseJSONRecord(bytes, evaluation) {
   const text = decode(bytes, 'record', false);
   const value = JSON.parse(text);
   // JSON.parse enforces JSON syntax; the existing YAML AST parser detects decoded duplicate keys.
@@ -247,9 +263,12 @@ export function parseRecord(bytes) {
   if (document.errors.length || document.warnings.length) fail('record', [...document.errors, ...document.warnings].map(error => error.message).join('\n'));
   visit(document, {
     Scalar(_key, node) {
-      if (typeof node.value === 'number' && !/^-?(?:0|[1-9][0-9]*)$/.test(node.source)) fail('record', 'expected a decimal integer literal');
+      if (!evaluation && typeof node.value === 'number' && !/^-?(?:0|[1-9][0-9]*)$/.test(node.source)) fail('record', 'expected a decimal integer literal');
     },
   });
-  canonicalJSON(value);
+  canonicalRecord(value, evaluation);
   return value;
 }
+
+export function parseRecord(bytes) { return parseJSONRecord(bytes, false); }
+export function parseEvaluationRecord(bytes) { return parseJSONRecord(bytes, true); }

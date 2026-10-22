@@ -75,15 +75,26 @@ export function resolutionOutput(result, contents = false) {
   return { ...result, loaded: contents ? result.loaded : result.loaded.map(({ content, ...entry }) => entry) };
 }
 
+function injectedSkillIDs(result) {
+  const ids = new Set(result.loaded.filter(entry => entry.kind.endsWith('-skill')).map(entry => entry.id));
+  for (const entry of result.available) {
+    if (entry.type !== 'instruction' || !entry.package || !result.requestedSkills?.includes(entry.id)) continue;
+    if (result.loaded.some(part => part.package?.name === entry.package.name && part.package.version === entry.package.version &&
+        part.package.sha256 === entry.package.sha256 && part.package.revisionDigest === entry.package.revisionDigest && part.backing.path === entry.backing.path)) ids.add(entry.id);
+  }
+  return ids;
+}
+
 export function formatProof(result) {
   const size = entry => `${entry.bytes} B; ${entry.characters} characters`;
   // Package bodies have no repository path; their exact identity and digest locate them.
-  const source = entry => entry.package ? `${entry.package.name}@${entry.package.version} sha256:${entry.package.sha256}` : entry.path;
+  const source = entry => entry.package ? `${entry.package.name}@${entry.package.version} sha256:${entry.package.sha256}${entry.binding ? ` ${entry.backing.path}` : ''}` : entry.path;
   const lines = ['Context proof', '', `Host        ${clean(result.host ?? '(unspecified)')}`, `Model       ${clean(result.model ?? '(unknown)')}`,
     `Canonical   ${clean(result.identity.canonical ?? '(none)')}`, `Source      ${clean(result.identity.source ?? '(unspecified)')}`,
     `Family      ${clean(result.family ?? '(unknown)')}${result.familySource ? ` (${result.familySource})` : ''}`, `Matched by  ${result.matchedBy}`,
     `Profile     ${clean(result.profile)}`, `Role        ${clean(result.role)}`, '', 'Injected by Agent Profiles (instruction bodies)'];
-  for (const [kind, label] of [['profile', 'Profile'], ['role', 'Role'], ['required-skill', 'Required skills'], ['requested-skill', 'Requested skills']]) {
+  for (const [kind, label] of [['profile', 'Profile'], ['role', 'Role'], ['required-skill', 'Required skills'], ['requested-skill', 'Requested skills'],
+    ...(result.workflow ? [['dependency', 'Dependencies'], ['workflow', 'Workflow companions']] : [])]) {
     lines.push('', label);
     const entries = result.loaded.filter(entry => entry.kind === kind);
     if (!entries.length) lines.push('  (none)');
@@ -92,7 +103,18 @@ export function formatProof(result) {
       for (const file of entry.resources ?? []) lines.push(`    Declared resource: ${clean(file)} (not injected)`);
     }
   }
-  const loadedIDs = new Set(result.loaded.filter(entry => entry.kind.endsWith('-skill')).map(entry => entry.id));
+  if (result.workflow) {
+    lines.push('', `Workflow declarations: ${result.workflow.status}; runtime: unverified`);
+    for (const peer of result.workflow.peers) {
+      const release = digest => {
+        const pkg = result.workflowPeerPackages.find(pkg => pkg.revisionDigest === digest);
+        return `${pkg.name}@${pkg.version} revision:${digest}`;
+      };
+      lines.push(`  ${clean(peer.protocol)} major ${peer.major}: ${clean(release(peer.consumer.revisionDigest))} requires ${clean(release(peer.provider.revisionDigest))}`);
+    }
+    lines.push('Declarations do not establish host loading, invocation or worker compliance.');
+  }
+  const loadedIDs = injectedSkillIDs(result);
   lines.push('', `Agent Profiles managed context: ${size(result.diagnostics.managed.total)}`, '', 'Available, not injected');
   const remaining = result.available.filter(entry => entry.type !== 'host' && !loadedIDs.has(entry.id));
   if (!remaining.length) lines.push('  (none)');
@@ -133,7 +155,7 @@ export function formatContext(result, { root, storeRoot } = {}) {
   if (result.model !== null) args.push('--model', result.model);
   if (result.familySource === 'supplied') args.push('--family', result.family);
   if (result.roleSource === 'assigned') args.push('--role', result.role);
-  args.push(...result.loaded.filter(entry => entry.kind === 'requested-skill').flatMap(entry => ['--skill', entry.id]));
+  args.push(...(result.requestedSkills ?? result.loaded.filter(entry => entry.kind === 'requested-skill').map(entry => entry.id)).flatMap(id => ['--skill', id]));
   const skill = entry => {
     if (entry.package) {
       const identity = `${clean(entry.package.name)}@${clean(entry.package.version)} (sha256 ${clean(entry.package.sha256)})`;
@@ -151,13 +173,13 @@ export function formatContext(result, { root, storeRoot } = {}) {
     ...result.repository.exists && reminder ? [reminder] : [],
     'This output supersedes Agent Profiles profile, role, and skill instructions from any earlier run in this context,',
     'including copies your host re-attached after compaction.'];
-  const titles = { profile: 'Profile', role: 'Role', 'required-skill': 'Required skill', 'requested-skill': 'Requested skill' };
+  const titles = { profile: 'Profile', role: 'Role', 'required-skill': 'Required skill', 'requested-skill': 'Requested skill', dependency: 'Dependency', workflow: 'Workflow companion' };
   if (result.unsatisfied.length) {
     lines.push('', '## Unsatisfied requirements', '', 'This role requires capabilities your host cannot provide. Tell the user before doing role work, and do not substitute another skill:');
     for (const entry of result.unsatisfied) lines.push(`- ${clean(entry.id)}: ${clean(entry.reason)}.`);
   }
   for (const entry of result.loaded) {
-    lines.push('', `## ${titles[entry.kind]}: ${entry.id}`, '', entry.content.trim());
+    lines.push('', `## ${titles[entry.kind]}: ${entry.id}`, '', result.workflow ? entry.content : entry.content.trim());
     if (entry.resources?.length) lines.push('', `Declared resources (not injected): ${entry.resources.map(file => `\`${file}\``).join(', ')}.`);
   }
   const requiredHost = result.required.filter(entry => entry.type === 'host' && entry.usable !== false);
@@ -166,7 +188,7 @@ export function formatContext(result, { root, storeRoot } = {}) {
     for (const entry of requiredHost) lines.push(`- ${entry.id}: ${skill(entry)}`);
   }
   // Skill IDs may equal a profile or role ID, so compare against injected skills only.
-  const loadedIDs = new Set(result.loaded.filter(entry => entry.kind.endsWith('-skill')).map(entry => entry.id));
+  const loadedIDs = injectedSkillIDs(result);
   // Another host's skills are never exposed: this host could not invoke them.
   const available = result.available.filter(entry => !loadedIDs.has(entry.id) && entry.usable !== false);
   if (available.length) {

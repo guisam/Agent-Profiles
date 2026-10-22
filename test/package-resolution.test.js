@@ -358,12 +358,12 @@ for (const [name, options, route] of ROUTES) {
 }
 {
   const ok = 'positive sibling: version 2 local-only default route equals the version 1 oracle';
-  const no = 'version 3 rejects at version';
-  v2('P4-R02 version 3 rejects at version', [ok, no], (t, reach) => {
+  const no = 'version 4 rejects at version';
+  v2('P4-R02 version 4 rejects at version', [ok, no], (t, reach) => {
     const repo = project(t, localConfig(2), LOCAL);
     assert.deepEqual(json(resolveInstructions({ root: repo.root })), expectedV1({}, DEFAULT_ROUTE, undefined));
     reach(ok);
-    repo.write(localConfig(3));
+    repo.write(localConfig(4));
     rejects(() => resolveInstructions({ root: repo.root }), [/^version: /]);
     reach(no);
   });

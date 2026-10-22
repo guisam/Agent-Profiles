@@ -11,8 +11,9 @@ stamp versions, or host bootstrap protocol versions.
 | From → to | Guide | AI-tool prompt | Readiness |
 | --- | --- | --- | --- |
 | 1 → 2 | [v1 → v2](config-v1-to-v2.md) | [v1 → v2 prompt](prompts/config-v1-to-v2.md) | V2 validator implemented in this checkout; package 0.1.0 remains unpublished. Verify the selected local tool and obtain exact-preview approval before application. |
+| 2 → 3 | [v2 → v3](config-v2-to-v3.md) | [v2 → v3 prompt](prompts/config-v2-to-v3.md) | Config3 selection/lock2/workflow declarations implemented in this checkout; managed snapshot2 is implemented in this checkout. Verify actual tool support, preview and approve YAML plus explicit lock refresh. Base conversion does not adopt workflows. |
 
-The [issue-20 contract](../development/issue-20-contract.md) retains the historical design record. The current [package guide](../versioned-packages.md) describes implemented checkout behavior. Guide/prompt examples are exercised through real validators in owned fixtures; that is not a consumer migration, AI compliance or published-artifact qualification. Missing suitable local tools still blocks a real operation.
+The [issue-20 contract](../development/issue-20-contract.md) retains the historical design record. The current [package guide](../versioned-packages.md) describes implemented checkout behavior. Guide/prompt examples require real-validator rehearsal in owned fixtures; new v2→v3 rehearsal is coordinator-owned and pending this package's verification. Fixture results are not a consumer migration, AI compliance or published-artifact qualification. Missing suitable local tools still blocks a real operation.
 
 ## Consistent guide format
 
@@ -80,6 +81,7 @@ constraints consistent with the [requirement-to-test map](../development/issue-2
 
 For an eventual v1 → v3 request, apply **v1 → v2**, validate and report, then apply
 **v2 → v3** only when its guide, schema, tools and approval exist. Each step gets a
-fresh preview, evidence and gate; failure stops the chain. There is no v2 → v3 guide
-here and no arbitrary-version leap rule. Schema history/comparison interfaces and
+fresh preview, evidence and gate; failure stops the chain. Use the existing
+[v2 → v3 guide](config-v2-to-v3.md) and its [approval-first prompt](prompts/config-v2-to-v3.md)
+for that adjacent step; there is no arbitrary-version leap rule. Schema history/comparison interfaces and
 an automatic migration framework remain outside these documents.

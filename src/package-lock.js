@@ -3,8 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { safePath } from './files.js';
 import { canonicalJSON, hashRecord, parseRecord, readPackage, validateMembers } from './packages.js';
-import { importPackage, lookupPackage } from './package-store.js';
-import { identifier, parseYaml, validateConfiguration, validatePackageBindings } from './resolve.js';
+import { candidateReservation, importPackage, lookupPackage } from './package-store.js';
+import { identifier, packageReferences, parseYaml, validateConfiguration, validatePackageBindings } from './resolve.js';
+import { releasedPackage, revisionClosure } from './revisions.js';
 
 const configurationFile = '.agent-profiles/agents.yaml';
 const lockFile = '.agent-profiles/agent-profiles.lock';
@@ -88,14 +89,16 @@ function plain(value) {
 function readLock(bytes) {
   const lock = parseRecord(bytes);
   fields(lock, 'lock', ['lockVersion', 'configurationVersion', 'resolverContract', 'configSha256', 'pins', 'packages']);
-  if (lock.lockVersion !== 1) fail('lockVersion', 'unsupported lock version');
-  if (lock.configurationVersion !== 2) fail('configurationVersion', 'expected 2');
-  if (lock.resolverContract !== 'agent-profiles/resolver/v2') fail('resolverContract', 'unsupported resolver contract');
+  if (![1, 2].includes(lock.lockVersion)) fail('lockVersion', 'unsupported lock version');
+  const v3 = lock.lockVersion === 2;
+  if (lock.configurationVersion !== (v3 ? 3 : 2)) fail('configurationVersion', `expected ${v3 ? 3 : 2}`);
+  if (lock.resolverContract !== `agent-profiles/resolver/v${v3 ? 3 : 2}`) fail('resolverContract', 'unsupported resolver contract');
   digest(lock.configSha256, 'configSha256');
   for (const key of ['pins', 'packages']) if (!Array.isArray(lock[key])) fail(key, 'expected an array');
   const pins = new Set(), packages = new Set();
   for (const pin of lock.pins) {
-    fields(pin, 'pin', ['binding', 'rule', 'package', 'version', 'sha256']);
+    fields(pin, 'pin', ['binding', 'rule', 'package', 'version', 'sha256', ...(v3 ? ['revisionDigest'] : [])]);
+    if (v3 && pin.revisionDigest !== null) digest(pin.revisionDigest, 'pin.revisionDigest');
     if (typeof pin.binding !== 'string' || !/^(profiles|roles|skills)\.[a-z0-9][a-z0-9-]*$/.test(pin.binding)) fail('pin.binding', 'invalid binding');
     if (pin.rule !== null) identifier(pin.rule, 'pin.rule');
     identity({ name: pin.package, version: pin.version }, 'pin.package'); digest(pin.sha256, 'pin.sha256');
@@ -104,7 +107,14 @@ function readLock(bytes) {
     pins.add(key);
   }
   for (const pkg of lock.packages) {
-    fields(pkg, 'package', ['name', 'version', 'sha256', 'source']);
+    fields(pkg, 'package', ['name', 'version', 'sha256', 'source', ...(v3 ? ['revisionDigests'] : [])]);
+    if (v3) {
+      if (!Array.isArray(pkg.revisionDigests)) fail('package.revisionDigests', 'expected array');
+      for (const [i, revision] of pkg.revisionDigests.entries()) {
+        digest(revision, 'package.revisionDigests');
+        if (i && compare(pkg.revisionDigests[i - 1], revision) >= 0) fail('package.revisionDigests', 'expected unique sorted digests');
+      }
+    }
     identity(pkg, 'package'); digest(pkg.sha256, 'package.sha256');
     const key = identityKey(pkg);
     if (packages.has(key)) fail('lock-coverage', 'duplicate package');
@@ -130,17 +140,30 @@ function readLock(bytes) {
 function configDigest(configuration) {
   const config = plain(configuration);
   for (const key of ['profiles', 'skills', 'assignments']) if (!Object.hasOwn(config, key)) config[key] = {};
-  return hashRecord('agent-profiles/config/v2', config);
+  if (config.version === 3 && !Object.hasOwn(config, 'workflow_links')) config.workflow_links = {};
+  return hashRecord(`agent-profiles/config/v${config.version === 3 ? 3 : 2}`, config);
 }
 
-function declared(bindings) {
+function declared(bindings, v3 = false, storeRoot = undefined) {
   const pins = [];
-  for (const [binding, { source, rules }] of bindings) {
-    pins.push({ binding, rule: null, package: source.get('package'), version: source.get('version') });
-    for (const rule of rules) pins.push({ binding, rule: rule.id, package: source.get('package'), version: rule.version });
+  const wanted = new Map();
+  function add(name, version, revisionDigest = null) {
+    const key = identityKey({ name, version });
+    if (!wanted.has(key)) wanted.set(key, { name, version, ...(v3 ? { revisionDigests: [] } : {}) });
+    const item = wanted.get(key);
+    if (v3 && revisionDigest !== null && !item.revisionDigests.includes(revisionDigest)) item.revisionDigests.push(revisionDigest);
   }
+  for (const [binding, value] of bindings) {
+    for (const { reference, rule } of packageReferences(binding, value)) {
+      const name = reference.get('package'), version = reference.get('version'), revisionDigest = reference.get('revision') ?? null;
+      pins.push({ binding, rule, package: name, version, ...(v3 ? { revisionDigest } : {}) });
+      add(name, version, revisionDigest);
+      if (revisionDigest !== null) for (const member of revisionClosure({ storeRoot, name, version, revisionDigest })) add(member.identity.name, member.identity.version, member.revisionDigest);
+    }
+  }
+  if (v3) for (const item of wanted.values()) item.revisionDigests.sort(compare);
   pins.sort(pinOrder);
-  return { pins, wanted: new Map(pins.map(pin => [identityKey({ name: pin.package, version: pin.version }), { name: pin.package, version: pin.version }])) };
+  return { pins, wanted };
 }
 
 // Exact coverage of a current lock; returns its packages by identity.
@@ -148,11 +171,12 @@ function coverage(lock, { pins, wanted }) {
   if (lock.pins.length !== pins.length || lock.packages.length !== wanted.size) fail('lock-coverage', 'missing or extra pins/packages');
   for (let i = 0; i < pins.length; i++) {
     const actual = lock.pins[i], expected = pins[i];
-    if (pinKey(actual) !== pinKey(expected) || actual.package !== expected.package || actual.version !== expected.version) fail('lock-coverage', 'pin mismatch');
+    if (pinKey(actual) !== pinKey(expected) || actual.package !== expected.package || actual.version !== expected.version || actual.revisionDigest !== expected.revisionDigest) fail('lock-coverage', 'pin mismatch');
   }
   const locked = new Map();
   for (const pkg of lock.packages) {
     if (!wanted.has(identityKey(pkg))) fail('lock-coverage', 'foreign package');
+    if (lock.lockVersion === 2 && JSON.stringify(pkg.revisionDigests) !== JSON.stringify(wanted.get(identityKey(pkg)).revisionDigests)) fail('lock-coverage', 'revision closure mismatch');
     locked.set(identityKey(pkg), pkg);
   }
   for (const pin of lock.pins) if (locked.get(identityKey({ name: pin.package, version: pin.version }))?.sha256 !== pin.sha256) fail('lock-coverage', 'inconsistent digest');
@@ -160,18 +184,20 @@ function coverage(lock, { pins, wanted }) {
 }
 
 /**
- * Read-only lock state for resolveInstructions: the installer's strict reader, never a write, repair or store read.
+ * Read-only lock state: never writes or repairs; v3 also verifies the declared revision closure in the explicit store.
  * @param {string} root canonical project root @param {{config: Map<string, any>, bindings: Map<string, any>}} validated
  * @returns {{state: 'valid' | 'missing' | 'stale' | 'invalid', error?: string, locked?: Map<string, {sha256: string}>}}
  */
-export function readLockState(root, validated) {
+export function readLockState(root, validated, storeRoot = undefined) {
   const configSha256 = configDigest(validated.config);
   try {
     const found = input(root, lockFile);
     if (!found) return { state: 'missing', error: `${lockFile}: missing; run dependency install` };
     const lock = readLock(found.bytes);
+    const v3 = validated.config.get('version') === 3;
+    if (lock.lockVersion !== (v3 ? 2 : 1)) fail('lockVersion', `requires lock${v3 ? 2 : 1}; run dependency install for version ${v3 ? 3 : 2}`);
     if (lock.configSha256 !== configSha256) return { state: 'stale', error: `${lockFile}: stale-lock: configuration changed; run dependency install` };
-    return { state: 'valid', locked: coverage(lock, declared(validated.bindings)) };
+    return { state: 'valid', locked: coverage(lock, declared(validated.bindings, v3, storeRoot)) };
   } catch (error) { return { state: 'invalid', error: `${lockFile}: ${error.message}` }; }
 }
 
@@ -185,12 +211,12 @@ export function installDependencies({ root, storeRoot, sources = [], frozen = fa
   if (!beforeConfig) fail(configurationFile, 'missing configuration');
   const configuration = parseYaml(beforeConfig.bytes.toString('utf8'));
   if (configuration instanceof Map && configuration.get('version') === 1) fail('version 1', 'migrate to version 2 using docs/migrations/config-v1-to-v2.md before installing dependencies');
-  if (configuration instanceof Map && configuration.has('version') && configuration.get('version') !== 2) fail('version', 'dependency install requires version 2');
   const validated = validateConfiguration({ root, configuration });
+  const v3 = configuration.get('version') === 3;
   const configSha256 = configDigest(configuration);
-  const { pins, wanted } = declared(validated.bindings);
+  const { pins, wanted } = declared(validated.bindings, v3, storeRoot);
   const lock = beforeLock && readLock(beforeLock.bytes);
-  const current = lock?.configSha256 === configSha256;
+  const current = lock?.configSha256 === configSha256 && lock.lockVersion === (v3 ? 2 : 1);
   if (frozen && !lock) fail('lock', 'missing lock');
   if (frozen && !current) fail('stale-lock', 'configuration changed; run dependency install');
   const locked = current ? coverage(lock, { pins, wanted }) : new Map();
@@ -205,6 +231,10 @@ export function installDependencies({ root, storeRoot, sources = [], frozen = fa
     supplied.set(key, path.resolve(root, source.directory));
   }
   const selectedStore = canonicalStore(path.resolve(localPath(storeRoot === undefined ? process.env.AGENT_PROFILES_STORE ?? path.join(os.homedir(), '.agent-profiles/store') : storeRoot, 'store')));
+  // A verified promoted release (decision index + label) fulfils its planned identity without any legacy mapping.
+  const released = new Map([...wanted].map(([key, item]) => [key, (item.revisionDigests ?? []).map(revisionDigest =>
+    releasedPackage({ storeRoot: selectedStore, name: item.name, version: item.version, revisionDigest })).find(Boolean) ?? null]));
+  for (const [key, item] of wanted) if (!released.get(key) && candidateReservation(selectedStore, item)) fail('candidate', `${item.name}@${item.version}: reserved planned release is unpublished`);
   const records = new Map(), acquisitions = new Map(), packages = [];
   for (const [key, item] of [...wanted].sort((a, b) => packageOrder(a[1], b[1]))) {
     const prior = locked.get(key);
@@ -214,7 +244,7 @@ export function installDependencies({ root, storeRoot, sources = [], frozen = fa
       catch (error) { if (error.code !== 'ENOENT') throw error; }
     }
     let cached;
-    try { cached = lookupPackage({ storeRoot: selectedStore, ...item }); }
+    try { cached = lookupPackage({ storeRoot: selectedStore, ...item }) ?? released.get(key); }
     catch (error) { fail(key, `mismatched-package: ${error.message}`); }
     const directory = supplied.get(key) ?? (!cached ? locator : undefined);
     let record = cached, provenance = prior?.source ?? { type: 'provided' };
@@ -240,7 +270,7 @@ export function installDependencies({ root, storeRoot, sources = [], frozen = fa
     packages.push({ ...item, sha256: record.sha256, source: provenance });
   }
   validatePackageBindings(validated.bindings, records);
-  const output = canonicalJSON({ lockVersion: 1, configurationVersion: 2, resolverContract: 'agent-profiles/resolver/v2', configSha256,
+  const output = canonicalJSON({ lockVersion: v3 ? 2 : 1, configurationVersion: v3 ? 3 : 2, resolverContract: `agent-profiles/resolver/v${v3 ? 3 : 2}`, configSha256,
     pins: pins.map(pin => ({ ...pin, sha256: records.get(identityKey({ name: pin.package, version: pin.version })).sha256 })), packages });
   const unchanged = () => {
     for (const [relative, before] of new Map([[configurationFile, beforeConfig], [lockFile, beforeLock]])) {

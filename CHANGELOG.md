@@ -1,5 +1,111 @@
 # Changelog
 
+## Unreleased — migration workspace groundwork (#21)
+
+- Start migration workspaces directly on a current config3 project and lock2. The
+  authoring base is an ordinary active stamp2; selected roots are taken by kind and
+  binding, so dependency-first context and workflow companions are handled. Overlay,
+  status, proposals and candidate history use that base; nothing is converted or
+  rebased automatically. An open migration on the same primary tuple refuses before
+  sharing discovery, and every considered sharing tuple must still resolve. The
+  installed candidate scenario now starts natively instead of via a config2 detour.
+  This supersedes the config1/2-only start and separate config3 evaluation
+  preparation described in the bullets below. Actual forks/shared activation,
+  iteration/closeout, session continuity and broader issue #21 completion remain pending.
+
+- Add bounded single-tuple promotion: `migrate preview` (read-only) and `migrate
+  promote` with a strict immutable decision bound to one retained task-only candidate,
+  its paired plan/results and only the evaluated primary role/model/host. Any per-case
+  correctness drop refuses unless an exact recorded correctness-only override names the
+  regressed cases; integrity/coverage/freshness/workflow/config3 failures stay
+  non-overridable and historical reports keep the regression. A typed revision-v2
+  release wrapper labels the identical evaluated bytes (no rebuild, no legacy mapping,
+  embedded manifest unchanged). Public admission requires both the committed decision
+  index and the write-once label, so orphans stay unselectable. Apply repins only the
+  evaluated tuple, adding one most-specific rule only when needed. It preserves YAML
+  comments and concurrent edits, refreshes lock2 and captures a fresh active stamp.
+  Post-decision-commit failures are reported as partial; same-decision replay completes.
+  There is no rollback or crash guarantee. Extend the installed scenario through
+  preview, blocked refusal, promotion, resolve/lock/stamp and rootless readback. This
+  supersedes the earlier promotion deferrals in the bullets below only for this one-tuple
+  slice; multi-tuple/collateral promotion, forks, workflow-change candidates,
+  lifecycle/session/live work and issue #21 completion remain pending. Coordinator
+  execution and fresh independent review remain required; the package is unpublished.
+
+- Add bounded offline paired external evidence: strict plan/result v1 import,
+  immutable canonical objects/id indexes and rootless historical report for one
+  retained managed candidate context. Reverify exact base/candidate/peer backing,
+  complete paired coverage/conditions and safe decimal metrics before commit/reuse.
+  Report per-case correctness regressions and complete/partial comparable efficiency;
+  no aggregate cancellation, efficiency veto, provider execution or promotion write.
+  Add explicit evaluation-only numeric codecs while preserving integer-only defaults
+  and old metadata/tree hashes. Extend the installed candidate scenario through
+  decimal plan/results/reuse and report after project deletion without activation.
+  Imported outcomes remain external claims; runtime unverified, promotion unauthorized.
+  Earlier external-result deferrals are superseded only for this offline slice.
+  Coordinator execution and fresh whole-evidence review remain required; broader
+  forks/session/live lifecycle, promotion and issue #21 completion remain pending.
+  The package is unpublished.
+- Add the bounded advisory task-only candidate slice: explicit publication/readback
+  and installed CLI smoke, literal accepted-history replay, guarded atomic final
+  index, reserved external label, raw immutable object retention and typed
+  revision-v2/candidate stamp2 without activation. Keep embedded manifest bytes,
+  complete-tree hashes, old release pins and active stamp formats unchanged.
+  Explicit config3 evaluation preparation is separate from config1/2 workspace start.
+  Historical candidate reconstruction retains workflow/dependency/base evidence;
+  caught pre-commit failures may leave valid backing and preserve concurrent edits.
+  No general crash guarantee. Coordinator execution and independent candidate review
+  remain required. Earlier groundwork bullets describe their historical slice limits;
+  this new slice supersedes their candidate-publication deferral only. Broader
+  candidates/forks, provider execution, scoped promotion, attribution/live
+  activation and completion of issue #21 remain pending; npm remains unpublished.
+
+- Add the config3/stamp2 snapshot slice: exact raw task/companion/resource bytes,
+  nullable/adopted package pins, canonical revision backing, primary logical uses,
+  required-only actor roots/closures and actual peer-selection relations. Historical
+  reconstruction needs no mutable project or current label index; corruption and
+  inconsistent selected-peer evidence refuse. Export exact metadata bytes and
+  deduplicated package trees through the existing filesystem adapter/receipts.
+  Preserve config1/2 stamp1 behavior and hashes. Extend the installed workflow
+  scenario through stamp2/verify/export; coordinator qualification remains required.
+  Native invocation/rendering/model compliance and remaining #21 lifecycle work
+  remain outside this additional foundation slice.
+
+- Add the config3/lock2 foundation slice: complete per-assignment package/revision
+  replacements, retained verified dependency closure, separate task/workflow context,
+  explicit peer protocol-major checks, real proof accounting and caller safeguards.
+  Preserve v1/v2 selections and bytes; package releases remain independently pinned.
+  Add the adjacent v2→v3 guide/prompt and installed resolve/proof scenario. Config3
+  snapshot2/materialization is supplied by the additional slice above; remaining
+  issue21 lifecycle work is still pending.
+- Add `revision record` and synchronous immutable legacy-release metadata adoption:
+  verify existing identity/tree and exact dependency closure, retain explicit
+  workflow declarations/provenance, and verify identical replay without writes.
+  Labels cannot be repointed; legacy selection and complete-tree hashes stay intact.
+  Packed checks cover installed runtime/docs and unchanged legacy context. Workflow
+  loading/readiness and config3/lock2 are supplied by the additional foundation
+  slices above; remaining #21 lifecycle delivery is deferred.
+- Add an additional proposal slice: `migrate propose/proposals/accept/reject`
+  imports strict JSON v1 advisory data with retained-base evidence, lists it
+  read-only and requires explicit acceptance or a retained rejection reason.
+- Guard single existing UTF-8 instruction changes with verified retained backing,
+  classification/path boundaries, exact before bytes and duplicate/history checks.
+  Repo recommendations never apply; draft cases remain inert data. Caller-supplied
+  session claims are not verified host attribution. Active inputs/store stay intact;
+  caught acceptance failures use guarded compensation without atomic crash guarantees.
+- Extend the installed-artifact smoke scenario for proposal outcomes and retention.
+  Actual forks/lineage, candidate/release labels, external evaluation, promotion,
+  attribution and explain remain pending; this additional slice does not complete #21.
+- Add `migrate start/status/abandon` for one explicit role/model/host assignment,
+  canonical ownership, shared-use reports, explicit fork/shared intent and retained
+  primary/collateral base stamps.
+- Copy editable portable instructions/resources and complete selected packages into
+  a separate workspace; report changed membership/bytes and preserve originals,
+  active assignments and dependency locks. Abandon retains records and edits.
+- Reuse existing store/stamp formats without new runtime dependencies. Candidate
+  publishing, actual forks, evaluation, promotion, attribution and explain remain
+  pending; this is not completion of issue #21.
+
 ## Unreleased — versioned local packages (#20)
 
 - Add strict full-tree local packages, immutable revision coexistence, v2 exact

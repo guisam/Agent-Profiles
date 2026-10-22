@@ -115,7 +115,7 @@ test('all invalid references identify the offending entry, including inactive ro
 
 test('schema errors and unsafe paths are rejected', async t => {
   const cases = [
-    [config => { config.version = 3; }, /version:/],
+    [config => { config.version = 4; }, /version:/],
     [config => { config.version = '1'; }, /version:/],
     [config => { delete config.models; }, /agents.yaml.models: required/],
     [config => { config.extra = true; }, /agents.yaml.extra: unknown/],

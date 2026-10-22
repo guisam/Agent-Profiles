@@ -35,7 +35,7 @@ function inspect(entry, provenance) {
   const details = document.createElement('details');
   // Package integrity does not establish a host-visible invocation address.
   const host = entry.type === 'host';
-  const location = entry.package ? `${entry.package.binding}: ${entry.package.name}@${entry.package.version} sha256:${entry.package.sha256} (${entry.package.selectedBy})` : entry.path ?? `${entry.host}: ${entry.hostId}`;
+  const location = entry.package ? `${entry.package.binding}: ${entry.package.name}@${entry.package.version} sha256:${entry.package.sha256} (${entry.package.selectedBy})${entry.binding ? ` · ${entry.backing.path}` : ''}` : entry.path ?? `${entry.host}: ${entry.hostId}`;
   const native = entry.package ? `Supported hosts: ${entry.supportedHosts?.join(', ')}; host-visible address unavailable; invocation unverified · bytes not counted` : `${entry.host} skill ${entry.hostId} · ${entry.verification} · bytes not counted`;
   details.append(element('summary', `${entry.id} · ${host ? 'host skill' : bytes(entry.bytes)}`),
     element('p', host ? native : size(entry), 'size'),
@@ -82,6 +82,11 @@ function render(result) {
     }
     layers.append(layer);
   }
+  for (const entry of result.loaded.filter(item => ['dependency', 'workflow'].includes(item.kind))) {
+    const card = element('div', '', 'entry');
+    card.append(inspect(entry, `${entry.kind === 'workflow' ? 'Workflow companion' : 'Dependency'} for ${entry.owner}`));
+    layers.append(card);
+  }
   const required = byId('required');
   required.replaceChildren(element('p', size(managed.requiredSkills), 'muted'));
   for (const entry of result.loaded.filter(item => item.kind === 'required-skill')) {
@@ -105,18 +110,23 @@ function render(result) {
       continue;
     }
     const loaded = result.loaded.find(item => item.kind === 'requested-skill' && item.id === entry.id);
-    const card = element('div', '', `entry${loaded ? ' requested' : ''}`);
+    const shared = !loaded && entry.package && result.requestedSkills?.includes(entry.id) && result.loaded.find(part =>
+      part.package?.name === entry.package.name && part.package.version === entry.package.version && part.package.sha256 === entry.package.sha256 &&
+      part.package.revisionDigest === entry.package.revisionDigest && part.backing.path === entry.backing.path);
+    const injected = Boolean(loaded || shared);
+    const card = element('div', '', `entry${injected ? ' requested' : ''}`);
     const label = document.createElement('label');
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.id = `skill-${entry.id}`;
-    checkbox.checked = Boolean(loaded);
+    checkbox.checked = injected;
     checkbox.addEventListener('change', () => {
       if (checkbox.checked) requested.add(entry.id); else requested.delete(entry.id);
       update(checkbox.id);
     });
-    label.append(checkbox, document.createTextNode(`${entry.id} · ${loaded ? 'Requested, injected' : 'Available, not injected'}`));
-    card.append(label, inspect(loaded ?? entry, `${loaded ? 'Requested for' : 'Available to'} role: ${result.role}`));
+    label.append(checkbox, document.createTextNode(`${entry.id} · ${injected ? 'Requested, injected' : 'Available, not injected'}`));
+    card.append(label, inspect(shared ? { ...entry, binding: entry.package.binding } : loaded ?? entry,
+      `${injected ? 'Requested for' : 'Available to'} role: ${result.role}${shared ? '; shares already injected backing' : ''}`));
     available.append(card);
   }
   if (!result.available.length) available.append(element('p', 'No on-demand skills for this role.', 'muted'));

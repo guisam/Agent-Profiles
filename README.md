@@ -99,6 +99,12 @@ invocation remains host-controlled. Use `--help` for options; scripts can initia
 | `verify` | Verify a full stamp digest and all backing, without repair |
 | `diff` | Verify and structurally compare two stamps |
 | `materialize` | Export a verified stamp into a new absent filesystem destination |
+| `migrate start/status/abandon` | Edit an isolated workspace with retained base stamps |
+| `migrate candidate <id> <candidate-file>` | Retain one advisory task-only package candidate without activation |
+| `migrate plan <candidate-id> <plan-file>` | Retain exact paired context, cases, trials and conditions |
+| `migrate results <plan-id> <result-file>` | Import complete caller-supplied paired outcomes |
+| `migrate report <result-id>` | Read historical correctness/metric claims without a project |
+| `migrate propose/proposals/accept/reject` | Retain evidence-linked advisory changes and explicitly accept or reject one workspace instruction |
 | `uninstall` | Remove managed bootstrap blocks while retaining user configuration |
 
 ```text
@@ -149,6 +155,49 @@ composition metadata. Retained content can then be verified, compared, and
 reconstructed without relying on the original source files. This verifies
 captured managed content—not every file an agent reads or the host's complete
 runtime context. See the [capture, verify and compare walkthrough](docs/versioned-packages.md#capture-verify-and-compare).
+
+## Skill migration workspaces
+
+The first migration slice provides `migrate start`, `migrate status` and
+`migrate abandon`: capture a base stamp for an explicit role/model/host, record
+shared-versus-fork intent, and edit isolated copies without changing active
+assignments or their lockfile. See [skill migration workspaces](docs/skill-migrations.md).
+An additional slice provides `migrate propose/proposals/accept/reject`: import
+strict JSON v1 with caller-claimed evidence tied to a retained base, inspect it
+without applying, then explicitly accept one existing instruction or retain a
+rejection reason. Acceptance checks exact before bytes and changes only the
+workspace. Repo recommendations never apply. This is not completion of issue #21:
+actual forks/lineage, broader candidate targets, provider execution, promotion
+beyond one evaluated tuple, verified host attribution and `explain` remain pending.
+An additional slice publishes one immutable task-only skill-package candidate from
+a fork-intent workspace started directly on a current config3 project and lock2.
+Its authoring base and its separately recorded evaluation base are both active stamp2
+captures, the same digest when active inputs are unchanged. Accepted history must explain exact task bytes; companions,
+dependencies and other files stay unchanged. Typed metadata-v2 separates the planned
+label from the unchanged embedded manifest identity. Candidate stamp2/readback retains
+exact managed backing without changing active config/lock or selecting the reserved
+planned release. See the [candidate workflow and limits](docs/skill-migrations.md#publish-one-advisory-task-only-candidate).
+The [offline paired evidence slice](docs/skill-migrations.md#retain-paired-external-evaluation-claims)
+retains immutable exact plans/results and reports per-case correctness and comparable
+metrics, including explicit unavailable values. Any per-case correctness drop blocks
+default eligibility; aggregate/efficiency gains do not cancel it. Imported outcomes
+are external claims, runtime is unverified and promotion is not authorized. Historical
+rootless report revalidates retained candidate/base/peer backing after mutable deletion.
+No provider runs, active assignment changes or promotion/override writes are added by
+that evidence slice.
+[Single-tuple promotion](docs/skill-migrations.md#promote-the-exact-evaluated-tuple)
+adds `migrate preview` (read-only) and `migrate promote` for one strict decision. It
+binds the exact candidate, plan/results and only the evaluated primary role/model/host.
+Any per-case correctness drop refuses unless an explicit recorded correctness-only
+override names exactly those cases; integrity, freshness and workflow failures are
+never overridable. Promotion publishes an immutable decision, then a typed release
+wrapper over the identical evaluated bytes, then a write-once decision index and
+external label. It then repins only that tuple's binding, refreshes lock2 and
+captures a fresh stamp. Other tuples, defaults and old versions keep their exact
+pins. Failures after the decision commit are reported as partial, and replaying the
+same decision completes them. This checkout remains under coordinator/independent
+qualification; the package is unpublished and this is not completion of step4 or
+issue #21.
 
 ## The layers
 
@@ -264,6 +313,22 @@ download missing skills. Roles remain editable through the same wizard after
 import, and their origins are recorded separately.
 
 ## Scope and status
+
+An additional issue #21 slice supports `revision record <manifest-file> --store
+<directory> [--json]` to adopt immutable metadata for an existing legacy release.
+It verifies the unchanged full tree and exact dependency pins, retains explicit
+workflow declarations, and refuses label repointing. Published versions coexist
+with independent exact selections; adoption causes no global upgrade. Package
+release major does not determine workflow protocol major. See
+[release metadata adoption](docs/revisions.md) for the strict JSON format.
+Config3 now opts into exact revision references, explicit workflow peer links,
+dependency/companion composition and lock2. Fully specified resolution checks named
+protocol majors against actual loaded peers; declarations remain runtime-unverified.
+Use the [v2 → v3 guide and approval-first prompt](docs/migrations/config-v2-to-v3.md)
+for base conversion before separate optional workflow adoption. Legacy v1/v2 behavior
+remains supported. Config3 opts into stamp2 capture/reconstruction and filesystem
+materialization with retained metadata, exact closure and peer evidence; this does
+not complete issue #21 or establish host/model compliance.
 
 The local workflow now includes deterministic routing, Claude Code/Codex/Hermes setup,
 role and skill configuration, shareable presets, context diagnostics, and a local

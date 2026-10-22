@@ -137,6 +137,7 @@ export function planPresetImport({ root, source, roles, decisions = new Map(), u
   root = state.root;
   const preset = readPreset(source);
   const { document, configuration, before } = state;
+  if (configuration.get('version') === 3) throw new Error('preset-config3-unsupported: preset schema 1 cannot preserve revision bindings and workflow links; use an explicit configuration change. Nothing was imported.');
   const snapshots = new Map([[configFile, before]]);
   const observe = file => {
     if (!snapshots.has(file)) snapshots.set(file, readLocal(root, file));
@@ -348,6 +349,7 @@ export function planPresetExport({ root, destination, metadata, roles, profiles,
   const state = exportChoices(root, { storeRoot });
   root = state.root;
   const config = state.configuration;
+  if (config.get('version') === 3) throw new Error('preset-config3-unsupported: preset schema 1 cannot preserve revision bindings and workflow links; use an explicit configuration change. Nothing was exported.');
   const chosenRoles = selected(roles, new Set(config.get('roles').keys()), 'roles');
   if (!chosenRoles.length) throw new Error('Select at least one role to export');
   const chosenProfiles = selected(profiles, new Set(state.profiles), 'profiles');

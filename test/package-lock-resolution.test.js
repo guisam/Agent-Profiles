@@ -258,7 +258,7 @@ test('P5B-R03 unknown or invalid lockMode values reject specifically', t => {
 const refusals = [
   ['missing lock', f => fs.rmSync(path.join(f.root, LOCK)), /agent-profiles\.lock/, true],
   ['malformed lock', f => put(path.join(f.root, LOCK), '{"lockVersion": 1,'), /lock/i, true],
-  ['unsupported lock version', f => f.mutateLock(lock => { lock.lockVersion = 2; }), /lockVersion/, true],
+  ['unsupported lock version', f => f.mutateLock(lock => { lock.lockVersion = 3; }), /lockVersion/, true],
   ['stale lock after a legitimate description edit', f => f.edit(config => { config.roles.reviewer.description = 'Changed'; }), /stale-lock/, true],
   ['incomplete lock without the unselected override pin', f => f.mutateLock(lock => {
     lock.pins = lock.pins.filter(pin => pin.rule !== 'unused'); lock.packages = lock.packages.filter(pkg => pkg.version !== '3.0.0');

@@ -82,7 +82,7 @@ function configurationMetadata(root) {
     // Package pins verify only against a store, which bounded inspection never reads. Such declarations are listed
     // unverified; malformed binding tables still go through full validation below and are reported invalid.
     let packaged = false;
-    if (declared instanceof Map && declared.get('version') === 2) {
+    if (declared instanceof Map && [2, 3].includes(declared.get('version'))) {
       // Only an omitted table defaults; a present null/list/scalar falls through to strict validation.
       const tables = ['profiles', 'roles', 'skills'].map(key => declared.has(key) ? declared.get(key) : new Map());
       packaged = tables.every(table => table instanceof Map && [...table.values()].every(value => value instanceof Map)) &&
@@ -91,7 +91,7 @@ function configurationMetadata(root) {
     const configuration = packaged ? declared : readConfiguration(root, { metadataOnly: true, content }).configuration;
     if (packaged) {
       // Validate only the shapes and local references used below; store-backed validity remains unchecked.
-      mapping(configuration, 'agents.yaml', ['version', 'default_profile', 'default_role', 'models', 'families', 'roles'], ['skills', 'profiles', 'assignments']);
+      mapping(configuration, 'agents.yaml', ['version', 'default_profile', 'default_role', 'models', 'families', 'roles'], ['skills', 'profiles', 'assignments', ...(configuration.get('version') === 3 ? ['workflow_links'] : [])]);
       identifier(configuration.get('default_profile'), 'default_profile');
       identifier(configuration.get('default_role'), 'default_role');
       for (const section of ['models', 'families']) for (const [id, value] of mapping(configuration.get(section), section)) {
@@ -103,7 +103,7 @@ function configurationMetadata(root) {
         identifier(id, section);
         const fields = value.has('package') ? ['package', 'version'] : ['file'];
         const required = section === 'roles' ? [...fields, 'skills'] : fields;
-        const optional = section === 'roles' ? ['description'] : [];
+        const optional = [...(section === 'roles' ? ['description'] : []), ...(value.has('package') && configuration.get('version') === 3 ? ['revision'] : [])];
         if (value.has('package')) mapping(value, `${section}.${id}`, required, optional);
         else localDeclaration(root, value, `${section}.${id}`, `.agent-profiles/${value.get('file')}`, required, optional);
         if (!value.has('package')) localFile(path.join(root, '.agent-profiles'), value.get('file'), `${section}.${id}.file`, '.agent-profiles', true);
@@ -117,7 +117,7 @@ function configurationMetadata(root) {
       }
     }
     const declaration = (value, source) => ({ path: null, source, host: null, scope: 'repository', availability: 'declared', bytes: null,
-      package: { name: value.get('package'), version: value.get('version') }, verification: 'not-checked' });
+      package: { name: value.get('package'), version: value.get('version'), ...(configuration.get('version') === 3 ? { revisionDigest: value.get('revision') ?? null } : {}) }, verification: 'not-checked' });
     const packageProfiles = configuration.get('profiles') ?? new Map();
     const models = [...configuration.get('models')].map(([id, value]) => ({ id, profile: value.get('profile'), aliases: value.get('aliases') ?? [] })).sort((a, b) => compare(a.id, b.id));
     const families = [...configuration.get('families')].map(([id, value]) => ({ id, profile: value.get('profile'), prefixes: value.get('match')?.get('prefixes') ?? [] })).sort((a, b) => compare(a.id, b.id));
