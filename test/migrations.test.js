@@ -872,7 +872,7 @@ function workspaceBoundarySnapshot(root) {
 const workspaceBoundaryState = (f) =>
 	[f.root, f.storeRoot, f.ambient].map(workspaceBoundarySnapshot);
 const { integrations: workspaceConfig3Hosts } = await import(
-	"../src/integrations.js"
+	"../src/integrations.ts"
 );
 // A successful native start may add only the migration namespace and immutable stamp/blob backing; everything else is preserved.
 function workspaceConfig3Started(f, record, before, sharing) {

@@ -12,7 +12,11 @@ import path from "node:path";
 import { parseDocument } from "yaml";
 import { contextDiagnostics, measureFile, measureText } from "./diagnostics.js";
 import { errorCode, errorMessage, safePath } from "./files.ts";
-import { integrations, managedSurface } from "./integrations.js";
+import {
+	type Integration,
+	integrations,
+	managedSurface,
+} from "./integrations.ts";
 import { readLockState } from "./package-lock.js";
 import {
 	safePath as guardedPath,
@@ -36,14 +40,6 @@ export type YamlMap = Map<string, any>;
 
 // biome-ignore lint/suspicious/noExplicitAny: data from modules not converted yet (packages.js, revisions.js).
 type Untyped = any;
-
-type HostAdapter = {
-	id: string;
-	name: string;
-	skills?: Partial<
-		Record<string, { id: RegExp; path?: (id: string) => string }>
-	>;
-};
 
 /** One assignment rule overriding a package binding's version for matching selectors. */
 export type PackageRule = {
@@ -623,7 +619,7 @@ export function validateConfiguration({
 		config.has("skills") ? config.get("skills") : new Map(),
 		"skills",
 	);
-	const hosts: HostAdapter[] = integrations.filter((adapter) => adapter.skills);
+	const hosts = integrations.filter((adapter) => adapter.skills);
 	const hostOf = (source: YamlMap) =>
 		hosts.find((adapter) => adapter.id === source.get("host"));
 	for (const [id, source] of sources) {
@@ -843,7 +839,7 @@ export function validateConfiguration({
 					`ambiguous skill ${id}: ${conventional} exists and skills.${id} names a host skill`,
 				);
 			// Validated above: a host with native skills and a declared scope.
-			const adapter = hostOf(source) as HostAdapter;
+			const adapter = hostOf(source) as Integration;
 			const hostId = source.get("id") ?? id;
 			const scope = source.get("scope");
 			// User and plugin skills live outside the repository: host-provided, never verified here.
@@ -862,7 +858,7 @@ export function validateConfiguration({
 			};
 			if (scope === "project") {
 				// A declared project skill must exist, so a misspelled ID fails like any missing file.
-				// Project scopes always carry a path; see integrations.js.
+				// Project scopes always carry a path; see integrations.ts.
 				const file = adapter.skills?.project?.path?.(hostId) as string;
 				const resolved = localFile(
 					repository,

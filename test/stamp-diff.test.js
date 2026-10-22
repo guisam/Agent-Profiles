@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { stringify } from "yaml";
-import { integrations } from "../src/integrations.js";
+import { integrations } from "../src/integrations.ts";
 import { installDependencies } from "../src/package-lock.js";
 import { importPackage, lookupPackage } from "../src/package-store.js";
 import * as stamps from "../src/stamps.js";

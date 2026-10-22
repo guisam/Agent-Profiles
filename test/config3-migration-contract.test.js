@@ -8,7 +8,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import { integrations } from "../src/integrations.js";
+import { integrations } from "../src/integrations.ts";
 import * as migrations from "../src/migrations.js";
 import { installDependencies } from "../src/package-lock.js";
 import { importPackage, lookupPackage } from "../src/package-store.js";

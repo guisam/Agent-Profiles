@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { applyChanges, errorCode, errorMessage } from "./files.ts";
-import { integrations } from "./integrations.js";
+import { integrations } from "./integrations.ts";
 import { installDependencies } from "./package-lock.js";
 import {
 	candidateIndex,

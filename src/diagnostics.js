@@ -5,7 +5,8 @@ import {
 	bootstrapBlock,
 	integrations,
 	renderResolveCommand,
-} from "./integrations.js";
+	shells,
+} from "./integrations.ts";
 
 const clean = (value) =>
 	stripVTControlCharacters(String(value)).replace(/[\x00-\x1f\x7f-\x9f]/g, " ");
@@ -342,7 +343,7 @@ export function formatContext(result, { root, storeRoot } = {}) {
 				return `Native package ${identity}; supported hosts: ${entry.supportedHosts.map(clean).join(", ")}. Host-visible address unavailable; invocation unverified.`;
 			return (
 				`Package ${identity}. Load by binding ID:\n` +
-				["Bash", "PowerShell"]
+				shells
 					.map(
 						(shell) =>
 							`  Command (${shell}): \`${renderResolveCommand([...args, "--skill", entry.id], shell)}\``,
@@ -432,7 +433,7 @@ export function formatContext(result, { root, storeRoot } = {}) {
 		"",
 		"## Run again",
 		"",
-		...["Bash", "PowerShell"].map(
+		...shells.map(
 			(shell) => `Command (${shell}): \`${renderResolveCommand(args, shell)}\``,
 		),
 		"- after context compaction or in a new agent context;",

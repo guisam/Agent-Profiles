@@ -11,7 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { readConfiguration } from "./configure.ts";
 import { errorCode, safePath } from "./files.ts";
-import { integrations, managedSpan } from "./integrations.js";
+import { integrations, managedSpan } from "./integrations.ts";
 import {
 	identifier,
 	localDeclaration,

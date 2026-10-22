@@ -11,7 +11,7 @@ import {
 	safePath,
 } from "./files.ts";
 import { detectAgents } from "./install.js";
-import { integrations } from "./integrations.js";
+import { integrations } from "./integrations.ts";
 import {
 	identifier,
 	localFile,

@@ -19,7 +19,7 @@ import {
 	installPackage,
 	uninstall,
 } from "../src/install.js";
-import { bootstrapBlock, END, START } from "../src/integrations.js";
+import { bootstrapBlock, END, START } from "../src/integrations.ts";
 import {
 	applyPresetExport,
 	applyPresetImport,

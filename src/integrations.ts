@@ -5,20 +5,49 @@ export const END = "<!-- agent-profiles:end -->";
 // Bump when the managed block or BOOTSTRAP.md changes meaning; doctor reports older surfaces as stale.
 export const PROTOCOL = 2;
 
+/** One candidate instruction file of a host, as install and doctor see it. */
+export type SurfaceRecord = {
+	file: string;
+	before: Buffer | null;
+	span: { start: number; end: number } | null;
+};
+
+/** A host adapter: where its instructions live and how it addresses native skills. */
+export type Integration = {
+	id: string;
+	name: string;
+	hint: string;
+	files: string[];
+	select: (records: SurfaceRecord[]) => string;
+	repositoryReminder?: string;
+	skills?: Partial<
+		Record<string, { id: RegExp; path?: (id: string) => string }>
+	>;
+	permissions?: { file: string; also: string[]; rules: string[] };
+	bootstrapGuidance?: string[];
+	capabilities: Record<string, string>;
+};
+
+function adapterFor(host: string): Integration {
+	const adapter = integrations.find((item) => item.id === host);
+	if (!adapter) throw new Error(`Unknown integration ${host}`);
+	return adapter;
+}
+
 /** The block this adapter's surface should hold, in the surface's own newline style. */
-export function expectedBlock(host, before) {
+export function expectedBlock(host: string, before: Buffer | null) {
 	return bootstrapBlock(
 		host,
 		before?.includes(Buffer.from("\r\n")) ? "\r\n" : "\n",
 	);
 }
 
-/**
- * The managed block actually installed for a host, as bytes on disk (line endings included).
- * @returns {{file: string, block: Buffer} | null}
- */
-export function managedSurface(root, host) {
-	for (const file of integrations.find((item) => item.id === host).files) {
+/** The managed block actually installed for a host, as bytes on disk (line endings included). */
+export function managedSurface(
+	root: string,
+	host: string,
+): { file: string; block: Buffer } | null {
+	for (const file of adapterFor(host).files) {
 		try {
 			const before = readLocal(root, file);
 			const span = before && managedSpan(before, file);
@@ -31,7 +60,7 @@ export function managedSurface(root, host) {
 }
 
 /** Protocol version declared inside a managed span, or null for an unversioned (pre-2) block. */
-export function blockProtocol(span) {
+export function blockProtocol(span: Buffer) {
 	return (
 		Number(
 			/<!-- agent-profiles:protocol (\d+) -->/.exec(
@@ -45,7 +74,7 @@ export const resolveCommand = "npx --no agent-profiles resolve";
 
 // Agent-specific path and precedence choices stay here; file editing is shared.
 // capabilities record observed host behavior (docs/host-observations.md), not guarantees.
-export const integrations = [
+export const integrations: Integration[] = [
 	{
 		id: "claude",
 		name: "Claude Code",
@@ -61,7 +90,7 @@ export const integrations = [
 		skills: {
 			project: {
 				id: /^[a-z0-9][a-z0-9-]*$/,
-				path: (id) => `.claude/skills/${id}/SKILL.md`,
+				path: (id: string) => `.claude/skills/${id}/SKILL.md`,
 			},
 			user: { id: /^[a-z0-9][a-z0-9-]*$/ },
 			plugin: { id: /^[a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*$/ },
@@ -154,7 +183,7 @@ export const integrations = [
 	},
 ];
 
-export function managedSpan(content, file) {
+export function managedSpan(content: Buffer, file: string) {
 	const start = content.indexOf(START);
 	const end = content.indexOf(END);
 	if (start === -1 && end === -1) return null;
@@ -171,9 +200,8 @@ export function managedSpan(content, file) {
 	return { start, end: end + Buffer.byteLength(END) };
 }
 
-export function bootstrapBlock(host, newline = "\n") {
-	const adapter = integrations.find((item) => item.id === host);
-	if (!adapter) throw new Error(`Unknown integration ${host}`);
+export function bootstrapBlock(host: string, newline = "\n") {
+	const adapter = adapterFor(host);
 	// All added whitespace is inside the markers, so removal preserves every other byte.
 	// Each block names its host: an agent may read another host's instruction file too.
 	return Buffer.from(
@@ -203,9 +231,14 @@ export function bootstrapBlock(host, newline = "\n") {
 	);
 }
 
+export const shells = ["Bash", "PowerShell"] as const;
+
 /** Literal arguments for the two bootstrap shells; never evaluate resolver inputs. */
-export function renderResolveCommand(args, shell) {
-	const quote = (value) =>
+export function renderResolveCommand(
+	args: string[],
+	shell: (typeof shells)[number],
+) {
+	const quote = (value: string) =>
 		`'${value.replaceAll("'", shell === "Bash" ? "'\"'\"'" : "''")}'`;
 	return `${resolveCommand}${args.map((value, index) => ` ${index % 2 === 0 ? value : quote(value)}`).join("")}`;
 }

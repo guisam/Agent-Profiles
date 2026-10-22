@@ -20,7 +20,7 @@ import {
 	installPackage,
 	uninstall,
 } from "../src/install.js";
-import { integrations } from "../src/integrations.js";
+import { integrations } from "../src/integrations.ts";
 import { materializeStamp } from "../src/materialize.js";
 import {
 	abandonMigration,

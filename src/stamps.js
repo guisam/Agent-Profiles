@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { errorCode, errorMessage } from "./files.ts";
-import { integrations } from "./integrations.js";
+import { integrations } from "./integrations.ts";
 import {
 	inStoreSession,
 	publish,

@@ -3,7 +3,7 @@ import { lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { isAlias, isScalar, parseDocument, visit } from "yaml";
 import { errorMessage } from "./files.ts";
-import { integrations } from "./integrations.js";
+import { integrations } from "./integrations.ts";
 import {
 	mapping,
 	parseYaml,

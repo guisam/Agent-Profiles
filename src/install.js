@@ -17,7 +17,7 @@ import {
 	integrations,
 	managedSpan,
 	PROTOCOL,
-} from "./integrations.js";
+} from "./integrations.ts";
 import { resolveInstructions } from "./resolve.ts";
 
 // Sources run from src/; the published build runs from dist/src/.

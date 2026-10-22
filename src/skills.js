@@ -7,7 +7,7 @@ import {
 	validateExternalSelection,
 } from "./external-skills.js";
 import { errorMessage, safePath } from "./files.ts";
-import { integrations } from "./integrations.js";
+import { integrations } from "./integrations.ts";
 import {
 	identifier,
 	localDeclaration,

@@ -15,7 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
 import { stringify } from "yaml";
-import { integrations } from "../src/integrations.js";
+import { integrations } from "../src/integrations.ts";
 import { importPackage, lookupPackage } from "../src/package-store.js";
 import { readPackage } from "../src/packages.js";
 import { resolveInstructions } from "../src/resolve.ts";

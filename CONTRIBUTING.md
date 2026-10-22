@@ -47,7 +47,7 @@ The CI matrix runs these checks on Windows, macOS, and Linux with Node 24.
   machine facts separate, and skill scanning in the existing discovery adapters.
 - `src/visualize.ts`, `src/visualizer/`: loopback-only HTTP adapter and static
   browser UI consuming resolver diagnostics; no build step or UI dependencies.
-- `src/integrations.js`: agent instruction targets and managed bootstrap text.
+- `src/integrations.ts`: agent instruction targets and managed bootstrap text.
 - `src/install.js`, `src/files.ts`: installer lifecycle and guarded file writes.
 - `src/configure.ts`, `src/skills.js`, `src/wizard.ts`: validated role edits, local
   skill discovery, and terminal prompts.
@@ -59,7 +59,7 @@ The CI matrix runs these checks on Windows, macOS, and Linux with Node 24.
 - `test/`: Node's built-in test runner; `docs/`: contracts and user guides.
 
 Start with the [architecture](docs/architecture.md). For a new agent integration,
-add a small adapter in `src/integrations.js` following the
+add a small adapter in `src/integrations.ts` following the
 [adapter contract](docs/installer.md#integration-contract). Verify its instruction
 discovery against official host documentation and add tests for fresh and existing
 files, precedence, reruns, and exact uninstall preservation. Keep file mutation
