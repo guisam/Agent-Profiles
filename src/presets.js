@@ -749,24 +749,27 @@ export function planPresetExport({
 		);
 		outputProfiles.set(id, new Map([["file", file]]));
 	}
-	const data = new Map([
-		["schema_version", 1],
-		["preset", metadata],
-		["roles", outputRoles],
-		["profiles", outputProfiles],
-		[
-			"skills",
-			new Map()
-				.set(
-					"requires",
-					[...needed.keys()].filter(
-						(id) => !includes.has(id) && !hostSkills.has(id),
-					),
-				)
-				.set("includes", includes)
-				.set("host", hostSkills),
-		],
-	]);
+	// Values differ per key; without the cast TS infers Map<string, number> from the first entry.
+	const data = new Map(
+		/** @type {[string, unknown][]} */ ([
+			["schema_version", 1],
+			["preset", metadata],
+			["roles", outputRoles],
+			["profiles", outputProfiles],
+			[
+				"skills",
+				new Map()
+					.set(
+						"requires",
+						[...needed.keys()].filter(
+							(id) => !includes.has(id) && !hostSkills.has(id),
+						),
+					)
+					.set("includes", includes)
+					.set("host", hostSkills),
+			],
+		]),
+	);
 	for (const section of ["models", "families"])
 		data.set(
 			section,
