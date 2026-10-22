@@ -1,52 +1,52 @@
 {
-  "name": "agent-profiles",
-  "version": "0.1.0",
-  "description": "Repository-local instruction routing for coding agents",
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/guisam/Agent-Profiles.git"
-  },
-  "homepage": "https://github.com/guisam/Agent-Profiles#readme",
-  "bugs": "https://github.com/guisam/Agent-Profiles/issues",
-  "keywords": [
-    "agents",
-    "instructions",
-    "profiles",
-    "claude",
-    "codex"
-  ],
-  "type": "module",
-  "bin": {
-    "agent-profiles": "bin/agent-profiles.js"
-  },
-  "files": [
-    "bin/",
-    "src/",
-    ".agent-profiles/",
-    "docs/",
-    "examples/presets/",
-    "CHANGELOG.md",
-    "CONTRIBUTING.md"
-  ],
-  "engines": {
-    "node": ">=22"
-  },
-  "scripts": {
-    "typecheck": "tsc",
-    "lint": "biome lint",
-    "format": "biome format --write",
-    "check": "biome check --write",
-    "test": "node --test",
-    "test:package": "node scripts/package-smoke.js",
-    "resolve": "node bin/agent-profiles.js resolve --json"
-  },
-  "dependencies": {
-    "yaml": "^2.9.1"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "2.6.2",
-    "@types/node": "^22.20.4",
-    "typescript": "5.9"
-  }
+	"name": "agent-profiles",
+	"version": "0.1.0",
+	"description": "Repository-local instruction routing for coding agents",
+	"license": "Apache-2.0",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/guisam/Agent-Profiles.git"
+	},
+	"homepage": "https://github.com/guisam/Agent-Profiles#readme",
+	"bugs": "https://github.com/guisam/Agent-Profiles/issues",
+	"keywords": [
+		"agents",
+		"instructions",
+		"profiles",
+		"claude",
+		"codex"
+	],
+	"type": "module",
+	"bin": {
+		"agent-profiles": "bin/agent-profiles.js"
+	},
+	"files": [
+		"bin/",
+		"src/",
+		".agent-profiles/",
+		"docs/",
+		"examples/presets/",
+		"CHANGELOG.md",
+		"CONTRIBUTING.md"
+	],
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"typecheck": "tsc",
+		"lint": "biome lint",
+		"format": "biome format --write",
+		"check": "biome check --write",
+		"test": "node --test",
+		"test:package": "node scripts/package-smoke.js",
+		"resolve": "node bin/agent-profiles.js resolve --json"
+	},
+	"dependencies": {
+		"yaml": "^2.9.1"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.6.2",
+		"@types/node": "^22.20.4",
+		"typescript": "5.9"
+	}
 }
