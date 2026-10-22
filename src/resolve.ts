@@ -22,8 +22,9 @@ import {
 	safePath as guardedPath,
 	inStoreSession,
 	lookupPackage,
+	storeRoot as resolveStoreRoot,
 	verifyObject,
-} from "./package-store.js";
+} from "./package-store.ts";
 import {
 	type PackageManifest,
 	parseManifest,
@@ -1092,7 +1093,7 @@ export type StorePackage = {
 
 export function validatePackageBindings(
 	bindings: Map<string, PackageBinding>,
-	packages: Map<string, StorePackage>,
+	packages: Map<string, StorePackage | null>,
 ) {
 	for (const [binding, { source, type, rules, pins }] of bindings) {
 		for (const { reference, entry } of packageReferences(binding, {
@@ -1241,7 +1242,8 @@ function resolveCore(
 		? readLockState(repository, validated, storeRoot)
 		: { state: "not-required" };
 	if (lockMode === "required" && lock.error) throw new Error(lock.error);
-	const packages = new Map<string, StorePackage>();
+	// null: neither a legacy identity nor a released revision; validatePackageBindings reports it.
+	const packages = new Map<string, StorePackage | null>();
 	for (const [binding, value] of bindings) {
 		for (const { reference, entry } of packageReferences(binding, value)) {
 			const name = reference.get("package"),
@@ -2092,8 +2094,9 @@ function resolveCandidateCaptureOperation(
 		record = readRevisionRecord({ storeRoot: input.storeRoot, recordDigest });
 	if (record.kind !== "candidate")
 		fail("candidate", "expected retained unpublished candidate");
+	// Canonical store root, like every other store reader (default store, no links).
 	const files = verifyObject(
-			input.storeRoot,
+			resolveStoreRoot(input.storeRoot),
 			record.content.sha256,
 			record.content.identity,
 		),

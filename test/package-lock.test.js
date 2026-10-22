@@ -12,7 +12,7 @@ import path from "node:path";
 import test from "node:test";
 import tls from "node:tls";
 import { fileURLToPath } from "node:url";
-import { importPackage, lookupPackage } from "../src/package-store.js";
+import { importPackage, lookupPackage } from "../src/package-store.ts";
 import {
 	canonicalJSON,
 	hashRecord,

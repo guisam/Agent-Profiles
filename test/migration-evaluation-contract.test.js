@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
 import * as migrations from "../src/migrations.js";
 import { installDependencies } from "../src/package-lock.js";
-import { importPackage } from "../src/package-store.js";
+import { importPackage } from "../src/package-store.ts";
 import {
 	canonicalEvaluationJSON as canonicalJSON,
 	hashEvaluationRecord as hashRecord,
@@ -1457,7 +1457,7 @@ evidenceTest(
 );
 
 import * as observerFs from "node:fs";
-import { readStoreFile } from "../src/package-store.js";
+import { readStoreFile } from "../src/package-store.ts";
 
 test("observer control: safe-reader post-close edit returns original bytes and restores synchronized methods", (t) => {
 	const dir = fs.realpathSync(

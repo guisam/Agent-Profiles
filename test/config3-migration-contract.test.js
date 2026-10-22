@@ -11,7 +11,7 @@ import { stringify } from "yaml";
 import { integrations } from "../src/integrations.ts";
 import * as migrations from "../src/migrations.js";
 import { installDependencies } from "../src/package-lock.js";
-import { importPackage, lookupPackage } from "../src/package-store.js";
+import { importPackage, lookupPackage } from "../src/package-store.ts";
 import { readPackage } from "../src/packages.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 import {

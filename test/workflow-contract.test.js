@@ -13,7 +13,7 @@ import {
 	verifyMaterialization,
 } from "../src/materialize.js";
 import { installDependencies } from "../src/package-lock.js";
-import { importPackage, lookupPackage } from "../src/package-store.js";
+import { importPackage, lookupPackage } from "../src/package-store.ts";
 import { hashRecord } from "../src/packages.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";

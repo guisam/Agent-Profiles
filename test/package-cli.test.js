@@ -14,7 +14,7 @@ import { inspectRepository } from "../src/inspect.js";
 import { doctor, install } from "../src/install.js";
 import * as materializer from "../src/materialize.js";
 import { installDependencies } from "../src/package-lock.js";
-import { importPackage, lookupPackage } from "../src/package-store.js";
+import { importPackage, lookupPackage } from "../src/package-store.ts";
 import { readPackage } from "../src/packages.ts";
 import { runPreset } from "../src/preset-wizard.ts";
 import { resolveInstructions } from "../src/resolve.ts";

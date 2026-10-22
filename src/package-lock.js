@@ -21,7 +21,7 @@ import {
 	importPackage,
 	inStoreSession,
 	lookupPackage,
-} from "./package-store.js";
+} from "./package-store.ts";
 import {
 	canonicalJSON,
 	hashRecord,

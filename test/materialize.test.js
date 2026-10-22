@@ -18,7 +18,7 @@ import {
 	encodeComponent,
 	importPackage,
 	lookupPackage,
-} from "../src/package-store.js";
+} from "../src/package-store.ts";
 import {
 	canonicalJSON,
 	hashRecord,

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+	type BigIntStats,
 	closeSync,
 	constants,
 	fstatSync,
@@ -22,15 +23,27 @@ import {
 	canonicalJSON,
 	hashRecord,
 	hashTree,
+	type Member,
+	type PackageFile,
 	parseManifest,
 	parseRecord,
 	readPackage,
+	type Untyped,
 	validateMembers,
 } from "./packages.ts";
 
 const digestPattern = /^[0-9a-f]{64}$/;
 
-export function encodeComponent(value) {
+export type Identity = { name: string; version: string };
+
+/** Stats a tree was read under; any later difference means the tree changed. */
+type Snapshot = {
+	rootStat: BigIntStats;
+	members: { path: string; stat: BigIntStats }[];
+};
+type ScannedMember = Member & { stat: BigIntStats };
+
+export function encodeComponent(value: unknown) {
 	// The canonical encoder also rejects unpaired UTF-16 surrogates.
 	canonicalJSON(value);
 	if (typeof value !== "string")
@@ -38,7 +51,7 @@ export function encodeComponent(value) {
 	return `x-${Buffer.from(value).toString("hex")}`;
 }
 
-export function decodeComponent(value) {
+export function decodeComponent(value: unknown) {
 	if (typeof value !== "string" || !/^x-(?:[0-9a-f]{2})*$/.test(value))
 		throw new Error("component: noncanonical encoding");
 	const decoded = new TextDecoder("utf-8", {
@@ -50,7 +63,7 @@ export function decodeComponent(value) {
 	return decoded;
 }
 
-function localPath(value, label) {
+function localPath(value: unknown, label: string) {
 	if (typeof value !== "string" || !value.trim())
 		throw new Error(`${label}: expected a nonempty local directory`);
 	if (
@@ -65,7 +78,7 @@ function localPath(value, label) {
 	return resolved;
 }
 
-function statOrNull(target) {
+function statOrNull(target: string) {
 	try {
 		return lstatSync(target, { bigint: true });
 	} catch (error) {
@@ -74,7 +87,7 @@ function statOrNull(target) {
 	}
 }
 
-function directory(target) {
+function directory(target: string) {
 	const stat = lstatSync(target, { bigint: true });
 	if (stat.isSymbolicLink())
 		throw new Error(`${target}: link/junction is forbidden`);
@@ -82,7 +95,7 @@ function directory(target) {
 	return stat;
 }
 
-function rootPath(value, label, create = false) {
+function rootPath(value: unknown, label: string, create = false) {
 	const selected = localPath(value, label);
 	const stat = statOrNull(selected);
 	if (stat) {
@@ -90,7 +103,7 @@ function rootPath(value, label, create = false) {
 		return localPath(realpathSync(selected), label);
 	}
 	// Approve the nearest existing canonical ancestor once; never follow a child link.
-	const suffix = [];
+	const suffix: string[] = [];
 	let ancestor = selected;
 	while (!statOrNull(ancestor)) {
 		if (path.dirname(ancestor) === ancestor)
@@ -118,7 +131,7 @@ function rootPath(value, label, create = false) {
 
 // One store operation: directories validated in it are trusted for its remainder, and
 // content-addressed objects and records verified in it are reused. Nested calls join it.
-let session = null;
+let session: { dirs: Set<string>; memo: Map<string, unknown> } | null = null;
 let freshDepth = 0;
 
 // AGENT_PROFILES_STORE_CACHE=off makes every operation read fresh, like the audit commands.
@@ -132,7 +145,7 @@ function fresh() {
 	return freshDepth > 0 || setting === "off";
 }
 
-export function storeSession(operation) {
+export function storeSession<R>(operation: () => R): R {
 	if (session || fresh()) return operation();
 	session = { dirs: new Set(), memo: new Map() };
 	try {
@@ -142,36 +155,36 @@ export function storeSession(operation) {
 	}
 }
 
-/** @template {(...args: any[]) => any} F @param {F} fn @returns {F} */
-export function inStoreSession(fn) {
-	return /** @type {F} */ ((...args) => storeSession(() => fn(...args)));
+export function inStoreSession<A extends unknown[], R>(
+	fn: (...args: A) => R,
+): (...args: A) => R {
+	return (...args) => storeSession(() => fn(...args));
 }
 
 // Audit commands must independently re-read every byte, so they bypass every cache.
-/** @template {(...args: any[]) => any} F @param {F} fn @returns {F} */
-export function withFreshReads(fn) {
-	return /** @type {F} */ (
-		(...args) => {
-			const outer = session;
-			session = null;
-			freshDepth++;
-			try {
-				return fn(...args);
-			} finally {
-				freshDepth--;
-				session = outer;
-			}
+export function withFreshReads<A extends unknown[], R>(
+	fn: (...args: A) => R,
+): (...args: A) => R {
+	return (...args) => {
+		const outer = session;
+		session = null;
+		freshDepth++;
+		try {
+			return fn(...args);
+		} finally {
+			freshDepth--;
+			session = outer;
 		}
-	);
+	};
 }
 
-export function sessionMemo(key, compute) {
+export function sessionMemo<T>(key: string, compute: () => T): T {
 	if (!session) return compute();
 	if (!session.memo.has(key)) session.memo.set(key, compute());
-	return session.memo.get(key);
+	return session.memo.get(key) as T; // stored by this key's own compute
 }
 
-function storeRoot(value, create = false) {
+function storeRoot(value?: string, create = false): string {
 	const selected = storeSelection(value);
 	return sessionMemo(`storeRoot\0${selected}\0${create}`, () => {
 		const root = rootPath(selected, "store", create);
@@ -187,14 +200,14 @@ function storeRoot(value, create = false) {
 	});
 }
 
-function storeSelection(value) {
+function storeSelection(value?: string) {
 	return value === undefined
 		? (process.env.AGENT_PROFILES_STORE ??
 				path.join(os.homedir(), ".agent-profiles", "store"))
 		: value;
 }
 
-function safePath(root, relative) {
+function safePath(root: string, relative: string) {
 	// Staging directories are created and renamed away mid-operation, so they are never trusted.
 	const trusted =
 		relative === ".staging" || relative.startsWith(".staging/")
@@ -226,20 +239,23 @@ function safePath(root, relative) {
 	return current;
 }
 
-function sameStat(a, b) {
-	return ["dev", "ino", "mode", "nlink", "size", "mtimeNs", "ctimeNs"].every(
-		(key) => a[key] === b[key],
-	);
+function sameStat(a: BigIntStats, b: BigIntStats) {
+	return (
+		["dev", "ino", "mode", "nlink", "size", "mtimeNs", "ctimeNs"] as const
+	).every((key) => a[key] === b[key]);
 }
 
-function scan(root) {
-	const members = [];
+function scan(root: string): {
+	rootStat: BigIntStats;
+	members: ScannedMember[];
+} {
+	const members: ScannedMember[] = [];
 	const rootStat = directory(root);
 	function walk(relative = "") {
 		const expected = relative
-			? members.find((member) => member.path === relative).stat
+			? members.find((member) => member.path === relative)?.stat
 			: rootStat;
-		if (!sameStat(expected, directory(path.join(root, relative))))
+		if (!expected || !sameStat(expected, directory(path.join(root, relative))))
 			throw new Error("source/tree directory changed during scan");
 		for (const name of readdirSync(path.join(root, relative)).sort()) {
 			const memberPath = relative ? `${relative}/${name}` : name;
@@ -267,7 +283,7 @@ function scan(root) {
 	return { rootStat, members };
 }
 
-function sameSnapshot(before, after) {
+function sameSnapshot(before: Snapshot, after: Snapshot) {
 	return (
 		sameStat(before.rootStat, after.rootStat) &&
 		before.members.length === after.members.length &&
@@ -279,7 +295,7 @@ function sameSnapshot(before, after) {
 	);
 }
 
-function unchanged(before, after) {
+function unchanged(before: Snapshot, after: Snapshot) {
 	if (!sameSnapshot(before, after)) {
 		throw new Error(
 			"source/tree changed: membership, metadata or read identity",
@@ -287,7 +303,11 @@ function unchanged(before, after) {
 	}
 }
 
-function readMember(root, member, snapshot) {
+function readMember(
+	root: string,
+	member: { path: string; stat: BigIntStats },
+	snapshot: Snapshot,
+) {
 	// Recheck every ancestor before opening; O_NOFOLLOW protects the leaf where supported.
 	directory(root);
 	let current = root;
@@ -322,11 +342,11 @@ function readMember(root, member, snapshot) {
 }
 
 // A single explicit member uses the same no-follow and read-identity checks as trees.
-export function readStoreFile(root, relative) {
+export function readStoreFile(root: string, relative: string) {
 	validateMembers([{ path: relative, type: "file", nlink: 1 }]);
 	const target = safePath(root, relative);
 	const rootStat = directory(root);
-	const members = [];
+	const members: Snapshot["members"] = [];
 	const components = relative.split("/");
 	for (let i = 1; i < components.length; i++) {
 		const memberPath = components.slice(0, i).join("/");
@@ -353,14 +373,14 @@ export {
 	writeFlushed,
 };
 
-function readTree(root, copy = undefined, onFirst = undefined) {
+function readTree(root: string, copy?: string, onFirst?: () => void) {
 	return readTreeSnapshot(root, copy, onFirst).files;
 }
 
 // The snapshot is the one the bytes were read under, confirmed unchanged after reading.
-function readTreeSnapshot(root, copy = undefined, onFirst = undefined) {
+function readTreeSnapshot(root: string, copy?: string, onFirst?: () => void) {
 	const snapshot = scan(root);
-	const files = [];
+	const files: PackageFile[] = [];
 	for (const member of snapshot.members.filter(
 		(entry) => entry.type === "file",
 	)) {
@@ -377,7 +397,7 @@ function readTreeSnapshot(root, copy = undefined, onFirst = undefined) {
 	return { files, snapshot };
 }
 
-function writeFlushed(target, bytes) {
+function writeFlushed(target: string, bytes: Buffer | string) {
 	const fd = openSync(target, "wx", 0o600);
 	try {
 		writeFileSync(fd, bytes);
@@ -387,7 +407,7 @@ function writeFlushed(target, bytes) {
 	}
 }
 
-function identityPath(root, name, version) {
+function identityPath(root: string, name: unknown, version: unknown) {
 	if (
 		typeof name !== "string" ||
 		!/^@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/.test(name)
@@ -408,7 +428,12 @@ function identityPath(root, name, version) {
 	return safePath(root, `identities/${components.join("/")}/${version}.json`);
 }
 
-function recordAt(root, target, name, version) {
+function recordAt(
+	root: string,
+	target: string,
+	name: string,
+	version: string,
+): { identity: Identity; sha256: string } | null {
 	if (!statOrNull(target)) return null;
 	const relative = path.relative(root, target).split(path.sep).join("/");
 	safePath(root, relative);
@@ -416,7 +441,7 @@ function recordAt(root, target, name, version) {
 	if (!stat.isFile() || stat.nlink !== 1n)
 		throw new Error("identity: expected regular record");
 	const fd = openSync(target, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
-	let record;
+	let record: Untyped;
 	try {
 		if (!sameStat(stat, fstatSync(fd, { bigint: true })))
 			throw new Error("identity record changed");
@@ -447,9 +472,16 @@ function recordAt(root, target, name, version) {
 // the snapshot the bytes were hashed under; any change on disk forces a full re-read.
 // ponytail: unbounded, one entry per object a process touches; add eviction if a
 // long-running caller ever walks a large store.
-const verified = new Map();
+type VerifiedObject = {
+	objectStat: BigIntStats;
+	snapshot: Snapshot;
+	files: PackageFile[];
+	name: string;
+	version: string;
+};
+const verified = new Map<string, VerifiedObject>();
 
-function verifyObject(root, sha256, identity) {
+function verifyObject(root: string, sha256: string, identity: Identity) {
 	const key = `${root}\0${sha256}`;
 	const entry = sessionMemo(`object\0${key}`, () =>
 		verifyObjectAt(root, sha256, key),
@@ -459,7 +491,11 @@ function verifyObject(root, sha256, identity) {
 	return [...entry.files];
 }
 
-function verifyObjectAt(root, sha256, key) {
+function verifyObjectAt(
+	root: string,
+	sha256: string,
+	key: string,
+): VerifiedObject {
 	const object = safePath(root, `objects/sha256/${sha256}`);
 	const objectStat = directory(object);
 	if (readdirSync(object).join(",") !== "tree")
@@ -486,18 +522,21 @@ function verifyObjectAt(root, sha256, key) {
 	return entry;
 }
 
-function publish(from, to, rename) {
+function publish(
+	from: string,
+	to: string,
+	rename: (from: string, to: string) => void,
+) {
 	if (statOrNull(to)) throw new Error(`${to}: publication target exists`);
 	if (lstatSync(from, { bigint: true }).dev !== directory(path.dirname(to)).dev)
 		throw new Error("unsupported-filesystem: staging/final device mismatch");
 	try {
 		rename(from, to);
 	} catch (error) {
-		const category = ["EXDEV", "ENOTSUP", "EOPNOTSUPP"].includes(
-			errorCode(error),
-		)
+		const code = errorCode(error) ?? "";
+		const category = ["EXDEV", "ENOTSUP", "EOPNOTSUPP"].includes(code)
 			? "unsupported-filesystem"
-			: ["EPERM", "EACCES"].includes(errorCode(error))
+			: ["EPERM", "EACCES"].includes(code)
 				? "publication-denied"
 				: "publication failed";
 		throw new Error(
@@ -507,11 +546,14 @@ function publish(from, to, rename) {
 	}
 }
 
-/** @param {{storeRoot?: string, name: string, version: string}} input */
 export function lookupPackage({
 	storeRoot: selected = undefined,
 	name,
 	version,
+}: {
+	storeRoot?: string;
+	name: string;
+	version: string;
 }) {
 	const root = storeRoot(selected);
 	const target = identityPath(root, name, version);
@@ -523,13 +565,22 @@ export function lookupPackage({
 	};
 }
 
+export type ImportOptions = {
+	sourceDirectory: string;
+	storeRoot?: string;
+	expectedDigest?: string;
+	/** Synchronous observation hook; see test/package-store.test.js for the phases. */
+	onPhase?: (phase: string, detail: { staging: string }) => void;
+	rename?: (from: string, to: string) => void;
+};
+
 export function importPackage({
 	sourceDirectory,
 	storeRoot: selected = undefined,
 	expectedDigest = undefined,
 	onPhase = undefined,
 	rename = renameSync,
-}) {
+}: ImportOptions) {
 	if (
 		expectedDigest !== undefined &&
 		(typeof expectedDigest !== "string" || !digestPattern.test(expectedDigest))
@@ -540,7 +591,7 @@ export function importPackage({
 	const source = rootPath(sourceDirectory, "source");
 	directory(source);
 	const destination = rootPath(storeSelection(selected), "store");
-	const inside = (a, b) => {
+	const inside = (a: string, b: string) => {
 		const relative = path.relative(a, b);
 		return (
 			!path.isAbsolute(relative) &&
@@ -559,7 +610,7 @@ export function importPackage({
 			throw new Error("store-busy: writer lock exists");
 		throw error;
 	}
-	let staging;
+	let staging: string | undefined;
 	try {
 		writeFlushed(
 			path.join(lock, "owner.json"),
@@ -571,11 +622,12 @@ export function importPackage({
 		const objectStage = path.join(staging, "object");
 		const tree = path.join(objectStage, "tree");
 		mkdirSync(tree, { recursive: true });
+		const stage = staging;
 		const copied = readTree(source, tree, () =>
-			onPhase?.("source-read", { staging }),
+			onPhase?.("source-read", { staging: stage }),
 		);
 		const copiedDigest = hashTree(copied);
-		onPhase?.("copied", { staging });
+		onPhase?.("copied", { staging: stage });
 		// P2 reads only our private copy, never the mutable live source.
 		const staged = readPackage({ root: tree });
 		if (staged.sha256 !== copiedDigest)
@@ -605,13 +657,13 @@ export function importPackage({
 		const object = safePath(root, `objects/sha256/${staged.sha256}`);
 		if (statOrNull(object)) verifyObject(root, staged.sha256, identity);
 		else publish(objectStage, object, rename);
-		onPhase?.("object-published", { staging });
+		onPhase?.("object-published", { staging: stage });
 		mkdirSync(path.dirname(target), { recursive: true });
 		identityPath(root, identity.name, identity.version);
 		const temporary = path.join(staging, "identity.json");
 		writeFlushed(temporary, canonicalJSON({ identity, sha256: staged.sha256 }));
 		publish(temporary, target, rename);
-		onPhase?.("mapping-committed", { staging });
+		onPhase?.("mapping-committed", { staging: stage });
 		lookupPackage({ storeRoot: root, ...identity });
 		// A verified orphan gets a new mapping, so it is published rather than reused.
 		return { identity, sha256: staged.sha256, status: "published" };
@@ -625,7 +677,7 @@ export function importPackage({
 }
 
 // Reservations share the committed candidate index; there is no second mutable label registry.
-export function candidateIndex(root, id) {
+export function candidateIndex(root: string, id: string): Untyped {
 	if (typeof id !== "string" || !/^[a-z0-9][a-z0-9-]{0,127}$/.test(id))
 		throw new Error("candidate id: expected portable identifier");
 	const relative = `candidates/ids/${id}.json`,
@@ -702,7 +754,7 @@ export function candidateIndex(root, id) {
 	return index;
 }
 
-export function candidateReservation(root, identity) {
+export function candidateReservation(root: string, identity: Identity) {
 	const folder = safePath(root, "candidates/ids");
 	if (!statOrNull(folder)) return false;
 	directory(folder);
@@ -725,6 +777,10 @@ export function retainPackageObject({
 	sourceDirectory,
 	storeRoot: selected,
 	expectedDigest,
+}: {
+	sourceDirectory: string;
+	storeRoot?: string;
+	expectedDigest: string;
 }) {
 	if (typeof expectedDigest !== "string" || !digestPattern.test(expectedDigest))
 		throw new Error("expected digest: invalid SHA-256");
@@ -732,7 +788,7 @@ export function retainPackageObject({
 		root = storeRoot(selected);
 	const relative = path.relative(source, root),
 		inverse = path.relative(root, source);
-	const inside = (value) =>
+	const inside = (value: string) =>
 		!path.isAbsolute(value) &&
 		value !== ".." &&
 		!value.startsWith(`..${path.sep}`);
@@ -746,7 +802,7 @@ export function retainPackageObject({
 			throw new Error("store-busy: writer lock exists");
 		throw error;
 	}
-	let staging;
+	let staging: string | undefined;
 	try {
 		writeFlushed(
 			path.join(writer, "owner.json"),
@@ -785,6 +841,9 @@ export function retainPackageObject({
 export function recoverStore({
 	storeRoot: selected = undefined,
 	confirmNoActiveWriter = undefined,
+}: {
+	storeRoot?: string;
+	confirmNoActiveWriter?: boolean;
 }) {
 	if (confirmNoActiveWriter !== true)
 		throw new Error("recovery requires confirmNoActiveWriter === true");

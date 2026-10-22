@@ -24,7 +24,7 @@ import {
 	rootPath,
 	safePath,
 	writeFlushed,
-} from "./package-store.js";
+} from "./package-store.ts";
 import {
 	canonicalEvaluationJSON,
 	canonicalJSON,
@@ -1249,6 +1249,7 @@ function publishMigrationCandidateOperation(input) {
 		throw new Error(
 			"candidate task-only: unapproved workspace/workflow/resource change outside target",
 		);
+	/** @type {Map<string, Buffer>} */
 	const guarded = new Map([
 		[configFile, configBytes],
 		[lockFile, lockBytes],

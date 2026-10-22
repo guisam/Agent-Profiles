@@ -21,7 +21,7 @@ import {
 } from "../src/diagnostics.js";
 import { inspectRepository } from "../src/inspect.js";
 import { installDependencies } from "../src/package-lock.js";
-import { importPackage, readStoreFile } from "../src/package-store.js";
+import { importPackage, readStoreFile } from "../src/package-store.ts";
 import { validateMembers } from "../src/packages.ts";
 import { runPreset } from "../src/preset-wizard.ts";
 import {

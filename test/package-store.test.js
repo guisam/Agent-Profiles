@@ -45,7 +45,7 @@ import { parseRecord, readPackage } from "../src/packages.ts";
 // encodeComponent(s) / decodeComponent(s): contract E(s) and its strict inverse.
 // Diagnostics are asserted by contract tokens only: store-busy, identity-conflict,
 // unsupported-filesystem, publication-denied (+ observed code).
-const moduleUrl = new URL("../src/package-store.js", import.meta.url);
+const moduleUrl = new URL("../src/package-store.ts", import.meta.url);
 let sut;
 let missing;
 try {
@@ -56,14 +56,14 @@ try {
 	missing = error;
 }
 const blocked = missing
-	? "BLOCKED: src/package-store.js absent; behavioral assertions did not execute"
+	? "BLOCKED: src/package-store.ts absent; behavioral assertions did not execute"
 	: false;
 const behavior = (name, fn) => test(name, { skip: blocked }, fn);
 
-test("P3 production seam src/package-store.js exists with the provisional exports", () => {
+test("P3 production seam src/package-store.ts exists with the provisional exports", () => {
 	assert.ok(
 		sut,
-		`Missing intended src/package-store.js (${missing?.code}); not behavioral evidence`,
+		`Missing intended src/package-store.ts (${missing?.code}); not behavioral evidence`,
 	);
 	for (const name of [
 		"importPackage",
@@ -75,7 +75,7 @@ test("P3 production seam src/package-store.js exists with the provisional export
 		assert.equal(
 			typeof sut[name],
 			"function",
-			`src/package-store.js export ${name}`,
+			`src/package-store.ts export ${name}`,
 		);
 	}
 });

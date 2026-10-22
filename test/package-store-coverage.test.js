@@ -24,7 +24,7 @@ import {
 	importPackage,
 	lookupPackage,
 	recoverStore,
-} from "../src/package-store.js";
+} from "../src/package-store.ts";
 import { readPackage } from "../src/packages.ts";
 
 const VERSION = "1.0.0";

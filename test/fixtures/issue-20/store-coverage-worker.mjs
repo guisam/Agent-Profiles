@@ -85,7 +85,7 @@ if (process.argv[2] !== undefined) {
 		}
 	}
 	syncBuiltinESMExports();
-	const sut = await import("../../../src/package-store.js");
+	const sut = await import("../../../src/package-store.ts");
 	let output;
 	try {
 		const result = sut[request.op ?? "importPackage"]({

@@ -22,7 +22,7 @@ if (process.argv[2] !== undefined) {
 			output = { ok: true, result: "control" };
 		} else {
 			const sut = await import(
-				new URL("../../../src/package-store.js", import.meta.url).href
+				new URL("../../../src/package-store.ts", import.meta.url).href
 			);
 			output = {
 				ok: true,

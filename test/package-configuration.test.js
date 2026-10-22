@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { readConfiguration } from "../src/configure.ts";
 import { installDependencies } from "../src/package-lock.js";
-import { importPackage } from "../src/package-store.js";
+import { importPackage } from "../src/package-store.ts";
 import { readPackage } from "../src/packages.ts";
 import * as resolver from "../src/resolve.ts";
 

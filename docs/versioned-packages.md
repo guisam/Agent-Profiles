@@ -270,7 +270,7 @@ if ($LASTEXITCODE -ne 0) { throw 'reconstruction/output verification failed' }
 Recovery is a separate manual operation, **not normal walkthrough execution**.
 Only after independently confirming no writer is active, an authorized operator
 may call `recoverStore({storeRoot, confirmNoActiveWriter: true})` from
-`src/package-store.js`. It removes recognized uncommitted staging/writer-lock state,
+`src/package-store.ts`. It removes recognized uncommitted staging/writer-lock state,
 preserving published objects/identities. Old age/PID guesses never authorize lock deletion.
 Output API `recoverMaterialization({destination, outputRoot, expectedStampDigest,
 storeRoot, deniedRoots, confirmNoActiveWriter: true})` from `src/materialize.js`

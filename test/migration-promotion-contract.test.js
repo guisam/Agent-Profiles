@@ -14,7 +14,7 @@ import {
 	importPackage,
 	lookupPackage,
 	readStoreFile,
-} from "../src/package-store.js";
+} from "../src/package-store.ts";
 import {
 	canonicalJSON,
 	hashEvaluationRecord,

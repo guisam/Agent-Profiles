@@ -9,7 +9,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
 import { installDependencies } from "../src/package-lock.js";
-import { importPackage, lookupPackage } from "../src/package-store.js";
+import { importPackage, lookupPackage } from "../src/package-store.ts";
 import { canonicalJSON, hashRecord, readPackage } from "../src/packages.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 

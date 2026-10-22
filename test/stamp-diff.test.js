@@ -8,7 +8,7 @@ import test from "node:test";
 import { stringify } from "yaml";
 import { integrations } from "../src/integrations.ts";
 import { installDependencies } from "../src/package-lock.js";
-import { importPackage, lookupPackage } from "../src/package-store.js";
+import { importPackage, lookupPackage } from "../src/package-store.ts";
 import * as stamps from "../src/stamps.js";
 
 const CONFIG = ".agent-profiles/agents.yaml";

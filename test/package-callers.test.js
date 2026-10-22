@@ -20,7 +20,7 @@ import { formatProof, resolutionOutput } from "../src/diagnostics.js";
 import { inspectRepository } from "../src/inspect.js";
 import { doctor } from "../src/install.js";
 import { installDependencies } from "../src/package-lock.js";
-import { importPackage } from "../src/package-store.js";
+import { importPackage } from "../src/package-store.ts";
 import {
 	applyPresetExport,
 	applyPresetImport,

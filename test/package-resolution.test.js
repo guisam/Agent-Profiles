@@ -16,7 +16,7 @@ import path from "node:path";
 import test, { after } from "node:test";
 import { stringify } from "yaml";
 import { integrations } from "../src/integrations.ts";
-import { importPackage, lookupPackage } from "../src/package-store.js";
+import { importPackage, lookupPackage } from "../src/package-store.ts";
 import { readPackage } from "../src/packages.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 

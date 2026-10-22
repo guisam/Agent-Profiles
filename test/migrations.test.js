@@ -8,7 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
 import { installDependencies } from "../src/package-lock.js";
-import { importPackage } from "../src/package-store.js";
+import { importPackage } from "../src/package-store.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 import { createStamp, reconstructStamp } from "../src/stamps.js";
 

@@ -22,7 +22,7 @@ import {
 	verifyObject,
 	withFreshReads,
 	writeFlushed,
-} from "./package-store.js";
+} from "./package-store.ts";
 import {
 	canonicalJSON,
 	hashRecord,
