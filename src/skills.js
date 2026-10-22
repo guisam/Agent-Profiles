@@ -14,7 +14,7 @@ import {
 	localFile,
 	mapping,
 	skillMetadata,
-} from "./resolve.js";
+} from "./resolve.ts";
 
 // Repository instruction files continue to use the original containment rules.
 function directorySkills(root, directory, host) {

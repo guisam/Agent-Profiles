@@ -34,7 +34,7 @@ identity is routing input, not evidence of the model actually executing a task.
 [architecture](../architecture.md) governs existing version-1 behavior; this proposal
 cannot silently amend it. Relevant implemented seams:
 
-- [resolve.js](../../src/resolve.js): strict configuration validation, model/alias/
+- [resolve.ts](../../src/resolve.ts): strict configuration validation, model/alias/
   supplied-family/longest-prefix/default routing, independent role selection, required
   then requested instruction order, and native/injected delivery separation.
 - [files.ts](../../src/files.ts): guarded paths and rollback after caught errors;

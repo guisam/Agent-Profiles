@@ -16,7 +16,7 @@ import {
 	planPresetImport,
 	readPreset,
 } from "../src/presets.ts";
-import { resolveInstructions } from "../src/resolve.js";
+import { resolveInstructions } from "../src/resolve.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 const metadata = {

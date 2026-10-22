@@ -35,7 +35,7 @@ import {
 	parseYaml,
 	validateConfiguration,
 	validatePackageBindings,
-} from "./resolve.js";
+} from "./resolve.ts";
 import { releasedPackage, revisionClosure } from "./revisions.js";
 
 const configurationFile = ".agent-profiles/agents.yaml";
@@ -384,6 +384,7 @@ function coverage(lock, { pins, wanted }) {
 /**
  * Read-only lock state: never writes or repairs; v3 also verifies the declared revision closure in the explicit store.
  * @param {string} root canonical project root @param {{config: Map<string, any>, bindings: Map<string, any>}} validated
+ * @param {string} [storeRoot]
  * @returns {{state: 'valid' | 'missing' | 'stale' | 'invalid', error?: string, locked?: Map<string, {sha256: string}>}}
  */
 function readLockStateOperation(root, validated, storeRoot = undefined) {

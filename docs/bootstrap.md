@@ -183,7 +183,7 @@ and no partial output.
 ## JSON and API
 
 ```js
-import { resolveInstructions } from './src/resolve.js';
+import { resolveInstructions } from './src/resolve.ts';
 
 const result = resolveInstructions({
   root: process.cwd(),

@@ -51,6 +51,7 @@ function total(entries) {
 	);
 }
 
+/** @param {{file: string, block: Buffer} | null} [surface] managed host instruction surface, when known */
 export function contextDiagnostics(
 	loaded,
 	available,

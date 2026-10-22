@@ -7,7 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
 import { formatProof } from "../src/diagnostics.js";
-import { resolveInstructions } from "../src/resolve.js";
+import { resolveInstructions } from "../src/resolve.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 function repository(t) {

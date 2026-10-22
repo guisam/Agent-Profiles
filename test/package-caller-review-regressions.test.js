@@ -20,7 +20,7 @@ import {
 	planPresetImport,
 	readPreset,
 } from "../src/presets.ts";
-import { parseYaml, resolveInstructions } from "../src/resolve.js";
+import { parseYaml, resolveInstructions } from "../src/resolve.ts";
 import { discoverSkills } from "../src/skills.js";
 import { configureRoles } from "../src/wizard.ts";
 

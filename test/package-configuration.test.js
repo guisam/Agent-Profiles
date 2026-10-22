@@ -7,7 +7,7 @@ import { readConfiguration } from "../src/configure.ts";
 import { installDependencies } from "../src/package-lock.js";
 import { importPackage } from "../src/package-store.js";
 import { readPackage } from "../src/packages.js";
-import * as resolver from "../src/resolve.js";
+import * as resolver from "../src/resolve.ts";
 
 function fixture(t) {
 	const owned = fs.mkdtempSync(

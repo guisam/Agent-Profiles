@@ -22,7 +22,7 @@ import {
 	parseRecord,
 	readPackage,
 } from "../src/packages.js";
-import { resolveInstructions } from "../src/resolve.js";
+import { resolveInstructions } from "../src/resolve.ts";
 import {
 	lookupRevisionManifest,
 	readRevisionRecord,

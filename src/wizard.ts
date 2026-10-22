@@ -8,23 +8,17 @@ import {
 	type SkillSelection,
 } from "./configure.ts";
 import { errorMessage } from "./files.ts";
-import { resolveInstructions } from "./resolve.js";
+import { type ResolvedSkill, resolveInstructions } from "./resolve.ts";
 import { discoverSkills } from "./skills.js";
 
 export type Ask = (prompt: string) => Promise<string>;
 export type Write = (line: string) => void;
 
 /** A discovered or resolved skill as the wizard lists and selects it. */
-export type SkillChoice = Exclude<SkillSelection, string> & {
-	id: string;
-	name?: string;
-	description?: string;
+export type SkillChoice = ResolvedSkill & {
 	source?: string;
 	availability?: string;
 	selectable?: boolean;
-	verification?: string;
-	resources?: string[];
-	type?: string;
 };
 
 export const display = (text: unknown) =>
@@ -168,7 +162,7 @@ function summary(plan: RoleChangePlan, write: Write) {
 			write(`Resources: ${role.resources.map(display).join(", ")}`);
 		for (const group of ["required", "available"] as const) {
 			write(
-				`${group}: ${plan.resolution[group].map((skill: SkillChoice) => `${skill.id} (${display(where(skill))}${skill.resources?.length ? `; resources: ${skill.resources.map(display).join(", ")}` : ""})`).join(", ") || "(none)"}`,
+				`${group}: ${plan.resolution[group].map((skill) => `${skill.id} (${display(where(skill))}${skill.resources?.length ? `; resources: ${skill.resources.map(display).join(", ")}` : ""})`).join(", ") || "(none)"}`,
 			);
 		}
 		for (const alias of plan.aliases)

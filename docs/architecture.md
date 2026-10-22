@@ -165,7 +165,7 @@ roles/<role-id>.md
 skills/<skill-id>/SKILL.md
 ```
 
-Version 1 uses plain YAML mappings and lists, enforced by [the resolver](../src/resolve.js).
+Version 1 uses plain YAML mappings and lists, enforced by [the resolver](../src/resolve.ts).
 
 | Field | Type | Meaning |
 | --- | --- | --- |

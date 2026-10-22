@@ -5,7 +5,7 @@ import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { resolveInstructions } from "../src/resolve.js";
+import { resolveInstructions } from "../src/resolve.ts";
 import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
 
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");

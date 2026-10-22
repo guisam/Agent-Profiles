@@ -14,7 +14,7 @@ import {
 	uninstall,
 } from "../src/install.js";
 import { runPreset } from "../src/preset-wizard.ts";
-import { resolveInstructions } from "../src/resolve.js";
+import { resolveInstructions } from "../src/resolve.ts";
 import { startVisualizer } from "../src/visualize.ts";
 import { configureRoles, selectSkills } from "../src/wizard.ts";
 

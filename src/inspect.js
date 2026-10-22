@@ -18,7 +18,7 @@ import {
 	localFile,
 	mapping,
 	parseYaml,
-} from "./resolve.js";
+} from "./resolve.ts";
 import { discoverSkills } from "./skills.js";
 
 const limit = 65536;

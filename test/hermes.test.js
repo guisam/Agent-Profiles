@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { formatContext } from "../src/diagnostics.js";
 import { detectAgents, doctor, install, uninstall } from "../src/install.js";
 import { bootstrapBlock } from "../src/integrations.js";
-import { parseYaml, resolveInstructions } from "../src/resolve.js";
+import { parseYaml, resolveInstructions } from "../src/resolve.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 

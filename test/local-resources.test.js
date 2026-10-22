@@ -31,7 +31,7 @@ import {
 	planPresetImport,
 	readPreset,
 } from "../src/presets.ts";
-import { parseYaml, resolveInstructions } from "../src/resolve.js";
+import { parseYaml, resolveInstructions } from "../src/resolve.ts";
 import { discoverSkills } from "../src/skills.js";
 import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
 import { startVisualizer } from "../src/visualize.ts";

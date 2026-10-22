@@ -27,11 +27,159 @@ import {
 	revisionClosure,
 } from "./revisions.js";
 
-function fail(entry, message) {
+/**
+ * Parsed YAML (`toJS({mapAsMap: true})`). Its shape is unknown until mapping(),
+ * identifier() and the other validators below have checked it at runtime.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: values are validated at runtime, field by field.
+export type YamlMap = Map<string, any>;
+
+// biome-ignore lint/suspicious/noExplicitAny: data from modules not converted yet (packages.js, revisions.js).
+type Untyped = any;
+
+type HostAdapter = {
+	id: string;
+	name: string;
+	skills?: Partial<
+		Record<string, { id: RegExp; path?: (id: string) => string }>
+	>;
+};
+
+/** One assignment rule overriding a package binding's version for matching selectors. */
+export type PackageRule = {
+	id: string;
+	when: YamlMap;
+	version: unknown;
+	source?: YamlMap;
+};
+
+export type PackagePin = {
+	manifest: Untyped;
+	bytes: Buffer;
+	metadata: SkillMetadata | null;
+	sha256: string;
+	// Added for config v3 from the revision closure.
+	closure?: Untyped[];
+	revision?: Untyped;
+	revisionDigest?: string | null;
+};
+
+/** A package selected for one actor, with the backing and identity reported in output. */
+type SelectedPackage = PackagePin & {
+	output: {
+		path: null;
+		backing: { type: "package"; sha256: string; path: string };
+		package: {
+			binding: string;
+			name: string;
+			version: string;
+			sha256: string;
+			revisionDigest?: string | null;
+			selectedBy: string;
+			selectors: Record<string, unknown>;
+		};
+	};
+};
+
+/** One loaded package instruction body in a workflow-aware (config v3) composition. */
+type Part = {
+	path: null;
+	kind: string;
+	id: string;
+	binding: string;
+	owner: string;
+	backing: { type: "package"; sha256: string; path: string };
+	package: Untyped;
+	revision: Untyped;
+	content: string;
+};
+
+type ActorBody = {
+	parts: Part[];
+	loadedBindings: Map<string, Part[]>;
+	roots: Map<string, SelectedPackage>;
+};
+
+type Assignment = { role: string; model: string; host: string };
+
+/** A catalog skill after package selection: package skills gain backing and package identity. */
+export type ResolvedSkill = CatalogSkill & {
+	backing?: SelectedPackage["output"]["backing"];
+	package?: SelectedPackage["output"]["package"];
+	supportedHosts?: string[];
+};
+type RoleLists<T> = { required: T[]; available: T[] };
+
+/** An evaluated, unpublished candidate revision substituted for its parent in one assignment. */
+export type Candidate = {
+	digest: string;
+	record: Untyped;
+	files: { path: string; bytes: Buffer }[];
+	assignment: {
+		role?: string | null;
+		model?: string | null;
+		host?: string | null;
+	};
+	closure: Untyped[];
+};
+
+export type ResolveOptions = {
+	root?: string;
+	host?: string;
+	model?: string;
+	family?: string;
+	identitySource?: "host" | "host-stated" | "user";
+	role?: string;
+	skills?: string[];
+	configuration?: YamlMap;
+	storeRoot?: string;
+	lockMode?: "required" | "validation";
+	newRoleFile?: { path: string; content: string };
+	preview?: Map<string, Buffer>;
+	metadataOnly?: boolean;
+};
+
+export type PackageBinding = {
+	source: YamlMap;
+	type: "instruction" | "skill";
+	rules: PackageRule[];
+	pins: Map<string, PackagePin>;
+};
+
+/** A configured skill: local instruction, host-native reference, or package binding reference. */
+export type CatalogSkill = {
+	id: string;
+	binding?: string;
+	type?: string;
+	host?: string | null;
+	hostId?: string | null;
+	scope?: string;
+	delivery?: string;
+	name?: string;
+	nameSource?: string;
+	description?: string | null;
+	path?: string | null;
+	verification?: string;
+	metadataError?: string;
+	resources?: string[];
+};
+
+function fail(entry: string, message: string): never {
 	throw new Error(`${entry}: ${message}`);
 }
 
-export function mapping(value, entry, fields, optional = []) {
+function memberBytes(files: { path: string; bytes: Buffer }[], file: string) {
+	const found = files.find((member) => member.path === file);
+	if (!found) fail("package", `missing member ${file}`);
+	return found.bytes;
+}
+
+export function mapping(
+	value: unknown,
+	entry: string,
+	fields?: string[],
+	optional: string[] = [],
+): YamlMap {
 	if (!(value instanceof Map)) fail(entry, "expected a mapping");
 	for (const key of value.keys()) {
 		if (typeof key !== "string" || !key.trim())
@@ -45,7 +193,7 @@ export function mapping(value, entry, fields, optional = []) {
 	return value;
 }
 
-export function identifier(value, entry) {
+export function identifier(value: unknown, entry: string): string {
 	if (typeof value !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(value)) {
 		fail(
 			entry,
@@ -56,13 +204,13 @@ export function identifier(value, entry) {
 }
 
 export function localFile(
-	base,
-	file,
-	entry,
+	base: string,
+	file: unknown,
+	entry: string,
 	scope = ".agent-profiles",
 	allowMissing = false,
-	preview = new Map(),
-) {
+	preview: Map<string, unknown> = new Map(),
+): string {
 	if (
 		typeof file !== "string" ||
 		!file.endsWith(".md") ||
@@ -100,14 +248,19 @@ export function localFile(
 	}
 }
 
-function profileFile(base, id, entry, preview) {
+function profileFile(
+	base: string,
+	id: unknown,
+	entry: string,
+	preview: Map<string, unknown>,
+) {
 	identifier(id, entry);
 	const file = `profiles/${id}.md`;
 	localFile(base, file, entry, ".agent-profiles", false, preview);
 	return file;
 }
 
-export function parseYamlDocument(text) {
+export function parseYamlDocument(text: string) {
 	const document = parseDocument(text);
 	if (document.errors.length || document.warnings.length) {
 		throw new Error(
@@ -119,33 +272,40 @@ export function parseYamlDocument(text) {
 	return document;
 }
 
-export function parseYaml(text) {
+// biome-ignore lint/suspicious/noExplicitAny: parsed YAML; callers validate it with mapping() and friends.
+export function parseYaml(text: string): any {
 	return parseYamlDocument(text).toJS({ mapAsMap: true, maxAliasCount: 100 });
 }
 
+export type SkillMetadata = {
+	name: string;
+	nameSource: "directory" | "frontmatter";
+	description: string | null;
+};
+
 export function skillMetadata(
-	file,
-	entry,
-	content,
+	file: string,
+	entry: string,
+	content?: Buffer,
 	display = file,
 	requireDescription = true,
-) {
-	let descriptor;
+): SkillMetadata {
+	let descriptor: number | undefined;
 	try {
 		if (content === undefined) descriptor = openSync(file, "r");
-		const chunks = [];
+		const chunks: Buffer[] = [];
 		// ponytail: frontmatter is capped at 64 KiB; raise the limit if a local format needs more.
 		for (let size = 0; size < 65536; ) {
 			const buffer = Buffer.alloc(1024);
 			const count =
-				content === undefined
-					? readSync(descriptor, buffer, 0, buffer.length, null)
-					: content.copy(
+				content !== undefined
+					? content.copy(
 							buffer,
 							0,
 							size,
 							Math.min(size + buffer.length, content.length),
-						);
+						)
+					: readSync(descriptor as number, buffer, 0, buffer.length, null); // opened above
 			chunks.push(buffer.subarray(0, count));
 			size += count;
 			const text = Buffer.concat(chunks)
@@ -154,7 +314,7 @@ export function skillMetadata(
 			const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
 			if (match && (!count || match[0].endsWith("\n"))) {
 				const metadata = mapping(parseYaml(match[1]), "frontmatter");
-				const text = (key) => {
+				const text = (key: string): string | null => {
 					if (!metadata.has(key) && (key === "name" || !requireDescription))
 						return null;
 					if (
@@ -182,13 +342,13 @@ export function skillMetadata(
 		}
 		throw new Error("expected YAML frontmatter delimited by --- within 64 KiB");
 	} catch (error) {
-		fail(entry, `${display}: ${errorMessage(error)}`);
+		return fail(entry, `${display}: ${errorMessage(error)}`);
 	} finally {
 		if (descriptor !== undefined) closeSync(descriptor);
 	}
 }
 
-function strings(value, entry) {
+function strings(value: unknown, entry: string): string[] {
 	if (
 		!Array.isArray(value) ||
 		value.some((item) => typeof item !== "string" || !item.trim())
@@ -198,7 +358,11 @@ function strings(value, entry) {
 	return value;
 }
 
-function skillFiles(ids, entry, resolveSkill) {
+function skillFiles<T>(
+	ids: unknown,
+	entry: string,
+	resolveSkill: (id: string, location: string) => T,
+): T[] {
 	if (!Array.isArray(ids)) fail(entry, "expected a list of skill IDs");
 	const seen = new Set();
 	return ids.map((id, index) => {
@@ -212,14 +376,14 @@ function skillFiles(ids, entry, resolveSkill) {
 
 // Resource checks inspect named members only; binary bodies belong to stamp capture.
 export function localDeclaration(
-	root,
-	source,
-	binding,
-	instruction,
-	fields = ["file"],
-	optional = [],
-) {
-	mapping(source, binding, fields, [...optional, "resources"]);
+	root: string,
+	value: unknown,
+	binding: string,
+	instruction: string | undefined,
+	fields: string[] = ["file"],
+	optional: string[] = [],
+): { resources?: string[] } {
+	const source = mapping(value, binding, fields, [...optional, "resources"]);
 	if (!source.has("resources")) return {};
 	const resources = source.get("resources"),
 		entry = `${binding}.resources`;
@@ -261,13 +425,20 @@ export function localDeclaration(
 		: {};
 }
 
+export type ValidateOptions = {
+	root?: string;
+	configuration?: YamlMap;
+	newRoleFile?: { path: string; content: string };
+	preview?: Map<string, Buffer>;
+};
+
 export function validateConfiguration({
 	root = process.cwd(),
 	configuration = undefined,
 	newRoleFile = undefined,
 	preview = new Map(),
-} = {}) {
-	let repository, base, config;
+}: ValidateOptions = {}) {
+	let repository: string, base: string, config: YamlMap;
 	try {
 		repository = realpathSync(root);
 		base = realpathSync(path.join(repository, ".agent-profiles"));
@@ -340,12 +511,17 @@ export function validateConfiguration({
 		config.has("profiles") ? config.get("profiles") : new Map(),
 		"profiles",
 	);
-	const bindings = new Map();
-	const local = new Map();
-	const exists = (file) =>
+	const bindings = new Map<string, PackageBinding>();
+	const local = new Map<string, { resources?: string[] }>();
+	const exists = (file: string) =>
 		existsSync(path.join(repository, file)) ||
 		preview.has(path.join(repository, file));
-	function bindPackage(binding, source, type, conventional) {
+	function bindPackage(
+		binding: string,
+		source: YamlMap,
+		type: PackageBinding["type"],
+		conventional: string,
+	) {
 		if (exists(conventional))
 			fail(binding, `ambiguous package binding: ${conventional} also exists`);
 		bindings.set(binding, { source, type, rules: [], pins: new Map() });
@@ -386,9 +562,9 @@ export function validateConfiguration({
 			);
 		}
 	}
-	const referencedProfiles = new Set();
-	function validateProfile(id, entry) {
-		identifier(id, entry);
+	const referencedProfiles = new Set<string>();
+	function validateProfile(value: unknown, entry: string) {
+		const id = identifier(value, entry);
 		referencedProfiles.add(id);
 		if (!profiles.has(id)) profileFile(base, id, entry, preview);
 	}
@@ -396,7 +572,7 @@ export function validateConfiguration({
 	validateProfile(defaultProfile, "default_profile");
 	const defaultRole = identifier(config.get("default_role"), "default_role");
 	const models = mapping(config.get("models"), "models");
-	const aliases = new Map();
+	const aliases = new Map<string, string>();
 	for (const [identity, value] of models) {
 		const entry = `models.${identity}`;
 		mapping(value, entry, ["profile"], ["aliases"]);
@@ -419,7 +595,7 @@ export function validateConfiguration({
 		}
 	}
 	const families = mapping(config.get("families"), "families");
-	const prefixes = new Map();
+	const prefixes = new Map<string, string>();
 	for (const [name, value] of families) {
 		const entry = `families.${name}`;
 		mapping(value, entry, ["profile"], ["match"]);
@@ -447,8 +623,8 @@ export function validateConfiguration({
 		config.has("skills") ? config.get("skills") : new Map(),
 		"skills",
 	);
-	const hosts = integrations.filter((adapter) => adapter.skills);
-	const hostOf = (source) =>
+	const hosts: HostAdapter[] = integrations.filter((adapter) => adapter.skills);
+	const hostOf = (source: YamlMap) =>
 		hosts.find((adapter) => adapter.id === source.get("host"));
 	for (const [id, source] of sources) {
 		identifier(id, `skills.${id}`);
@@ -487,13 +663,15 @@ export function validateConfiguration({
 		}
 		mapping(source, `skills.${id}`, ["host", "scope"], ["id"]);
 		const adapter = hostOf(source);
-		if (!adapter)
+		if (!adapter?.skills)
 			fail(
 				`skills.${id}.host`,
 				`expected a host with native skills: ${hosts.map((item) => item.id).join(", ")}`,
 			);
-		const scope = adapter.skills[source.get("scope")];
-		if (!Object.hasOwn(adapter.skills, source.get("scope")))
+		const scope = Object.hasOwn(adapter.skills, source.get("scope"))
+			? adapter.skills[source.get("scope")]
+			: undefined;
+		if (!scope)
 			fail(
 				`skills.${id}.scope`,
 				`expected one of ${Object.keys(adapter.skills).join(", ")}`,
@@ -558,7 +736,7 @@ export function validateConfiguration({
 			[],
 			["model", "role", "profile", "host"],
 		);
-		const allowed = {
+		const allowed: Record<string, { has(value: unknown): boolean }> = {
 			model: models,
 			role: roles,
 			profile: referencedProfiles,
@@ -587,7 +765,8 @@ export function validateConfiguration({
 					["package", "version"],
 					["revision"],
 				);
-			bindings.get(binding).rules.push({
+			// Checked above: every overridden binding is declared.
+			(bindings.get(binding) as PackageBinding).rules.push({
 				id,
 				when,
 				version: config.get("version") === 3 ? version.get("version") : version,
@@ -646,9 +825,10 @@ export function validateConfiguration({
 				fail(`${entry}.revision`, "expected revision digest");
 		}
 	}
-	const catalog = new Map();
-	function resolveSkill(id, entry) {
-		if (catalog.has(id)) return catalog.get(id);
+	const catalog = new Map<string, CatalogSkill>();
+	function resolveSkill(id: string, entry: string): CatalogSkill {
+		const cached = catalog.get(id);
+		if (cached) return cached;
 		const conventional = `.agent-profiles/skills/${id}/SKILL.md`;
 		const source = sources.get(id);
 		if (bindings.has(`skills.${id}`)) {
@@ -662,11 +842,12 @@ export function validateConfiguration({
 					entry,
 					`ambiguous skill ${id}: ${conventional} exists and skills.${id} names a host skill`,
 				);
-			const adapter = hostOf(source);
+			// Validated above: a host with native skills and a declared scope.
+			const adapter = hostOf(source) as HostAdapter;
 			const hostId = source.get("id") ?? id;
 			const scope = source.get("scope");
 			// User and plugin skills live outside the repository: host-provided, never verified here.
-			let skill = {
+			let skill: CatalogSkill = {
 				id,
 				type: "host",
 				host: adapter.id,
@@ -681,7 +862,8 @@ export function validateConfiguration({
 			};
 			if (scope === "project") {
 				// A declared project skill must exist, so a misspelled ID fails like any missing file.
-				const file = adapter.skills.project.path(hostId);
+				// Project scopes always carry a path; see integrations.js.
+				const file = adapter.skills?.project?.path?.(hostId) as string;
 				const resolved = localFile(
 					repository,
 					file,
@@ -738,7 +920,7 @@ export function validateConfiguration({
 				`ambiguous skill ${id}: both ${conventional} and ${file} exist`,
 			);
 		}
-		const skill = {
+		const skill: CatalogSkill = {
 			id,
 			type: "instruction",
 			delivery: "inject",
@@ -749,7 +931,10 @@ export function validateConfiguration({
 		catalog.set(id, skill);
 		return skill;
 	}
-	const roleSkills = new Map();
+	const roleSkills = new Map<
+		string,
+		{ required: CatalogSkill[]; available: CatalogSkill[] }
+	>();
 	for (const [id, value] of roles) {
 		const entry = `roles.${id}`;
 		identifier(id, entry);
@@ -809,7 +994,7 @@ export function validateConfiguration({
 		if (!Array.isArray(link.get("providers")) || !link.get("providers").length)
 			fail(`workflow_links.${id}.providers`, "expected nonempty array");
 		const peers = [link.get("consumer"), ...link.get("providers")],
-			seen = new Set();
+			seen = new Set<string>();
 		for (const [index, peer] of peers.entries()) {
 			const entry = `workflow_links.${id}.${index === 0 ? "consumer" : "providers"}`;
 			mapping(peer, entry, ["assignment", "binding"]);
@@ -849,7 +1034,10 @@ export function validateConfiguration({
 	};
 }
 
-export function packageReferences(binding, { source, rules }) {
+export function packageReferences(
+	binding: string,
+	{ source, rules }: { source: YamlMap; rules: PackageRule[] },
+): { reference: YamlMap; rule: string | null; entry: string }[] {
 	return [
 		{ reference: source, rule: null, entry: binding },
 		...rules.map((rule) => ({
@@ -864,15 +1052,20 @@ export function packageReferences(binding, { source, rules }) {
 		})),
 	];
 }
-export const referenceKey = (reference) =>
+export const referenceKey = (reference: YamlMap) =>
 	JSON.stringify([
 		reference.get("package"),
 		reference.get("version"),
 		reference.get("revision") ?? null,
 	]);
 
-const contains = (a, b) => [...b].every(([key, value]) => a.get(key) === value);
-function selectRule(binding, rules, context) {
+const contains = (a: YamlMap, b: YamlMap) =>
+	[...b].every(([key, value]) => a.get(key) === value);
+function selectRule(
+	binding: string,
+	rules: PackageRule[],
+	context: Record<string, unknown>,
+): PackageRule | undefined {
 	const matching = rules.filter((rule) =>
 		[...rule.when].every(([key, value]) => context[key] === value),
 	);
@@ -894,7 +1087,15 @@ function selectRule(binding, rules, context) {
 	return maxima[0];
 }
 
-export function validatePackageBindings(bindings, packages) {
+export type StorePackage = {
+	sha256: string;
+	files: { path: string; bytes: Buffer }[];
+};
+
+export function validatePackageBindings(
+	bindings: Map<string, PackageBinding>,
+	packages: Map<string, StorePackage>,
+) {
 	for (const [binding, { source, type, rules, pins }] of bindings) {
 		for (const { reference, entry } of packageReferences(binding, {
 			source,
@@ -905,9 +1106,12 @@ export function validatePackageBindings(bindings, packages) {
 				const name = reference.get("package");
 				const found = packages.get(`${name}@${version}`);
 				if (!found) fail(entry, `missing-package ${name}@${version}`);
-				const manifest = parseManifest(
-					found.files.find((file) => file.path === "package.yaml").bytes,
+				const manifestFile = found.files.find(
+					(file) => file.path === "package.yaml",
 				);
+				if (!manifestFile)
+					fail(entry, `${name}@${version}: missing package.yaml`);
+				const manifest = parseManifest(manifestFile.bytes);
 				if (
 					manifest.package.type !== type ||
 					(type === "instruction" &&
@@ -960,9 +1164,6 @@ export function validatePackageBindings(bindings, packages) {
  * are unusable there, and required ones are reported as unsatisfied.
  * `lockMode: 'required'` (public selection) refuses package pins without a valid current lock; internal
  * configure/preset `validation` checks the complete configuration against verified store bytes and only reports lock state.
- * @param {{root?: string, host?: string, model?: string, family?: string, identitySource?: 'host' | 'host-stated' | 'user', role?: string,
- *   skills?: string[], configuration?: Map<string, any>, storeRoot?: string, lockMode?: 'required' | 'validation',
- *   newRoleFile?: {path: string, content: string}, preview?: Map<string, Buffer>, metadataOnly?: boolean}} options
  */
 function resolveCore(
 	{
@@ -979,8 +1180,8 @@ function resolveCore(
 		newRoleFile,
 		preview = new Map(),
 		metadataOnly = false,
-	} = {},
-	candidate = null,
+	}: ResolveOptions = {},
+	candidate: Candidate | null = null,
 	checkWorkflow = true,
 ) {
 	if (!["required", "validation"].includes(lockMode))
@@ -1034,12 +1235,15 @@ function resolveCore(
 		roles,
 	} = validated;
 	// Lock state is settled before any store access; zero package pins need no lock and never read one.
-	/** @type {{state: string, error?: string, locked?: Map<string, {sha256: string}>}} */
-	const lock = bindings.size
+	const lock: {
+		state: string;
+		error?: string;
+		locked?: Map<string, { sha256: string }>;
+	} = bindings.size
 		? readLockState(repository, validated, storeRoot)
 		: { state: "not-required" };
 	if (lockMode === "required" && lock.error) throw new Error(lock.error);
-	const packages = new Map();
+	const packages = new Map<string, StorePackage>();
 	for (const [binding, value] of bindings) {
 		for (const { reference, entry } of packageReferences(binding, value)) {
 			const name = reference.get("package"),
@@ -1090,30 +1294,38 @@ function resolveCore(
 					if (locked && locked.sha256 !== member.sha256)
 						fail(binding, "mismatched-package: dependency differs from lock");
 				}
-				Object.assign(value.pins.get(referenceKey(reference)), {
+				// validatePackageBindings pinned every reference.
+				Object.assign(value.pins.get(referenceKey(reference)) as PackagePin, {
 					closure,
 					revisionDigest: reference.get("revision") ?? null,
 					revision: closure.at(-1).revision,
 				});
 			}
-	const canonical = models.has(model) ? model : (aliases.get(model) ?? null);
+	const exact = model !== undefined && models.has(model);
+	const canonical: string | null = exact
+		? model
+		: model === undefined
+			? null
+			: (aliases.get(model) ?? null);
 	const prefix =
 		model === undefined
 			? undefined
 			: [...prefixes.keys()]
 					.filter((item) => model.startsWith(item))
 					.sort((a, b) => b.length - a.length)[0];
-	const matchedBy = models.has(model)
+	const matchedBy = exact
 		? "model"
 		: canonical
 			? "alias"
-			: families.has(family)
+			: family !== undefined && families.has(family)
 				? "family"
 				: prefix !== undefined
 					? "family-prefix"
 					: "default";
 	const resolvedFamily =
-		matchedBy === "family-prefix" ? prefixes.get(prefix) : (family ?? null);
+		matchedBy === "family-prefix"
+			? (prefixes.get(prefix as string) ?? null)
+			: (family ?? null);
 	const familySource =
 		matchedBy === "family-prefix"
 			? "configured-prefix"
@@ -1123,7 +1335,7 @@ function resolveCore(
 	const profile = canonical
 		? models.get(canonical).get("profile")
 		: matchedBy.startsWith("family")
-			? families.get(resolvedFamily).get("profile")
+			? families.get(resolvedFamily as string).get("profile")
 			: defaultProfile;
 	const selectedRole = role ?? defaultRole;
 	if (!roles.has(selectedRole))
@@ -1131,8 +1343,8 @@ function resolveCore(
 			"role",
 			`${selectedRole} is not declared in roles; choose ${[...roles.keys()].join(", ")} or run agent-profiles configure to create it`,
 		);
-	function selectPackages(context) {
-		const selected = new Map();
+	function selectPackages(context: Record<string, unknown>) {
+		const selected = new Map<string, SelectedPackage>();
 		for (const [binding, { source, rules, pins }] of bindings) {
 			const rule = selectRule(binding, rules, context);
 			const reference = rule
@@ -1143,7 +1355,8 @@ function resolveCore(
 					]))
 				: source;
 			const version = reference.get("version");
-			const pin = pins.get(referenceKey(reference));
+			// validatePackageBindings pinned every reference of every binding.
+			const pin = pins.get(referenceKey(reference)) as PackagePin;
 			selected.set(binding, {
 				...pin,
 				output: {
@@ -1181,11 +1394,9 @@ function resolveCore(
 			)
 				fail("candidate", "parent selection mismatch");
 			const manifest = parseManifest(
-				candidate.files.find((file) => file.path === "package.yaml").bytes,
+				memberBytes(candidate.files, "package.yaml"),
 			);
-			const bytes = candidate.files.find(
-				(file) => file.path === manifest.entrypoint,
-			).bytes;
+			const bytes = memberBytes(candidate.files, manifest.entrypoint);
 			const metadata = skillMetadata(
 				"unused",
 				binding,
@@ -1230,9 +1441,9 @@ function resolveCore(
 		role: selectedRole,
 		host: host ?? null,
 	});
-	const resolveSkill = (skill) => {
+	const resolveSkill = (skill: CatalogSkill): ResolvedSkill => {
 		if (!skill.binding) return skill;
-		const packaged = selectedPackages.get(skill.binding);
+		const packaged = selectedPackages.get(skill.binding) as SelectedPackage;
 		const native = packaged.manifest.behavior.delivery === "native";
 		return {
 			id: skill.id,
@@ -1251,7 +1462,7 @@ function resolveCore(
 				: {}),
 		};
 	};
-	const roleSkills = new Map(
+	const roleSkills = new Map<string, RoleLists<ResolvedSkill>>(
 		[...validated.roleSkills].map(([id, lists]) => [
 			id,
 			{
@@ -1260,7 +1471,10 @@ function resolveCore(
 			},
 		]),
 	);
-	const { required, available } = roleSkills.get(selectedRole);
+	// selectedRole is a declared role, and every declared role has lists.
+	const { required, available } = roleSkills.get(
+		selectedRole,
+	) as RoleLists<ResolvedSkill>;
 	const permitted = new Map(
 		[...required, ...available].map((skill) => [skill.id, skill]),
 	);
@@ -1273,7 +1487,7 @@ function resolveCore(
 	}
 	const selectedSkills = [
 		...new Set([...required.map((skill) => skill.id), ...skills]),
-	].map((id) => permitted.get(id));
+	].map((id) => permitted.get(id) as ResolvedSkill); // required, or checked just above
 	const files = [
 		{
 			path: `.agent-profiles/${profiles.get(profile)?.get("file") ?? `profiles/${profile}.md`}`,
@@ -1301,20 +1515,34 @@ function resolveCore(
 				...selectedPackages.get(`skills.${skill.id}`)?.output,
 			})),
 	];
-	let workflowState;
-	let workflowPeerPackages;
-	const captureActors = [];
-	const captureBindings = (body) =>
+	let workflowState:
+		| { status: string; runtime: string; peers: unknown[] }
+		| undefined;
+	let workflowPeerPackages: Untyped[] | undefined;
+	const captureActors: {
+		assignment: Assignment;
+		profile: string;
+		bindings: ReturnType<typeof captureBindings>;
+	}[] = [];
+	const captureBindings = (body: ActorBody) =>
 		[...body.roots.values()].map((selected) => ({
 			root: { ...selected.output.package },
-			closure: selected.closure.map((member) => ({
+			closure: (selected.closure ?? []).map((member) => ({
 				...member.identity,
 				sha256: member.sha256,
 				revisionDigest: member.revisionDigest,
 			})),
 		}));
-	function actorParts(selection, actorProfile, actorRole, requested = []) {
-		const lists = validated.roleSkills.get(actorRole);
+	function actorParts(
+		selection: Map<string, SelectedPackage>,
+		actorProfile: string,
+		actorRole: string,
+		requested: string[] = [],
+	): ActorBody {
+		// Actor roles come from declared roles and validated workflow links.
+		const lists = validated.roleSkills.get(
+			actorRole,
+		) as RoleLists<CatalogSkill>;
 		const owners = [
 			`profiles.${actorProfile}`,
 			`roles.${actorRole}`,
@@ -1322,23 +1550,23 @@ function resolveCore(
 				...new Set([...lists.required.map((item) => item.id), ...requested]),
 			].map((id) => `skills.${id}`),
 		];
-		const parts = [],
-			loadedBindings = new Map(),
-			roots = new Map(),
-			seen = new Map();
+		const parts: Part[] = [],
+			loadedBindings = new Map<string, Part[]>(),
+			roots = new Map<string, SelectedPackage>(),
+			seen = new Map<string, string>();
 		for (const binding of owners) {
 			const selected = selection.get(binding);
 			if (!selected) continue;
 			roots.set(binding, selected);
-			const members = [];
-			for (const member of selected.closure) {
+			const members: Part[] = [];
+			for (const member of selected.closure ?? []) {
 				const name = member.identity.name,
 					pin = `${member.identity.version}:${member.sha256}:${member.revisionDigest}`;
 				if (seen.has(name) && seen.get(name) !== pin)
 					fail("workflow dependency", `conflicting loaded package ${name}`);
 				seen.set(name, pin);
 				const manifest = parseManifest(
-					member.files.find((file) => file.path === "package.yaml").bytes,
+					memberBytes(member.files, "package.yaml"),
 				);
 				const root =
 					member.identity.name === selected.output.package.name &&
@@ -1366,7 +1594,7 @@ function resolveCore(
 					sha256: member.sha256,
 					revisionDigest: member.revisionDigest,
 				};
-				const task = {
+				const task: Part = {
 					path: null,
 					kind,
 					id: root ? binding.split(".")[1] : name,
@@ -1382,10 +1610,7 @@ function resolveCore(
 					content: new TextDecoder("utf-8", {
 						fatal: true,
 						ignoreBOM: true,
-					}).decode(
-						member.files.find((file) => file.path === manifest.entrypoint)
-							.bytes,
-					),
+					}).decode(memberBytes(member.files, manifest.entrypoint)),
 				};
 				members.push(task);
 				const existing = parts.find(
@@ -1417,9 +1642,7 @@ function resolveCore(
 							content: new TextDecoder("utf-8", {
 								fatal: true,
 								ignoreBOM: true,
-							}).decode(
-								member.files.find((file) => file.path === companion).bytes,
-							),
+							}).decode(memberBytes(member.files, companion)),
 						});
 				}
 			}
@@ -1427,14 +1650,14 @@ function resolveCore(
 		}
 		return { parts, loadedBindings, roots };
 	}
-	let composed;
+	let composed: ActorBody | undefined;
 	if (v3 && !metadataOnly) {
 		composed = actorParts(selectedPackages, profile, selectedRole, skills);
 		workflowState = { status: "unverified", runtime: "unverified", peers: [] };
 		workflowPeerPackages = [];
 		if (checkWorkflow && host !== undefined && canonical !== null) {
-			const actors = new Map();
-			const actorKey = (actor) =>
+			const actors = new Map<string, ActorBody>();
+			const actorKey = (actor: Record<string, unknown>) =>
 				JSON.stringify([actor.role, actor.model, actor.host]);
 			const current = { role: selectedRole, model: canonical, host };
 			actors.set(
@@ -1443,7 +1666,7 @@ function resolveCore(
 					? actorParts(selectedPackages, profile, selectedRole)
 					: composed,
 			);
-			function getActor(peer) {
+			function getActor(peer: YamlMap) {
 				const actor = Object.fromEntries(peer.get("assignment")),
 					key = actorKey(actor);
 				if (!actors.has(key)) {
@@ -1457,11 +1680,15 @@ function resolveCore(
 						),
 					);
 				}
-				return { actor, body: actors.get(key), binding: peer.get("binding") };
+				return {
+					actor,
+					body: actors.get(key) as ActorBody, // set above when missing
+					binding: peer.get("binding"),
+				};
 			}
-			const rows = [],
-				covered = new Set(),
-				pending = new Set(validated.workflowLinks.values());
+			const rows: unknown[] = [],
+				covered = new Set<string>(),
+				pending = new Set<YamlMap>(validated.workflowLinks.values());
 			while (pending.size) {
 				const link = [...pending].find((item) =>
 					[item.get("consumer"), ...item.get("providers")].some((peer) =>
@@ -1479,12 +1706,14 @@ function resolveCore(
 				);
 				if (!consumerParts)
 					fail("workflow consumer", "binding is not loaded/required");
-				const consumerRoot = consumer.body.roots.get(consumer.binding).revision;
+				const consumerRoot = consumer.body.roots.get(
+					consumer.binding,
+				)?.revision;
 				if (!consumerRoot || consumerRoot.workflow === null)
 					fail("workflow consumer", "unknown root metadata/declaration");
 				const requiring = consumerParts.filter((part) =>
 					part.revision?.workflow?.requires.some(
-						(item) => item.protocol === protocol,
+						(item: { protocol: string }) => item.protocol === protocol,
 					),
 				);
 				if (requiring.length !== 1)
@@ -1493,7 +1722,7 @@ function resolveCore(
 						"missing or unknown required protocol declaration",
 					);
 				const requirement = requiring[0].revision.workflow.requires.find(
-					(item) => item.protocol === protocol,
+					(item: { protocol: string }) => item.protocol === protocol,
 				);
 				covered.add(
 					`${actorKey(consumer.actor)}:${requiring[0].package.revisionDigest}:${protocol}`,
@@ -1505,7 +1734,7 @@ function resolveCore(
 						fail("workflow provider", "binding is not loaded/required");
 					const providerRoot = provider.body.roots.get(
 						provider.binding,
-					).revision;
+					)?.revision;
 					if (!providerRoot || providerRoot.workflow === null)
 						fail("workflow provider", "unknown root metadata/declaration");
 					if (
@@ -1519,7 +1748,7 @@ function resolveCore(
 						(part) =>
 							part.kind !== "workflow" &&
 							part.revision?.workflow?.provides.some(
-								(item) => item.protocol === protocol,
+								(item: { protocol: string }) => item.protocol === protocol,
 							),
 					);
 					if (candidates.length > 1)
@@ -1540,7 +1769,7 @@ function resolveCore(
 							"binding does not provide loaded protocol",
 						);
 					const provided = candidates[0].revision.workflow.provides.find(
-						(item) => item.protocol === protocol,
+						(item: { protocol: string }) => item.protocol === protocol,
 					);
 					if (provided.major !== requirement.major)
 						fail("workflow protocol", "incompatible major");
@@ -1574,7 +1803,10 @@ function resolveCore(
 							workflowPeerPackages.push(part.package);
 				}
 			}
-			for (const [key, body] of [...actors, [actorKey(current), composed]])
+			for (const [key, body] of [
+				...actors,
+				[actorKey(current), composed] as [string, ActorBody],
+			])
 				for (const part of body.parts.filter(
 					(part) => part.kind !== "workflow",
 				)) {
@@ -1621,11 +1853,11 @@ function resolveCore(
 				if (v3 && entry.package) return [];
 				const file = entry.path;
 				try {
-					let content;
+					let content: string;
 					if (entry.package)
-						content = selectedPackages
-							.get(entry.package.binding)
-							.bytes.toString("utf8");
+						content = (
+							selectedPackages.get(entry.package.binding) as SelectedPackage
+						).bytes.toString("utf8");
 					else if (
 						newRoleFile &&
 						file === `.agent-profiles/${newRoleFile.path}`
@@ -1635,7 +1867,7 @@ function resolveCore(
 						const resolved = localFile(
 							repository,
 							file,
-							file,
+							String(file),
 							"repository",
 							false,
 							preview,
@@ -1646,7 +1878,10 @@ function resolveCore(
 					}
 					return { ...entry, content, ...measureText(content) };
 				} catch (error) {
-					return fail(file, `cannot load instructions: ${errorMessage(error)}`);
+					return fail(
+						String(file),
+						`cannot load instructions: ${errorMessage(error)}`,
+					);
 				}
 			});
 	if (composed) {
@@ -1679,14 +1914,15 @@ function resolveCore(
 	);
 	if (v3)
 		for (const skill of selectedSkills) {
-			if (skill.type !== "instruction" || !skill.package) continue;
+			const { package: pkg, backing } = skill;
+			if (skill.type !== "instruction" || !pkg) continue;
 			const physical = loaded.find(
 				(entry) =>
-					entry.package?.name === skill.package.name &&
-					entry.package.version === skill.package.version &&
-					entry.package.sha256 === skill.package.sha256 &&
-					entry.package.revisionDigest === skill.package.revisionDigest &&
-					entry.backing.path === skill.backing.path,
+					entry.package?.name === pkg.name &&
+					entry.package.version === pkg.version &&
+					entry.package.sha256 === pkg.sha256 &&
+					entry.package.revisionDigest === pkg.revisionDigest &&
+					entry.backing?.path === backing?.path,
 			);
 			if (physical)
 				measuredSkills.set(skill.id, {
@@ -1695,7 +1931,7 @@ function resolveCore(
 				});
 		}
 	// Legacy `usable` means host compatibility only; the adapter determines actual invocation.
-	const usable = (skill) => ({
+	const usable = (skill: ResolvedSkill) => ({
 		bytes: null,
 		characters: null,
 		usable:
@@ -1716,7 +1952,7 @@ function resolveCore(
 						hostId: skill.hostId,
 						reason: skill.package
 							? `${skill.package.name}@${skill.package.version} does not support ${host}; native invocation is not verified`
-							: `${integrations.find((item) => item.id === skill.host).name} skill ${skill.hostId} cannot be invoked by ${integrations.find((item) => item.id === host).name}`,
+							: `${integrations.find((item) => item.id === skill.host)?.name} skill ${skill.hostId} cannot be invoked by ${integrations.find((item) => item.id === host)?.name}`,
 					}));
 	const measuredAvailable = available.map((skill) => {
 		try {
@@ -1725,25 +1961,28 @@ function resolveCore(
 			let measured = measuredSkills.get(skill.id);
 			if (!measured && skill.package)
 				measured = measureText(
-					selectedPackages.get(skill.package.binding).bytes.toString("utf8"),
+					(
+						selectedPackages.get(skill.package.binding) as SelectedPackage
+					).bytes.toString("utf8"),
 				);
 			if (!measured) {
 				const file = localFile(
 					repository,
 					skill.path,
-					skill.path,
+					String(skill.path),
 					"repository",
 					false,
 					preview,
 				);
-				measured = preview.has(file)
-					? measureText(preview.get(file).toString("utf8"))
+				const previewed = preview.get(file);
+				measured = previewed
+					? measureText(previewed.toString("utf8"))
 					: measureFile(file);
 			}
 			return { ...skill, ...measured };
 		} catch (error) {
 			return fail(
-				skill.path,
+				String(skill.path),
 				`cannot measure available instructions: ${errorMessage(error)}`,
 			);
 		}
@@ -1824,17 +2063,17 @@ function resolveCore(
 	};
 }
 
-function resolveInstructionsOperation(input = {}) {
+function resolveInstructionsOperation(input: ResolveOptions = {}) {
 	return resolveCore(input).resolution;
 }
 
 // Internal capture uses the same selected roots and required-only actors as normal resolution.
-function resolveCaptureOperation(input = {}) {
+function resolveCaptureOperation(input: ResolveOptions = {}) {
 	return resolveCore(input);
 }
 
 // Internal sharing inventory retains validated selection and composition without claiming workflow readiness.
-function resolveSharingSelectionOperation(input = {}) {
+function resolveSharingSelectionOperation(input: ResolveOptions = {}) {
 	const { resolution, evidence } = resolveCore(input, null, false);
 	return {
 		resolution: {
@@ -1847,7 +2086,10 @@ function resolveSharingSelectionOperation(input = {}) {
 }
 
 // Internal candidate capture validates normal selection first; no public option bypasses the lock.
-function resolveCandidateCaptureOperation(input, recordDigest) {
+function resolveCandidateCaptureOperation(
+	input: ResolveOptions,
+	recordDigest: string,
+) {
 	const normal = resolveCore(input).resolution,
 		record = readRevisionRecord({ storeRoot: input.storeRoot, recordDigest });
 	if (record.kind !== "candidate")

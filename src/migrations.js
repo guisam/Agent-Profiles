@@ -41,7 +41,7 @@ import {
 	resolveCapture,
 	resolveSharingSelection,
 	validateConfiguration,
-} from "./resolve.js";
+} from "./resolve.ts";
 import {
 	labelPath,
 	lookupRevisionManifest,

@@ -11,7 +11,7 @@ import { applyRoleChange, planRoleChange } from "../src/configure.ts";
 import { formatInventory, inspectRepository } from "../src/inspect.js";
 import { doctor, install } from "../src/install.js";
 import { applyPresetExport, planPresetExport } from "../src/presets.ts";
-import { resolveInstructions } from "../src/resolve.js";
+import { resolveInstructions } from "../src/resolve.ts";
 import { discoverSkills } from "../src/skills.js";
 
 const project = fileURLToPath(new URL("../", import.meta.url));

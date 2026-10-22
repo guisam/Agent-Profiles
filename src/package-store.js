@@ -507,6 +507,7 @@ function publish(from, to, rename) {
 	}
 }
 
+/** @param {{storeRoot?: string, name: string, version: string}} input */
 export function lookupPackage({
 	storeRoot: selected = undefined,
 	name,

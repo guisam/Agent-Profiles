@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { readConfiguration } from "./configure.ts";
 import { resolutionOutput } from "./diagnostics.js";
 import { errorMessage } from "./files.ts";
-import { resolveInstructions } from "./resolve.js";
+import { resolveInstructions } from "./resolve.ts";
 
 // Only these package assets are served; repository paths never become HTTP paths.
 const assets = new Map<string, [string, string]>([

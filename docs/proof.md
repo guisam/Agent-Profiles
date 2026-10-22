@@ -148,7 +148,7 @@ runtime equivalence result follows from matching bytes or counts.
 ## Programmatic access
 
 ```js
-import { resolveInstructions } from './src/resolve.js';
+import { resolveInstructions } from './src/resolve.ts';
 
 const result = resolveInstructions({ root: '/path/to/project', role: 'reviewer' });
 console.log(result.diagnostics.managed.total);

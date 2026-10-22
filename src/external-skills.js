@@ -11,7 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { discoveryError } from "./discovery-diagnostics.ts";
 import { errorCode, errorMessage } from "./files.ts";
-import { parseYaml, skillMetadata } from "./resolve.js";
+import { parseYaml, skillMetadata } from "./resolve.ts";
 
 const nativeId = /^[a-z0-9][a-z0-9-]*$/;
 

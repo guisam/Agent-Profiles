@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
 import { installDependencies } from "../src/package-lock.js";
 import { importPackage } from "../src/package-store.js";
-import { resolveInstructions } from "../src/resolve.js";
+import { resolveInstructions } from "../src/resolve.ts";
 import { createStamp, reconstructStamp } from "../src/stamps.js";
 
 const target = new URL("../src/migrations.js", import.meta.url);
@@ -829,7 +829,7 @@ migrationTest(
 
 const { retainRevisionManifest } = await import("../src/revisions.js");
 const { verifyStamp } = await import("../src/stamps.js");
-const { parseYaml } = await import("../src/resolve.js");
+const { parseYaml } = await import("../src/resolve.ts");
 const workspaceBoundaryOriginalStore = process.env.AGENT_PROFILES_STORE;
 function workspaceBoundaryFixture(t) {
 	const f = fixture(t),

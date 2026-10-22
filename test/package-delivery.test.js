@@ -11,7 +11,7 @@ import {
 	parseYaml,
 	parseYamlDocument,
 	resolveInstructions,
-} from "../src/resolve.js";
+} from "../src/resolve.ts";
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
 const CONFIG = ".agent-profiles/agents.yaml";

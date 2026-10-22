@@ -41,7 +41,7 @@ import { installDependencies } from "../src/package-lock.js";
 import { importPackage, rootPath } from "../src/package-store.js";
 import { readPackage } from "../src/packages.js";
 import { runPreset } from "../src/preset-wizard.ts";
-import { resolveInstructions } from "../src/resolve.js";
+import { resolveInstructions } from "../src/resolve.ts";
 import { retainRevisionManifest } from "../src/revisions.js";
 import { discoverSkills } from "../src/skills.js";
 import { createStamp, diffStamps, verifyStamp } from "../src/stamps.js";

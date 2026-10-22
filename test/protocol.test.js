@@ -26,7 +26,7 @@ import {
 	planPresetExport,
 	planPresetImport,
 } from "../src/presets.ts";
-import { resolveInstructions } from "../src/resolve.js";
+import { resolveInstructions } from "../src/resolve.ts";
 import { discoverSkills } from "../src/skills.js";
 
 const project = fileURLToPath(new URL("../", import.meta.url));

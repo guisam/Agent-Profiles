@@ -18,7 +18,7 @@ import {
 	managedSpan,
 	PROTOCOL,
 } from "./integrations.js";
-import { resolveInstructions } from "./resolve.js";
+import { resolveInstructions } from "./resolve.ts";
 
 // Sources run from src/; the published build runs from dist/src/.
 const packageRoot = ["../", "../../"]

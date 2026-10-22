@@ -9,7 +9,7 @@ import {
 	planPresetImport,
 	readPreset,
 } from "./presets.ts";
-import { resolveInstructions } from "./resolve.js";
+import { resolveInstructions } from "./resolve.ts";
 import {
 	type Ask,
 	configureRoles,

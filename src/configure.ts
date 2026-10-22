@@ -9,7 +9,7 @@ import {
 	parseYamlDocument,
 	resolveInstructions,
 	skillMetadata,
-} from "./resolve.js";
+} from "./resolve.ts";
 import { validateSkillSelection } from "./skills.js";
 
 const configFile = ".agent-profiles/agents.yaml";
@@ -57,7 +57,7 @@ export type PackageSelection = {
 	name: string;
 	version: string;
 	sha256: string;
-	revisionDigest?: string;
+	revisionDigest?: string | null;
 	binding: string;
 };
 
@@ -66,10 +66,10 @@ export type SkillSelection =
 	| string
 	| {
 			id?: string;
-			path?: string;
-			host?: string;
+			path?: string | null;
+			host?: string | null;
 			scope?: string;
-			hostId?: string;
+			hostId?: string | null;
 			package?: PackageSelection;
 	  };
 
@@ -262,9 +262,10 @@ export function planRoleChange({
 				);
 				return skillId;
 			}
-			const selectedPath =
+			const requested =
 				typeof selection === "string" ? binding(skillId) : selection.path;
-			const target = localFile(root, selectedPath, entry, "repository");
+			const target = localFile(root, requested, entry, "repository");
+			const selectedPath = requested as string; // localFile rejected anything else
 			skillMetadata(target, entry, undefined, selectedPath);
 			if (targetOf(skillId) === target) return skillId;
 			for (const existingId of sources.keys()) {
@@ -283,7 +284,7 @@ export function planRoleChange({
 				aliases.push({
 					id: reference,
 					originalId: skillId,
-					path: selectedPath as string, // localFile rejected anything else
+					path: selectedPath,
 				});
 			return reference;
 		};

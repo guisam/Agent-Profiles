@@ -9,7 +9,7 @@ import {
 	parseYaml,
 	parseYamlDocument,
 	skillMetadata,
-} from "./resolve.js";
+} from "./resolve.ts";
 
 function fail(location, message) {
 	throw new Error(`${location}: ${message}`);
@@ -129,13 +129,13 @@ export function parseManifest(bytes) {
 	const delivery = behavior.get("delivery");
 	if (!["instruction", "native"].includes(delivery))
 		fail("behavior.delivery", "expected instruction or native");
-	for (const [field, allowed] of [
+	for (const [field, allowed] of /** @type {[string, string[]][]} */ ([
 		["hosts", integrations.map((host) => host.id)],
 		[
 			"effects",
 			["commands", "substitution", "external-references", "host-configuration"],
 		],
-	]) {
+	])) {
 		const list = behavior.get(field);
 		if (
 			!Array.isArray(list) ||

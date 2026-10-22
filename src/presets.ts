@@ -19,7 +19,7 @@ import {
 	parseYaml,
 	resolveInstructions,
 	skillMetadata,
-} from "./resolve.js";
+} from "./resolve.ts";
 
 const configFile = ".agent-profiles/agents.yaml";
 const originFile = ".agent-profiles/preset-origins.yaml";
@@ -556,10 +556,11 @@ export function planPresetImport({
 		write(originFile, Buffer.from(stringify(origins)));
 	}
 	const proposed = parseYaml(serialized);
+	// Markdown changes always carry new bytes; write() refuses a missing payload.
 	const preview = new Map(
 		changes
 			.filter((change) => change.file.endsWith(".md"))
-			.map((change) => [path.join(root, change.file), change.after]),
+			.map((change) => [path.join(root, change.file), change.after as Buffer]),
 	);
 	const errors = [...missing];
 	let resolution: ReturnType<typeof resolveInstructions> | undefined;

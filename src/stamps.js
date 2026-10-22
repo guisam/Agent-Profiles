@@ -37,7 +37,7 @@ import {
 	resolveCapture,
 	skillMetadata,
 	validatePackageBindings,
-} from "./resolve.js";
+} from "./resolve.ts";
 import { readRevisionRecord } from "./revisions.js";
 
 const DOMAIN = "agent-profiles/stamp/v1";

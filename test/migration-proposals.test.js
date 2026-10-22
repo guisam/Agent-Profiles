@@ -8,7 +8,7 @@ import { stringify } from "yaml";
 import * as migrations from "../src/migrations.js";
 import { installDependencies } from "../src/package-lock.js";
 import { importPackage, readStoreFile } from "../src/package-store.js";
-import { resolveInstructions } from "../src/resolve.js";
+import { resolveInstructions } from "../src/resolve.ts";
 import { createStamp, reconstructStamp } from "../src/stamps.js";
 
 const exports = [
