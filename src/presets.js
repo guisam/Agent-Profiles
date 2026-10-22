@@ -2,7 +2,13 @@ import { existsSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { stringify } from "yaml";
 import { readConfiguration } from "./configure.js";
-import { applyChanges, readLocal, safePath } from "./files.js";
+import {
+	applyChanges,
+	errorCode,
+	errorMessage,
+	readLocal,
+	safePath,
+} from "./files.js";
 import { detectAgents } from "./install.js";
 import { integrations } from "./integrations.js";
 import {
@@ -410,7 +416,7 @@ export function planPresetImport({
 				).installed;
 			} catch (error) {
 				notices.push(
-					`Could not check the ${host.name} integration (${error.message}); run doctor.`,
+					`Could not check the ${host.name} integration (${errorMessage(error)}); run doctor.`,
 				);
 			}
 			if (installed === false) {
@@ -435,7 +441,7 @@ export function planPresetImport({
 				skillMetadata(file, id, content);
 			} catch (error) {
 				missing.push(
-					`Skill ${id} (${file}): ${error.message}. Install it locally or add an explicit skills mapping; no download was attempted.`,
+					`Skill ${id} (${file}): ${errorMessage(error)}. Install it locally or add an explicit skills mapping; no download was attempted.`,
 				);
 			}
 			skillNames.set(id, id);
@@ -542,7 +548,7 @@ export function planPresetImport({
 				lockMode: "validation",
 			});
 		} catch (error) {
-			errors.push(error.message);
+			errors.push(errorMessage(error));
 		}
 	}
 	return {
@@ -610,7 +616,7 @@ export function exportChoices(root, { storeRoot } = {}) {
 	try {
 		files = readdirSync(safePath(state.root, ".agent-profiles/profiles"));
 	} catch (error) {
-		if (error.code !== "ENOENT") throw error;
+		if (errorCode(error) !== "ENOENT") throw error;
 		files = [];
 	}
 	const profiles = files

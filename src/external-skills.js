@@ -10,6 +10,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { discoveryError } from "./discovery-diagnostics.js";
+import { errorCode, errorMessage } from "./files.js";
 import { parseYaml, skillMetadata } from "./resolve.js";
 
 const nativeId = /^[a-z0-9][a-z0-9-]*$/;
@@ -131,7 +132,7 @@ function localRoots(file, explicit, metadataOnly) {
 		}
 		return validateRoots(value.roots);
 	} catch (error) {
-		if (!explicit && error.code === "ENOENT") return [];
+		if (!explicit && errorCode(error) === "ENOENT") return [];
 		throw new Error(
 			`skill sources ${file}: ${discoveryError(error, metadataOnly)}; repair the local preferences before continuing`,
 		);
@@ -210,9 +211,9 @@ export function discoverExternalSkills(
 			if (!statSync(origin).isDirectory())
 				throw new Error("expected a directory");
 		} catch (error) {
-			if (error.code !== "ENOENT")
+			if (errorCode(error) !== "ENOENT")
 				warnings.push(
-					`${root.path}: cannot read root (${metadataOnly ? discoveryError(error, true) : (error.code ?? error.message)}); check the path and permissions`,
+					`${root.path}: cannot read root (${metadataOnly ? discoveryError(error, true) : (errorCode(error) ?? errorMessage(error))}); check the path and permissions`,
 				);
 			continue;
 		}
@@ -235,7 +236,7 @@ export function discoverExternalSkills(
 				visited.add(canonical);
 			} catch (error) {
 				warnings.push(
-					`${directory}: cannot inspect directory (${metadataOnly ? discoveryError(error, true) : (error.code ?? error.message)}); check permissions or restore the link`,
+					`${directory}: cannot inspect directory (${metadataOnly ? discoveryError(error, true) : (errorCode(error) ?? errorMessage(error))}); check permissions or restore the link`,
 				);
 				return;
 			}
@@ -300,7 +301,7 @@ export function discoverExternalSkills(
 						});
 					}
 				} catch (error) {
-					if (error.code !== "ENOENT" && error.code !== "ENOTDIR")
+					if (errorCode(error) !== "ENOENT" && errorCode(error) !== "ENOTDIR")
 						warnings.push(
 							`${file}: ${discoveryError(error, metadataOnly)}; repair skill metadata or permissions`,
 						);
@@ -328,7 +329,7 @@ export function discoverExternalSkills(
 				}
 			} catch (error) {
 				warnings.push(
-					`${directory}: cannot list skills (${metadataOnly ? discoveryError(error, true) : (error.code ?? error.message)}); check permissions`,
+					`${directory}: cannot list skills (${metadataOnly ? discoveryError(error, true) : (errorCode(error) ?? errorMessage(error))}); check permissions`,
 				);
 			}
 		}

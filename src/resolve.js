@@ -11,7 +11,7 @@ import {
 import path from "node:path";
 import { parseDocument } from "yaml";
 import { contextDiagnostics, measureFile, measureText } from "./diagnostics.js";
-import { safePath } from "./files.js";
+import { errorCode, errorMessage, safePath } from "./files.js";
 import { integrations, managedSurface } from "./integrations.js";
 import { readLockState } from "./package-lock.js";
 import {
@@ -88,11 +88,12 @@ export function localFile(
 		if (!statSync(resolved).isFile()) fail(entry, `${file} is not a file`);
 		return resolved;
 	} catch (error) {
-		if (allowMissing && error.code === "ENOENT") return safePath(base, file);
-		if (error.code)
+		if (allowMissing && errorCode(error) === "ENOENT")
+			return safePath(base, file);
+		if (errorCode(error))
 			fail(
 				entry,
-				`cannot access ${file} (${error.code}); restore the file or correct this reference in .agent-profiles/agents.yaml, then run agent-profiles doctor`,
+				`cannot access ${file} (${errorCode(error)}); restore the file or correct this reference in .agent-profiles/agents.yaml, then run agent-profiles doctor`,
 			);
 		throw error;
 	}
@@ -180,7 +181,7 @@ export function skillMetadata(
 		}
 		throw new Error("expected YAML frontmatter delimited by --- within 64 KiB");
 	} catch (error) {
-		fail(entry, `${display}: ${error.message}`);
+		fail(entry, `${display}: ${errorMessage(error)}`);
 	} finally {
 		if (descriptor !== undefined) closeSync(descriptor);
 	}
@@ -244,11 +245,11 @@ export function localDeclaration(
 				if (!stat.isFile() || stat.nlink !== 1n)
 					throw new Error("expected a regular unlinked file");
 			} catch (error) {
-				throw new Error(`${file}: ${error.message}`);
+				throw new Error(`${file}: ${errorMessage(error)}`);
 			}
 		}
 	} catch (error) {
-		fail(entry, error.message);
+		fail(entry, errorMessage(error));
 	}
 	return resources.length
 		? {
@@ -276,7 +277,7 @@ export function validateConfiguration({
 	} catch (error) {
 		fail(
 			".agent-profiles/agents.yaml",
-			`${error.message}; run agent-profiles init for a new installation, or repair the existing configuration and run agent-profiles doctor`,
+			`${errorMessage(error)}; run agent-profiles init for a new installation, or repair the existing configuration and run agent-profiles doctor`,
 		);
 	}
 	if (newRoleFile !== undefined) {
@@ -702,8 +703,8 @@ export function validateConfiguration({
 						),
 					};
 				} catch (error) {
-					skill.metadataError = error.message.slice(
-						error.message.indexOf(`${file}: `) + file.length + 2,
+					skill.metadataError = errorMessage(error).slice(
+						errorMessage(error).indexOf(`${file}: `) + file.length + 2,
 					);
 				}
 			}
@@ -941,7 +942,10 @@ export function validatePackageBindings(bindings, packages) {
 				// Legacy snapshot validation reads version aliases; v3 selection uses full reference keys.
 				pins.set(version, pin);
 			} catch (error) {
-				fail(entry, `${reference.get("package")}@${version}: ${error.message}`);
+				fail(
+					entry,
+					`${reference.get("package")}@${version}: ${errorMessage(error)}`,
+				);
 			}
 		}
 	}
@@ -1053,7 +1057,7 @@ function resolveCore(
 							}),
 					);
 			} catch (error) {
-				fail(entry, `${name}@${version}: ${error.message}`);
+				fail(entry, `${name}@${version}: ${errorMessage(error)}`);
 			}
 			const found = packages.get(key),
 				locked = lock.locked?.get(key);
@@ -1641,7 +1645,7 @@ function resolveCore(
 					}
 					return { ...entry, content, ...measureText(content) };
 				} catch (error) {
-					return fail(file, `cannot load instructions: ${error.message}`);
+					return fail(file, `cannot load instructions: ${errorMessage(error)}`);
 				}
 			});
 	if (composed) {
@@ -1739,7 +1743,7 @@ function resolveCore(
 		} catch (error) {
 			return fail(
 				skill.path,
-				`cannot measure available instructions: ${error.message}`,
+				`cannot measure available instructions: ${errorMessage(error)}`,
 			);
 		}
 	});

@@ -17,6 +17,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { errorCode, errorMessage } from "./files.js";
 import {
 	canonicalJSON,
 	hashRecord,
@@ -68,7 +69,7 @@ function statOrNull(target) {
 	try {
 		return lstatSync(target, { bigint: true });
 	} catch (error) {
-		if (error.code === "ENOENT") return null;
+		if (errorCode(error) === "ENOENT") return null;
 		throw error;
 	}
 }
@@ -107,7 +108,7 @@ function rootPath(value, label, create = false) {
 			try {
 				mkdirSync(target);
 			} catch (error) {
-				if (error.code !== "EEXIST") throw error;
+				if (errorCode(error) !== "EEXIST") throw error;
 			}
 		}
 		if (statOrNull(target)) directory(target);
@@ -390,13 +391,15 @@ function publish(from, to, rename) {
 	try {
 		rename(from, to);
 	} catch (error) {
-		const category = ["EXDEV", "ENOTSUP", "EOPNOTSUPP"].includes(error.code)
+		const category = ["EXDEV", "ENOTSUP", "EOPNOTSUPP"].includes(
+			errorCode(error),
+		)
 			? "unsupported-filesystem"
-			: ["EPERM", "EACCES"].includes(error.code)
+			: ["EPERM", "EACCES"].includes(errorCode(error))
 				? "publication-denied"
 				: "publication failed";
 		throw new Error(
-			`${category}: ${error.code ?? "unknown"}: ${error.message}`,
+			`${category}: ${errorCode(error) ?? "unknown"}: ${errorMessage(error)}`,
 			{ cause: error },
 		);
 	}
@@ -449,7 +452,7 @@ export function importPackage({
 	try {
 		mkdirSync(lock);
 	} catch (error) {
-		if (error.code === "EEXIST")
+		if (errorCode(error) === "EEXIST")
 			throw new Error("store-busy: writer lock exists");
 		throw error;
 	}
@@ -636,7 +639,7 @@ export function retainPackageObject({
 	try {
 		mkdirSync(writer);
 	} catch (error) {
-		if (error.code === "EEXIST")
+		if (errorCode(error) === "EEXIST")
 			throw new Error("store-busy: writer lock exists");
 		throw error;
 	}

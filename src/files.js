@@ -11,6 +11,19 @@ import {
 } from "node:fs";
 import path from "node:path";
 
+// Catch variables are `unknown`; these read errno codes and messages without assuming an Error was thrown.
+export function errorCode(error) {
+	return error instanceof Error &&
+		"code" in error &&
+		typeof error.code === "string"
+		? error.code
+		: undefined;
+}
+
+export function errorMessage(error) {
+	return error instanceof Error ? error.message : String(error);
+}
+
 export function safePath(root, file) {
 	const target = path.resolve(root, file);
 	const relative = path.relative(root, target);
@@ -29,7 +42,7 @@ export function safePath(root, file) {
 		try {
 			stat = lstatSync(current);
 		} catch (error) {
-			if (error.code === "ENOENT") continue;
+			if (errorCode(error) === "ENOENT") continue;
 			throw error;
 		}
 		if (stat.isSymbolicLink() || (stat.isFile() && stat.nlink > 1)) {
@@ -48,8 +61,8 @@ export function readLocal(root, file) {
 	try {
 		return readFileSync(target);
 	} catch (error) {
-		if (error.code === "ENOENT") return null;
-		throw new Error(`${file}: ${error.message}`);
+		if (errorCode(error) === "ENOENT") return null;
+		throw new Error(`${file}: ${errorMessage(error)}`);
 	}
 }
 
@@ -115,7 +128,7 @@ export function applyChanges(root, changes, validate = () => {}) {
 					after: change.before,
 				});
 			} catch (rollback) {
-				failures.push(rollback.message);
+				failures.push(errorMessage(rollback));
 			}
 		}
 		for (const dir of directories.reverse()) {
@@ -126,7 +139,7 @@ export function applyChanges(root, changes, validate = () => {}) {
 			}
 		}
 		throw new Error(
-			`${error.message}\n${failures.length ? `Rollback incomplete: ${failures.join("; ")}. Run doctor.` : "No file changes retained; completed writes were rolled back."}`,
+			`${errorMessage(error)}\n${failures.length ? `Rollback incomplete: ${failures.join("; ")}. Run doctor.` : "No file changes retained; completed writes were rolled back."}`,
 		);
 	}
 	return changes.map((change) => change.file);

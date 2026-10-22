@@ -15,7 +15,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { safePath } from "./files.js";
+import { errorCode, errorMessage, safePath } from "./files.js";
 import {
 	candidateReservation,
 	importPackage,
@@ -93,7 +93,7 @@ function portable(value, location) {
 	try {
 		validateMembers([{ path: value, type: "directory" }]);
 	} catch (error) {
-		fail(location, error.message);
+		fail(location, errorMessage(error));
 	}
 }
 
@@ -132,7 +132,7 @@ function canonicalStore(selected) {
 				fail("store", "expected an unlinked directory");
 			return path.join(realpathSync(existing), ...suffix);
 		} catch (error) {
-			if (error.code !== "ENOENT") throw error;
+			if (errorCode(error) !== "ENOENT") throw error;
 			if (path.dirname(existing) === existing)
 				fail(
 					"store",
@@ -150,7 +150,7 @@ function input(root, relative) {
 	try {
 		stat = lstatSync(target, { bigint: true });
 	} catch (error) {
-		if (error.code === "ENOENT") return null;
+		if (errorCode(error) === "ENOENT") return null;
 		throw error;
 	}
 	if (!stat.isFile() || stat.nlink !== 1n)
@@ -411,7 +411,7 @@ export function readLockState(root, validated, storeRoot = undefined) {
 			locked: coverage(lock, declared(validated.bindings, v3, storeRoot)),
 		};
 	} catch (error) {
-		return { state: "invalid", error: `${lockFile}: ${error.message}` };
+		return { state: "invalid", error: `${lockFile}: ${errorMessage(error)}` };
 	}
 }
 
@@ -509,7 +509,7 @@ export function installDependencies({
 				if (!lstatSync(locator).isDirectory())
 					fail("source.locator", "expected a directory");
 			} catch (error) {
-				if (error.code !== "ENOENT") throw error;
+				if (errorCode(error) !== "ENOENT") throw error;
 			}
 		}
 		let cached;
@@ -518,7 +518,7 @@ export function installDependencies({
 				lookupPackage({ storeRoot: selectedStore, ...item }) ??
 				released.get(key);
 		} catch (error) {
-			fail(key, `mismatched-package: ${error.message}`);
+			fail(key, `mismatched-package: ${errorMessage(error)}`);
 		}
 		const directory = supplied.get(key) ?? (!cached ? locator : undefined);
 		let record = cached,
@@ -533,7 +533,7 @@ export function installDependencies({
 			try {
 				canonical = realpathSync(directory);
 			} catch (error) {
-				if (error.code === "ENOENT")
+				if (errorCode(error) === "ENOENT")
 					fail("missing-package", `${key}: source directory is missing`);
 				throw error;
 			}
@@ -594,7 +594,7 @@ export function installDependencies({
 	try {
 		mkdirSync(writer);
 	} catch (error) {
-		if (error.code === "EEXIST")
+		if (errorCode(error) === "EEXIST")
 			fail(
 				"install-busy",
 				"project writer exists; inspect interrupted operation before retrying",

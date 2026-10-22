@@ -8,7 +8,7 @@ import {
 	rmSync,
 } from "node:fs";
 import path from "node:path";
-import { applyChanges } from "./files.js";
+import { applyChanges, errorCode, errorMessage } from "./files.js";
 import { integrations } from "./integrations.js";
 import { installDependencies } from "./package-lock.js";
 import {
@@ -208,7 +208,7 @@ function withWriter(root, action) {
 	try {
 		mkdirSync(lock);
 	} catch (error) {
-		if (error.code === "EEXIST")
+		if (errorCode(error) === "EEXIST")
 			throw new Error(
 				"migration-busy: inspect the existing project migration writer before retrying",
 			);
@@ -888,7 +888,7 @@ export function acceptMigrationProposal(input) {
 						);
 				} catch (compensation) {
 					throw new Error(
-						`proposal acceptance incomplete: ${error.message}; compensation: ${compensation.message}`,
+						`proposal acceptance incomplete: ${errorMessage(error)}; compensation: ${errorMessage(compensation)}`,
 						{ cause: error },
 					);
 				}
@@ -1331,7 +1331,7 @@ export function publishMigrationCandidate(input) {
 		try {
 			mkdirSync(storeWriter);
 		} catch (error) {
-			if (error.code === "EEXIST")
+			if (errorCode(error) === "EEXIST")
 				throw new Error("store-busy: writer lock exists");
 			throw error;
 		}
@@ -1365,7 +1365,7 @@ export function publishMigrationCandidate(input) {
 		} catch (error) {
 			if (existsSync(indexFile))
 				throw new Error(
-					`candidate publication incomplete: committed index retained for inspection; ${error.message}`,
+					`candidate publication incomplete: committed index retained for inspection; ${errorMessage(error)}`,
 					{ cause: error },
 				);
 			throw error;
@@ -1998,7 +1998,7 @@ function retainEvaluation(input, kind, sourceFile, validate) {
 	try {
 		mkdirSync(storeWriter);
 	} catch (error) {
-		if (error.code === "EEXIST")
+		if (errorCode(error) === "EEXIST")
 			throw new Error("store-busy: writer lock exists");
 		throw error;
 	}
@@ -2048,7 +2048,7 @@ function retainEvaluation(input, kind, sourceFile, validate) {
 	} catch (error) {
 		if (committed || existsSync(target))
 			throw new Error(
-				`evaluation publication incomplete: committed index retained; ${error.message}`,
+				`evaluation publication incomplete: committed index retained; ${errorMessage(error)}`,
 				{ cause: error },
 			);
 		throw error;
@@ -2451,7 +2451,7 @@ function promotionPlan(input, label) {
 		});
 	} catch (error) {
 		throw new Error(
-			`promotion target: proposed binding edit is not a valid unambiguous configuration; nothing was written; ${error.message}`,
+			`promotion target: proposed binding edit is not a valid unambiguous configuration; nothing was written; ${errorMessage(error)}`,
 			{ cause: error },
 		);
 	}
@@ -2514,7 +2514,7 @@ export function applyMigrationPromotion(input) {
 	try {
 		mkdirSync(storeWriter);
 	} catch (error) {
-		if (error.code === "EEXIST")
+		if (errorCode(error) === "EEXIST")
 			throw new Error("store-busy: writer lock exists");
 		throw error;
 	}
@@ -2570,7 +2570,7 @@ export function applyMigrationPromotion(input) {
 	} catch (error) {
 		if (committed)
 			throw new Error(
-				`promotion partial/incomplete: decision ${decision.id} is committed but its release label is not published; replay the same decision to complete; ${error.message}`,
+				`promotion partial/incomplete: decision ${decision.id} is committed but its release label is not published; replay the same decision to complete; ${errorMessage(error)}`,
 				{ cause: error },
 			);
 		throw error;
@@ -2629,7 +2629,7 @@ export function applyMigrationPromotion(input) {
 		});
 	} catch (error) {
 		throw new Error(
-			`promotion partial/incomplete: release ${evidence.releaseDigest} is published but the project binding was not completed; preserve edits and replay the same decision; ${error.message}`,
+			`promotion partial/incomplete: release ${evidence.releaseDigest} is published but the project binding was not completed; preserve edits and replay the same decision; ${errorMessage(error)}`,
 			{ cause: error },
 		);
 	}

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { isAlias, isScalar, parseDocument, visit } from "yaml";
+import { errorMessage } from "./files.js";
 import { integrations } from "./integrations.js";
 import {
 	mapping,
@@ -25,7 +26,7 @@ function decode(bytes, location, allowBOM = true) {
 			fail(location, "JSON BOM is not allowed");
 		return text;
 	} catch (error) {
-		fail(location, `invalid UTF-8 encoding: ${error.message}`);
+		fail(location, `invalid UTF-8 encoding: ${errorMessage(error)}`);
 	}
 }
 

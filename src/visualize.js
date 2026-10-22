@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { readConfiguration } from "./configure.js";
 import { resolutionOutput } from "./diagnostics.js";
+import { errorMessage } from "./files.js";
 import { resolveInstructions } from "./resolve.js";
 
 // Only these package assets are served; repository paths never become HTTP paths.
@@ -110,7 +111,7 @@ export async function startVisualizer({
 				);
 			} else send(404, { error: "Not found" });
 		} catch (error) {
-			send(400, { error: error.message });
+			send(400, { error: errorMessage(error) });
 		}
 	});
 	await new Promise((resolve, reject) => {

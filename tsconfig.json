@@ -4,6 +4,7 @@
 		"checkJs": true,
 		"noEmit": true,
 		"strict": false,
+		"useUnknownInCatchVariables": true,
 		"target": "ES2023",
 		"module": "NodeNext",
 		"types": ["node"],

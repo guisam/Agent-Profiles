@@ -10,7 +10,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { readConfiguration } from "./configure.js";
-import { safePath } from "./files.js";
+import { errorCode, safePath } from "./files.js";
 import { integrations, managedSpan } from "./integrations.js";
 import {
 	identifier,
@@ -53,7 +53,7 @@ function recognizedChildren(root, directory, pattern, warnings) {
 			warnings.push(`${directory}: inventory limited to 128 paths`);
 		return entries.slice(0, 128).map((file) => `${directory}/${file}`);
 	} catch (error) {
-		if (error.code !== "ENOENT")
+		if (errorCode(error) !== "ENOENT")
 			warnings.push(`${directory}: cannot safely inventory directory`);
 		return [];
 	}
@@ -78,7 +78,7 @@ function fileMetadata(root, file, source, host = null) {
 			};
 		return { ...record, availability: "available", bytes: stat.size };
 	} catch (error) {
-		return error.code === "ENOENT"
+		return errorCode(error) === "ENOENT"
 			? record
 			: {
 					...record,
@@ -180,12 +180,12 @@ function packageMetadata(root) {
 					: [],
 		};
 	} catch (error) {
-		return error.code
+		return errorCode(error)
 			? {
 					...file,
 					availability: "unavailable",
 					status: "unavailable",
-					problem: `Cannot read package metadata (${error.code})`,
+					problem: `Cannot read package metadata (${errorCode(error)})`,
 				}
 			: {
 					...file,
@@ -433,11 +433,11 @@ function configurationMetadata(root) {
 	} catch (error) {
 		// Parser excerpts can contain arbitrary source text. Do not echo them into an inventory.
 		return {
-			metadata: error.code
+			metadata: errorCode(error)
 				? {
 						...empty,
 						availability: "unavailable",
-						problem: `Cannot read configuration metadata (${error.code})`,
+						problem: `Cannot read configuration metadata (${errorCode(error)})`,
 					}
 				: {
 						...empty,
@@ -530,7 +530,7 @@ function environmentMetadata({
 							if (stat.isFile() && (windows || stat.mode & 0o111))
 								return { ...record, path: candidate, availability: "found" };
 						} catch (error) {
-							if (!["ENOENT", "ENOTDIR"].includes(error.code))
+							if (!["ENOENT", "ENOTDIR"].includes(errorCode(error)))
 								inaccessible = true;
 						}
 					}
@@ -628,8 +628,8 @@ function hostMetadata(root, environment) {
 						configured = true;
 				} catch (error) {
 					problems.push(
-						error.code
-							? `${file.path}: unreadable (${error.code}); bootstrap unobserved`
+						errorCode(error)
+							? `${file.path}: unreadable (${errorCode(error)}); bootstrap unobserved`
 							: `${file.path}: invalid managed markers or changed metadata; repair before init`,
 					);
 				}
@@ -660,7 +660,7 @@ function sourceMetadata(source) {
 			? "available"
 			: "unavailable";
 	} catch (error) {
-		availability = error.code === "ENOENT" ? "missing" : "unavailable";
+		availability = errorCode(error) === "ENOENT" ? "missing" : "unavailable";
 	}
 	return {
 		...source,
@@ -731,7 +731,7 @@ export function inspectRepository({
 		try {
 			statSync(safePath(root, ".agent-profiles"));
 		} catch (error) {
-			if (error.code === "ENOENT") installationStatus = "not-installed";
+			if (errorCode(error) === "ENOENT") installationStatus = "not-installed";
 		}
 	}
 	return {

@@ -6,7 +6,7 @@ import {
 	externalMetadata,
 	validateExternalSelection,
 } from "./external-skills.js";
-import { safePath } from "./files.js";
+import { errorMessage, safePath } from "./files.js";
 import { integrations } from "./integrations.js";
 import {
 	identifier,
@@ -145,7 +145,7 @@ export function discoverSkills(
 			warnings.push(
 				metadataOnly
 					? `${source}: ${skill.id} (${skill.path}): ${discoveryError(error, true)}`
-					: error.message,
+					: errorMessage(error),
 			);
 		}
 	};

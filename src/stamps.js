@@ -8,6 +8,7 @@ import {
 	rmSync,
 } from "node:fs";
 import path from "node:path";
+import { errorCode, errorMessage } from "./files.js";
 import { integrations } from "./integrations.js";
 import {
 	publish,
@@ -35,7 +36,6 @@ import {
 	skillMetadata,
 	validatePackageBindings,
 } from "./resolve.js";
-
 import { readRevisionRecord } from "./revisions.js";
 
 const DOMAIN = "agent-profiles/stamp/v1";
@@ -1760,8 +1760,9 @@ function captureStamp(input = {}, candidateDigest = null) {
 			backing = blob(relative);
 			status = "captured";
 		} catch (error) {
-			if (sharedFiles !== undefined) fail("shared capture", error.message);
-			status = error.code === "ENOENT" ? "absent" : "unobserved";
+			if (sharedFiles !== undefined)
+				fail("shared capture", errorMessage(error));
+			status = errorCode(error) === "ENOENT" ? "absent" : "unobserved";
 		}
 		return { path: relative, status, backing, delivery: "host-controlled" };
 	});
@@ -1851,7 +1852,7 @@ function captureStamp(input = {}, candidateDigest = null) {
 	try {
 		mkdirSync(writer);
 	} catch (error) {
-		if (error.code === "EEXIST") fail("store-busy", "writer lock exists");
+		if (errorCode(error) === "EEXIST") fail("store-busy", "writer lock exists");
 		throw error;
 	}
 	let staging;
@@ -1963,8 +1964,8 @@ function inspect(input) {
 		report.snapshotIntegrity = "verified";
 	} catch (error) {
 		report.snapshotIntegrity =
-			error.code === "ENOENT" ? "missing" : "mismatched";
-		report.findings.push(`snapshot: ${error.message}`);
+			errorCode(error) === "ENOENT" ? "missing" : "mismatched";
+		report.findings.push(`snapshot: ${errorMessage(error)}`);
 		return { report };
 	}
 	try {
@@ -1976,12 +1977,12 @@ function inspect(input) {
 		report.managedReconstruction = "verified";
 		report.managedReproducible = true;
 	} catch (error) {
-		if (error.message.startsWith("snapshot relation"))
+		if (errorMessage(error).startsWith("snapshot relation"))
 			report.snapshotIntegrity = "mismatched";
 		else
 			report.managedContent =
-				error.code === "ENOENT" ? "missing" : "mismatched";
-		report.findings.push(error.message);
+				errorCode(error) === "ENOENT" ? "missing" : "mismatched";
+		report.findings.push(errorMessage(error));
 		return { report };
 	}
 	const peerNative =

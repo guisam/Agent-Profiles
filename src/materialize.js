@@ -8,6 +8,7 @@ import {
 	rmSync,
 } from "node:fs";
 import path from "node:path";
+import { errorCode, errorMessage } from "./files.js";
 import {
 	encodeComponent,
 	publish,
@@ -144,7 +145,7 @@ function build(stampDigest, selected) {
 			`stamps/sha256/${stampDigest}/snapshot.json`,
 		);
 	} catch (error) {
-		throw new Error(`stamp-missing:${stampDigest}: ${error.message}`, {
+		throw new Error(`stamp-missing:${stampDigest}: ${errorMessage(error)}`, {
 			cause: error,
 		});
 	}
@@ -163,7 +164,7 @@ function build(stampDigest, selected) {
 	try {
 		retained = reconstructStamp({ digest: stampDigest, storeRoot: root });
 	} catch (error) {
-		throw new Error(`backing-missing:${error.message}`, { cause: error });
+		throw new Error(`backing-missing:${errorMessage(error)}`, { cause: error });
 	}
 	if (
 		!readStoreFile(root, `stamps/sha256/${stampDigest}/snapshot.json`).equals(
@@ -562,14 +563,14 @@ export function verifyMaterialization(input) {
 		directory(selected);
 		destination = realpathSync(selected);
 	} catch (error) {
-		findings.push(`output-missing:${error.message}`);
+		findings.push(`output-missing:${errorMessage(error)}`);
 		return result();
 	}
 	let bytes, receipt;
 	try {
 		bytes = readStoreFile(destination, "receipt.json");
 	} catch (error) {
-		findings.push(`receipt-missing:receipt.json: ${error.message}`);
+		findings.push(`receipt-missing:receipt.json: ${errorMessage(error)}`);
 		return result();
 	}
 	try {
@@ -577,13 +578,13 @@ export function verifyMaterialization(input) {
 		if (!canonicalJSON(receipt).equals(bytes))
 			fail("receipt.json", "noncanonical encoding");
 	} catch (error) {
-		findings.push(`receipt-malformed:receipt.json: ${error.message}`);
+		findings.push(`receipt-malformed:receipt.json: ${errorMessage(error)}`);
 		return result();
 	}
 	try {
 		receiptSchema(receipt);
 	} catch (error) {
-		findings.push(`receipt-schema:receipt.json: ${error.message}`);
+		findings.push(`receipt-schema:receipt.json: ${errorMessage(error)}`);
 		return result();
 	}
 	if (receipt.stampDigest !== input.expectedStampDigest)
@@ -592,7 +593,7 @@ export function verifyMaterialization(input) {
 	try {
 		expected = build(input.expectedStampDigest, input.storeRoot);
 	} catch (error) {
-		findings.push(error.message);
+		findings.push(errorMessage(error));
 		return result();
 	}
 	const wanted = receiptFor(expected.plan, expected.content);
@@ -608,7 +609,7 @@ export function verifyMaterialization(input) {
 	try {
 		actual = tree(destination);
 	} catch (error) {
-		findings.push(`output-mismatch:${error.message}`);
+		findings.push(`output-mismatch:${errorMessage(error)}`);
 		return result();
 	}
 	const expectedFiles = new Map(
@@ -695,7 +696,8 @@ export function materialize(input) {
 	try {
 		mkdirSync(context.lock);
 	} catch (error) {
-		if (error.code === "EEXIST") fail("materialization-busy", context.target);
+		if (errorCode(error) === "EEXIST")
+			fail("materialization-busy", context.target);
 		throw error;
 	}
 	const lockStat = directory(context.lock);
@@ -760,7 +762,7 @@ export function materialize(input) {
 		return receipt;
 	} catch (error) {
 		if (committed)
-			throw new Error(`committed-but-unacknowledged: ${error.message}`, {
+			throw new Error(`committed-but-unacknowledged: ${errorMessage(error)}`, {
 				cause: error,
 			});
 		try {
@@ -776,9 +778,12 @@ export function materialize(input) {
 			}
 			rmSync(context.lock, { recursive: true });
 		} catch (cleanup) {
-			throw new Error(`${error.message}; cleanup: ${cleanup.message}`, {
-				cause: error,
-			});
+			throw new Error(
+				`${errorMessage(error)}; cleanup: ${errorMessage(cleanup)}`,
+				{
+					cause: error,
+				},
+			);
 		}
 		throw error;
 	}

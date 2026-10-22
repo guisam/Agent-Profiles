@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, mkdtempSync, renameSync, rmSync } from "node:fs";
 import path from "node:path";
+import { errorCode, errorMessage } from "./files.js";
 import {
 	candidateReservation,
 	encodeComponent,
@@ -471,7 +472,7 @@ function verifyCompanion(pkg, manifest) {
 			);
 		} catch (error) {
 			throw new Error(
-				`revision workflow companion: invalid UTF-8: ${error.message}`,
+				`revision workflow companion: invalid UTF-8: ${errorMessage(error)}`,
 				{ cause: error },
 			);
 		}
@@ -748,7 +749,7 @@ export function retainCandidateRevision({ storeRoot: selected, manifest }) {
 	try {
 		mkdirSync(writer);
 	} catch (error) {
-		if (error.code === "EEXIST") fail("store-busy", "writer lock exists");
+		if (errorCode(error) === "EEXIST") fail("store-busy", "writer lock exists");
 		throw error;
 	}
 	let staging;
@@ -872,7 +873,7 @@ export function retainRevisionManifest({ storeRoot: selected, manifestFile }) {
 	try {
 		mkdirSync(writer);
 	} catch (error) {
-		if (error.code === "EEXIST") fail("store-busy", "writer lock exists");
+		if (errorCode(error) === "EEXIST") fail("store-busy", "writer lock exists");
 		throw error;
 	}
 	let staging;

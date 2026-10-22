@@ -10,7 +10,7 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readConfiguration } from "./configure.js";
-import { applyChanges, readLocal, safePath } from "./files.js";
+import { applyChanges, errorMessage, readLocal, safePath } from "./files.js";
 import {
 	blockProtocol,
 	expectedBlock,
@@ -107,7 +107,9 @@ export function bootstrapAvailability(root) {
 			return existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : null;
 		} catch (error) {
 			throw Object.assign(
-				new Error(`${path.relative(root, file) || file}: ${error.message}`),
+				new Error(
+					`${path.relative(root, file) || file}: ${errorMessage(error)}`,
+				),
 				{ unreadable: true },
 			);
 		}
@@ -175,7 +177,7 @@ export function bootstrapAvailability(root) {
 		return {
 			runnable: false,
 			version: null,
-			reason: `${error.message}; npx cannot run the bootstrap until it is repaired`,
+			reason: `${errorMessage(error)}; npx cannot run the bootstrap until it is repaired`,
 		};
 	}
 	if (version === null)
@@ -202,7 +204,7 @@ function readSettings(root, file) {
 		return { before, settings: JSON.parse(before.toString("utf8")) };
 	} catch (error) {
 		throw new Error(
-			`${file}: ${error.message}; repair it before Agent Profiles can check or add its permission rules`,
+			`${file}: ${errorMessage(error)}; repair it before Agent Profiles can check or add its permission rules`,
 		);
 	}
 }
@@ -324,7 +326,7 @@ export function doctor(root, { storeRoot } = {}) {
 			);
 		}
 	} catch (error) {
-		errors.push(error.message);
+		errors.push(errorMessage(error));
 	}
 	const agents = [];
 	const stale = [];
@@ -350,7 +352,7 @@ export function doctor(root, { storeRoot } = {}) {
 				);
 			}
 		} catch (error) {
-			errors.push(error.message);
+			errors.push(errorMessage(error));
 		}
 	}
 	const protocol = readLocal(root, protocolFile);
@@ -419,7 +421,7 @@ export function doctor(root, { storeRoot } = {}) {
 					`${agent.name}: ${adapter.permissions.file} does not allow ${missing.join(" or ")}; run init to add the rules`,
 				);
 		} catch (error) {
-			bootstrap.push(`${agent.name}: ${error.message}`);
+			bootstrap.push(`${agent.name}: ${errorMessage(error)}`);
 		}
 		const { mode, verified, ...limits } = adapter.capabilities;
 		notes.push(
@@ -643,7 +645,7 @@ export function uninstall({ root, deleteConfig = false, confirmed = false }) {
 			modified.push(".agent-profiles/");
 		} catch (error) {
 			throw new Error(
-				`Integrations removed (${modified.join(", ")}); configuration deletion failed: ${error.message}`,
+				`Integrations removed (${modified.join(", ")}); configuration deletion failed: ${errorMessage(error)}`,
 			);
 		}
 	}

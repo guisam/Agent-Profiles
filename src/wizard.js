@@ -4,6 +4,7 @@ import {
 	planRoleChange,
 	readConfiguration,
 } from "./configure.js";
+import { errorMessage } from "./files.js";
 import { resolveInstructions } from "./resolve.js";
 import { discoverSkills } from "./skills.js";
 
@@ -321,7 +322,7 @@ export async function configureRoles({
 					`Edit .agent-profiles/${display(plan.instructionFile)} to refine the role instructions.`,
 				);
 		} catch (error) {
-			write(`Error: ${display(error.message)}`);
+			write(`Error: ${display(errorMessage(error))}`);
 		}
 	}
 }

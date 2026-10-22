@@ -10,6 +10,7 @@ import {
 	resolutionOutput,
 } from "../src/diagnostics.js";
 import { defaultUserRoots } from "../src/external-skills.js";
+import { errorMessage } from "../src/files.js";
 import { formatInventory, inspectRepository } from "../src/inspect.js";
 import {
 	detectAgents,
@@ -892,6 +893,6 @@ Examples:
 		}
 	}
 } catch (error) {
-	console.error(`Agent Profiles: ${display(error.message)}`);
+	console.error(`Agent Profiles: ${display(errorMessage(error))}`);
 	process.exitCode = 1;
 }
