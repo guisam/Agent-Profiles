@@ -45,11 +45,11 @@ function mappings(rows) {
   for (const row of rows) {
     keys(row, 'mapping', ['binding', 'sourceKind', 'sourceDigest', 'packageDigest', 'sourcePath', 'outputPath', 'hostName']);
     if (row.binding !== null && (typeof row.binding !== 'string' || !/^(profiles|roles|skills)\.[a-z0-9][a-z0-9-]*$/.test(row.binding))) fail('mapping.binding', 'invalid owner');
-    if (!['blob', 'package', 'snapshot'].includes(row.sourceKind)) fail('mapping.sourceKind', 'unsupported backing');
+    if (!['blob', 'package', 'snapshot', 'revision'].includes(row.sourceKind)) fail('mapping.sourceKind', 'unsupported backing');
     digest(row.sourceDigest, 'mapping.sourceDigest');
     if (row.packageDigest !== (row.sourceKind === 'package' ? row.sourceDigest : null) || row.hostName !== null) fail('mapping', 'invalid packageDigest or hostName');
     portable(row.sourcePath); portable(row.outputPath);
-    if (!row.outputPath.startsWith('content/') || row.sourceKind === 'snapshot' && row.sourcePath !== 'snapshot.json') fail('mapping', 'invalid path');
+    if (!row.outputPath.startsWith('content/') || row.sourceKind === 'snapshot' && row.sourcePath !== 'snapshot.json' || row.sourceKind === 'revision' && row.sourcePath !== 'record.json') fail('mapping', 'invalid path');
   }
   for (let i = 1; i < rows.length; i++) if (mappingOrder(rows[i - 1], rows[i]) >= 0) fail('mappings', 'expected sorted unique mappings');
 }
@@ -64,7 +64,7 @@ function build(stampDigest, selected) {
     throw new Error(`stamp-missing:${stampDigest}: ${error.message}`, { cause: error });
   }
   const snapshot = parseRecord(snapshotBytes);
-  if (!canonicalJSON(snapshot).equals(snapshotBytes) || hashRecord('agent-profiles/stamp/v1', snapshot) !== stampDigest) fail('stamp-mismatch', stampDigest);
+  if (!canonicalJSON(snapshot).equals(snapshotBytes) || hashRecord(snapshot.stampVersion === 2 ? 'agent-profiles/stamp/v2' : 'agent-profiles/stamp/v1', snapshot) !== stampDigest) fail('stamp-mismatch', stampDigest);
   let retained;
   try { retained = reconstructStamp({ digest: stampDigest, storeRoot: root }); }
   catch (error) { throw new Error(`backing-missing:${error.message}`, { cause: error }); }
@@ -79,15 +79,40 @@ function build(stampDigest, selected) {
       sourcePath: backing.type === 'snapshot' ? 'snapshot.json' : backing.path, outputPath, hostName: null });
   };
   add('content/snapshot.json', { type: 'snapshot', sha256: stampDigest }, null, snapshotBytes);
-  const owner = e => `${e.kind === 'profile' ? 'profiles' : e.kind === 'role' ? 'roles' : 'skills'}.${e.id}`;
-  retained.composition.forEach((entry, i) => add(`content/instructions/${String(i).padStart(4, '0')}.md`, entry.backing, owner(entry), entry.bytes));
+  const owner = e => snapshot.stampVersion === 2 && e.package ? e.owner ?? e.package.binding : `${e.kind === 'profile' ? 'profiles' : e.kind === 'role' ? 'roles' : 'skills'}.${e.id}`;
+  retained.composition.forEach((entry, i) => {
+    add(`content/instructions/${String(i).padStart(4, '0')}.md`, entry.backing, owner(entry), entry.bytes);
+    if (snapshot.stampVersion === 2 && entry.package) {
+      const mapping = rows.at(-1);
+      for (const direct of [...retained.required, ...retained.available, ...retained.selectionBindings.map(row => ({ package: row.root }))]) if (direct.package && direct.package.sha256 === entry.package.sha256 &&
+          direct.package.revisionDigest === entry.package.revisionDigest && direct.package.binding !== mapping.binding) rows.push({ ...mapping, binding: direct.package.binding });
+    }
+  });
   const composed = new Set(retained.composition.slice(2).map(e => e.id));
-  for (const entry of retained.available) if (entry.type === 'instruction' && !composed.has(entry.id)) {
+  for (const entry of retained.available) if (entry.type === 'instruction' && !(snapshot.stampVersion === 2 ?
+    retained.composition.some(part => part.backing.type === entry.backing.type && part.backing.sha256 === entry.backing.sha256 && part.backing.path === entry.backing.path &&
+      (part.package?.revisionDigest ?? null) === (entry.package?.revisionDigest ?? null)) : composed.has(entry.id))) {
     add(`content/available/${encodeComponent(entry.id)}/entry.md`, entry.backing, `skills.${entry.id}`, entry.bytes);
   }
   for (const resource of retained.resources) add(`content/resources/${encodeComponent(resource.binding)}/${resource.backing.path}`, resource.backing, resource.binding, resource.bytes);
-  const selections = [...retained.composition.slice(0, 2), ...retained.required, ...retained.available];
+  const selections = snapshot.stampVersion === 2 ? [...retained.composition, ...retained.required, ...retained.available,
+    ...retained.selectionBindings.map(row => ({ package: row.root })),
+    ...retained.workflowActors.flatMap(actor => actor.bindings.flatMap(row => row.closure.map(pin => ({ package: { ...pin, binding: row.root.binding } }))))]
+    : [...retained.composition.slice(0, 2), ...retained.required, ...retained.available];
+  if (snapshot.stampVersion === 2) {
+    const records = new Map(retained.revisions.map(row => [row.recordDigest, parseRecord(row.bytes)])), seen = new Set();
+    function attribute(p, binding) {
+      const key = `${binding}:${p.name}@${p.version}:${p.sha256}:${p.revisionDigest}`;
+      if (seen.has(key)) return;
+      seen.add(key); selections.push({ package: { ...p, binding } });
+      for (const dependency of records.get(p.revisionDigest)?.dependencies ?? []) attribute(dependency, binding);
+    }
+    for (const entry of [...retained.required, ...retained.available]) if (entry.package) attribute(entry.package, entry.package.binding);
+  }
+  const trees = new Set();
   for (const pkg of retained.packages) {
+    if (snapshot.stampVersion === 2 && trees.has(pkg.sha256)) continue;
+    trees.add(pkg.sha256);
     const owners = [...new Set(selections.filter(e => e.package?.sha256 === pkg.sha256).map(e => e.package.binding))];
     for (const member of pkg.files) {
       const outputPath = `content/packages/sha256/${pkg.sha256}/${member.path}`;
@@ -96,6 +121,12 @@ function build(stampDigest, selected) {
     }
   }
   for (const entry of retained.shared) if (entry.status === 'captured') add(`content/shared/${entry.path}`, entry.backing, null, entry.bytes);
+  if (snapshot.stampVersion === 2) {
+    for (const revision of retained.revisions) add(`content/revisions/sha256/${revision.recordDigest}.json`,
+      { type: 'revision', sha256: revision.recordDigest, path: 'record.json' }, null, revision.bytes);
+    const unique = [...new Map(rows.map(row => [canonicalJSON(row).toString('hex'), row])).values()];
+    rows.splice(0, rows.length, ...unique);
+  }
   files.sort((a, b) => compare(a.path, b.path));
   rows.sort(mappingOrder); content.sort((a, b) => compare(a.path, b.path));
   validateMembers(files.map(file => ({ path: file.path, type: 'file', nlink: 1 })));

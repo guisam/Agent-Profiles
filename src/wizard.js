@@ -6,7 +6,7 @@ import { resolveInstructions } from './resolve.js';
 export const display = text => stripVTControlCharacters(String(text)).replace(/[\x00-\x1f\x7f]/g, ' ');
 const where = skill => skill.package ? `package ${skill.package.name}@${skill.package.version} (${skill.verification === 'not-checked' ? 'declared; verification not checked' : `sha256 ${skill.package.sha256}`})` : skill.host ? `${skill.host} ${skill.scope} skill ${skill.hostId}${skill.path ? ` at ${skill.path}` : ' (host-provided)'}` +
   `${skill.availability ? ` [${skill.availability}; invocation unverified]` : ''}` : skill.path;
-const resourceOf = skill => skill.package ? `package\0${skill.package.binding}\0${skill.package.name}\0${skill.package.version}\0${skill.package.sha256}` : skill.host ?`host\0${skill.host}\0${skill.scope}\0${skill.hostId}` : `file\0${skill.path}`;
+const resourceOf = skill => skill.package ? `package\0${skill.package.binding}\0${skill.package.name}\0${skill.package.version}\0${skill.package.sha256}${Object.hasOwn(skill.package, 'revisionDigest') ? `\0${skill.package.revisionDigest}` : ''}` : skill.host ?`host\0${skill.host}\0${skill.scope}\0${skill.hostId}` : `file\0${skill.path}`;
 const keyOf = skill => `${skill.id}\0${resourceOf(skill)}`;
 
 export async function selectSkills({ choices, initial = [], label, ask, write }) {

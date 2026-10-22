@@ -19,6 +19,8 @@ import { importPackage, rootPath } from '../src/package-store.js';
 import { installDependencies } from '../src/package-lock.js';
 import { createStamp, verifyStamp, diffStamps } from '../src/stamps.js';
 import { materializeStamp } from '../src/materialize.js';
+import { startMigration, migrationStatus, abandonMigration, proposeMigration, migrationProposals, acceptMigrationProposal, rejectMigrationProposal, publishMigrationCandidate, planMigrationEvaluation, importMigrationEvaluationResults, migrationEvaluationReport, previewMigrationPromotion, applyMigrationPromotion } from '../src/migrations.js';
+import { retainRevisionManifest } from '../src/revisions.js';
 
 const agentChoices = integrations.map(adapter => adapter.id).join(', ');
 const display = text => displayText(text).replace(/[\x80-\x9f]/g, ' ');
@@ -58,11 +60,13 @@ try {
       'output-root': { type: 'string' },
       destination: { type: 'string' },
       'protect-root': { type: 'string', multiple: true },
+      sharing: { type: 'string' },
+      reason: { type: 'string' },
     },
   });
   let positionals = tokens.filter(token => token.kind === 'positional').map(token => token.value);
   const [command] = positionals;
-  const packageCommands = ['add', 'install', 'stamp', 'verify', 'diff', 'materialize'];
+  const packageCommands = ['add', 'install', 'stamp', 'verify', 'diff', 'materialize', 'migrate', 'revision'];
   const sources = [];
   const sourceOperands = new Set();
   const seen = new Set();
@@ -99,6 +103,26 @@ Commands:
   diff        Compare two full stamp digests
   materialize Export a stamp using --adapter filesystem-v1 --output-root <absolute-root>
               --destination <absolute-new-child> [--protect-root <absolute-path> ...]
+  migrate     Develop isolated migration workspaces and review evidence-linked proposals
+  revision    Adopt metadata for an existing immutable legacy release
+
+Release metadata (declarations only; no workflow activation):
+  revision record <manifest-file> [--store <directory>] [--json]
+
+Migration workspaces (bounded task-only candidates, offline paired evidence and single-tuple promotion supported; provider execution not implemented):
+  migrate start --role <id> --model <id> --host <id> --sharing fork|shared [--json]
+  migrate status [<migration-id>] [--json]
+  migrate abandon <migration-id> --reason <text> [--json]
+  migrate propose <migration-id> <proposal-file> [--store <directory>] [--json]
+  migrate proposals <migration-id> [--json]
+  migrate accept <migration-id> <proposal-id> [--store <directory>] [--json]
+  migrate reject <migration-id> <proposal-id> --reason <text> [--store <directory>] [--json]
+  migrate candidate <migration-id> <candidate-file> [--store <directory>] [--json]
+  migrate plan <candidate-id> <plan-file> [--store <directory>] [--json]
+  migrate results <plan-id> <result-file> [--store <directory>] [--json]
+  migrate report <result-id> [--store <directory>] [--json]
+  migrate preview <decision-file> [--store <directory>] [--json]
+  migrate promote <decision-file> [--store <directory>] [--json]
 
 Agent context:
   resolve [--host <id>] [--model <id>] [--family <id>] [--identity-source host|host-stated|user]
@@ -140,6 +164,16 @@ Examples:
   } else {
     if (command === 'preset') {
       if (positionals.length !== 3 || !['inspect', 'import', 'export'].includes(positionals[1])) throw new Error('Usage: agent-profiles preset <inspect|import|export> <directory>');
+    } else if (command === 'revision') {
+      if (positionals.length !== 3 || positionals[1] !== 'record') throw new Error('Usage: revision record <manifest-file> [--root <directory>] [--store <directory>] [--json]');
+      for (const option of seen) if (!['root', 'store', 'json'].includes(option)) throw new Error(`--${option} is not supported by revision record`);
+    } else if (command === 'migrate') {
+      const action = positionals[1];
+      const counts = { start: [2], status: [2, 3], abandon: [3], propose: [4], proposals: [3], accept: [4], reject: [4], candidate: [4], plan: [4], results: [4], report: [3], preview: [3], promote: [3] };
+      if (!Object.hasOwn(counts, action) || !counts[action].includes(positionals.length)) throw new Error('Usage: migrate start | status [id] | abandon <id> --reason <text> | propose <id> <proposal-file> | proposals <id> | accept <id> <proposal-id> | reject <id> <proposal-id> --reason <text> | candidate <id> <candidate-file> | plan <candidate-id> <plan-file> | results <plan-id> <result-file> | report <result-id> | preview <decision-file> | promote <decision-file>; provider execution is not implemented');
+      const allowed = action === 'start' ? ['root', 'store', 'role', 'model', 'host', 'sharing', 'json'] :
+        ['root', 'json', ...(action === 'proposals' ? [] : ['store']), ...(['abandon', 'reject'].includes(action) ? ['reason'] : [])];
+      for (const option of seen) if (!allowed.includes(option)) throw new Error(`--${option} is not supported by migrate ${action}`);
     } else if (packageCommands.includes(command)) {
       const count = { add: 2, install: 1, stamp: 1, verify: 2, diff: 3, materialize: 2 }[command];
       if (positionals.length !== count) throw new Error(`Usage: ${command} accepts exactly ${count - 1} positional argument(s)${command === 'diff' ? ': two digests, before and after' : ''}`);
@@ -147,11 +181,13 @@ Examples:
     if (values.package !== undefined && command !== 'init') throw new Error('--package is only supported by init');
     if (values.agent && command !== 'init') throw new Error('--agent is only supported by init');
     if (values['delete-config'] && command !== 'uninstall') throw new Error('--delete-config is only supported by uninstall');
+    if ((values.sharing !== undefined || values.reason !== undefined) && command !== 'migrate') throw new Error('--sharing and --reason are only supported by migrate');
     const resolving = ['resolve', 'proof', 'visualize', 'stamp'].includes(command);
-    if (values.role && !resolving && command !== 'preset') throw new Error('--role is only supported by preset, resolve, proof, or visualize');
+    if (values.role && !resolving && command !== 'preset' && command !== 'migrate') throw new Error('--role is only supported by preset, resolve, proof, visualize, stamp, or migrate start');
     if (resolving && values.role?.length > 1) throw new Error(`${command} accepts one --role`);
-    if ((values.model !== undefined || values.family !== undefined || values.skill) && !resolving) throw new Error('--model, --family, and --skill are only supported by resolve, proof, or visualize');
-    if (values.host !== undefined && !['resolve', 'proof', 'stamp'].includes(command)) throw new Error('--host is only supported by resolve, proof, or stamp');
+    if (command === 'migrate' && values.role?.length > 1) throw new Error('migrate start accepts one --role');
+    if ((values.model !== undefined || values.family !== undefined || values.skill) && !resolving && command !== 'migrate') throw new Error('--model, --family, and --skill are only supported by resolve, proof, or visualize');
+    if (values.host !== undefined && !['resolve', 'proof', 'stamp', 'migrate'].includes(command)) throw new Error('--host is only supported by resolve, proof, stamp, or migrate start');
     if (values['identity-source'] !== undefined && !['resolve', 'stamp'].includes(command)) throw new Error('--identity-source is only supported by resolve or stamp');
     if (values.json && !['inspect', 'resolve', 'proof', 'skills', ...packageCommands].includes(command)) throw new Error('--json is only supported by inspect, resolve, proof, skills, or package commands');
     if (values.source && !['add', 'install'].includes(command)) throw new Error('--source is only supported by add or install');
@@ -174,7 +210,7 @@ Examples:
     if (values.contents && !(command === 'preset' && positionals[1] === 'inspect') && !(['resolve', 'proof'].includes(command) && values.json)) throw new Error('--contents requires preset inspect, or resolve or proof with --json');
     if (values.root !== undefined && !values.root.trim()) throw new Error('--root requires a directory');
     let target = values.root;
-    if (target === undefined && ['add', 'verify', 'diff'].includes(command)) target = process.cwd();
+    if (target === undefined && (['add', 'verify', 'diff', 'revision'].includes(command) || command === 'migrate' && positionals[1] === 'report')) target = process.cwd();
     if (target === undefined) {
       try { target = findRoot(); } catch (error) {
         if (command !== 'inspect' && (command !== 'preset' || positionals[1] !== 'inspect')) throw error;
@@ -186,7 +222,30 @@ Examples:
     const selectors = { root, storeRoot, host: values.host, model: values.model, family: values.family, identitySource: /** @type {any} */ (values['identity-source']), role: values.role?.[0], skills: values.skill };
     const report = (result, label) => console.log(values.json ? JSON.stringify(result, null, 2) : `${display(label)}\n${JSON.stringify(result, null, 2).replace(/[\x7f-\x9f]/g, ' ')}`);
     if (!(command === 'proof' && values.json) && command !== 'resolve' && command !== 'inspect' && !(command === 'skills' && values.json) && !packageCommands.includes(command)) console.log(`Agent Profiles\nRepository: ${root}`);
-    if (command === 'add') {
+    if (command === 'revision') {
+      report(retainRevisionManifest({ storeRoot, manifestFile: positionals[2] }), 'Revision metadata recorded (declarations only)');
+    } else if (command === 'migrate') {
+      let result;
+      switch (positionals[1]) {
+        case 'start': result = startMigration({ root, storeRoot, role: values.role?.[0], model: values.model, host: values.host, sharing: values.sharing }); break;
+        case 'status': result = migrationStatus({ root, id: positionals[2] }); break;
+        case 'abandon': result = abandonMigration({ root, id: positionals[2], reason: values.reason }); break;
+        case 'propose': result = proposeMigration({ root, storeRoot, id: positionals[2], proposalFile: positionals[3] }); break;
+        case 'proposals': result = migrationProposals({ root, id: positionals[2] }); break;
+        case 'accept': result = acceptMigrationProposal({ root, storeRoot, id: positionals[2], proposalId: positionals[3] }); break;
+        case 'reject': result = rejectMigrationProposal({ root, storeRoot, id: positionals[2], proposalId: positionals[3], reason: values.reason }); break;
+        case 'candidate': result = publishMigrationCandidate({ root, storeRoot, id: positionals[2], manifestFile: positionals[3] }); break;
+        case 'plan': result = planMigrationEvaluation({ root, storeRoot, candidateId: positionals[2], planFile: positionals[3] }); break;
+        case 'results': result = importMigrationEvaluationResults({ root, storeRoot, planId: positionals[2], resultFile: positionals[3] }); break;
+        case 'report': result = migrationEvaluationReport({ storeRoot, id: positionals[2] }); break;
+        case 'preview': result = previewMigrationPromotion({ root, storeRoot, decisionFile: positionals[2] }); break;
+        case 'promote': result = applyMigrationPromotion({ root, storeRoot, decisionFile: positionals[2] }); break;
+      }
+      const notes = { report: ` ${positionals[2]} — external claims; runtime unverified; promotion not authorized`,
+        preview: ' (read-only; nothing applied) — correctness is an external claim; runtime unverified',
+        promote: ' — exact evaluated tuple only; correctness is an external claim; runtime unverified' };
+      report(result, `Migration ${positionals[1]}${notes[positionals[1]] ?? ''}`);
+    } else if (command === 'add') {
       const sourceDirectory = rootPath(values.source[0], 'source');
       const inspected = readPackage({ root: sourceDirectory });
       const identity = inspected.manifest.package;

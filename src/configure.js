@@ -94,7 +94,7 @@ export function planRoleChange({ root, action, id, file, description, required, 
       if (typeof selection === 'string' && (sources.get(skillId)?.has('host') || sources.get(skillId)?.has('package'))) return skillId;
       if (typeof selection !== 'string' && selection.package) {
         // Reuse only the current binding; its version and digest are checked against the preview resolution below.
-        if (selection.package.binding !== `skills.${skillId}` || sources.get(skillId)?.get('package') !== selection.package.name) {
+        if (selection.package.binding !== `skills.${skillId}` || !sources.get(skillId)?.has('package')) {
           throw new Error(`${entry}: ${skillId} is not the current package binding ${selection.package.name}; reload the role`);
         }
         packageSelections.push(selection);
@@ -153,7 +153,7 @@ export function planRoleChange({ root, action, id, file, description, required, 
   const resolution = resolveInstructions({ root, role, configuration: proposed, newRoleFile, storeRoot, lockMode: 'validation' });
   for (const selection of packageSelections) {
     const current = [...resolution.required, ...resolution.available].find(skill => skill.id === selection.id)?.package;
-    if (current?.version !== selection.package.version || current.sha256 !== selection.package.sha256) {
+    if (current?.name !== selection.package.name || current?.version !== selection.package.version || current.sha256 !== selection.package.sha256 || current.revisionDigest !== selection.package.revisionDigest) {
       throw new Error(`${selection.id}: package binding changed since it was selected; reload the role`);
     }
   }

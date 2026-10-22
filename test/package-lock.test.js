@@ -421,7 +421,7 @@ for (const supplied of [false, true]) installTest(`fresh-root offline reproducti
 });
 
 const schemaChanges = [
-  ['lock version', l => { l.lockVersion = 2; }, /lockVersion|lock.version|unsupported.*lock/i],
+  ['lock version', l => { l.lockVersion = 3; }, /lockVersion|lock.version|unsupported.*lock/i],
   ['configuration version', l => { l.configurationVersion = 1; }, /configurationVersion|configuration.version/i],
   ['resolver contract', l => { l.resolverContract = 'agent-profiles/resolver/v3'; }, /resolverContract|resolver.contract/i],
   ['unknown top-level key', l => { l.timestamp = 0; }, /timestamp|unknown/i],

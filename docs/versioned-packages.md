@@ -1,11 +1,20 @@
 # Versioned packages, locks and managed snapshots
 
-This checkout implements configuration v2 and the commands below. The manifest
+This checkout implements configuration v2 and opt-in v3; the walkthrough below
+remains v2, including its existing snapshot1 behavior. The manifest
 is still **0.1.0, unpublished**; no published v2-supporting release is claimed.
 Use a trusted checkout with Node.js 22+ and its dependencies already available.
 Preparing/installing the executable needs separate authorization. Dependency
 `install` below is distinct from `init --package`, which installs the Agent
 Profiles npm executable into a project.
+
+For exact config3 metadata selection, workflow composition/readiness and lock2,
+see [revision declarations](revisions.md) and the adjacent
+[v2 → v3 conversion guide](migrations/config-v2-to-v3.md) with its approval-first
+prompt. Base conversion preserves old selections; optional workflow adoption is
+separate. Config3 opts into workflow-aware stamp2 reconstruction/materialization;
+see the revision guide for retained metadata/peer evidence and runtime limits. A valid lock
+checks integrity; it does not assert actor readiness or actual host invocation.
 
 ## Complete local walkthrough
 

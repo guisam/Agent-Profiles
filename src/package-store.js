@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { closeSync, constants, fstatSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { canonicalJSON, hashTree, parseManifest, parseRecord, readPackage, validateMembers } from './packages.js';
+import { canonicalJSON, hashRecord, hashTree, parseManifest, parseRecord, readPackage, validateMembers } from './packages.js';
 
 const digestPattern = /^[0-9a-f]{64}$/;
 
@@ -164,7 +164,7 @@ export function readStoreFile(root, relative) {
   return readMember(root, { path: relative, stat }, { rootStat, members });
 }
 
-export { rootPath, storeRoot, safePath, statOrNull, sameStat, writeFlushed, verifyObject, publish };
+export { rootPath, storeRoot, safePath, statOrNull, sameStat, writeFlushed, verifyObject, publish, readTree };
 
 function readTree(root, copy = undefined, onFirst = undefined) {
   const snapshot = scan(root);
@@ -277,6 +277,7 @@ export function importPackage({ sourceDirectory, storeRoot: selected = undefined
     if (staged.sha256 !== copiedDigest) throw new Error('staged copied bytes: digest mismatch');
     if (expectedDigest !== undefined && staged.sha256 !== expectedDigest) throw new Error(`expected digest mismatch: copied ${staged.sha256}, expected ${expectedDigest}`);
     const identity = { name: staged.manifest.package.name, version: staged.manifest.package.version };
+    if (candidateReservation(root, identity)) throw new Error('candidate: planned release identity is reserved and unpublished');
     const target = identityPath(root, identity.name, identity.version);
     const record = recordAt(root, target, identity.name, identity.version);
     if (record) {
@@ -300,6 +301,75 @@ export function importPackage({ sourceDirectory, storeRoot: selected = undefined
   } finally {
     try { if (staging) rmSync(staging, { recursive: true, force: true }); }
     finally { rmSync(lock, { recursive: true, force: true }); }
+  }
+}
+
+// Reservations share the committed candidate index; there is no second mutable label registry.
+export function candidateIndex(root, id) {
+  if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,127}$/.test(id)) throw new Error('candidate id: expected portable identifier');
+  const relative = `candidates/ids/${id}.json`, bytes = readStoreFile(root, relative), index = parseRecord(bytes);
+  if (!index || Object.keys(index).sort().join(',') !== 'candidateVersion,content,id,migrationId,release,revisionDigest,stampDigest' ||
+      index.candidateVersion !== 1 || index.id !== id || !/^migration-[a-f0-9-]{36}$/.test(index.migrationId) ||
+      !digestPattern.test(index.revisionDigest) || !digestPattern.test(index.stampDigest) || !canonicalJSON(index).equals(bytes)) throw new Error('candidate index: corrupt immutable record');
+  for (const identity of [index.release, index.content?.identity]) {
+    if (!identity || Object.keys(identity).sort().join(',') !== 'name,version') throw new Error('candidate index: invalid identity');
+    identityPath(root, identity.name, identity.version);
+  }
+  if (Object.keys(index.content).sort().join(',') !== 'identity,sha256' || !digestPattern.test(index.content.sha256)) throw new Error('candidate index: invalid content');
+  const recordBytes = readStoreFile(root, `revisions/sha256/${index.revisionDigest}.json`), record = parseRecord(recordBytes);
+  if (!canonicalJSON(record).equals(recordBytes) || hashRecord('agent-profiles/revision/v2', record) !== index.revisionDigest) throw new Error('candidate index: revision record integrity digest mismatch');
+  if (Object.keys(record).sort().join(',') !== 'candidate,content,dependencies,identity,kind,parent,provenance,revisionVersion,workflow' ||
+      record.revisionVersion !== 2 || record.kind !== 'candidate' || record.candidate !== id ||
+      !digestPattern.test(record.parent) || !Array.isArray(record.dependencies) || !record.provenance ||
+      Object.keys(record.provenance).sort().join(',') !== 'binding,configSha256,evaluationBase,expectedTreeSha256,migrationBase,migrationId,proposals,workflowChange' ||
+      !canonicalJSON(record.identity).equals(canonicalJSON(index.release)) || !canonicalJSON(record.content).equals(canonicalJSON(index.content)) ||
+      record.provenance?.migrationId !== index.migrationId) throw new Error('candidate index: metadata mismatch');
+  const stampBytes = readStoreFile(root, `stamps/sha256/${index.stampDigest}/snapshot.json`), stamp = parseRecord(stampBytes);
+  if (!canonicalJSON(stamp).equals(stampBytes) || hashRecord('agent-profiles/stamp/v2', stamp) !== index.stampDigest ||
+      !canonicalJSON(stamp.capture).equals(canonicalJSON({ kind: 'candidate', migration: index.migrationId, candidate: index.revisionDigest }))) throw new Error('candidate index: stamp mismatch');
+  verifyObject(root, index.content.sha256, index.content.identity);
+  return index;
+}
+
+export function candidateReservation(root, identity) {
+  const folder = safePath(root, 'candidates/ids');
+  if (!statOrNull(folder)) return false;
+  directory(folder);
+  let reserved = false;
+  for (const name of readdirSync(folder)) {
+    if (!name.endsWith('.json')) throw new Error('candidate index: unexpected member');
+    const index = candidateIndex(root, name.slice(0, -5));
+    if (index.release.name === identity.name && index.release.version === identity.version) reserved = true;
+  }
+  return reserved;
+}
+
+// Retain the verified raw tree without publishing or changing its embedded legacy identity.
+export function retainPackageObject({ sourceDirectory, storeRoot: selected, expectedDigest }) {
+  if (typeof expectedDigest !== 'string' || !digestPattern.test(expectedDigest)) throw new Error('expected digest: invalid SHA-256');
+  const source = rootPath(sourceDirectory, 'source'), root = storeRoot(selected);
+  const relative = path.relative(source, root), inverse = path.relative(root, source);
+  const inside = value => !path.isAbsolute(value) && value !== '..' && !value.startsWith(`..${path.sep}`);
+  if (inside(relative) || inside(inverse)) throw new Error('source/store overlap is forbidden');
+  const writer = safePath(root, '.writer-lock');
+  try { mkdirSync(writer); } catch (error) { if (error.code === 'EEXIST') throw new Error('store-busy: writer lock exists'); throw error; }
+  let staging;
+  try {
+    writeFlushed(path.join(writer, 'owner.json'), canonicalJSON({ pid: process.pid, operation: randomUUID() }));
+    mkdirSync(safePath(root, '.staging'), { recursive: true });
+    staging = mkdtempSync(path.join(safePath(root, '.staging'), 'package-object-'));
+    const object = path.join(staging, 'object'), tree = path.join(object, 'tree'); mkdirSync(tree, { recursive: true });
+    const copied = readTree(source, tree), staged = readPackage({ root: tree });
+    if (hashTree(copied) !== expectedDigest || staged.sha256 !== expectedDigest) throw new Error('stale-input: expected tree digest mismatch');
+    const identity = { name: staged.manifest.package.name, version: staged.manifest.package.version };
+    const target = safePath(root, `objects/sha256/${expectedDigest}`);
+    mkdirSync(path.dirname(target), { recursive: true });
+    if (statOrNull(target)) verifyObject(root, expectedDigest, identity); else publish(object, target, renameSync);
+    verifyObject(root, expectedDigest, identity);
+    return { identity, sha256: expectedDigest };
+  } finally {
+    try { if (staging) rmSync(staging, { recursive: true, force: true }); }
+    finally { rmSync(writer, { recursive: true, force: true }); }
   }
 }
 

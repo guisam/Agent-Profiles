@@ -159,7 +159,7 @@ test('P9b-03 invalid sources refuse before a scalar candidate while valid v1 ins
   assert.deepEqual(snapshot(f.dir), validBefore, 'legacy validation does not promise dependency installation');
   for (const [yaml, diagnostic] of [
     [source.replace(/version: 1\r?\n/, ''), /version: required field/],
-    ...['"1"', '1.5', '0', '3', 'null'].map(token => [source.replace('version: 1', 'version: ' + token), /version: only versions 1 and 2 are supported/]),
+    ...['"1"', '1.5', '0', '4', 'null'].map(token => [source.replace('version: 1', 'version: ' + token), /version: only versions 1, 2 and 3 are supported/]),
     [source.replace('version: 1', 'version: [1'), /YAML|flow|Flow|sequence|Sequence|end/i],
     [source.replace('roles/reviewer.md', 'roles/absent.md'), /roles\.reviewer\.file.*(?:exist|missing|ENOENT)/],
   ]) {
@@ -265,7 +265,9 @@ test('P9b-11 migration format retains approval, conditional rollback, no-op and 
   assert.match(guide, /no-op, byte-identical config and no new backups\/writes/);
   assert.match(prompt, /no-op with byte-identical configuration and no backup\/new writes/);
   assert.match(pattern, /Every future adjacent-step guide/);
-  assert.match(pattern, /There is no v2 → v3 guide/);
+  assert.match(pattern, /\[v2 → v3\]\(config-v2-to-v3\.md\)/);
+  assert.doesNotMatch(pattern, /There is no v2 → v3 guide/);
+  assert.match(pattern, /no arbitrary-version leap rule/);
   assert.match(guide, /Package adoption is separate, optional work/);
   assert.match(prompt, /No package adoption/);
 });

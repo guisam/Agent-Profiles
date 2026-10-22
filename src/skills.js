@@ -84,14 +84,16 @@ export function discoverSkills(root, configuration, { external = false, sourceOp
       mapping(value, `skills.${id}`);
       // Declarations have no verified delivery type, digest, or repository path.
       if (value.has('package')) {
-        mapping(value, `skills.${id}`, ['package', 'version']);
+        mapping(value, `skills.${id}`, ['package', 'version'], configuration.get('version') === 3 ? ['revision'] : []);
         if (typeof value.get('package') !== 'string' || typeof value.get('version') !== 'string') throw new Error(`${id}: expected package name and version strings`);
-        skills.push({ id, source: 'configured', path: null, package: { binding: `skills.${id}`, name: value.get('package'), version: value.get('version') }, verification: 'not-checked', availability: 'declared' });
+        if (value.has('revision') && (typeof value.get('revision') !== 'string' || !/^[0-9a-f]{64}$/.test(value.get('revision')))) throw new Error(`${id}: expected revision digest`);
+        skills.push({ id, source: 'configured', path: null, package: { binding: `skills.${id}`, name: value.get('package'), version: value.get('version'),
+          ...(configuration.get('version') === 3 ? { revisionDigest: value.get('revision') ?? null } : {}) }, verification: 'not-checked', availability: 'declared' });
         continue;
       }
       if (!value.has('host')) {
         let metadata = {};
-        if (configuration.get('version') === 2) metadata = localDeclaration(root, value, `skills.${id}`, value.get('file'));
+        if (configuration.get('version') >= 2) metadata = localDeclaration(root, value, `skills.${id}`, value.get('file'));
         else mapping(value, `skills.${id}`, ['file']);
         add({ id, path: value.get('file'), ...metadata }, 'configured');
         continue;

@@ -166,6 +166,17 @@ export function doctor(root, { storeRoot } = {}) {
     resolution = resolveInstructions({ root, storeRoot });
     const { configuration } = readConfiguration(root, { storeRoot });
     roleIDs = [...configuration.get('roles').keys()];
+    if (configuration.get('version') === 3) {
+      const actors = new Map();
+      for (const link of configuration.get('workflow_links')?.values() ?? []) {
+        for (const peer of [link.get('consumer'), ...link.get('providers')]) {
+          const actor = Object.fromEntries(peer.get('assignment'));
+          actors.set(JSON.stringify(actor), actor);
+        }
+      }
+      for (const actor of actors.values()) resolveInstructions({ root, storeRoot, ...actor });
+      notes.push('Workflow checks cover explicitly linked actors; declarations do not establish host loading or runtime compliance. Unspecified actor readiness is unverified.');
+    }
     for (const role of roleIDs) {
       const { required, available } = resolveInstructions({ root, role, storeRoot });
       for (const skill of [...required, ...available]) if (skill.type === 'host') hostSkills.set(skill.id, skill);
