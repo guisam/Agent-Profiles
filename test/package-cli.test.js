@@ -15,7 +15,7 @@ import { doctor, install } from "../src/install.js";
 import * as materializer from "../src/materialize.js";
 import { installDependencies } from "../src/package-lock.js";
 import { importPackage, lookupPackage } from "../src/package-store.js";
-import { readPackage } from "../src/packages.js";
+import { readPackage } from "../src/packages.ts";
 import { runPreset } from "../src/preset-wizard.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 import { discoverSkills } from "../src/skills.js";

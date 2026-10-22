@@ -18,7 +18,7 @@ import {
 	hashRecord,
 	hashTree,
 	readPackage,
-} from "../src/packages.js";
+} from "../src/packages.ts";
 import { parseYaml, resolveInstructions } from "../src/resolve.ts";
 
 // P5a tests only: the accepted seam has no required return shape or helper exports.

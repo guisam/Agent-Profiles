@@ -6,7 +6,7 @@ import test from "node:test";
 import { readConfiguration } from "../src/configure.ts";
 import { installDependencies } from "../src/package-lock.js";
 import { importPackage } from "../src/package-store.js";
-import { readPackage } from "../src/packages.js";
+import { readPackage } from "../src/packages.ts";
 import * as resolver from "../src/resolve.ts";
 
 function fixture(t) {

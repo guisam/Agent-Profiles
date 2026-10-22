@@ -6,7 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { applyChanges, readLocal } from "../src/files.ts";
 import { installDependencies } from "../src/package-lock.js";
-import { parseManifest, readPackage } from "../src/packages.js";
+import { parseManifest, readPackage } from "../src/packages.ts";
 import {
 	parseYaml,
 	parseYamlDocument,

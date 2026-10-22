@@ -23,7 +23,7 @@ import {
 	parseManifest,
 	parseRecord,
 	validateMembers,
-} from "./packages.js";
+} from "./packages.ts";
 
 const domain = "agent-profiles/revision/v1";
 const digestPattern = /^[0-9a-f]{64}$/;

@@ -25,7 +25,7 @@ import {
 	lookupPackage,
 	recoverStore,
 } from "../src/package-store.js";
-import { readPackage } from "../src/packages.js";
+import { readPackage } from "../src/packages.ts";
 
 const VERSION = "1.0.0";
 const OLD = "@a/old";

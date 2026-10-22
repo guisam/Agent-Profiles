@@ -14,7 +14,7 @@ import {
 	canonicalEvaluationJSON as canonicalJSON,
 	hashEvaluationRecord as hashRecord,
 	readPackage,
-} from "../src/packages.js";
+} from "../src/packages.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 import {
 	readRevisionRecord,

@@ -24,7 +24,12 @@ import {
 	lookupPackage,
 	verifyObject,
 } from "./package-store.js";
-import { parseManifest, validateMembers } from "./packages.js";
+import {
+	type PackageManifest,
+	parseManifest,
+	type Untyped,
+	validateMembers,
+} from "./packages.ts";
 import {
 	readRevisionRecord,
 	releasedPackage,
@@ -38,9 +43,6 @@ import {
 // biome-ignore lint/suspicious/noExplicitAny: values are validated at runtime, field by field.
 export type YamlMap = Map<string, any>;
 
-// biome-ignore lint/suspicious/noExplicitAny: data from modules not converted yet (packages.js, revisions.js).
-type Untyped = any;
-
 /** One assignment rule overriding a package binding's version for matching selectors. */
 export type PackageRule = {
 	id: string;
@@ -50,7 +52,7 @@ export type PackageRule = {
 };
 
 export type PackagePin = {
-	manifest: Untyped;
+	manifest: PackageManifest;
 	bytes: Buffer;
 	metadata: SkillMetadata | null;
 	sha256: string;

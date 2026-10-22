@@ -28,7 +28,7 @@ import {
 	parseRecord,
 	readPackage,
 	validateMembers,
-} from "./packages.js";
+} from "./packages.ts";
 import {
 	identifier,
 	packageReferences,

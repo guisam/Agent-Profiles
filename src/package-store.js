@@ -26,7 +26,7 @@ import {
 	parseRecord,
 	readPackage,
 	validateMembers,
-} from "./packages.js";
+} from "./packages.ts";
 
 const digestPattern = /^[0-9a-f]{64}$/;
 

@@ -14,7 +14,7 @@ import {
 } from "../src/materialize.js";
 import { installDependencies } from "../src/package-lock.js";
 import { importPackage, lookupPackage } from "../src/package-store.js";
-import { hashRecord } from "../src/packages.js";
+import { hashRecord } from "../src/packages.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
 
@@ -1626,7 +1626,7 @@ test("C rehashed snapshot refuses a valid but wrongly selected peer revision", a
 	);
 	const digest = hashRecord("agent-profiles/stamp/v2", changed);
 	assert.notEqual(digest, captured.digest);
-	const { canonicalJSON } = await import("../src/packages.js");
+	const { canonicalJSON } = await import("../src/packages.ts");
 	const file = path.join(f.storeRoot, "stamps/sha256", digest, "snapshot.json");
 	assert.equal(
 		fs.existsSync(path.dirname(file)),

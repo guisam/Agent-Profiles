@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
 import { installDependencies } from "../src/package-lock.js";
 import { importPackage, lookupPackage } from "../src/package-store.js";
-import { canonicalJSON, hashRecord, readPackage } from "../src/packages.js";
+import { canonicalJSON, hashRecord, readPackage } from "../src/packages.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 
 // P6a RED: contract sections 2-7, C13-C16 and the profile/role/request corrections.

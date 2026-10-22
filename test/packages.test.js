@@ -34,7 +34,7 @@ import { skillMetadata } from "../src/resolve.ts";
 // canonicalJSON(value) -> Buffer containing J; hashRecord(domain,value) -> digest.
 // parseRecord(Buffer) -> strict JSON value (duplicate keys rejected at every depth).
 // Record-specific unknown-field schemas belong to their later lock/stamp packages.
-const moduleUrl = new URL("../src/packages.js", import.meta.url);
+const moduleUrl = new URL("../src/packages.ts", import.meta.url);
 let sut;
 let missing;
 try {

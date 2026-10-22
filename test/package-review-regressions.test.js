@@ -15,7 +15,7 @@ import {
 	parseManifest,
 	parseRecord,
 	readPackage,
-} from "../src/packages.js";
+} from "../src/packages.ts";
 
 const manifest =
 	'schema_version: 1\npackage:\n  name: "@example/review"\n  version: "1.0.0"\n  type: skill\nentrypoint: SKILL.md\nbehavior:\n  delivery: instruction\n  hosts: []\n  effects: []\n';

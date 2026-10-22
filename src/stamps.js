@@ -29,7 +29,7 @@ import {
 	parseManifest,
 	parseRecord,
 	validateMembers,
-} from "./packages.js";
+} from "./packages.ts";
 import {
 	identifier,
 	parseYaml,

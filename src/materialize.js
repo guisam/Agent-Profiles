@@ -26,7 +26,7 @@ import {
 	hashTree,
 	parseRecord,
 	validateMembers,
-} from "./packages.js";
+} from "./packages.ts";
 import { reconstructStamp } from "./stamps.js";
 
 const PLAN_DOMAIN = "agent-profiles/materialization-plan/v1";

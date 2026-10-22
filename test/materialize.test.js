@@ -25,7 +25,7 @@ import {
 	hashTree,
 	readPackage,
 	validateMembers,
-} from "../src/packages.js";
+} from "../src/packages.ts";
 import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
 
 // C18/C19, M01-M14. Runtime boundaries are operational inputs, never hashed data.

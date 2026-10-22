@@ -25,7 +25,7 @@ import path from "node:path";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import { parseRecord, readPackage } from "../src/packages.js";
+import { parseRecord, readPackage } from "../src/packages.ts";
 
 // P3 provisional seam (C05-C07), to be frozen by parent RED assessment; no production stub.
 // importPackage({sourceDirectory, storeRoot?, expectedDigest?, onPhase?, rename?})

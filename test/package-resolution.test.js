@@ -17,7 +17,7 @@ import test, { after } from "node:test";
 import { stringify } from "yaml";
 import { integrations } from "../src/integrations.ts";
 import { importPackage, lookupPackage } from "../src/package-store.js";
-import { readPackage } from "../src/packages.js";
+import { readPackage } from "../src/packages.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 
 // P4 slice 1 (docs/development/issue-20-p4-handoff.md sections 4, 5, 8): resolver only.

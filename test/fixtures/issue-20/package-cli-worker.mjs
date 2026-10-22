@@ -229,7 +229,7 @@ if (process.argv[2] !== undefined) {
 		}
 		console.log(JSON.stringify({ raw: [...raw], counts }));
 	} else if (q.op === "drift-control") {
-		const { readPackage } = await import("../../../src/packages.js");
+		const { readPackage } = await import("../../../src/packages.ts");
 		const first = readPackage({ root: q.cwd });
 		const second = readPackage({ root: q.cwd });
 		console.log(

@@ -21,7 +21,7 @@ import {
 	hashRecord,
 	parseRecord,
 	readPackage,
-} from "../src/packages.js";
+} from "../src/packages.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 import {
 	lookupRevisionManifest,
