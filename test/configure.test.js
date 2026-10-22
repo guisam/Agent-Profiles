@@ -14,7 +14,7 @@ import {
 } from "../src/configure.ts";
 import { resolveInstructions } from "../src/resolve.js";
 import { discoverSkills } from "../src/skills.js";
-import { configureRoles, selectSkills } from "../src/wizard.js";
+import { configureRoles, selectSkills } from "../src/wizard.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 const configFile = ".agent-profiles/agents.yaml";

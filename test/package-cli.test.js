@@ -25,7 +25,7 @@ import {
 	reconstructStamp,
 	verifyStamp,
 } from "../src/stamps.js";
-import { configureRoles } from "../src/wizard.js";
+import { configureRoles } from "../src/wizard.ts";
 
 // P9a RED only. No missing-CLI skip: native CLI assertions must expose actual dispatch failures.
 // Only the new digest-to-export API body is skipped when its exact export is absent.

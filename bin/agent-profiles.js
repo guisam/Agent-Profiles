@@ -46,7 +46,7 @@ import { retainRevisionManifest } from "../src/revisions.js";
 import { discoverSkills } from "../src/skills.js";
 import { createStamp, diffStamps, verifyStamp } from "../src/stamps.js";
 import { startVisualizer } from "../src/visualize.ts";
-import { configureRoles, display as displayText } from "../src/wizard.js";
+import { configureRoles, display as displayText } from "../src/wizard.ts";
 
 const agentChoices = integrations.map((adapter) => adapter.id).join(", ");
 const display = (text) => displayText(text).replace(/[\x80-\x9f]/g, " ");

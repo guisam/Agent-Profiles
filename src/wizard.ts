@@ -2,37 +2,61 @@ import { stripVTControlCharacters } from "node:util";
 import {
 	applyRoleChange,
 	planRoleChange,
+	type RoleChangeOptions,
+	type RoleChangePlan,
 	readConfiguration,
+	type SkillSelection,
 } from "./configure.ts";
 import { errorMessage } from "./files.ts";
 import { resolveInstructions } from "./resolve.js";
 import { discoverSkills } from "./skills.js";
 
-export const display = (text) =>
+export type Ask = (prompt: string) => Promise<string>;
+export type Write = (line: string) => void;
+
+/** A discovered or resolved skill as the wizard lists and selects it. */
+export type SkillChoice = Exclude<SkillSelection, string> & {
+	id: string;
+	name?: string;
+	description?: string;
+	source?: string;
+	availability?: string;
+	selectable?: boolean;
+	verification?: string;
+	resources?: string[];
+	type?: string;
+};
+
+export const display = (text: unknown) =>
 	stripVTControlCharacters(String(text)).replace(/[\x00-\x1f\x7f]/g, " ");
-const where = (skill) =>
+const where = (skill: SkillChoice) =>
 	skill.package
 		? `package ${skill.package.name}@${skill.package.version} (${skill.verification === "not-checked" ? "declared; verification not checked" : `sha256 ${skill.package.sha256}`})`
 		: skill.host
 			? `${skill.host} ${skill.scope} skill ${skill.hostId}${skill.path ? ` at ${skill.path}` : " (host-provided)"}` +
 				`${skill.availability ? ` [${skill.availability}; invocation unverified]` : ""}`
 			: skill.path;
-const resourceOf = (skill) =>
+const resourceOf = (skill: SkillChoice) =>
 	skill.package
 		? `package\0${skill.package.binding}\0${skill.package.name}\0${skill.package.version}\0${skill.package.sha256}${Object.hasOwn(skill.package, "revisionDigest") ? `\0${skill.package.revisionDigest}` : ""}`
 		: skill.host
 			? `host\0${skill.host}\0${skill.scope}\0${skill.hostId}`
 			: `file\0${skill.path}`;
-const keyOf = (skill) => `${skill.id}\0${resourceOf(skill)}`;
+const keyOf = (skill: SkillChoice) => `${skill.id}\0${resourceOf(skill)}`;
 
-/** @param {{choices: any[], initial?: any[], label: string, ask: (prompt: string) => Promise<string>, write: (line: string) => void}} options */
 export async function selectSkills({
 	choices,
 	initial = [],
 	label,
 	ask,
 	write,
-}) {
+}: {
+	choices: SkillChoice[];
+	initial?: SkillChoice[];
+	label: string;
+	ask: Ask;
+	write: Write;
+}): Promise<SkillChoice[]> {
 	if (!choices.length) {
 		write("No selectable local skills. This list will be empty.");
 		return [];
@@ -129,7 +153,7 @@ export async function selectSkills({
 	}
 }
 
-function summary(plan, write) {
+function summary(plan: RoleChangePlan, write: Write) {
 	if (plan.action === "delete") {
 		write(
 			`Remove role ${plan.id} from agents.yaml. Preserve ${plan.instructionFile ? display(plan.instructionFile) : "its stored package"} and all skill files.`,
@@ -137,12 +161,14 @@ function summary(plan, write) {
 		write(`Default role after deletion: ${plan.resolution.role}`);
 	} else {
 		write(`Role: ${plan.id}\nInstructions: ${display(plan.instructionFile)}`);
-		const role = plan.resolution.loaded.find((entry) => entry.kind === "role");
+		const role = plan.resolution.loaded.find(
+			(entry: { kind: string }) => entry.kind === "role",
+		);
 		if (role?.resources?.length)
 			write(`Resources: ${role.resources.map(display).join(", ")}`);
-		for (const group of ["required", "available"]) {
+		for (const group of ["required", "available"] as const) {
 			write(
-				`${group}: ${plan.resolution[group].map((skill) => `${skill.id} (${display(where(skill))}${skill.resources?.length ? `; resources: ${skill.resources.map(display).join(", ")}` : ""})`).join(", ") || "(none)"}`,
+				`${group}: ${plan.resolution[group].map((skill: SkillChoice) => `${skill.id} (${display(where(skill))}${skill.resources?.length ? `; resources: ${skill.resources.map(display).join(", ")}` : ""})`).join(", ") || "(none)"}`,
 			);
 		}
 		for (const alias of plan.aliases)
@@ -157,7 +183,21 @@ function summary(plan, write) {
 	write("Proposed configuration is valid.");
 }
 
-/** @param {{root: string, ask: (prompt: string) => Promise<string>, write?: (line: string) => void, external?: boolean, sourceOptions?: object, storeRoot?: string}} options */
+export type ConfigureRolesOptions = {
+	root: string;
+	ask: Ask;
+	write?: Write;
+	external?: boolean;
+	sourceOptions?: object;
+	storeRoot?: string;
+};
+
+// Declarations without verified package metadata bind by ID; the planner's resolver supplies identity and digest.
+const bindable = (skills: SkillChoice[]): SkillSelection[] =>
+	skills.map((skill) =>
+		skill.verification === "not-checked" && skill.package ? skill.id : skill,
+	);
+
 export async function configureRoles({
 	root,
 	ask,
@@ -165,7 +205,7 @@ export async function configureRoles({
 	external = false,
 	sourceOptions = undefined,
 	storeRoot = undefined,
-}) {
+}: ConfigureRolesOptions) {
 	for (;;) {
 		const state = readConfiguration(root, { storeRoot });
 		const actionInput = (
@@ -174,14 +214,15 @@ export async function configureRoles({
 			.trim()
 			.toLowerCase();
 		if (["q", "quit", "exit", ""].includes(actionInput)) return;
-		const action = {
+		const actions: Record<string, "create" | "edit" | "delete"> = {
 			c: "create",
 			create: "create",
 			e: "edit",
 			edit: "edit",
 			d: "delete",
 			delete: "delete",
-		}[actionInput];
+		};
+		const action = actions[actionInput];
 		if (!action) {
 			write("Choose create, edit, delete, or quit.");
 			continue;
@@ -200,7 +241,7 @@ export async function configureRoles({
 				throw new Error(`Role ${id} already exists; choose edit`);
 			if (action !== "create" && !previous)
 				throw new Error(`Role ${id} does not exist`);
-			const input = {
+			const input: RoleChangeOptions = {
 				root,
 				action,
 				id,
@@ -244,31 +285,34 @@ export async function configureRoles({
 					write(
 						`Duplicate IDs: ${found.duplicates.join(", ")}. Select the intended source; choosing another source replaces that selection.`,
 					);
-				const existing = previous
-					? resolveInstructions({
-							root,
-							role: id,
-							storeRoot,
-							lockMode: "validation",
-						})
-					: { required: [], available: [] };
+				const existing: { required: SkillChoice[]; available: SkillChoice[] } =
+					previous
+						? resolveInstructions({
+								root,
+								role: id,
+								storeRoot,
+								lockMode: "validation",
+							})
+						: { required: [], available: [] };
 				// Retain opaque native and package bindings when their installed metadata cannot be inventoried.
 				for (const skill of [...existing.required, ...existing.available]) {
-					if (skill.package)
+					if (skill.package) {
+						const { binding } = skill.package;
 						found.skills = found.skills.filter(
-							(choice) =>
+							(choice: SkillChoice) =>
 								!(
 									choice.verification === "not-checked" &&
-									choice.package?.binding === skill.package.binding
+									choice.package?.binding === binding
 								),
 						);
+					}
 					if (
 						(skill.type === "host" || skill.package) &&
 						!found.skills.some((choice) => keyOf(choice) === keyOf(skill))
 					)
 						found.skills.push({ ...skill, source: "configured" });
 				}
-				input.required = await selectSkills({
+				const required = await selectSkills({
 					choices: found.skills,
 					initial: existing.required,
 					label:
@@ -278,13 +322,13 @@ export async function configureRoles({
 				});
 				const choices = found.skills.filter(
 					(skill) =>
-						!input.required.some(
-							(required) =>
-								required.id === skill.id ||
-								resourceOf(required) === resourceOf(skill),
+						!required.some(
+							(chosen) =>
+								chosen.id === skill.id ||
+								resourceOf(chosen) === resourceOf(skill),
 						),
 				);
-				input.available = await selectSkills({
+				const available = await selectSkills({
 					choices,
 					initial: existing.available.filter((skill) =>
 						choices.some((choice) => keyOf(choice) === keyOf(skill)),
@@ -294,13 +338,8 @@ export async function configureRoles({
 					ask,
 					write,
 				});
-				// Bind declarations by ID; the planner's resolver supplies verified identity and digest.
-				for (const group of ["required", "available"])
-					input[group] = input[group].map((skill) =>
-						skill.verification === "not-checked" && skill.package
-							? skill.id
-							: skill,
-					);
+				input.required = bindable(required);
+				input.available = bindable(available);
 			}
 			const plan = planRoleChange(input);
 			summary(plan, write);

@@ -23,7 +23,7 @@ import {
 } from "../src/presets.ts";
 import { resolveInstructions } from "../src/resolve.js";
 import { startVisualizer } from "../src/visualize.ts";
-import { configureRoles } from "../src/wizard.js";
+import { configureRoles } from "../src/wizard.ts";
 
 // P5b RED (contract section 6 "Resolver lock modes and store-root propagation", test map C10-C12/C20-C22):
 // public selection defaults to lockMode "required"; configure/preset internals use "validation".

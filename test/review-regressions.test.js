@@ -16,7 +16,7 @@ import {
 import { runPreset } from "../src/preset-wizard.ts";
 import { resolveInstructions } from "../src/resolve.js";
 import { startVisualizer } from "../src/visualize.ts";
-import { configureRoles, selectSkills } from "../src/wizard.js";
+import { configureRoles, selectSkills } from "../src/wizard.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
 const version = JSON.parse(

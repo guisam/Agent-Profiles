@@ -35,7 +35,7 @@ import { parseYaml, resolveInstructions } from "../src/resolve.js";
 import { discoverSkills } from "../src/skills.js";
 import { createStamp, reconstructStamp, verifyStamp } from "../src/stamps.js";
 import { startVisualizer } from "../src/visualize.ts";
-import { configureRoles, selectSkills } from "../src/wizard.js";
+import { configureRoles, selectSkills } from "../src/wizard.ts";
 
 const CONFIG = ".agent-profiles/agents.yaml";
 const LOCK = ".agent-profiles/agent-profiles.lock";

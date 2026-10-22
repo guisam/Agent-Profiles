@@ -30,7 +30,7 @@ import {
 import { parseYaml, resolveInstructions } from "../src/resolve.js";
 import { discoverSkills } from "../src/skills.js";
 import { startVisualizer } from "../src/visualize.ts";
-import { configureRoles } from "../src/wizard.js";
+import { configureRoles } from "../src/wizard.ts";
 
 // P4 slice 2 (docs/development/issue-20-p4-handoff.md section 6, contract section 9): caller integration.
 // Every test gets a fresh explicit store, a fake HOME, and AGENT_PROFILES_STORE naming an empty store (or a

@@ -43,7 +43,7 @@ cannot silently amend it. Relevant implemented seams:
   preview through the resolver, then stale-input checks before mutation.
 - [diagnostics.js](../../src/diagnostics.js): decoded-text accounting and presentation;
   `.trim()` presentation and UTF-8 decoding must not become snapshot backing bytes.
-- [skills.js](../../src/skills.js), [wizard.js](../../src/wizard.js),
+- [skills.js](../../src/skills.js), [wizard.ts](../../src/wizard.ts),
   [inspect.js](../../src/inspect.js), [install.js](../../src/install.js), and
   [CLI](../../bin/agent-profiles.js): consumers requiring compatibility changes.
 

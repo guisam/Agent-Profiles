@@ -57,7 +57,7 @@ export type PackageSelection = {
 	name: string;
 	version: string;
 	sha256: string;
-	revisionDigest: string;
+	revisionDigest?: string;
 	binding: string;
 };
 

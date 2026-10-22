@@ -10,10 +10,13 @@ import {
 	readPreset,
 } from "./presets.ts";
 import { resolveInstructions } from "./resolve.js";
-import { configureRoles, display, selectSkills } from "./wizard.js";
-
-type Ask = (prompt: string) => Promise<string>;
-type Write = (line: string) => void;
+import {
+	type Ask,
+	configureRoles,
+	display,
+	selectSkills,
+	type Write,
+} from "./wizard.ts";
 
 async function choose(
 	ids: string[],
@@ -31,7 +34,7 @@ async function choose(
 	}));
 	return (
 		await selectSkills({ choices, initial: choices, label, ask, write })
-	).map((item: { id: string }) => item.id);
+	).map((item) => item.id);
 }
 
 // Exports describe a just-built preset, which has no source directory or manifest bytes yet.
