@@ -10,7 +10,7 @@ import { parseDocument } from "yaml";
 import { applyRoleChange, planRoleChange } from "../src/configure.js";
 import { formatInventory, inspectRepository } from "../src/inspect.js";
 import { doctor, install } from "../src/install.js";
-import { applyPresetExport, planPresetExport } from "../src/presets.js";
+import { applyPresetExport, planPresetExport } from "../src/presets.ts";
 import { resolveInstructions } from "../src/resolve.js";
 import { discoverSkills } from "../src/skills.js";
 

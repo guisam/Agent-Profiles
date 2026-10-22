@@ -51,7 +51,7 @@ The CI matrix runs these checks on Windows, macOS, and Linux with Node 24.
 - `src/install.js`, `src/files.ts`: installer lifecycle and guarded file writes.
 - `src/configure.js`, `src/skills.js`, `src/wizard.js`: validated role edits, local
   skill discovery, and terminal prompts.
-- `src/presets.js`, `src/preset-wizard.js`: local preset inspection, import/export
+- `src/presets.ts`, `src/preset-wizard.js`: local preset inspection, import/export
   plans, and prompts reusing the existing selector and role wizard.
 - `bin/agent-profiles.js`: public CLI, including the agent-facing `resolve` command.
 - `.agent-profiles/`: complete, minimal example shipped with the package.

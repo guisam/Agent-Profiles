@@ -26,7 +26,7 @@ import {
 	applyPresetImport,
 	planPresetExport,
 	planPresetImport,
-} from "../src/presets.js";
+} from "../src/presets.ts";
 import { parseYaml, resolveInstructions } from "../src/resolve.js";
 import { discoverSkills } from "../src/skills.js";
 import { startVisualizer } from "../src/visualize.ts";

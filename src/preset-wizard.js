@@ -7,7 +7,7 @@ import {
 	planPresetExport,
 	planPresetImport,
 	readPreset,
-} from "./presets.js";
+} from "./presets.ts";
 import { resolveInstructions } from "./resolve.js";
 import { configureRoles, display, selectSkills } from "./wizard.js";
 

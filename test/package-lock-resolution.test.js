@@ -20,7 +20,7 @@ import {
 	applyPresetImport,
 	planPresetExport,
 	planPresetImport,
-} from "../src/presets.js";
+} from "../src/presets.ts";
 import { resolveInstructions } from "../src/resolve.js";
 import { startVisualizer } from "../src/visualize.ts";
 import { configureRoles } from "../src/wizard.js";
