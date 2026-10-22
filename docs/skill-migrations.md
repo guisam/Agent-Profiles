@@ -426,7 +426,7 @@ success index; valid immutable orphan backing may remain. A postcommit error rep
 incomplete publication with retained index for inspection. These guards are not a
 universal race, power-loss or recovery guarantee. No source repair occurs on read.
 
-Programmatic entry points in `src/migrations.js` are `planMigrationEvaluation`,
+Programmatic entry points in `src/migrations.ts` are `planMigrationEvaluation`,
 `migrationEvaluationPlan`, `importMigrationEvaluationResults` and
 `migrationEvaluationReport`. Paired claims do not activate the reserved candidate;
 only the explicit promotion below can. Broader forks/batches, session continuity and

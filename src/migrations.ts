@@ -33,6 +33,7 @@ import {
 	parseEvaluationRecord,
 	parseRecord,
 	readPackage,
+	type Untyped,
 	validateMembers,
 } from "./packages.ts";
 import {
@@ -63,11 +64,17 @@ const configFile = ".agent-profiles/agents.yaml";
 const lockFile = ".agent-profiles/agent-profiles.lock";
 const digestPattern = /^[a-f0-9]{64}$/;
 const idPattern = /^migration-[a-f0-9-]{36}$/;
-const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
-const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
-const assignmentKey = (a) => JSON.stringify([a.role, a.model, a.host]);
+const hash = (bytes: Untyped) =>
+	createHash("sha256").update(bytes).digest("hex");
+const compare = (a: Untyped, b: Untyped) => (a < b ? -1 : a > b ? 1 : 0);
+const assignmentKey = (a: Untyped) => JSON.stringify([a.role, a.model, a.host]);
 
-function fields(value, required, optional = [], label = "migration") {
+function fields(
+	value: Untyped,
+	required: readonly string[],
+	optional: readonly string[] = [],
+	label = "migration",
+) {
 	if (!value || typeof value !== "object" || Array.isArray(value))
 		throw new Error(`${label}: expected object`);
 	for (const key of Object.keys(value))
@@ -76,35 +83,35 @@ function fields(value, required, optional = [], label = "migration") {
 	for (const key of required)
 		if (!Object.hasOwn(value, key)) throw new Error(`${label}: missing ${key}`);
 }
-function text(value, label) {
+function text(value: Untyped, label: Untyped) {
 	if (typeof value !== "string" || !value.trim() || value.includes("\0"))
 		throw new Error(`${label}: expected nonempty text without NUL`);
 }
-function assignment(value) {
+function assignment(value: Untyped) {
 	fields(value, ["role", "model", "host"], [], "assignment");
 	for (const key of ["role", "model", "host"]) text(value[key], key);
 	if (!integrations.some((adapter) => adapter.id === value.host))
 		throw new Error("host: unsupported host");
 }
-function migrationId(id) {
+function migrationId(id: unknown): string {
 	if (typeof id !== "string" || !idPattern.test(id))
 		throw new Error("migration id: expected a generated migration UUID");
 	return id;
 }
-function portablePath(value) {
+function portablePath(value: Untyped) {
 	validateMembers([{ path: value, type: "file", nlink: 1 }]);
 	return value;
 }
-function file(root, relative) {
+function file(root: string, relative: string) {
 	return safePath(root, portablePath(relative));
 }
-function rootDirectory(root) {
+function rootDirectory(root: string) {
 	const selected = rootPath(root, "root");
 	if (!existsSync(file(selected, ".agent-profiles")))
 		throw new Error("migration: initialize .agent-profiles first");
 	return selected;
 }
-function records(root) {
+function records(root: string) {
 	const folder = file(root, directory);
 	if (!existsSync(folder)) return [];
 	if (!lstatSync(folder).isDirectory())
@@ -113,7 +120,7 @@ function records(root) {
 		.sort(compare)
 		.map((id) => readRecord(root, migrationId(id)));
 }
-function readRecord(root, id, bytes = undefined) {
+function readRecord(root: string, id: string, bytes?: Buffer) {
 	migrationId(id);
 	const record = parseRecord(
 		bytes ?? readStoreFile(root, `${directory}/${id}/record.json`),
@@ -157,7 +164,7 @@ function readRecord(root, id, bytes = undefined) {
 			!Array.isArray(item.bindings) ||
 			!item.bindings.length ||
 			item.bindings.some(
-				(b) =>
+				(b: Untyped) =>
 					typeof b !== "string" ||
 					!/^(profiles|roles|skills)\.[a-z0-9][a-z0-9-]*$/.test(b),
 			)
@@ -168,12 +175,12 @@ function readRecord(root, id, bytes = undefined) {
 		(record.sharing === "fork" && record.collateral.length) ||
 		(record.sharing === "shared" &&
 			JSON.stringify(record.collateral) !==
-				JSON.stringify(record.shared.map((item) => item.assignment)))
+				JSON.stringify(record.shared.map((item: Untyped) => item.assignment)))
 	)
 		throw new Error("migration collateral: inconsistent sharing decision");
 	if (record.bases.length !== expected.length)
 		throw new Error("migration bases: incomplete scope coverage");
-	record.bases.forEach((base, index) => {
+	record.bases.forEach((base: Untyped, index: Untyped) => {
 		fields(base, ["assignment", "stamp"]);
 		assignment(base.assignment);
 		if (
@@ -182,14 +189,14 @@ function readRecord(root, id, bytes = undefined) {
 		)
 			throw new Error("migration bases: invalid assignment or stamp");
 	});
-	record.files.forEach((member) => {
+	record.files.forEach((member: Untyped) => {
 		fields(member, ["path", "sha256"]);
 		portablePath(member.path);
 		if (!digestPattern.test(member.sha256))
 			throw new Error("migration files: invalid digest");
 	});
 	validateMembers(
-		record.files.map((member) => ({
+		record.files.map((member: Untyped) => ({
 			path: member.path,
 			type: "file",
 			nlink: 1,
@@ -204,7 +211,7 @@ function readRecord(root, id, bytes = undefined) {
 	file(root, record.workspace);
 	return record;
 }
-function withWriter(root, action) {
+function withWriter(root: string, action: Untyped) {
 	const lock = file(root, writer);
 	try {
 		mkdirSync(lock);
@@ -221,13 +228,14 @@ function withWriter(root, action) {
 		rmSync(lock, { recursive: true, force: true });
 	}
 }
-function selected({ resolution: resolved, evidence }) {
+function selected({ resolution: resolved, evidence }: Untyped) {
 	const members = new Map(),
-		identity = (pkg) => `package:${pkg.name}@${pkg.version}:${pkg.sha256}`;
+		identity = (pkg: Untyped) =>
+			`package:${pkg.name}@${pkg.version}:${pkg.sha256}`;
 	// Direct profile/role roots by kind: dependency and workflow parts can precede them in dependency-first context.
 	for (const e of [
 		...resolved.loaded.filter(
-			(part) => part.kind === "profile" || part.kind === "role",
+			(part: Untyped) => part.kind === "profile" || part.kind === "role",
 		),
 		...resolved.required,
 		...resolved.available,
@@ -243,7 +251,13 @@ function selected({ resolution: resolved, evidence }) {
 		members.set(row.root.binding, identity(row.root));
 	return members;
 }
-function sharedAssignments(root, storeRoot, configuration, primary, captured) {
+function sharedAssignments(
+	root: string,
+	storeRoot: Untyped,
+	configuration: Untyped,
+	primary: Untyped,
+	captured: Untyped,
+) {
 	const wanted = selected(captured),
 		shared = [];
 	const models = [
@@ -267,9 +281,9 @@ function sharedAssignments(root, storeRoot, configuration, primary, captured) {
 		compare(assignmentKey(a.assignment), assignmentKey(b.assignment)),
 	);
 }
-function overlay(rebuilt) {
+function overlay(rebuilt: Untyped) {
 	const files = new Map();
-	const add = (relative, bytes) => {
+	const add = (relative: string, bytes: Untyped) => {
 		portablePath(relative);
 		if (files.has(relative) && !files.get(relative).equals(bytes))
 			throw new Error(`migration workspace: conflicting backing ${relative}`);
@@ -293,7 +307,7 @@ function overlay(rebuilt) {
 }
 
 /** Start-only groundwork: no candidate publication, package fork or active binding mutation. */
-function startMigrationOperation(input) {
+function startMigrationOperation(input: Untyped) {
 	fields(input, ["root", "role", "model", "host"], ["storeRoot", "sharing"]);
 	const scope = { role: input.role, model: input.model, host: input.host };
 	assignment(scope);
@@ -316,7 +330,7 @@ function startMigrationOperation(input) {
 			);
 		}
 	}
-	return withWriter(root, (lock) => {
+	return withWriter(root, (lock: Untyped) => {
 		const configBytes = readStoreFile(root, configFile),
 			configuration = parseYaml(configBytes.toString("utf8"));
 		const lockBytes = existsSync(file(root, lockFile))
@@ -331,11 +345,13 @@ function startMigrationOperation(input) {
 			resolved = captured.resolution;
 		scope.model = resolved.identity.canonical ?? resolved.identity.raw;
 		const occupied = records(root).filter((record) => record.state === "open");
-		const reserve = (assignments) => {
+		const reserve = (assignments: Untyped) => {
 			for (const record of occupied)
 				if (
 					[...record.scope, ...record.collateral].some((a) =>
-						assignments.some((b) => assignmentKey(a) === assignmentKey(b)),
+						assignments.some(
+							(b: Untyped) => assignmentKey(a) === assignmentKey(b),
+						),
 					)
 				) {
 					throw new Error(
@@ -430,7 +446,7 @@ function startMigrationOperation(input) {
 	});
 }
 
-function status(root, record) {
+function status(root: string, record: Untyped) {
 	const workspace = file(root, record.workspace),
 		actual = new Map();
 	if (!existsSync(workspace) || !lstatSync(workspace).isDirectory())
@@ -455,7 +471,7 @@ function status(root, record) {
 	}
 	scan();
 	const expected = new Map(
-		record.files.map((member) => [member.path, member.sha256]),
+		record.files.map((member: Untyped) => [member.path, member.sha256]),
 	);
 	const changes = [...new Set([...expected.keys(), ...actual.keys()])]
 		.sort(compare)
@@ -476,7 +492,7 @@ function status(root, record) {
 	};
 }
 
-function migrationStatusOperation(input) {
+function migrationStatusOperation(input: Untyped) {
 	fields(input, ["root"], ["id"]);
 	const root = rootDirectory(input.root);
 	return input.id === undefined
@@ -484,12 +500,12 @@ function migrationStatusOperation(input) {
 		: status(root, readRecord(root, input.id));
 }
 
-function abandonMigrationOperation(input) {
+function abandonMigrationOperation(input: Untyped) {
 	fields(input, ["root", "id", "reason"]);
 	migrationId(input.id);
 	text(input.reason, "reason");
 	const root = rootDirectory(input.root);
-	return withWriter(root, (lock) => {
+	return withWriter(root, (lock: Untyped) => {
 		const before = readStoreFile(root, `${directory}/${input.id}/record.json`),
 			record = readRecord(root, input.id);
 		if (record.state !== "open") throw new Error("migration is not open");
@@ -508,12 +524,12 @@ function abandonMigrationOperation(input) {
 	});
 }
 
-function proposalId(id) {
+function proposalId(id: unknown): string {
 	if (typeof id !== "string" || !/^proposal-[a-f0-9-]{36}$/.test(id))
 		throw new Error("proposal id: expected a generated proposal UUID");
 	return id;
 }
-function proposalShape(value) {
+function proposalShape(value: Untyped) {
 	fields(
 		value,
 		["proposalVersion", "classification", "target", "change", "evidence"],
@@ -559,7 +575,7 @@ function proposalShape(value) {
 	}
 	canonicalJSON(value);
 }
-function proposalHistory(root, record) {
+function proposalHistory(root: string, record: Untyped) {
 	const relative = `${directory}/${record.id}/proposals.json`,
 		target = file(root, relative);
 	const bytes = existsSync(target) ? readStoreFile(root, relative) : null;
@@ -589,12 +605,12 @@ function proposalHistory(root, record) {
 	}
 	return { relative, bytes, entries };
 }
-function openProposalMigration(root, id, bytes = undefined) {
+function openProposalMigration(root: string, id: string, bytes?: Buffer) {
 	const record = readRecord(root, id, bytes);
 	if (record.state !== "open") throw new Error("migration is not open");
 	return record;
 }
-function verifiedProposalBase(storeRoot, base) {
+function verifiedProposalBase(storeRoot: Untyped, base: Untyped) {
 	const relative = `stamps/sha256/${base.stamp}/snapshot.json`;
 	const before = readStoreFile(storeRoot, relative);
 	const rebuilt = reconstructStamp({ storeRoot, digest: base.stamp });
@@ -610,10 +626,12 @@ function verifiedProposalBase(storeRoot, base) {
 		throw new Error("proposal base: stamp belongs to another assignment");
 	return rebuilt;
 }
-function proposalBases(storeRoot, record, value) {
+function proposalBases(storeRoot: Untyped, record: Untyped, value: Untyped) {
 	const verified = new Map();
 	for (const entry of value.evidence) {
-		const base = record.bases.find((base) => base.stamp === entry.baseStamp);
+		const base = record.bases.find(
+			(base: Untyped) => base.stamp === entry.baseStamp,
+		);
 		if (!base)
 			throw new Error(
 				"proposal evidence: base stamp is not retained by this migration",
@@ -623,22 +641,27 @@ function proposalBases(storeRoot, record, value) {
 	}
 	return verified;
 }
-function proposalTarget(root, storeRoot, record, value) {
+function proposalTarget(
+	root: string,
+	storeRoot: Untyped,
+	record: Untyped,
+	value: Untyped,
+) {
 	const verified = proposalBases(storeRoot, record, value);
 	const primary = record.bases[0];
 	const rebuilt =
 		verified.get(primary.stamp) ?? verifiedProposalBase(storeRoot, primary);
-	const instructionPath = (entry) =>
+	const instructionPath = (entry: Untyped) =>
 		entry?.backing?.type === "blob"
 			? `local/${entry.backing.path}`
 			: entry?.backing?.type === "package"
 				? `packages/${entry.backing.sha256}/${entry.backing.path}`
 				: null;
 	const profile = instructionPath(
-		rebuilt.composition.find((entry) => entry.kind === "profile"),
+		rebuilt.composition.find((entry: Untyped) => entry.kind === "profile"),
 	);
 	const role = instructionPath(
-		rebuilt.composition.find((entry) => entry.kind === "role"),
+		rebuilt.composition.find((entry: Untyped) => entry.kind === "role"),
 	);
 	const packages = [
 		...rebuilt.composition,
@@ -677,7 +700,7 @@ function proposalTarget(root, storeRoot, record, value) {
 					: [profile, role, ...packages];
 	if (
 		!allowed.includes(target) ||
-		!record.files.some((member) => member.path === target)
+		!record.files.some((member: Untyped) => member.path === target)
 	) {
 		throw new Error(
 			"proposal target: expected selected instruction for classification; model-specific shared package requires fork intent",
@@ -692,7 +715,13 @@ function proposalTarget(root, storeRoot, record, value) {
 		);
 	return { relative, bytes };
 }
-function stagedProposalHistory(root, lock, record, history, entries) {
+function stagedProposalHistory(
+	root: string,
+	lock: Untyped,
+	record: Untyped,
+	history: Untyped,
+	entries: Untyped,
+) {
 	const recordRelative = `${directory}/${record.id}/record.json`,
 		recordBytes = readStoreFile(root, recordRelative);
 	if (!canonicalJSON(parseRecord(recordBytes)).equals(canonicalJSON(record)))
@@ -730,13 +759,13 @@ function stagedProposalHistory(root, lock, record, history, entries) {
 }
 
 /** Import caller-supplied claims as advisory data; no workspace or active edits. */
-function proposeMigrationOperation(input) {
+function proposeMigrationOperation(input: Untyped) {
 	fields(input, ["root", "id", "proposalFile"], ["storeRoot"]);
 	migrationId(input.id);
 	text(input.proposalFile, "proposalFile");
 	const root = rootDirectory(input.root),
 		storeRoot = packageStoreRoot(input.storeRoot);
-	return withWriter(root, (lock) => {
+	return withWriter(root, (lock: Untyped) => {
 		const record = openProposalMigration(root, input.id),
 			history = proposalHistory(root, record);
 		const source = path.resolve(input.proposalFile);
@@ -757,8 +786,8 @@ function proposeMigrationOperation(input) {
 				entry.status === "rejected" &&
 				sameChange &&
 				!value.evidence.some(
-					(item) =>
-						!entry.proposal.evidence.some((old) =>
+					(item: Untyped) =>
+						!entry.proposal.evidence.some((old: Untyped) =>
 							canonicalJSON(old).equals(canonicalJSON(item)),
 						),
 				)
@@ -781,21 +810,21 @@ function proposeMigrationOperation(input) {
 	});
 }
 
-function migrationProposalsOperation(input) {
+function migrationProposalsOperation(input: Untyped) {
 	fields(input, ["root", "id"]);
 	const root = rootDirectory(input.root),
 		record = readRecord(root, input.id);
 	return proposalHistory(root, record).entries;
 }
 
-function rejectMigrationProposalOperation(input) {
+function rejectMigrationProposalOperation(input: Untyped) {
 	fields(input, ["root", "id", "proposalId", "reason"], ["storeRoot"]);
 	migrationId(input.id);
 	proposalId(input.proposalId);
 	text(input.reason, "proposal rejection reason");
 	const root = rootDirectory(input.root),
 		storeRoot = packageStoreRoot(input.storeRoot);
-	return withWriter(root, (lock) => {
+	return withWriter(root, (lock: Untyped) => {
 		const record = openProposalMigration(root, input.id),
 			history = proposalHistory(root, record);
 		const entry = history.entries.find(
@@ -817,13 +846,13 @@ function rejectMigrationProposalOperation(input) {
 	});
 }
 
-function acceptMigrationProposalOperation(input) {
+function acceptMigrationProposalOperation(input: Untyped) {
 	fields(input, ["root", "id", "proposalId"], ["storeRoot"]);
 	migrationId(input.id);
 	proposalId(input.proposalId);
 	const root = rootDirectory(input.root),
 		storeRoot = packageStoreRoot(input.storeRoot);
-	return withWriter(root, (lock) => {
+	return withWriter(root, (lock: Untyped) => {
 		const record = openProposalMigration(root, input.id),
 			history = proposalHistory(root, record);
 		const entry = history.entries.find(
@@ -901,21 +930,27 @@ function acceptMigrationProposalOperation(input) {
 }
 
 // Live routing must still reproduce the retained evaluation base exactly; routing changes refuse without touching history.
-function evaluationContext(root, selectors, configuration, evaluation) {
+function evaluationContext(
+	root: string,
+	selectors: Untyped,
+	configuration: Untyped,
+	evaluation: Untyped,
+) {
 	const current = resolveCapture({ ...selectors, configuration });
-	const same = (a, b) => canonicalJSON(a).equals(canonicalJSON(b));
+	const same = (a: Untyped, b: Untyped) =>
+		canonicalJSON(a).equals(canonicalJSON(b));
 	const actors = [...current.evidence.actors].sort((a, b) =>
 		compare(assignmentKey(a.assignment), assignmentKey(b.assignment)),
 	);
 	if (
 		!same(current.evidence.primary, evaluation.selectionBindings) ||
 		!same(actors, evaluation.workflowActors) ||
-		!same(current.resolution.workflow.peers, evaluation.workflowPeers)
+		!same(current.resolution.workflow?.peers, evaluation.workflowPeers)
 	)
 		throw new Error(
 			"candidate evaluation base: stale selection or workflow peers changed",
 		);
-	if (current.resolution.workflow.status !== "declared-compatible")
+	if (current.resolution.workflow?.status !== "declared-compatible")
 		throw new Error(
 			"candidate workflow: unresolved declarations are not ready",
 		);
@@ -948,7 +983,7 @@ function evaluationContext(root, selectors, configuration, evaluation) {
 	return current;
 }
 
-function candidateManifest(value) {
+function candidateManifest(value: Untyped) {
 	fields(
 		value,
 		[
@@ -990,7 +1025,7 @@ function candidateManifest(value) {
 		) ||
 		value.release.version
 			.split(".")
-			.some((n) => !Number.isSafeInteger(Number(n)))
+			.some((n: Untyped) => !Number.isSafeInteger(Number(n)))
 	)
 		throw new Error("candidate release: expected exact package identity");
 	for (const field of [
@@ -1020,7 +1055,7 @@ function candidateManifest(value) {
 	canonicalJSON(value);
 }
 
-function migrationCandidateOperation(input) {
+function migrationCandidateOperation(input: Untyped) {
 	fields(input, ["id"], ["storeRoot"], "candidate read");
 	const storeRoot = packageStoreRoot(input.storeRoot),
 		index = candidateIndex(storeRoot, input.id);
@@ -1040,7 +1075,7 @@ function migrationCandidateOperation(input) {
 	return index;
 }
 
-function publishMigrationCandidateOperation(input) {
+function publishMigrationCandidateOperation(input: Untyped) {
 	fields(
 		input,
 		["root", "id", "manifestFile"],
@@ -1052,7 +1087,7 @@ function publishMigrationCandidateOperation(input) {
 	const root = rootDirectory(input.root),
 		storeRoot = packageStoreRoot(input.storeRoot);
 	const workspace = file(root, `${directory}/${input.id}/workspace`);
-	const inside = (a, b) => {
+	const inside = (a: Untyped, b: Untyped) => {
 		const r = path.relative(a, b);
 		return !path.isAbsolute(r) && r !== ".." && !r.startsWith(`..${path.sep}`);
 	};
@@ -1089,7 +1124,7 @@ function publishMigrationCandidateOperation(input) {
 			p.migrationBase !== manifest.migrationBase ||
 			p.evaluationBase !== manifest.evaluationBase ||
 			p.configSha256 !== manifest.configSha256 ||
-			!canonicalJSON(p.proposals.map((entry) => entry.id)).equals(
+			!canonicalJSON(p.proposals.map((entry: Untyped) => entry.id)).equals(
 				canonicalJSON(manifest.proposalIds),
 			) ||
 			!canonicalJSON(p.workflowChange).equals(
@@ -1140,7 +1175,7 @@ function publishMigrationCandidateOperation(input) {
 			"candidate evaluation base: requires active compatible config3 stamp2",
 		);
 	const basePin = evaluation.selectionBindings.find(
-		(row) => row.root.binding === manifest.binding,
+		(row: Untyped) => row.root.binding === manifest.binding,
 	)?.root;
 	if (!basePin || basePin.revisionDigest === null)
 		throw new Error(
@@ -1153,7 +1188,7 @@ function publishMigrationCandidateOperation(input) {
 	// A native stamp2 base names its selected root; its dependency-first composition can tag a dependency with the root binding.
 	const origin = original.selectionBindings
 		? original.selectionBindings.find(
-				(row) => row.root.binding === manifest.binding,
+				(row: Untyped) => row.root.binding === manifest.binding,
 			)?.root
 		: [
 				...original.composition,
@@ -1199,7 +1234,7 @@ function publishMigrationCandidateOperation(input) {
 	if (
 		record.files.length !== originalFiles.size ||
 		record.files.some(
-			(member) =>
+			(member: Untyped) =>
 				!originalFiles.has(member.path) ||
 				hash(originalFiles.get(member.path)) !== member.sha256,
 		)
@@ -1224,7 +1259,9 @@ function publishMigrationCandidateOperation(input) {
 		if (
 			proposal.classification !== "package" ||
 			proposal.target.path !== target ||
-			proposal.evidence.some((e) => e.baseStamp !== manifest.migrationBase)
+			proposal.evidence.some(
+				(e: Untyped) => e.baseStamp !== manifest.migrationBase,
+			)
 		)
 			throw new Error(
 				"candidate accepted proposal history: unsupported target or foreign base",
@@ -1249,8 +1286,8 @@ function publishMigrationCandidateOperation(input) {
 		throw new Error(
 			"candidate task-only: unapproved workspace/workflow/resource change outside target",
 		);
-	/** @type {Map<string, Buffer>} */
-	const guarded = new Map([
+	// null: the file must still be absent.
+	const guarded = new Map<string, Buffer | null>([
 		[configFile, configBytes],
 		[lockFile, lockBytes],
 		[recordRelative, recordBytes],
@@ -1377,7 +1414,7 @@ function publishMigrationCandidateOperation(input) {
 	});
 }
 
-const evaluationDomains = {
+const evaluationDomains: Record<string, string> = {
 	plans: "agent-profiles/evaluation-plan/v1",
 	results: "agent-profiles/evaluation-result/v1",
 };
@@ -1388,18 +1425,18 @@ const evaluationMetrics = [
 	"toolCalls",
 	"latencyMs",
 ];
-const evaluationEqual = (a, b) =>
+const evaluationEqual = (a: Untyped, b: Untyped) =>
 	canonicalEvaluationJSON(a).equals(canonicalEvaluationJSON(b));
-function evaluationId(id) {
+function evaluationId(id: unknown): string {
 	if (typeof id !== "string" || !/^[a-z0-9][a-z0-9-]{0,127}$/.test(id))
 		throw new Error("evaluation id: expected portable identifier");
 	return id;
 }
-function evaluationDigest(value, label) {
+function evaluationDigest(value: Untyped, label: Untyped) {
 	if (typeof value !== "string" || !digestPattern.test(value))
 		throw new Error(`evaluation ${label}: invalid digest`);
 }
-function evaluationConditions(value) {
+function evaluationConditions(value: Untyped) {
 	fields(value, ["harness", "judge", "rubric"], [], "evaluation conditions");
 	for (const key of ["harness", "judge", "rubric"]) {
 		fields(value[key], ["id", "version", "settings"], [], `conditions ${key}`);
@@ -1411,7 +1448,7 @@ function evaluationConditions(value) {
 		canonicalEvaluationJSON(settings);
 	}
 }
-function evaluationIndex(store, kind, id) {
+function evaluationIndex(store: Untyped, kind: Untyped, id: string) {
 	evaluationId(id);
 	const bytes = readStoreFile(store, `evaluations/${kind}/ids/${id}.json`),
 		index = parseRecord(bytes);
@@ -1426,7 +1463,7 @@ function evaluationIndex(store, kind, id) {
 	evaluationDigest(index[key], key);
 	return index;
 }
-function evaluationObject(store, kind, digest) {
+function evaluationObject(store: Untyped, kind: Untyped, digest: Untyped) {
 	evaluationDigest(digest, `${kind} digest`);
 	const bytes = readStoreFile(
 			store,
@@ -1440,7 +1477,7 @@ function evaluationObject(store, kind, digest) {
 		throw new Error("evaluation record: canonical integrity/digest mismatch");
 	return value;
 }
-function evaluationPlanBacking(store, plan) {
+function evaluationPlanBacking(store: Untyped, plan: Untyped) {
 	fields(
 		plan,
 		[
@@ -1473,7 +1510,9 @@ function evaluationPlanBacking(store, plan) {
 	assignment(plan.context.assignment);
 	if (
 		!Array.isArray(plan.context.requestedSkills) ||
-		plan.context.requestedSkills.some((id) => typeof id !== "string") ||
+		plan.context.requestedSkills.some(
+			(id: unknown) => typeof id !== "string",
+		) ||
 		new Set(plan.context.requestedSkills).size !==
 			plan.context.requestedSkills.length
 	)
@@ -1536,15 +1575,15 @@ function evaluationPlanBacking(store, plan) {
 			!evaluationEqual(snapshot.workflowPeers, plan.context.workflowPeers[side])
 		)
 			throw new Error("evaluation workflow peer context mismatch");
-		const records = new Map(
-			rebuilt.revisions.map((row) => [
+		const records = new Map<string, Untyped>(
+			rebuilt.revisions.map((row: Untyped) => [
 				row.recordDigest,
 				parseRecord(row.bytes),
 			]),
 		);
 		const rows = [
 			...rebuilt.selectionBindings,
-			...rebuilt.workflowActors.flatMap((actor) => actor.bindings),
+			...rebuilt.workflowActors.flatMap((actor: Untyped) => actor.bindings),
 		];
 		for (const row of rows)
 			for (const pin of row.closure) {
@@ -1557,23 +1596,27 @@ function evaluationPlanBacking(store, plan) {
 					);
 			}
 	}
-	const targetExists = (capture, target) => {
+	const targetExists = (capture: Untyped, target: Untyped) => {
 		const { rebuilt } = capture;
 		const rows =
 			assignmentKey(target.assignment) ===
 			assignmentKey(plan.context.assignment)
 				? rebuilt.selectionBindings
 				: rebuilt.workflowActors.find(
-						(actor) =>
+						(actor: Untyped) =>
 							assignmentKey(actor.assignment) ===
 							assignmentKey(target.assignment),
 					)?.bindings;
-		const row = rows?.find((row) => row.root.binding === target.binding);
-		const member = row?.closure.find((pin) => pin.name === target.member);
+		const row = rows?.find(
+			(row: Untyped) => row.root.binding === target.binding,
+		);
+		const member = row?.closure.find(
+			(pin: Untyped) => pin.name === target.member,
+		);
 		return (
 			member &&
 			rebuilt.packages.some(
-				(pkg) =>
+				(pkg: Untyped) =>
 					pkg.name === member.name &&
 					pkg.sha256 === member.sha256 &&
 					pkg.revisionDigest === member.revisionDigest &&
@@ -1634,12 +1677,12 @@ function evaluationPlanBacking(store, plan) {
 			);
 	}
 	for (const kind of ["motivating", "regression"])
-		if (!plan.cases.some((item) => item.kind === kind))
+		if (!plan.cases.some((item: Untyped) => item.kind === kind))
 			throw new Error(`evaluation coverage: missing ${kind} case`);
 	const obligations = captures.flatMap(({ snapshot, rebuilt }) =>
-		snapshot.workflowPeers.map((peer) => {
+		snapshot.workflowPeers.map((peer: Untyped) => {
 			const record = rebuilt.revisions.find(
-				(row) => row.recordDigest === peer.consumer.revisionDigest,
+				(row: Untyped) => row.recordDigest === peer.consumer.revisionDigest,
 			);
 			return {
 				assignment: peer.consumer.assignment,
@@ -1652,25 +1695,27 @@ function evaluationPlanBacking(store, plan) {
 	for (const obligation of obligations)
 		if (
 			!plan.cases.some(
-				(item) =>
+				(item: Untyped) =>
 					item.kind === "workflow" && evaluationEqual(item.target, obligation),
 			)
 		)
 			throw new Error(
 				"evaluation workflow coverage: missing required protocol case",
 			);
-	for (const item of plan.cases.filter((item) => item.kind === "workflow"))
+	for (const item of plan.cases.filter(
+		(item: Untyped) => item.kind === "workflow",
+	))
 		if (!obligations.some((target) => evaluationEqual(target, item.target)))
 			throw new Error("evaluation workflow case: foreign protocol obligation");
 	return plan;
 }
-function evaluationPlanByDigest(store, digest) {
+function evaluationPlanByDigest(store: Untyped, digest: Untyped) {
 	const plan = evaluationObject(store, "plans", digest);
 	if (evaluationIndex(store, "plans", plan.id).planDigest !== digest)
 		throw new Error("evaluation plan: immutable index binding mismatch");
 	return evaluationPlanBacking(store, plan);
 }
-function migrationEvaluationPlanOperation(input) {
+function migrationEvaluationPlanOperation(input: Untyped) {
 	fields(input, ["id"], ["storeRoot"], "evaluation plan read");
 	const store = packageStoreRoot(input.storeRoot),
 		index = evaluationIndex(store, "plans", input.id);
@@ -1679,7 +1724,11 @@ function migrationEvaluationPlanOperation(input) {
 		throw new Error("evaluation plan index: record id binding mismatch");
 	return { planDigest: index.planDigest, plan };
 }
-function evaluationResults(store, results, planDigest) {
+function evaluationResults(
+	store: Untyped,
+	results: Untyped,
+	planDigest: Untyped,
+) {
 	fields(
 		results,
 		[
@@ -1718,7 +1767,7 @@ function evaluationResults(store, results, planDigest) {
 	if (!Array.isArray(results.outcomes))
 		throw new Error("evaluation outcomes: expected array");
 	const seen = new Set(),
-		cases = new Set(plan.cases.map((item) => item.id));
+		cases = new Set(plan.cases.map((item: Untyped) => item.id));
 	for (const row of results.outcomes) {
 		fields(
 			row,
@@ -1789,7 +1838,7 @@ function evaluationResults(store, results, planDigest) {
 	);
 	return plan;
 }
-function evaluationSummary(rows) {
+function evaluationSummary(rows: Untyped) {
 	return Object.fromEntries(
 		evaluationMetrics.map((metric) => {
 			const pairs = new Map();
@@ -1798,7 +1847,7 @@ function evaluationSummary(rows) {
 				if (!pairs.has(key)) pairs.set(key, {});
 				pairs.get(key)[row.side] = row.metrics[metric];
 			}
-			const sum = (values) => {
+			const sum = (values: Untyped) => {
 				let total = 0;
 				for (const value of values) {
 					total += value;
@@ -1860,12 +1909,19 @@ function evaluationSummary(rows) {
 		}),
 	);
 }
-function evaluationReport(plan, results, planDigest, resultDigest) {
-	const cases = plan.cases.map((item) => {
-		const rows = results.outcomes.filter((row) => row.caseId === item.id);
-		const score = (side) => {
+function evaluationReport(
+	plan: Untyped,
+	results: Untyped,
+	planDigest: Untyped,
+	resultDigest: Untyped,
+) {
+	const cases = plan.cases.map((item: Untyped) => {
+		const rows = results.outcomes.filter(
+			(row: Untyped) => row.caseId === item.id,
+		);
+		const score = (side: string) => {
 			const passed = rows.filter(
-				(row) => row.side === side && row.correct,
+				(row: Untyped) => row.side === side && row.correct,
 			).length;
 			return { passed, trials: plan.trials, rate: passed / plan.trials };
 		};
@@ -1879,8 +1935,8 @@ function evaluationReport(plan, results, planDigest, resultDigest) {
 		};
 	});
 	const regressions = cases
-		.filter((item) => item.candidate.passed < item.base.passed)
-		.map((item) => ({
+		.filter((item: Untyped) => item.candidate.passed < item.base.passed)
+		.map((item: Untyped) => ({
 			caseId: item.id,
 			basePassed: item.base.passed,
 			candidatePassed: item.candidate.passed,
@@ -1913,7 +1969,7 @@ function evaluationReport(plan, results, planDigest, resultDigest) {
 		metrics: evaluationSummary(results.outcomes),
 	};
 }
-function migrationEvaluationReportOperation(input) {
+function migrationEvaluationReportOperation(input: Untyped) {
 	fields(input, ["id"], ["storeRoot"], "evaluation report");
 	const store = packageStoreRoot(input.storeRoot),
 		index = evaluationIndex(store, "results", input.id);
@@ -1928,10 +1984,15 @@ function migrationEvaluationReportOperation(input) {
 		index.resultDigest,
 	);
 }
-function retainEvaluation(input, kind, sourceFile, validate) {
+function retainEvaluation(
+	input: Untyped,
+	kind: Untyped,
+	sourceFile: Untyped,
+	validate: Untyped,
+) {
 	const root = rootPath(input.root, "evaluation root"),
 		store = packageStoreRoot(input.storeRoot);
-	const inside = (parent, child) => {
+	const inside = (parent: Untyped, child: Untyped) => {
 		const relative = path.relative(parent, child);
 		return (
 			!path.isAbsolute(relative) &&
@@ -2058,7 +2119,7 @@ function retainEvaluation(input, kind, sourceFile, validate) {
 		rmSync(storeWriter, { recursive: true, force: true });
 	}
 }
-function planMigrationEvaluationOperation(input) {
+function planMigrationEvaluationOperation(input: Untyped) {
 	fields(
 		input,
 		["root", "candidateId", "planFile"],
@@ -2066,13 +2127,18 @@ function planMigrationEvaluationOperation(input) {
 		"evaluation plan publication",
 	);
 	evaluationId(input.candidateId);
-	return retainEvaluation(input, "plans", input.planFile, (store, plan) => {
-		if (plan.candidateId !== input.candidateId)
-			throw new Error("evaluation candidate id binding mismatch");
-		evaluationPlanBacking(store, plan);
-	});
+	return retainEvaluation(
+		input,
+		"plans",
+		input.planFile,
+		(store: Untyped, plan: Untyped) => {
+			if (plan.candidateId !== input.candidateId)
+				throw new Error("evaluation candidate id binding mismatch");
+			evaluationPlanBacking(store, plan);
+		},
+	);
 }
-function importMigrationEvaluationResultsOperation(input) {
+function importMigrationEvaluationResultsOperation(input: Untyped) {
 	fields(
 		input,
 		["root", "planId", "resultFile"],
@@ -2086,21 +2152,22 @@ function importMigrationEvaluationResultsOperation(input) {
 		{ ...input, storeRoot: store },
 		"results",
 		input.resultFile,
-		(selected, results) =>
+		(selected: Untyped, results: Untyped) =>
 			evaluationResults(selected, results, retained.planDigest),
 	);
 }
 
 const promotionDomain = "agent-profiles/promotion-decision/v1";
-const equalJSON = (a, b) => canonicalJSON(a).equals(canonicalJSON(b));
-const plain = (value) =>
+const equalJSON = (a: Untyped, b: Untyped) =>
+	canonicalJSON(a).equals(canonicalJSON(b));
+const plain = (value: Untyped): Untyped =>
 	value instanceof Map
 		? Object.fromEntries([...value].map(([key, item]) => [key, plain(item)]))
 		: Array.isArray(value)
 			? value.map(plain)
 			: value;
 // Decision relations against retained immutable evidence only; no live project state is read here.
-function promotionEvidence(store, decision) {
+function promotionEvidence(store: Untyped, decision: Untyped) {
 	validateDecision(decision);
 	if (
 		evaluationIndex(store, "results", decision.resultId).resultDigest !==
@@ -2144,7 +2211,9 @@ function promotionEvidence(store, decision) {
 		throw new Error(
 			"promotion decision regressions: must equal the retained report regressions",
 		);
-	const regressed = report.eligibility.regressions.map((row) => row.caseId),
+	const regressed = report.eligibility.regressions.map(
+			(row: Untyped) => row.caseId,
+		),
 		override = decision.correctnessOverride;
 	if (override === null && regressed.length)
 		throw new Error(
@@ -2188,12 +2257,12 @@ function promotionEvidence(store, decision) {
 	};
 }
 // Unqualified rules keep their original id; a profile qualifier is part of the derived identity.
-const promotionRuleId = ({ role, model, host, profile }) =>
+const promotionRuleId = ({ role, model, host, profile }: Untyped) =>
 	`promotion-${hash(Buffer.from(JSON.stringify(profile === undefined ? [role, model, host] : [role, model, host, profile]))).slice(0, 16)}`;
 // Shared by planning and replay freshness. The resolver selects the unique containment-maximal matching rule, so every other
 // matching rule is a subset of the selected one: replace it when it already pins the exact tuple (its other qualifiers already
 // match), otherwise add one rule that keeps its qualifiers and pins the tuple, which strictly contains every matching rule.
-function promotionRule(selected, { role, model, host }) {
+function promotionRule(selected: Untyped, { role, model, host }: Untyped) {
 	const selectors =
 		selected.selectedBy === "binding-default" ? {} : (selected.selectors ?? {});
 	if (
@@ -2212,7 +2281,13 @@ function promotionRule(selected, { role, model, host }) {
 }
 // Completed-promotion freshness: live selection, actors, peers, bytes and local inputs must equal the evaluated candidate capture,
 // modulo ONLY the intended primary candidate→release digest and the deliberate rule-specificity change on that binding.
-function candidateFreshness(root, store, current, evidence, assignment) {
+function candidateFreshness(
+	root: string,
+	store: Untyped,
+	current: Untyped,
+	evidence: Untyped,
+	assignment: Untyped,
+) {
 	const evaluated = reconstructStamp({
 			storeRoot: store,
 			digest: evidence.candidate.stampDigest,
@@ -2222,7 +2297,7 @@ function candidateFreshness(root, store, current, evidence, assignment) {
 		releaseDigest = evidence.releaseDigest,
 		binding = evidence.record.provenance.binding;
 	const primary = evaluated.selectionBindings.find(
-		(row) => row.root.binding === binding,
+		(row: Untyped) => row.root.binding === binding,
 	)?.root;
 	if (!primary)
 		throw new Error(
@@ -2231,10 +2306,10 @@ function candidateFreshness(root, store, current, evidence, assignment) {
 	const target = promotionRule(primary, assignment),
 		rule = { selectedBy: target.id, selectors: target.when };
 	// Same scoping as the candidate capture projection: only rows pinned to the evaluated candidate digest change.
-	const project = (value) => {
+	const project = (value: Untyped): Untyped => {
 		if (Array.isArray(value)) return value.map(project);
 		if (!value || typeof value !== "object") return value;
-		const copy = Object.fromEntries(
+		const copy: Untyped = Object.fromEntries(
 			Object.entries(value).map(([key, child]) => [key, project(child)]),
 		);
 		if (copy.revisionDigest === candidateDigest) {
@@ -2268,7 +2343,7 @@ function candidateFreshness(root, store, current, evidence, assignment) {
 	if (
 		resolution.loaded.length !== evaluated.composition.length ||
 		resolution.loaded.some(
-			(entry, i) =>
+			(entry: Untyped, i: Untyped) =>
 				entry.kind !== evaluated.composition[i].kind ||
 				!Buffer.from(entry.content).equals(evaluated.composition[i].bytes),
 		)
@@ -2293,11 +2368,11 @@ function candidateFreshness(root, store, current, evidence, assignment) {
 	}
 }
 // Read-only: validates evidence, immutable authority and live freshness, then computes the exact tuple binding edit.
-function promotionPlan(input, label) {
+function promotionPlan(input: Untyped, label: Untyped) {
 	fields(input, ["root", "decisionFile"], ["storeRoot"], label);
 	const root = rootDirectory(input.root),
 		store = packageStoreRoot(input.storeRoot);
-	const inside = (a, b) => {
+	const inside = (a: Untyped, b: Untyped) => {
 		const r = path.relative(a, b);
 		return !path.isAbsolute(r) && r !== ".." && !r.startsWith(`..${path.sep}`);
 	};
@@ -2464,7 +2539,7 @@ function promotionPlan(input, label) {
 		target: { assignment: { role, model, host }, binding, rule, before, after },
 	};
 }
-const promotionSummary = (plan) => ({
+const promotionSummary = (plan: Untyped) => ({
 	decision: {
 		id: plan.decision.id,
 		decisionDigest: plan.evidence.decisionDigest,
@@ -2476,7 +2551,7 @@ const promotionSummary = (plan) => ({
 	},
 });
 
-function previewMigrationPromotionOperation(input) {
+function previewMigrationPromotionOperation(input: Untyped) {
 	const plan = promotionPlan(input, "promotion preview"),
 		summary = promotionSummary(plan);
 	return {
@@ -2491,7 +2566,7 @@ function previewMigrationPromotionOperation(input) {
 	};
 }
 
-function applyMigrationPromotionOperation(input) {
+function applyMigrationPromotionOperation(input: Untyped) {
 	const plan = promotionPlan(input, "promotion apply"),
 		{ store, root, decision, evidence } = plan,
 		summary = promotionSummary(plan);
@@ -2529,7 +2604,7 @@ function applyMigrationPromotionOperation(input) {
 		writeFlushed(path.join(storeWriter, "owner.json"), ownership);
 		unchangedSource();
 		plan.authority();
-		const stage = (name, relative, bytes) => {
+		const stage = (name: string, relative: string, bytes: Untyped) => {
 			const target = safePath(store, relative);
 			if (existsSync(target)) {
 				if (!readStoreFile(store, relative).equals(bytes))
@@ -2616,8 +2691,12 @@ function applyMigrationPromotionOperation(input) {
 						`stamps/sha256/${evidence.candidate.stampDigest}/snapshot.json`,
 					),
 				);
-			const parts = (snapshot) =>
-				snapshot.composition.map((part) => [part.kind, part.id, part.backing]);
+			const parts = (snapshot: Untyped) =>
+				snapshot.composition.map((part: Untyped) => [
+					part.kind,
+					part.id,
+					part.backing,
+				]);
 			if (!equalJSON(parts(stamp.snapshot), parts(evaluated)))
 				throw new Error(
 					"promotion: promoted composition differs from the evaluated candidate bytes",
@@ -2638,7 +2717,7 @@ function applyMigrationPromotionOperation(input) {
 }
 
 // Rootless verified readback: decision, evidence relations and public release admission.
-function migrationPromotionOperation(input) {
+function migrationPromotionOperation(input: Untyped) {
 	fields(input, ["id"], ["storeRoot"], "promotion read");
 	const store = packageStoreRoot(input.storeRoot),
 		index = readPromotionIndex(store, input.id),

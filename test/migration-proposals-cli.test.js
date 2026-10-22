@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stringify } from "yaml";
-import { migrationProposals, proposeMigration } from "../src/migrations.js";
+import { migrationProposals, proposeMigration } from "../src/migrations.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import { createStamp, reconstructStamp } from "../src/stamps.ts";
 

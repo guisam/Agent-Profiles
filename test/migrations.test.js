@@ -12,7 +12,7 @@ import { importPackage } from "../src/package-store.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 import { createStamp, reconstructStamp } from "../src/stamps.ts";
 
-const target = new URL("../src/migrations.js", import.meta.url);
+const target = new URL("../src/migrations.ts", import.meta.url);
 let migrations;
 try {
 	migrations = await import(target.href);
@@ -161,7 +161,7 @@ function invoke(f, ...args) {
 test("migration start/status/abandon public API exists", () => {
 	assert.ok(
 		migrations,
-		"src/migrations.js must implement the migration workspace lifecycle",
+		"src/migrations.ts must implement the migration workspace lifecycle",
 	);
 	for (const name of ["startMigration", "migrationStatus", "abandonMigration"])
 		assert.equal(typeof migrations[name], "function", name);

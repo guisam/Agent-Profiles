@@ -36,7 +36,7 @@ import {
 	publishMigrationCandidate,
 	rejectMigrationProposal,
 	startMigration,
-} from "../src/migrations.js";
+} from "../src/migrations.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, rootPath } from "../src/package-store.ts";
 import { readPackage } from "../src/packages.ts";

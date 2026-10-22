@@ -7,7 +7,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
-import * as migrations from "../src/migrations.js";
+import * as migrations from "../src/migrations.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import {
 	encodeComponent,
@@ -950,7 +950,7 @@ test("promotion preview, apply and readback interfaces exist on the migrations m
 	assert.deepEqual(
 		promotionExports.filter((name) => typeof migrations[name] !== "function"),
 		[],
-		"src/migrations.js must expose the promotion preview/apply/readback seam",
+		"src/migrations.ts must expose the promotion preview/apply/readback seam",
 	);
 });
 

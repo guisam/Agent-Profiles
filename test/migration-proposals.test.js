@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { stringify } from "yaml";
-import * as migrations from "../src/migrations.js";
+import * as migrations from "../src/migrations.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, readStoreFile } from "../src/package-store.ts";
 import { resolveInstructions } from "../src/resolve.ts";
@@ -222,7 +222,7 @@ test("proposal import/accept/reject/list public API exists", () => {
 	assert.deepEqual(
 		missing,
 		[],
-		"implement the four proposal exports in src/migrations.js",
+		"implement the four proposal exports in src/migrations.ts",
 	);
 });
 
