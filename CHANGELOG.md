@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+### OpenCode host integration (#30)
+
+- Verify a live four-rollout OpenCode/Harness² paired workflow through measured
+  answers, cache reuse, changed-input refusal, retained results, preview and
+  explicit promotion. Keep the opt-in test and its measured evidence separate
+  from credential-free fixtures and broad benchmark quality claims.
+- Register the distinct OpenCode host with independent managed `AGENTS.md`
+  ownership alongside Codex, safe repeated setup/uninstall, inspection/proof,
+  explicit provider/model and role routing, and native skill metadata support.
+  Keep user JSON/JSONC and permissions unchanged and require new-session semantics
+  for clean model/agent/role changes.
+- Retain real OpenCode assignments through stamps, skill migrations, candidates,
+  paired Harness² plans/results and explicit preview/promotion. Preserve historic
+  null-host evidence and reject mismatched host/surface/substrate identities.
+  Extend native seeding/batch and converter regressions to both hosts.
+
+- Add an opt-in native smoke check for installed OpenCode v2.1.3, verifying
+  project instruction consumption and native skill invocation with the current
+  default model. Record live observations separately from the v1 source research.
+- Record the native host contract investigation and implementation plan in
+  `docs/development/issue-30-opencode-contract.md` and `issue-30-plan.md`, including
+  shared instruction ownership, identity, skill discovery and evidence checks.
+  Keep the earlier v1 research as historical; v2.1.3 is the native validation target.
+
 ### Harness² integration (#28)
 
 - Add verified `harness2-tree` materialization for Codex and OpenCode surfaces,

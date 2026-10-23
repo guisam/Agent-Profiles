@@ -21,14 +21,16 @@ def text(value):
     return value
 
 
-def codex(record):
-    if record["surface"] != "codex" or record["selection"]["host"] != "codex":
-        raise ValueError("migration conversion requires the Codex host; OpenCode has no host integration")
+def captured_host(record):
+    host = record["selection"]["host"]
+    if host not in ("codex", "opencode") or record["surface"] != host:
+        raise ValueError("migration conversion requires a matching native host and surface; recapture legacy null-host inputs")
+    return host
 
 
 def start_migration(profiles, captured, *, binding):
     """Select a captured skill in a new evaluation project, then start a fork."""
-    codex(captured)
+    host = captured_host(captured)
     if not isinstance(binding, str) or not binding.startswith("skills."):
         raise ValueError("expected a skills binding")
     config = json.loads(read_file(safe(Path(captured["project"]), ".agent-profiles/agents.yaml")))
@@ -44,7 +46,7 @@ def start_migration(profiles, captured, *, binding):
     (project / ".agent-profiles").mkdir()
     (project / ".agent-profiles/agents.yaml").write_bytes(encoded(config))
     profiles.command("install", "--offline", project=project)
-    selectors = ["--role", captured["selection"]["role"], "--model", captured["selection"]["model"], "--host", "codex"]
+    selectors = ["--role", captured["selection"]["role"], "--model", captured["selection"]["model"], "--host", host]
     stamp = profiles.command("stamp", *selectors, project=project)
     base = deepcopy(captured)
     base.update(project=str(project), stampDigest=stamp["digest"])
@@ -57,7 +59,7 @@ def proposal_batch(base, after: dict[str, bytes], migration, *, run_id, excerpt,
 
     Return proposals and every unsupported change; never accept or publish candidates.
     """
-    codex(base)
+    captured_host(base)
     text(run_id)
     text(excerpt)
     if (migration["state"] != "open" or migration["sharing"] != "fork"
@@ -129,8 +131,9 @@ def proposal_batch(base, after: dict[str, bytes], migration, *, run_id, excerpt,
 def evaluation_plan(*, id, candidate, base_stamp, assignment, binding, member,
                     workflow_peers, tasks, k, mode, seed, judge, rubric):
     """Build a strict migrate-plan artifact; retain it with `migrate plan` before running."""
-    if assignment.get("host") != "codex":
-        raise ValueError("paired conversion requires the Codex host")
+    host = assignment.get("host")
+    if host not in ("codex", "opencode"):
+        raise ValueError("paired conversion requires a supported native host")
     if type(k) is not int or not 0 < k <= 9007199254740991 or mode not in ("agg", "seq"):
         raise ValueError("expected positive k and agg or seq mode")
     if seed is not None and (type(seed) is not int or not 0 <= seed <= 9007199254740991):
@@ -163,7 +166,7 @@ def evaluation_plan(*, id, candidate, base_stamp, assignment, binding, member,
         "context": {"assignment": assignment, "requestedSkills": [], "workflowPeers": workflow_peers},
         "cases": cases, "trials": k,
         "conditions": {"harness": {"id": "harness2", "version": UPSTREAM,
-            "settings": {"substrate": "codex", "k": k, "mode": mode, "seed": seed, "subset": subset}},
+            "settings": {"substrate": host, "k": k, "mode": mode, "seed": seed, "subset": subset}},
             "judge": judge, "rubric": rubric},
     })
 
@@ -179,10 +182,11 @@ def evaluation_results(*, id, plan, plan_digest, base, candidate):
     if roots[0] == roots[1] or roots[0] in roots[1].parents or roots[1] in roots[0].parents:
         raise ValueError("fixed arms require separate, nonoverlapping HARNESS2_RUNS_DIR roots")
     settings = plan["conditions"]["harness"]
+    host = plan["context"]["assignment"].get("host")
     if (settings["id"] != "harness2" or settings["version"] != UPSTREAM
-            or settings["settings"]["substrate"] != "codex"
+            or host not in ("codex", "opencode") or settings["settings"]["substrate"] != host
             or settings["settings"]["k"] != plan["trials"]):
-        raise ValueError("not a pinned Codex Harness2 plan")
+        raise ValueError("not a pinned Harness2 plan matching the native assignment host")
     task_cases = {item["taskId"]: item["caseId"] for item in settings["settings"]["subset"]}
     if len(task_cases) != len(plan["cases"]) or set(task_cases.values()) != {case["id"] for case in plan["cases"]}:
         raise ValueError("task subset does not match plan cases")

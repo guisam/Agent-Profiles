@@ -403,9 +403,17 @@ try {
 			"--agent",
 			"codex",
 			"--agent",
+			"opencode",
+			"--agent",
 			"hermes",
 		);
 		const afterApproval = snapshot(root);
+		assert.equal(
+			fs
+				.readFileSync(path.join(root, "AGENTS.md"), "utf8")
+				.split("<!-- agent-profiles:opencode:start -->").length,
+			2,
+		);
 		const configuredInventory = JSON.parse(
 			cli("inspect", "--root", root, "--json"),
 		);
@@ -506,6 +514,8 @@ try {
 			"--agent",
 			"claude",
 			"--agent",
+			"opencode",
+			"--agent",
 			"hermes",
 		);
 		assert.deepEqual(snapshot(root), initial);
@@ -598,6 +608,8 @@ try {
 			"claude",
 			"--agent",
 			"codex",
+			"--agent",
+			"opencode",
 			"--agent",
 			"hermes",
 		);
@@ -841,11 +853,13 @@ try {
 			"--agent",
 			"codex",
 			"--agent",
+			"opencode",
+			"--agent",
 			"hermes",
 		);
 		const portableInstalled = snapshot(root);
 		cli("doctor", "--root", root);
-		for (const host of ["claude", "codex", "hermes"]) {
+		for (const host of ["claude", "codex", "opencode", "hermes"]) {
 			const routed = JSON.parse(
 				cli(
 					"resolve",
@@ -877,6 +891,8 @@ try {
 			"claude",
 			"--agent",
 			"codex",
+			"--agent",
+			"opencode",
 			"--agent",
 			"hermes",
 		);

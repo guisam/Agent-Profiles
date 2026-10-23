@@ -14,7 +14,8 @@ The destination must be absent and outside protected project, store and host
 directories. The harness root passed to Harness² is **`C:\exports\run\content`**;
 the adjacent `receipt.json` belongs to Agent Profiles. Use `--surface opencode`
 for the OpenCode layout. A surface selects a file layout; it does not create an
-OpenCode host assignment.
+OpenCode host assignment. Native setup is documented in the
+[OpenCode host guide](opencode.md).
 
 ## Mapping and provenance
 
@@ -158,7 +159,7 @@ run that demo on Linux, WSL Ubuntu, or the manual workflow.
 
 - `projects/` holds isolated config-v3 projects and lockfiles. Capture never binds
   packages into the caller's active project. Codex captures select host `codex`;
-  OpenCode captures leave host unset while retaining explicit model and role.
+  OpenCode captures select host `opencode`, retaining explicit model and role.
 - Each skill becomes an instruction-delivery skill package with its exact
   entrypoint and scripts. Primary always-on text becomes a profile entrypoint
   named `PROMPT.md`, allowing later proposals to target that file instead of
@@ -200,8 +201,16 @@ Only explicitly running Harness² executes a harness.
 
 The Python package also exports `start_migration`, `proposal_batch`,
 `evaluation_plan` and `evaluation_results`. These use existing proposal-v1 and
-evaluation-v1 formats. OpenCode capture and materialization remain supported,
-but phases 3–4 require host `codex`; an OpenCode surface is not a host assignment.
+evaluation-v1 formats. Both Codex and OpenCode captures support these converters;
+the capture surface must exactly match its real host assignment. Legacy null-host
+OpenCode captures must be recaptured under fresh namespaces. The Harness² executor
+is pinned separately from the standalone OpenCode CLI; see the
+[native host contract](opencode.md).
+
+The examples below use Codex. For OpenCode, use an OpenCode capture, select
+`surface="opencode"`, use `OPENCODE_SURFACE` from `harness2.substrate.opencode`,
+and edit `skills/<name>/SKILL.md` rather than `.agents/skills/<name>/SKILL.md`.
+The converters retain the capture's host throughout; never replace it with Codex.
 
 ```python
 from agent_profiles_harness2 import start_migration, proposal_batch

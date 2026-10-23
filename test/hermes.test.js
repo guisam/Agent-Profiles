@@ -355,7 +355,7 @@ test("Hermes CLI accepts the host, preserves identity provenance, and exposes it
 		);
 	const help = cli("--help");
 	assert.equal(help.status, 0);
-	assert.match(help.stdout, /Select claude, codex, hermes/);
+	assert.match(help.stdout, /Select claude, codex, opencode, hermes/);
 	const result = cli(
 		"resolve",
 		"--root",

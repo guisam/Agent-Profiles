@@ -82,6 +82,11 @@ export const skillSources = [
 		enumerate: (root: string) =>
 			directorySkills(root, ".claude/skills", "claude"),
 	},
+	{
+		id: "opencode",
+		enumerate: (root: string) =>
+			directorySkills(root, ".opencode/skills", "opencode"),
+	},
 ];
 const nativeKey = (skill: Pick<DiscoveredSkill, "host" | "scope" | "hostId">) =>
 	`${skill.host}\0${skill.scope}\0${skill.hostId}`;
@@ -377,6 +382,24 @@ export function discoverSkills(
 					`${skill.id}: Codex project/user name conflict for ${skill.hostId}; this portable reference cannot address the exact origin`,
 				);
 			}
+		}
+		const openCodeIDs = new Map<string, DiscoveredSkill[]>();
+		for (const skill of skills.filter(
+			(entry) => entry.host === "opencode" && entry.hostId,
+		)) {
+			const group = openCodeIDs.get(skill.hostId as string) ?? [];
+			group.push(skill);
+			openCodeIDs.set(skill.hostId as string, group);
+		}
+		for (const group of openCodeIDs.values()) {
+			if (new Set(group.map((skill) => skill.path)).size < 2) continue;
+			for (const skill of group) {
+				skill.selectable = false;
+				skill.availability = "ambiguous";
+			}
+			warnings.push(
+				`OpenCode ID ${group[0].hostId} has multiple inventoried origins; select a unique native ID`,
+			);
 		}
 	}
 	skills.sort(

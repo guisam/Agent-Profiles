@@ -1805,10 +1805,41 @@ async function start(f, request) {
 		},
 	};
 }
+test("export barrier waits for the complete marker, not an empty created file", async (t) => {
+	const f = fixture(t);
+	const marker = path.join(f.dir, "incomplete-marker");
+	const descriptor = fs.openSync(marker, "w");
+	try {
+		let reached = false;
+		const waiting = atBarrier([{ closed: false }], [marker]).then(() => {
+			reached = true;
+		});
+		await Promise.resolve();
+		assert.equal(
+			reached,
+			false,
+			"creation is not the completed barrier signal",
+		);
+		fs.writeSync(descriptor, "before-final-rename");
+		await waiting;
+		assert.equal(reached, true);
+	} finally {
+		fs.closeSync(descriptor);
+	}
+});
+
 async function atBarrier(children, markers) {
 	for (let i = 0; i < 500; i++) {
 		for (const child of children) assert.ifError(child.error);
-		if (markers.every((p) => fs.existsSync(p))) return;
+		// Creation is visible before the worker finishes writing its phase signal.
+		if (
+			markers.every(
+				(p) =>
+					fs.existsSync(p) &&
+					fs.readFileSync(p, "utf8") === "before-final-rename",
+			)
+		)
+			return;
 		assert.ok(
 			children.every((c) => !c.closed),
 			"child exited before before-final-rename barrier",

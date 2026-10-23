@@ -472,7 +472,7 @@ function configurationMetadata(root: string) {
 }
 
 const toolGroups: Record<string, string[]> = {
-	host: ["claude", "codex", "hermes"],
+	host: integrations.map((adapter) => adapter.id),
 	runtime: ["node", "python", "python3", "go", "rustc"],
 	packageManager: [
 		"npm",
@@ -647,7 +647,7 @@ function hostMetadata(root: string, environment: Untyped) {
 					continue;
 				}
 				try {
-					if (managedSpan(readBounded(root, file.path), file.path))
+					if (managedSpan(readBounded(root, file.path), file.path, adapter.id))
 						configured = true;
 				} catch (error) {
 					problems.push(

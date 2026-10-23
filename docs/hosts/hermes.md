@@ -47,7 +47,7 @@ Alternatively, from the checkout:
 node bin/agent-profiles.ts init --root /path/to/project --agent hermes --package /path/to/agent-profiles-0.1.0.tgz
 ```
 
-To enable all supported hosts, repeat `--agent` for `claude`, `codex`, and `hermes`.
+To enable all supported hosts, repeat `--agent` for `claude`, `codex`, `opencode`, and `hermes`.
 Initialization preserves existing supported instruction files and routing
 configuration. Review the generated files before committing, and start a new
 Hermes session afterward. Nothing is published or sent to another person by init.

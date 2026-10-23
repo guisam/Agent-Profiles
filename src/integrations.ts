@@ -50,7 +50,7 @@ export function managedSurface(
 	for (const file of adapterFor(host).files) {
 		try {
 			const before = readLocal(root, file);
-			const span = before && managedSpan(before, file);
+			const span = before && managedSpan(before, file, host);
 			if (span) return { file, block: before.subarray(span.start, span.end) };
 		} catch {
 			return null;
@@ -135,6 +135,52 @@ export const integrations: Integration[] = [
 		},
 	},
 	{
+		id: "opencode",
+		name: "OpenCode",
+		hint: ".opencode",
+		files: ["AGENTS.md"],
+		select: () => "AGENTS.md",
+		skills: {
+			project: {
+				id: /^[a-z0-9][a-z0-9-]*$/,
+				path: (id: string) => `.opencode/skills/${id}/SKILL.md`,
+			},
+			user: { id: /^[a-z0-9][a-z0-9-]*$/ },
+		},
+		bootstrapGuidance: [
+			"",
+			"### OpenCode identity and session boundaries",
+			"",
+			"Keep the exact provider/model ID, including its provider; never use a display name.",
+			"If the operator supplies that ID, use --identity-source user instead of host-stated.",
+			"Map an OpenCode agent to --role only through an explicit user or agent assignment.",
+			"For an assigned role, ALWAYS append --role <id> to the command; do not rely on default_role.",
+			"Built-in build, plan and child agents do not imply an Agent Profiles role.",
+			"Each child must resolve its own assigned role and actual model; resumed children retain history.",
+			"Start a NEW OpenCode session after changing model, agent or role for clean context.",
+			"Switching or rerunning resolve does not remove previous instructions; do not claim a clean context.",
+			"After changing native configuration or skill files, reload OpenCode before starting that session.",
+			"Repository AGENTS.md and configured instructions remain applicable.",
+			"Native skill visibility and permissions remain controlled by OpenCode, not this role.",
+		],
+		capabilities: {
+			mode: "bootstrap",
+			verified:
+				"OpenCode v2.1.3 on Windows; native instruction and skill loading observed",
+			identity:
+				"explicit provider/model; provenance distinguishes user-selected and host-stated identity",
+			modelChange:
+				"new session required for clean context; rerunning resolve does not erase history",
+			roleChange: "explicit agent-to-role assignment; new session required",
+			subagents:
+				"separate assignment required; resumed child sessions retain history",
+			hostSkills:
+				"directory-derived ID in v2.1.3; discovery is metadata only, invocation and overrides remain host-controlled",
+			permissions:
+				"no OpenCode configuration or permission settings are changed",
+		},
+	},
+	{
 		id: "hermes",
 		name: "Hermes Agent",
 		hint: ".hermes",
@@ -183,30 +229,46 @@ export const integrations: Integration[] = [
 	},
 ];
 
-export function managedSpan(content: Buffer, file: string) {
-	const start = content.indexOf(START);
-	const end = content.indexOf(END);
+function markers(host?: string) {
+	return host === "opencode"
+		? [
+				"<!-- agent-profiles:opencode:start -->",
+				"<!-- agent-profiles:opencode:end -->",
+			]
+		: [START, END];
+}
+
+export function managedSpan(content: Buffer, file: string, host?: string) {
+	const [opening, closing] = markers(host);
+	const start = content.indexOf(opening);
+	const end = content.indexOf(closing);
 	if (start === -1 && end === -1) return null;
 	if (
 		start === -1 ||
 		end < start ||
-		content.indexOf(START, start + START.length) !== -1 ||
-		content.indexOf(END, end + END.length) !== -1
+		content.indexOf(opening, start + opening.length) !== -1 ||
+		content.indexOf(closing, end + closing.length) !== -1
 	) {
 		throw new Error(
 			`${file}: malformed or duplicate Agent Profiles markers; repair them before retrying`,
 		);
 	}
-	return { start, end: end + Buffer.byteLength(END) };
+	const other = markers(host === "opencode" ? undefined : "opencode");
+	if (other.some((marker) => content.subarray(start, end).includes(marker)))
+		throw new Error(
+			`${file}: overlapping Agent Profiles markers; repair them before retrying`,
+		);
+	return { start, end: end + Buffer.byteLength(closing) };
 }
 
 export function bootstrapBlock(host: string, newline = "\n") {
 	const adapter = adapterFor(host);
+	const [opening, closing] = markers(host);
 	// All added whitespace is inside the markers, so removal preserves every other byte.
 	// Each block names its host: an agent may read another host's instruction file too.
 	return Buffer.from(
 		[
-			START,
+			opening,
 			`<!-- agent-profiles:protocol ${PROTOCOL} -->`,
 			"",
 			"## Agent Profiles",
@@ -226,7 +288,7 @@ export function bootstrapBlock(host: string, newline = "\n") {
 			"route by hand.",
 			...(adapter.bootstrapGuidance ?? []),
 			"",
-			END,
+			closing,
 		].join(newline),
 	);
 }

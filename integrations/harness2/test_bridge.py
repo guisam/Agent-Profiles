@@ -51,7 +51,7 @@ class BridgeTests(unittest.TestCase):
             with self.subTest(surface=surface):
                 record = self.capture(surface=surface, evidence={"adoption.json": b'{"chosen_label":"agg1"}\n'})
                 self.assertEqual(record["evidenceStatus"], "external-claim")
-                self.assertEqual(record["selection"]["host"], "codex" if surface == "codex" else None)
+                self.assertEqual(record["selection"]["host"], surface)
                 self.assertEqual(record["treeDigest"], digest(harness(surface)))
                 self.assertEqual(set(record["components"]), set(harness(surface)))
                 self.assertEqual(base64.b64decode(record["evidence"]["adoption.json"]["data"]), b'{"chosen_label":"agg1"}\n')

@@ -443,8 +443,15 @@ export function formatContext(
 			(shell) => `Command (${shell}): \`${renderResolveCommand(args, shell)}\``,
 		),
 		"- after context compaction or in a new agent context;",
-		"- after a model change, with the new exact model ID;",
-		"- to change role, with `--role <id>`; a new session gives a cleaner transition.",
+		...(result.host === "opencode"
+			? [
+					"- after a model, agent or role change, start a NEW OpenCode session for clean context and resolve its explicit identity/role;",
+					"- rerunning resolve in an existing session does not remove earlier profile text; reload native configuration/skills before starting a new session.",
+				]
+			: [
+					"- after a model change, with the new exact model ID;",
+					"- to change role, with `--role <id>`; a new session gives a cleaner transition.",
+				]),
 	);
 	return lines.join("\n");
 }

@@ -1,0 +1,52 @@
+{
+  "assignment": {
+    "host": "opencode",
+    "model": "opencode/big-pickle",
+    "role": "worker"
+  },
+  "baseCorrect": 1,
+  "cacheReplay": "passed",
+  "candidateCorrect": 2,
+  "cases": 2,
+  "changedInputRefusal": "passed",
+  "harness2": "1cfe254e8d25b15f37048c3730134686abe60335",
+  "launches": 4,
+  "model": "opencode/big-pickle",
+  "opencode": "2.1.3",
+  "planDigest": "6f69f82cfaf0181be58ecb4a2f1b4f70d11942d2b35939e34f5a1afa85fa2e7d",
+  "preview": "read-only",
+  "promotedStamp": "426dfba708e36c905460e71742cca121d061cfaebb9c3cd2da7750d6fce561d1",
+  "promotion": "passed",
+  "resultDigest": "ae01ead26a1d68bfc0eb5a3691afe61a36534368f6a6252d781cb981b8723d89",
+  "status": "passed",
+  "nativeRequests": [
+    {
+      "agents": [
+        "build"
+      ],
+      "model": "opencode/big-pickle",
+      "sessionID": "ses_e96e6b1b2ffeey0Odgwu9FoFBC"
+    },
+    {
+      "agents": [
+        "build"
+      ],
+      "model": "opencode/big-pickle",
+      "sessionID": "ses_e96e6d048ffeEDLYPkcBTolPC2"
+    },
+    {
+      "agents": [
+        "build"
+      ],
+      "model": "opencode/big-pickle",
+      "sessionID": "ses_e96e67566ffeA8okcPGU75ClFX"
+    },
+    {
+      "agents": [
+        "build"
+      ],
+      "model": "opencode/big-pickle",
+      "sessionID": "ses_e96e689d3fferDARz6dFscdLMt"
+    }
+  ]
+}

@@ -170,7 +170,7 @@ Finish with what works, what remains to configure, and commands I can reuse.
 
 ## When you are ready to evaluate a change
 
-For Codex, [prepare a migration before searching for a skill change](hosts/harness2.md#convert-adopted-edits-into-proposals-codex).
+For Codex or OpenCode, [prepare a migration before searching for a skill change](hosts/harness2.md#convert-adopted-edits-into-proposals-codex).
 Use its new base stamp for that search, rather than the original capture stamp.
 Review the generated proposals and unsupported-edit report, then explicitly
 accept a skill edit and [publish its candidate](skill-migrations.md#publish-one-advisory-task-only-candidate).
@@ -180,10 +180,12 @@ retain the plan before running either arm, and import the resulting judgments.
 Each arm needs a separate output directory and run-ID namespace. Review the
 report before the separate [promotion decision](skill-migrations.md#promote-the-exact-evaluated-tuple).
 
-Only skill-entrypoint edits can become candidates today. OpenCode supports
-capture and seeding, but has no migration/evaluation host integration. The
-credential-free checks verify setup and routing; live model behavior and judge
-quality remain separate validation work.
+Only skill-entrypoint edits can become candidates today. Both Codex and OpenCode
+captures retain real host assignments for this workflow. See the
+[OpenCode setup guide and assistant prompt](hosts/opencode.md) for native host
+setup. Harness² uses a separately pinned executor; credential-free checks verify
+setup and routing, while live benchmark behavior and judge quality remain
+separate validation work.
 
 ## If setup fails
 
