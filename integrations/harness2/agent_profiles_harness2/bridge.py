@@ -351,7 +351,19 @@ class ProfilesBridge:
         report["componentMappingEvidence"] = "external-claim"
         return report
 
-    def record_rollout(self, *, run_id: str, task_id: str, identity: dict):
+    def _rollout_record(self, run_id: str, task_id: str, identity: dict):
         record = {"evidenceStatus": "external-claim", "inputObservation": "before-execution", "runId": run_id, "taskId": task_id, **identity}
+        return hashlib.sha256(run_id.encode()).hexdigest() + ".json", encoded(record)
+
+    def reserve_rollout(self, *, run_id: str, task_id: str, identity: dict):
+        name, content = self._rollout_record(run_id, task_id, identity)
         with self.writer():
-            self.immutable(f"rollouts/{hashlib.sha256(run_id.encode()).hexdigest()}.json", encoded(record))
+            completed = safe(self.root, f"rollouts/{name}")
+            if completed.exists() and read_file(completed) != content:
+                raise ValueError(f"immutable capture conflict: rollouts/{name}")
+            self.immutable(f"rollout-inputs/{name}", content)
+
+    def record_rollout(self, *, run_id: str, task_id: str, identity: dict):
+        name, content = self._rollout_record(run_id, task_id, identity)
+        with self.writer():
+            self.immutable(f"rollouts/{name}", content)

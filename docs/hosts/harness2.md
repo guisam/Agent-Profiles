@@ -114,13 +114,25 @@ adapter = SeededAdapter(
 
 `base_harness()` redirects to a fresh verified materialization after the original
 constructor completes. This accommodates the demo constructor rewriting its own
-baseline. Existing `execute_many()` implementations stay in use. Each completed
-execution gets a sidecar in `rollouts/`, with the harness's SHA-256 observed
-**before** execution and the upstream fingerprint. Base rollouts keep upstream's
-literal `"base"` fingerprint and also carry the seed stamp. If the base bytes
-change after materialization, later rollouts have no stamp attribution.
+baseline. Seeded base calls pass the materialized directory explicitly to native
+`execute()` and `execute_many()`: some upstream adapters interpret `None` as an
+instruction to use their built-in baseline, bypassing `base_harness()`. Native
+batching stays in use. Each completed execution gets a sidecar in `rollouts/`,
+with the harness's SHA-256 observed **before** execution and its upstream content
+fingerprint. Seeded bases use a real fingerprint, not upstream's constant
+`"base"` marker, so native cache checks include the supplied harness bytes.
+Only an unchanged materialized seed receives its stamp attribution. If its bytes
+change, later rollouts under fresh IDs have no stamp attribution.
 Throwaway candidate rollouts have `stampDigest: null`; successful adoptions link
 their `runId` to a captured stamp through the adoption index.
+
+Before launching, `rollout-inputs/` reserves each run ID against its exact input
+identity. Conflicting reuse refuses before native output can be overwritten.
+A failed launch leaves its input reservation, but no completed `rollouts/`
+sidecar; the same input may retry. Use new run IDs after changing the harness,
+task or stamp, including when retrying a previously failed launch. Old sidecars
+with the literal `"base"` fingerprint cannot establish which seed ran and are
+refused by paired conversion; collect fresh evidence under new run namespaces.
 
 Use this package's `run_task(..., profiles=profiles, adapter=adapter, prop=proposer,
 runs_root=..., library_root=...)` wrapper when driving Harness². It delegates to
@@ -133,8 +145,8 @@ return values. No global classes or upstream files are patched.
 
 For task streams, retain only earlier tasks in each mode's library before each
 call, as upstream `run_domain()` does. Use separate run directories per arm or
-independent sweep; upstream's constant base fingerprint does not prevent cache
-reuse under an identical run ID. The opt-in test runs the real deterministic
+independent sweep. Run IDs identify immutable input claims, not reusable labels
+for different seeds. The opt-in test runs the real deterministic
 demo for two tasks and both modes twice, checking all adoptions and repeated
 package and stamp identities. The unchanged scheduler needs POSIX `fcntl`;
 run that demo on Linux, WSL Ubuntu, or the manual workflow.
@@ -325,11 +337,20 @@ Arm metadata, sidecars and judgments remain external claims, not authenticated
 proof of execution. Results ingestion checks the retained plan's authoritative
 digest and conditions; reporting does not authorize promotion.
 
-The opt-in workflow runs converter tests against the real Node CLI, covering
-proposal import/acceptance, skill candidate publication, plan retention, result
-ingestion and reporting with synthetic Codex evidence. This requires no model
-credentials. Real Codex model execution and judge quality need separate external
-validation. The offline OpenCode demo continues to cover capture and seeding.
+The opt-in workflow tests the real WorkBuddy, LAB and JobBench execution,
+staging and launch paths on both surfaces, replacing only external launchers,
+credential checks and dataset-location fixtures. It verifies supplied instruction
+markers reach the launcher, matching native caches reuse results, changed inputs
+refuse reused run IDs, failed launches create no completed attribution, and
+partial native batches attribute only returned rollouts. WorkBuddy batching
+remains one native launcher invocation. The demo covers actual offline execution.
+
+Converter tests also materialize distinct base/candidate stamps, run both through
+the native WorkBuddy path with a stub launcher, and pass their actual rollout
+sidecars through retained plans, results ingestion and reporting using the real
+Node CLI. Judgments are fixtures; this verifies routing and provenance, not model
+quality. No credentials are required. Real Codex model execution and judge quality
+need separate external validation.
 
 References: [tree validation](https://github.com/google-research/harness2/blob/1cfe254e8d25b15f37048c3730134686abe60335/harness2/core/tree.py),
 [Codex surface](https://github.com/google-research/harness2/blob/1cfe254e8d25b15f37048c3730134686abe60335/harness2/substrate/codex.py),

@@ -9,6 +9,7 @@ import unittest
 from agent_profiles_harness2 import ProfilesBridge, evaluation_plan, evaluation_results, proposal_batch, start_migration
 from agent_profiles_harness2.bridge import encoded
 from test_bridge import CLI, REPO, SKILL, harness
+from test_native_adapters import workbuddy_runner
 
 
 class ConverterTests(unittest.TestCase):
@@ -68,7 +69,7 @@ class ConverterTests(unittest.TestCase):
                     arm["judged"].append({"task": task, "label": f"base{trial}", "run_id": run,
                         "score": {"all_pass": side == "candidate", "n_passed": int(side == "candidate"), "n_criteria": 1}})
                     arm["rollouts"].append({"runId": run, "taskId": task, "stampDigest": arm["stampDigest"],
-                        "inputObservation": "before-execution", "fingerprint": "base", "treeDigest": hashlib.sha256(side.encode()).hexdigest()})
+                        "inputObservation": "before-execution", "fingerprint": "b" * 16 if side == "base" else "c" * 16, "treeDigest": hashlib.sha256(side.encode()).hexdigest()})
                     arm["costs"].append({"runId": run, "taskId": task, "kind": "rollout", "label": f"base{trial}", "usd": 0.01})
             arms.append(arm)
         return arms
@@ -93,6 +94,38 @@ class ConverterTests(unittest.TestCase):
         self.assertEqual(report["eligibility"]["status"], "eligible")
         self.assertIsNone(result["outcomes"][0]["metrics"]["tokens"])
         self.assertEqual(result["outcomes"][0]["metrics"]["costUsd"], 0.01)
+
+    def test_native_fixed_arms_consume_distinct_seeds_and_pass_cli_results(self):
+        tasks = [{**{key: case[key] for key in ("id", "kind", "input", "expected")}, "taskId": case["id"]} for case in self.plan["cases"]]
+        plan = self.make_plan(id="native-plan", tasks=tasks)
+        source = self.root / "native-plan.json"
+        source.write_bytes(encoded(plan))
+        retained = self.profiles.command("migrate", "plan", self.candidate["id"], str(source), project=self.project)
+        arms, prompts = [], []
+        for side in ("base", "candidate"):
+            stamp = plan[side + "Stamp"]
+            seed = self.profiles.seed(stamp, surface="codex", project=self.project)
+            arm = {"runsRoot": str(self.root / side), "stampDigest": stamp, "conditions": plan["conditions"], "judged": []}
+            with workbuddy_runner(self.root / side, self.profiles, stamp, seed) as (adapter, observed):
+                for task in tasks:
+                    ids = [f"{adapter.spec.name}-cx-{side}/{task['taskId']}/base{i}" for i in (1, 2)]
+                    self.assertEqual(len(adapter.execute_many(task["taskId"], None, ids)), 2)
+                    for i, run_id in enumerate(ids, 1):
+                        arm["judged"].append({"task": task["taskId"], "label": f"base{i}", "run_id": run_id, "score": {"all_pass": True}})
+                prompts.append(observed)
+            ids = {row["run_id"] for row in arm["judged"]}
+            records = [json.loads(file.read_bytes()) for file in (self.profiles.root / "rollouts").glob("*.json")]
+            arm["rollouts"] = [record for record in records if record["runId"] in ids]
+            arms.append(arm)
+        self.assertTrue(all("Reject stale evidence." not in prompt for prompt in prompts[0]))
+        self.assertTrue(all("Reject stale evidence." in prompt for prompt in prompts[1]))
+        result = evaluation_results(id="native-results", plan=plan, plan_digest=retained["planDigest"], base=arms[0], candidate=arms[1])
+        source = self.root / "native-results.json"
+        source.write_bytes(encoded(result))
+        imported = self.profiles.command("migrate", "results", plan["id"], str(source), project=self.project)
+        report = self.profiles.command("migrate", "report", result["id"], project=self.project)
+        self.assertEqual(report["resultDigest"], imported["resultDigest"])
+        self.assertEqual(report["evidence"]["correctness"], "external-claim")
 
     def fresh_workspace(self):
         # An isolated copy of the original migration bytes avoids accepting test proposals.
@@ -164,6 +197,7 @@ class ConverterTests(unittest.TestCase):
             "conditions": lambda a: a[1]["conditions"]["harness"]["settings"].update(seed=8),
             "stamp": lambda a: a[1].update(stampDigest="0" * 64),
             "sidecar": lambda a: a[1]["rollouts"][0].update(stampDigest=None),
+            "default-base-identity": lambda a: a[1]["rollouts"][0].update(fingerprint="base"),
             "mutable": lambda a: a[1]["rollouts"][0].update(treeDigest="0" * 64),
             "same-root": lambda a: a[1].update(runsRoot=a[0]["runsRoot"]),
             "overlap-root": lambda a: a[1].update(runsRoot=str(Path(a[0]["runsRoot"]) / "nested")),

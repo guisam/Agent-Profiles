@@ -185,7 +185,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(adapter.batch_calls, 1)
         records = [json.loads(file.read_bytes()) for file in (self.profiles.root / "rollouts").glob("*.json")]
         self.assertEqual(len(records), 2)
-        self.assertTrue(all(record["stampDigest"] == seed["stampDigest"] and record["fingerprint"] == "base" for record in records))
+        self.assertTrue(all(record["stampDigest"] == seed["stampDigest"] and record["fingerprint"] == runmark.fingerprint(adapter.base_harness()) for record in records))
         adapter.execute("task-1", None, "mutates-input")
         adapter.execute("task-1", None, "after-mutation")
         records = {json.loads(file.read_bytes())["runId"]: json.loads(file.read_bytes()) for file in (self.profiles.root / "rollouts").glob("*.json")}

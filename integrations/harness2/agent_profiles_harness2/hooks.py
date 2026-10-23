@@ -42,18 +42,25 @@ def seeded_adapter(adapter_type):
         def _profiles_identity(self, harness_dir):
             directory = Path(harness_dir) if harness_dir is not None else self.base_harness()
             tree_digest = digest(read_tree(directory, self.substrate.surface()))
-            stamp = self.seed_stamp if harness_dir is None and tree_digest == self._profile_seed_digest else None
-            return {"treeDigest": tree_digest, "fingerprint": "base" if harness_dir is None else runmark.fingerprint(directory), "stampDigest": stamp}
+            stamp = self.seed_stamp if directory.resolve() == self._profile_seed.resolve() and tree_digest == self._profile_seed_digest else None
+            return {"treeDigest": tree_digest, "fingerprint": runmark.fingerprint(directory), "stampDigest": stamp}
 
         def execute(self, task_id, harness_dir, run_id, **kwargs):
+            # Native adapters can interpret None as their built-in baseline, bypassing base_harness().
+            harness_dir = self.base_harness() if harness_dir is None else Path(harness_dir)
             identity = self._profiles_identity(harness_dir)
+            self.profiles.reserve_rollout(run_id=run_id, task_id=task_id, identity=identity)
             result = super().execute(task_id, harness_dir, run_id, **kwargs)
             self.profiles.record_rollout(run_id=run_id, task_id=task_id, identity=identity)
             return result
 
     if callable(getattr(adapter_type, "execute_many", None)):
         def execute_many(self, task_id, harness_dir, run_ids, **kwargs):
+            harness_dir = self.base_harness() if harness_dir is None else Path(harness_dir)
             identity = self._profiles_identity(harness_dir)
+            run_ids = list(run_ids)
+            for run_id in run_ids:
+                self.profiles.reserve_rollout(run_id=run_id, task_id=task_id, identity=identity)
             results = list(super(SeededAdapter, self).execute_many(task_id, harness_dir, run_ids, **kwargs))
             for run_id, result in zip(run_ids, results):
                 if Path(result).is_dir():

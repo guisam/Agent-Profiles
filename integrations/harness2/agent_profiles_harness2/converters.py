@@ -217,7 +217,7 @@ def evaluation_results(*, id, plan, plan_digest, base, candidate):
             record = records.get(run_id, {})
             if (record.get("stampDigest") != stamp or record.get("taskId") != row["task"]
                     or record.get("inputObservation") != "before-execution"
-                    or record.get("fingerprint") != "base"
+                    or not re.fullmatch(r"[0-9a-f]{16}", record.get("fingerprint", ""))
                     or not re.fullmatch(r"[0-9a-f]{64}", record.get("treeDigest", ""))):
                 raise ValueError("missing or mismatched pre-execution rollout identity")
             score = row["score"]
@@ -246,7 +246,7 @@ def evaluation_results(*, id, plan, plan_digest, base, candidate):
         expected = {(task, trial) for task in task_cases for trial in range(1, plan["trials"] + 1)}
         if seen != expected or set(records) != used_runs or not set(costs) <= used_runs:
             raise ValueError("missing or foreign fixed-arm coverage")
-        if len({record["treeDigest"] for record in records.values()}) != 1:
+        if len({(record["treeDigest"], record["fingerprint"]) for record in records.values()}) != 1:
             raise ValueError("fixed-arm harness bytes changed during evaluation")
     return {"resultVersion": 1, "id": id, "planDigest": plan_digest,
         "candidateRevisionDigest": plan["candidateRevisionDigest"],
