@@ -63,6 +63,49 @@ In particular, v2 keys native skills by directory-derived ID, keeps the display
 name separately, and loads sources sequentially; do not carry over v1's
 frontmatter-name/concurrent-duplicate conclusions without new qualification.
 
+## Live paired workflow
+
+The remaining live workflow check passed on 2026-10-23. It used the same
+`opencode/big-pickle` model and the public pinned Harness² substrate/launcher
+contract with a tiny synthetic routing task. The model saw generated policies and
+random tokens only. No repository code, instructions, private task data or grader
+answers were supplied. This is a live integration check, not a deployment of the
+WorkBuddy/LAB/JobBench datasets or their separately pinned executors.
+
+```powershell
+$env:PYTHONPATH = 'C:\workspace\harness2'
+python integrations/harness2/live_smoke.py --live --model opencode/big-pickle --output "$env:TEMP\ap-live-new-run"
+```
+
+Choose a new, absent output directory. Add `--prepare-only` to inspect exact
+synthetic payloads and the retained plan without making model requests. Live mode
+requests four actual rollouts and retains raw events, native session identities,
+answers, exact-answer judgments, stamps, plans/results and promotion records.
+The script's tiny adapter supplies the launcher through Harness²'s public API;
+it does not patch upstream or replace existing benchmark launchers.
+
+- Two cases, one trial per arm: base **1/2**, candidate **2/2**. The candidate fixed
+  the intentionally obsolete alpha route and preserved the beta regression case.
+- Every rollout invoked the native routing skill. Retained native assistant
+  metadata matched `opencode/big-pickle`; the real assignment remained host
+  `opencode`, role `worker`.
+- Replaying the four run IDs reused native cache artifacts with **zero additional
+  model launches**. Reusing either arm's run ID with changed harness bytes refused
+  before launching or overwriting evidence.
+- `evaluation_results` accepted exact paired coverage. The real migration CLI
+  retained results, reported eligibility, performed a read-only preview, then
+  explicitly promoted the evaluated candidate. The resulting OpenCode stamp
+  verified as managed-reproducible.
+
+The [measured summary and native session references](opencode-live-result.json)
+record the immutable plan/result/promoted-stamp digests. Raw evidence is retained
+locally at `C:\Users\gfw\AppData\Local\Temp\agent-profiles-live-paired-a88c40ce729d4dc2992bab5c6c54550b`.
+Exact answers were graded by executable equality checks through Harness²'s judge
+API; they are not fabricated fixture judgments. Imported measurements retain the
+existing `external-claim` trust label because the evaluator runs outside Agent
+Profiles. The four-call check establishes integration behavior, not statistical
+model quality.
+
 ## Verification boundaries
 
 The extended check verifies actual bootstrap execution and selected profile/role
@@ -70,14 +113,14 @@ consumption with isolated synthetic content. Credential-free host tests cover
 installation, Codex coexistence, identity, fallback, native metadata and stamps.
 Python converter tests cover both hosts' fork/proposal/candidate/paired-evaluation
 and explicit preview/promotion paths; native launcher fixtures cover fixed-arm
-batch consumption and immutable input identities. Fixture judgments remain
-external claims, not live model quality evidence.
+batch consumption and immutable input identities. The separate live paired check
+above exercises measured native answers through real results and promotion.
 
 Clean sessions are requested without resume/continue/fork flags. Switching an
 existing session is not certified as clean; the bootstrap and resolver require
 new-session semantics explicitly. Arbitrary subagent behavior, global/ancestor
-precedence, all compatibility layouts, provider implementation identity and live
-Harness² model/judge quality remain unverified. Do not relabel old null-host
+precedence, all compatibility layouts and provider implementation identity are
+outside the bounded qualification. Do not relabel old null-host
 captures or claim role-based native skill/permission isolation.
 
 ## Repository checks

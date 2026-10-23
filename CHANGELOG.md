@@ -4,6 +4,10 @@
 
 ### OpenCode host integration (#30)
 
+- Verify a live four-rollout OpenCode/Harness² paired workflow through measured
+  answers, cache reuse, changed-input refusal, retained results, preview and
+  explicit promotion. Keep the opt-in test and its measured evidence separate
+  from credential-free fixtures and broad benchmark quality claims.
 - Register the distinct OpenCode host with independent managed `AGENTS.md`
   ownership alongside Codex, safe repeated setup/uninstall, inspection/proof,
   explicit provider/model and role routing, and native skill metadata support.

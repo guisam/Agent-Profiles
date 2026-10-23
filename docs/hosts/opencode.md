@@ -6,6 +6,10 @@ resolver invocation were observed on Windows with `opencode/big-pickle`, agent
 `build`. See the [observation record](opencode-observations.md). Earlier v1 source
 research describes a different host implementation.
 
+The live paired smoke also passed: four actual rollouts, measured base/candidate
+answers, cache/conflict checks, retained results, read-only preview and explicit
+promotion. Reproduction and evidence are in the observation record.
+
 ## Install and select context
 
 Requires Node 24 and an OpenCode CLI. From a trusted Agent Profiles checkout,
