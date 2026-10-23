@@ -1,0 +1,35 @@
+name: Harness2 compatibility (opt-in)
+
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/checkout@v7
+        with:
+          repository: google-research/harness2
+          ref: 1cfe254e8d25b15f37048c3730134686abe60335
+          path: .harness2-upstream
+          persist-credentials: false
+      - run: npm ci --ignore-scripts
+      - run: node --test test/harness2-tree.test.js
+        env:
+          HARNESS2_VALIDATION_DIR: ${{ runner.temp }}/harness2-trees
+      - run: python integrations/harness2/validate_trees.py "${{ runner.temp }}/harness2-trees"
+        env:
+          PYTHONPATH: .harness2-upstream
+      - run: python -m unittest discover -s integrations/harness2 -p 'test_*.py' -v
+        env:
+          PYTHONPATH: .harness2-upstream:integrations/harness2

@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { errorCode, errorMessage } from "./files.ts";
+import { harness2Materializer } from "./harness2-tree.ts";
 import {
 	encodeComponent,
 	publish,
@@ -42,6 +43,16 @@ const capabilities = {
 	hostVisibilityIsolation: "unverified",
 	runtimeRendering: "unverified",
 };
+const materializers = [
+	{
+		identity: adapter,
+		capabilities,
+		validateOptions: (options: Untyped) => keys(options, "options", []),
+		validateMappings: mappings,
+		render: renderFilesystem,
+	},
+	harness2Materializer,
+];
 const compare = (a: Untyped, b: Untyped) =>
 	Buffer.compare(Buffer.from(a), Buffer.from(b));
 const equal = (a: Untyped, b: Untyped) =>
@@ -55,7 +66,7 @@ const mappingOrder = (a: Untyped, b: Untyped) =>
 	compare(a.sourceKind, b.sourceKind) ||
 	compare(a.sourceDigest, b.sourceDigest);
 
-function fail(location: string, message: string) {
+function fail(location: string, message: string): never {
 	throw new Error(`${location}: ${message}`);
 }
 function object(value: Untyped, location: string) {
@@ -99,9 +110,14 @@ function portable(value: Untyped) {
 }
 function contract(selected: Untyped, options: Untyped) {
 	keys(selected, "adapter", ["id", "contractVersion"]);
-	if (!equal(selected, adapter))
+	object(options, "options");
+	const implementation = materializers.find((item) =>
+		equal(selected, item.identity),
+	);
+	if (!implementation)
 		fail("adapter", "unsupported adapter or contractVersion");
-	keys(options, "options", []);
+	implementation.validateOptions(options);
+	return implementation;
 }
 function mappings(rows: Untyped) {
 	if (!Array.isArray(rows)) fail("mappings", "expected array");
@@ -144,7 +160,13 @@ function mappings(rows: Untyped) {
 			fail("mappings", "expected sorted unique mappings");
 }
 
-function build(stampDigest: Untyped, selected: Untyped) {
+function build(
+	stampDigest: Untyped,
+	selected: Untyped,
+	adapterSelection: Untyped,
+	options: Untyped,
+) {
+	const implementation = contract(adapterSelection, options);
 	digest(stampDigest, "stampDigest");
 	let root: string, snapshotBytes: Buffer;
 	try {
@@ -181,6 +203,37 @@ function build(stampDigest: Untyped, selected: Untyped) {
 		)
 	)
 		fail("stamp-mismatch", "snapshot changed during reconstruction");
+	const { files, rows, content } = implementation.render({
+		stampDigest,
+		snapshot,
+		snapshotBytes,
+		retained,
+		options,
+	});
+	validateMembers(
+		files.map((file) => ({ path: file.path, type: "file", nlink: 1 })),
+	);
+	implementation.validateMappings(rows);
+	return {
+		plan: {
+			planVersion: 1,
+			stampDigest,
+			adapter: { ...implementation.identity },
+			options: { ...options },
+			files,
+			mappings: rows,
+			capabilities: { ...implementation.capabilities },
+		},
+		content,
+	};
+}
+
+function renderFilesystem({
+	stampDigest,
+	snapshot,
+	snapshotBytes,
+	retained,
+}: Untyped) {
 	const files: Untyped[] = [],
 		rows: Untyped[] = [],
 		content: Untyped[] = [];
@@ -359,20 +412,7 @@ function build(stampDigest: Untyped, selected: Untyped) {
 	files.sort((a, b) => compare(a.path, b.path));
 	rows.sort(mappingOrder);
 	content.sort((a, b) => compare(a.path, b.path));
-	validateMembers(
-		files.map((file) => ({ path: file.path, type: "file", nlink: 1 })),
-	);
-	mappings(rows);
-	const plan = {
-		planVersion: 1,
-		stampDigest,
-		adapter: { ...adapter },
-		options: {},
-		files,
-		mappings: rows,
-		capabilities: { ...capabilities },
-	};
-	return { plan, content };
+	return { files, rows, content };
 }
 
 /** @param {{stampDigest: string, storeRoot?: string, adapterId: string, adapterContractVersion: number, options?: object}} input */
@@ -383,13 +423,14 @@ export function planMaterialization(input: Untyped) {
 		["stampDigest", "adapterId", "adapterContractVersion"],
 		["storeRoot", "options"],
 	);
-	contract(
+	return build(
+		input.stampDigest,
+		input.storeRoot,
 		{ id: input.adapterId, contractVersion: input.adapterContractVersion },
 		input.options === undefined && !Object.hasOwn(input, "options")
 			? {}
 			: input.options,
-	);
-	return build(input.stampDigest, input.storeRoot).plan;
+	).plan;
 }
 
 /** @param {{stampDigest: string, storeRoot?: string, adapterId: string, adapterContractVersion: number, options?: object, destination: string, outputRoot: string, deniedRoots: string[]}} input */
@@ -450,9 +491,9 @@ function receiptSchema(receipt: Untyped) {
 		fail("receipt", "unsupported version or status");
 	for (const key of ["stampDigest", "planDigest", "outputDigest"])
 		digest(receipt[key], key);
-	contract(receipt.adapter, receipt.options);
-	mappings(receipt.mappings);
-	if (!equal(receipt.capabilities, capabilities))
+	const implementation = contract(receipt.adapter, receipt.options);
+	implementation.validateMappings(receipt.mappings);
+	if (!equal(receipt.capabilities, implementation.capabilities))
 		fail("capabilities", "unsupported claims");
 }
 function directory(target: Untyped) {
@@ -611,7 +652,12 @@ export function verifyMaterialization(input: Untyped) {
 		findings.push(`stamp-mismatch:${input.expectedStampDigest}`);
 	let expected: Untyped;
 	try {
-		expected = build(input.expectedStampDigest, input.storeRoot);
+		expected = build(
+			input.expectedStampDigest,
+			input.storeRoot,
+			receipt.adapter,
+			receipt.options,
+		);
 	} catch (error) {
 		findings.push(errorMessage(error));
 		return result();
@@ -711,7 +757,12 @@ export function materialize(input: Untyped) {
 		staging = `${context.prefix}-${operation}.stage`;
 	const stage = context.check(staging);
 	if (statOrNull(stage)) fail("ownership", "staging already exists");
-	const expected = build(input.plan.stampDigest, input.storeRoot);
+	const expected = build(
+		input.plan.stampDigest,
+		input.storeRoot,
+		input.plan.adapter,
+		input.plan.options,
+	);
 	if (!equal(input.plan, expected.plan))
 		fail("plan-mismatch", "supplied plan differs from verified reconstruction");
 	const receipt = receiptFor(expected.plan, expected.content);

@@ -1,6 +1,25 @@
 # Changelog
 
-## Unreleased — migration workspace groundwork (#21)
+## Unreleased
+
+### Harness² integration (#28)
+
+- Add verified `harness2-tree` materialization for Codex and OpenCode surfaces,
+  deterministic adoption capture, seeded benchmark adapters, and proposal and
+  paired-evaluation converters under `integrations/harness2/`. Keep model execution
+  external, executable package content inert, and promotion explicit.
+- Pass materialized seeds into real native execution and batching paths, record
+  content fingerprints, and reserve run input identities before launch to prevent
+  changed-seed reuse from overwriting attributed output. Cover WorkBuddy, LAB and
+  JobBench launch paths on both surfaces, native cache reuse, failures, partial
+  batches, and native rollout evidence through the migration CLI.
+- Add an opt-in compatibility workflow against pinned upstream source using
+  Node 24. Live Codex execution and judge quality remain untested; OpenCode is a
+  surface layout without a migration/evaluation host integration. Candidates
+  remain limited to skill entrypoints. Earlier literal-base sidecars require
+  fresh evidence under new run IDs.
+
+### Migration workspace groundwork (#21)
 
 - Start migration workspaces directly on a current config3 project and lock2. The
   authoring base is an ordinary active stamp2; selected roots are taken by kind and

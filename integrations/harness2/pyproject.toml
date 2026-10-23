@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-profiles-harness2"
+version = "0.1.0"
+description = "Stamp seeding and adoption capture for Harness2"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agent_profiles_harness2*"]
