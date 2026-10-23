@@ -39,7 +39,7 @@ import {
 } from "../src/migrations.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, rootPath } from "../src/package-store.ts";
-import { readPackage } from "../src/packages.ts";
+import { readPackage, type Untyped } from "../src/packages.ts";
 import { runPreset } from "../src/preset-wizard.ts";
 import { type ResolveOptions, resolveInstructions } from "../src/resolve.ts";
 import { retainRevisionManifest } from "../src/revisions.ts";
@@ -91,6 +91,7 @@ try {
 			offline: { type: "boolean", default: false },
 			"frozen-lockfile": { type: "boolean", default: false },
 			adapter: { type: "string" },
+			surface: { type: "string" },
 			"output-root": { type: "string" },
 			destination: { type: "string" },
 			"protect-root": { type: "string", multiple: true },
@@ -167,7 +168,8 @@ Commands:
   stamp       Capture resolved instructions with the resolve selectors
   verify      Verify one full lowercase SHA-256 stamp digest in the store
   diff        Compare two full stamp digests
-  materialize Export a stamp using --adapter filesystem-v1 --output-root <absolute-root>
+  materialize Export a stamp using --adapter filesystem-v1|harness2-tree --output-root <absolute-root>
+              Harness² requires --surface codex|opencode; the harness root is <destination>/content
               --destination <absolute-new-child> [--protect-root <absolute-path> ...]
   migrate     Develop isolated migration workspaces and review evidence-linked proposals
   revision    Adopt metadata for an existing immutable legacy release
@@ -381,13 +383,14 @@ Examples:
 			);
 		if (
 			(values.adapter !== undefined ||
+				values.surface !== undefined ||
 				values["output-root"] !== undefined ||
 				values.destination !== undefined ||
 				values["protect-root"]) &&
 			command !== "materialize"
 		)
 			throw new Error(
-				"--adapter, --output-root, --destination, and --protect-root are only supported by materialize",
+				"--adapter, --surface, --output-root, --destination, and --protect-root are only supported by materialize",
 			);
 		if (values.store !== undefined && !values.store.trim())
 			throw new Error("--store requires a directory");
@@ -416,6 +419,13 @@ Examples:
 					);
 		}
 		if (command === "materialize") {
+			if (
+				values.adapter === "harness2-tree" &&
+				!["codex", "opencode"].includes(values.surface ?? "")
+			)
+				throw new Error("harness2-tree requires --surface codex|opencode");
+			if (values.adapter !== "harness2-tree" && values.surface !== undefined)
+				throw new Error("--surface requires --adapter harness2-tree");
 			for (const name of ["adapter", "output-root", "destination"] as const)
 				if (values[name] === undefined || !values[name].trim())
 					throw new Error(
@@ -657,22 +667,34 @@ Examples:
 			if (!result.complete) process.exitCode = 1;
 		} else if (command === "materialize") {
 			const { claudeConfig, codexSkills } = defaultUserRoots();
+			const receipt = materializeStamp({
+				stampDigest: positionals[1],
+				storeRoot,
+				adapterId: values.adapter,
+				adapterContractVersion: 1,
+				options:
+					values.surface === undefined ? {} : { surface: values.surface },
+				destination: values.destination,
+				outputRoot: values["output-root"],
+				deniedRoots: [
+					root,
+					claudeConfig,
+					codexSkills,
+					...(values["protect-root"] ?? []),
+				],
+			});
+			const unmapped = receipt.mappings.filter(
+				(row: Untyped) => row.operation === "unmapped",
+			);
 			report(
-				materializeStamp({
-					stampDigest: positionals[1],
-					storeRoot,
-					adapterId: values.adapter,
-					adapterContractVersion: 1,
-					destination: values.destination,
-					outputRoot: values["output-root"],
-					deniedRoots: [
-						root,
-						claudeConfig,
-						codexSkills,
-						...(values["protect-root"] ?? []),
-					],
-				}),
-				`Materialized stamp ${positionals[1]}`,
+				receipt,
+				[
+					`Materialized stamp ${positionals[1]}`,
+					...unmapped.map(
+						(row: Untyped) =>
+							`Unmapped ${display(row.binding ?? row.source?.path ?? "source")}: ${display(row.reason)}`,
+					),
+				].join("\n"),
 			);
 		} else if (command === "inspect") {
 			const result = inspectRepository({ root, ...discoveryOptions });

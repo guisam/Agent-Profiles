@@ -759,6 +759,44 @@ test("C18 seam exports the four materialization operations", () => {
 		assert.equal(typeof sut[name], "function", name);
 });
 
+for (const selection of [
+	{ adapter: { id: "unknown-tree", contractVersion: 1 }, options: {} },
+	{ adapter: { id: "filesystem-v1", contractVersion: 2 }, options: {} },
+	{ adapter, options: { surface: "codex" } },
+])
+	behavior(
+		"adapter contract is enforced in planning, writing and verification",
+		async (t) => {
+			const f = fixture(t);
+			const before = fingerprint(f.dir);
+			await refuses(
+				() =>
+					sut.planMaterialization({
+						...f.planInput,
+						adapterId: selection.adapter.id,
+						adapterContractVersion: selection.adapter.contractVersion,
+						options: selection.options,
+					}),
+				/adapter|options/,
+			);
+			await refuses(
+				() =>
+					sut.materialize({
+						...f.args,
+						plan: { ...f.expectedPlan, ...selection },
+					}),
+				/adapter|options/,
+			);
+			assert.deepEqual(fingerprint(f.dir), before);
+			await exported(f);
+			put(
+				path.join(f.args.destination, "receipt.json"),
+				canonicalJSON({ ...f.expectedReceipt, ...selection }),
+			);
+			await finding(f, "receipt-schema:");
+		},
+	);
+
 test("M01 independent canonical framing controls exercise existing primitives", () => {
 	const value = { z: ["\u0000", "é", 1], a: true };
 	assert.equal(J(value), '{"a":true,"z":["\\u0000","é",1]}');
