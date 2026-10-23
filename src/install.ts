@@ -70,7 +70,7 @@ function integrationState(root: string, adapter: Integration) {
 		return {
 			file,
 			before,
-			span: before === null ? null : managedSpan(before, file),
+			span: before === null ? null : managedSpan(before, file, adapter.id),
 		};
 	});
 	const installed = records.filter((record) => record.span);
@@ -552,7 +552,10 @@ export function install({
 		const record = agent.records.find((item) => item.file === agent.file);
 		// select() always returns one of the adapter's own files.
 		if (!record) throw new Error(`${agent.name}: no record for ${agent.file}`);
-		const { file, before, span } = record;
+		const { file } = record;
+		const pending = changes.find((change) => change.file === file);
+		const before = pending ? pending.after : record.before;
+		const span = before && managedSpan(before, file, agent.id);
 		const block = expectedBlock(agent.id, before);
 		// An outdated managed block is replaced in place; bytes outside the markers are preserved.
 		if (
@@ -562,18 +565,16 @@ export function install({
 			before.subarray(span.start, span.end).equals(block)
 		)
 			continue;
-		changes.push({
-			file,
-			before,
-			after:
-				agent.installed && before && span
-					? Buffer.concat([
-							before.subarray(0, span.start),
-							block,
-							before.subarray(span.end),
-						])
-					: Buffer.concat([before ?? Buffer.alloc(0), block]),
-		});
+		const after =
+			agent.installed && before && span
+				? Buffer.concat([
+						before.subarray(0, span.start),
+						block,
+						before.subarray(span.end),
+					])
+				: Buffer.concat([before ?? Buffer.alloc(0), block]);
+		if (pending) pending.after = after;
+		else changes.push({ file, before: record.before, after });
 	}
 	const permissionAgents = [...selected, ...installed].filter(
 		(agent) => adapterFor(agent.id).permissions,
@@ -661,16 +662,19 @@ export function uninstall({
 		integrations.flatMap((adapter) => adapter.files),
 	)) {
 		const before = readLocal(root, file);
-		const span = before === null ? null : managedSpan(before, file);
-		if (before && span)
-			changes.push({
-				file,
-				before,
-				after: Buffer.concat([
-					before.subarray(0, span.start),
-					before.subarray(span.end),
-				]),
-			});
+		if (!before) continue;
+		let after = before;
+		for (const adapter of integrations.filter((item) =>
+			item.files.includes(file),
+		)) {
+			const span = managedSpan(after, file, adapter.id);
+			if (span)
+				after = Buffer.concat([
+					after.subarray(0, span.start),
+					after.subarray(span.end),
+				]);
+		}
+		if (!after.equals(before)) changes.push({ file, before, after });
 	}
 	const config = safePath(root, ".agent-profiles");
 	if (deleteConfig && existsSync(config)) {

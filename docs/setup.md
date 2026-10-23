@@ -120,7 +120,7 @@ or exported. An inventory itself contains local paths: do not commit or share it
 without review/redaction.
 
 Tools are checked without launching binaries or scripts. The fixed allowlist is:
-`claude`, `codex`, `hermes`; `node`, `python`, `python3`, `go`, `rustc`; `npm`, `npx`,
+`claude`, `codex`, `opencode`, `hermes`; `node`, `python`, `python3`, `go`, `rustc`; `npm`, `npx`,
 `pnpm`, `yarn`, `bun`, `uv`, `pip`, `pip3`, `cargo`; `git`, `gh`, `docker`; `ollama`,
 `llama-server`, `lms`, `vllm`. Only absolute PATH entries are checked; empty/relative
 entries never imply the current directory. POSIX candidates need executable mode

@@ -19,7 +19,7 @@ const nativeId = /^[a-z0-9][a-z0-9-]*$/;
 
 /** A machine-local skill root: a user root, or a Claude plugin root with its namespace. */
 export type SourceRoot = {
-	host: "claude" | "codex";
+	host: "claude" | "codex" | "opencode";
 	scope: "user" | "plugin";
 	path: string;
 	namespace?: string;
@@ -52,7 +52,7 @@ function validateRoots(roots: unknown): SourceRoot[] {
 			Object.keys(root).some(
 				(key) => !["host", "scope", "path", "namespace"].includes(key),
 			) ||
-			!["claude", "codex"].includes(root.host) ||
+			!["claude", "codex", "opencode"].includes(root.host) ||
 			!(
 				root.scope === "user" ||
 				(root.host === "claude" && root.scope === "plugin")
@@ -204,6 +204,17 @@ export function discoverExternalSkills(
 	{ metadataOnly = false }: { metadataOnly?: boolean } = {},
 ) {
 	const { claudeConfig, codexSkills } = defaultUserRoots({ home, env });
+	const opencodeConfig =
+		env.OPENCODE_CONFIG_DIR ??
+		path.join(env.XDG_CONFIG_HOME ?? path.join(home, ".config"), "opencode");
+	if (
+		!path.isAbsolute(opencodeConfig) ||
+		opencodeConfig.includes("\0") ||
+		opencodeConfig.split(/[\\/]/).includes("..")
+	)
+		throw new Error(
+			"OpenCode config: expected an absolute directory without traversal",
+		);
 	const file =
 		sourcesFile ??
 		env.AGENT_PROFILES_SKILL_SOURCES ??
@@ -213,6 +224,16 @@ export function discoverExternalSkills(
 	const roots: SourceRoot[] = [
 		{ host: "claude", scope: "user", path: path.join(claudeConfig, "skills") },
 		{ host: "codex", scope: "user", path: codexSkills },
+		{
+			host: "opencode",
+			scope: "user",
+			path: path.join(opencodeConfig, "skill"),
+		},
+		{
+			host: "opencode",
+			scope: "user",
+			path: path.join(opencodeConfig, "skills"),
+		},
 		...localRoots(
 			file,
 			sourcesFile !== undefined ||
@@ -247,6 +268,7 @@ export function discoverExternalSkills(
 			continue;
 		}
 		const visited = new Set<string>();
+		const depthLimit = root.host === "opencode" ? 6 : 8;
 		function walk(directory: string, depth: number) {
 			if (++count > 4096) return;
 			let canonical: string;
@@ -261,7 +283,7 @@ export function discoverExternalSkills(
 				if (!statSync(canonical).isDirectory()) return;
 				// Claude's shallow scan identifies each invocation directory alias separately.
 				// Codex's recursive scan must still deduplicate canonical directories and cycles.
-				if (root.host === "codex" && visited.has(canonical)) return;
+				if (root.host !== "claude" && visited.has(canonical)) return;
 				visited.add(canonical);
 			} catch (error) {
 				warnings.push(
@@ -269,9 +291,9 @@ export function discoverExternalSkills(
 				);
 				return;
 			}
-			if (depth > 8) {
+			if (depth > depthLimit) {
 				warnings.push(
-					`${directory}: depth limit (8) reached; approve a more specific root`,
+					`${directory}: depth limit (${depthLimit}) reached; approve a more specific root`,
 				);
 				return;
 			}
@@ -287,7 +309,7 @@ export function discoverExternalSkills(
 						throw new Error("SKILL.md must be a regular file");
 					const metadata = externalMetadata(target, root.host);
 					const native =
-						root.host === "claude" ? path.basename(directory) : metadata.name;
+						root.host === "codex" ? metadata.name : path.basename(directory);
 					if (
 						!nativeId.test(native) ||
 						(root.host === "codex" && metadata.nameSource !== "frontmatter")
@@ -331,6 +353,7 @@ export function discoverExternalSkills(
 							selectable: true,
 						});
 					}
+					if (root.host === "opencode") return;
 				} catch (error) {
 					if (errorCode(error) !== "ENOENT" && errorCode(error) !== "ENOTDIR")
 						warnings.push(
@@ -346,6 +369,7 @@ export function discoverExternalSkills(
 				);
 				for (const child of children) {
 					if (!child.isDirectory() && !child.isSymbolicLink()) continue;
+					if (root.host === "opencode" && child.name.startsWith(".")) continue;
 					if (
 						root.host === "claude" &&
 						["synced", "anthropic-skills"].includes(child.name)

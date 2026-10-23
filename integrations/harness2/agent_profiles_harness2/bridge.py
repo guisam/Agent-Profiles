@@ -186,7 +186,7 @@ class ProfilesBridge:
                 raise ValueError(f"orphan skill companion: {name}")
         claims = {name: {"encoding": "base64", "data": base64.b64encode(content).decode("ascii")} for name, content in (evidence or {}).items()}
         tree_digest = digest(files)
-        selection = {"model": self.model, "role": self.role, "host": "codex" if surface == "codex" else None}
+        selection = {"model": self.model, "role": self.role, "host": surface}
         with self.writer(), tempfile.TemporaryDirectory(prefix="capture-", dir=self.root) as temporary:
             work = Path(temporary)
             project = work / "project"
@@ -292,8 +292,7 @@ class ProfilesBridge:
             (project / ".agent-profiles/agents.yaml").write_bytes(encoded(config))
             self.command("install", "--offline", project=project)
             selectors = ["--role", self.role, "--model", self.model]
-            if surface == "codex":
-                selectors += ["--host", "codex"]
+            selectors += ["--host", surface]
             stamp = self.command("stamp", *selectors, project=project)
             project_key = tree_digest + "-" + hashlib.sha256(encoded({**selection, "namespace": self.namespace})).hexdigest()[:16]
             relative_project = f"projects/{project_key}"

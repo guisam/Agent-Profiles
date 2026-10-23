@@ -13,18 +13,26 @@ from test_native_adapters import workbuddy_runner
 
 
 class ConverterTests(unittest.TestCase):
+    surface = "codex"
+    primary = "AGENTS.md"
+    skill_path = ".agents/skills/review/SKILL.md"
+
+    @classmethod
+    def files(cls):
+        return harness(cls.surface)
+
     @classmethod
     def setUpClass(cls):
         cls.temporary = tempfile.TemporaryDirectory(prefix="ap-harness2-convert-")
         cls.addClassCleanup(cls.temporary.cleanup)
         cls.root = Path(cls.temporary.name)
         cls.profiles = ProfilesBridge(cls.root / "capture", cli=CLI, store=cls.root / "store", model="fixture-model", role="worker")
-        cls.captured = cls.profiles.capture(harness(), surface="codex", run_id="seed", task_id="fix", label="agg1")
+        cls.captured = cls.profiles.capture(cls.files(), surface=cls.surface, run_id="seed", task_id="fix", label="agg1")
         prepared = start_migration(cls.profiles, cls.captured, binding="skills.review")
         cls.base, cls.migration = prepared["base"], prepared["migration"]
         cls.project = Path(cls.base["project"])
-        cls.after = harness()
-        cls.after[".agents/skills/review/SKILL.md"] = SKILL + b"Reject stale evidence.\n"
+        cls.after = cls.files()
+        cls.after[cls.skill_path] = SKILL + b"Reject stale evidence.\n"
         cls.batch = proposal_batch(cls.base, cls.after, cls.migration, run_id="improve-1", excerpt="Check stale evidence", draft_case={"input": "stale", "expected": "reject"})
         proposal_file = cls.root / "proposal.json"
         proposal_file.write_bytes(encoded(cls.batch["proposals"][0]))
@@ -104,11 +112,12 @@ class ConverterTests(unittest.TestCase):
         arms, prompts = [], []
         for side in ("base", "candidate"):
             stamp = plan[side + "Stamp"]
-            seed = self.profiles.seed(stamp, surface="codex", project=self.project)
+            seed = self.profiles.seed(stamp, surface=self.surface, project=self.project)
             arm = {"runsRoot": str(self.root / side), "stampDigest": stamp, "conditions": plan["conditions"], "judged": []}
-            with workbuddy_runner(self.root / side, self.profiles, stamp, seed) as (adapter, observed):
+            substrate = "cx" if self.surface == "codex" else "oc"
+            with workbuddy_runner(self.root / side, self.profiles, stamp, seed, surface=substrate) as (adapter, observed):
                 for task in tasks:
-                    ids = [f"{adapter.spec.name}-cx-{side}/{task['taskId']}/base{i}" for i in (1, 2)]
+                    ids = [f"{adapter.spec.name}-{substrate}-{side}/{task['taskId']}/base{i}" for i in (1, 2)]
                     self.assertEqual(len(adapter.execute_many(task["taskId"], None, ids)), 2)
                     for i, run_id in enumerate(ids, 1):
                         arm["judged"].append({"task": task["taskId"], "label": f"base{i}", "run_id": run_id, "score": {"all_pass": True}})
@@ -136,17 +145,17 @@ class ConverterTests(unittest.TestCase):
         for name, source in base["components"].items():
             target = project / migration["workspace"] / "packages" / source["packageDigest"] / source["packagePath"]
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(harness()[name])
+            target.write_bytes(self.files()[name])
         return base, migration
 
     def test_profile_text_and_every_unsupported_edit_are_reported(self):
         base, migration = self.fresh_workspace()
-        after = harness()
-        after["AGENTS.md"] += b"Check sources.\n"
+        after = self.files()
+        after[self.primary] += b"Check sources.\n"
         after["scripts/summarize.py"] += b"# changed\n"
         after["new.md"] = b"new"
         del after["sub_agents/checker/AGENT.md"]
-        after[".agents/skills/review/SKILL.md"] = b"\xff"
+        after[self.skill_path] = b"\xff"
         batch = proposal_batch(base, after, migration, run_id="run", excerpt="decision")
         self.assertEqual(batch["proposals"][0]["classification"], "model-specific")
         self.assertTrue(batch["proposals"][0]["target"]["path"].endswith("/PROMPT.md"))
@@ -163,22 +172,22 @@ class ConverterTests(unittest.TestCase):
             if change == "stamp":
                 bad["stampDigest"] = "0" * 64
             else:
-                bad["surface"] = "opencode"
+                bad["surface"] = "opencode" if self.surface == "codex" else "codex"
             with self.assertRaises(ValueError):
                 proposal_batch(bad, self.after, migration, run_id="run", excerpt="decision")
 
     def test_materialized_composition_is_not_mistaken_for_a_profile_edit(self):
         base, migration = self.fresh_workspace()
-        before = harness()
-        before["AGENTS.md"] += b"\nGenerated triggers and composed required skill.\n"
+        before = self.files()
+        before[self.primary] += b"\nGenerated triggers and composed required skill.\n"
         after = deepcopy(before)
-        after[".agents/skills/review/SKILL.md"] += b"Check stale evidence.\n"
+        after[self.skill_path] += b"Check stale evidence.\n"
         batch = proposal_batch(base, after, migration, before_tree=before, run_id="run", excerpt="decision")
         self.assertEqual(len(batch["proposals"]), 1)
         self.assertEqual(batch["unsupported"], [])
-        after["AGENTS.md"] += b"Ambiguous edit.\n"
+        after[self.primary] += b"Ambiguous edit.\n"
         batch = proposal_batch(base, after, migration, before_tree=before, run_id="run", excerpt="decision")
-        self.assertEqual(batch["unsupported"][0]["path"], "AGENTS.md")
+        self.assertEqual(batch["unsupported"][0]["path"], self.primary)
 
     def test_preparation_keeps_captured_configuration_immutable(self):
         original = json.loads((Path(self.captured["project"]) / ".agent-profiles/agents.yaml").read_bytes())
@@ -232,7 +241,7 @@ class ConverterTests(unittest.TestCase):
         return evaluation_plan(**parameters)
 
     def test_plan_rejects_invalid_selection_trials_and_subset(self):
-        for change in ({"assignment": {**self.base["selection"], "host": "opencode"}}, {"k": True},
+        for change in ({"assignment": {**self.base["selection"], "host": "unknown"}}, {"k": True},
                 {"k": 0}, {"mode": "other"}, {"seed": -1}, {"tasks": []}, {"binding": "profiles.harness"}):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 self.make_plan(**change)
@@ -248,6 +257,45 @@ class ConverterTests(unittest.TestCase):
         source.write_bytes(encoded(plan))
         with self.assertRaises(RuntimeError):
             self.profiles.command("migrate", "plan", self.candidate["id"], str(source), project=self.project)
+
+    def test_legacy_null_host_and_cross_host_evidence_are_rejected(self):
+        bad = deepcopy(self.captured)
+        bad["selection"]["host"] = None
+        with self.assertRaisesRegex(ValueError, "recapture"):
+            start_migration(self.profiles, bad, binding="skills.review")
+        bad = deepcopy(self.plan)
+        bad["context"]["assignment"]["host"] = "opencode" if self.surface == "codex" else "codex"
+        with self.assertRaisesRegex(ValueError, "assignment host"):
+            evaluation_results(id="wrong-host", plan=bad, plan_digest=self.retained["planDigest"], base=self.arms()[0], candidate=self.arms()[1])
+
+    def test_z_explicit_preview_and_promotion_preserve_native_assignment(self):
+        result = self.convert()
+        source = self.root / "promotion-results.json"
+        source.write_bytes(encoded(result))
+        imported = self.profiles.command("migrate", "results", self.plan["id"], str(source), project=self.project)
+        report = self.profiles.command("migrate", "report", result["id"], project=self.project)
+        decision = {"decisionVersion": 1, "id": "promote-native", "resultId": result["id"],
+            "candidateId": self.candidate["id"], "candidateRevisionDigest": self.candidate["revisionDigest"],
+            "planDigest": self.retained["planDigest"], "resultDigest": imported["resultDigest"],
+            "assignment": self.base["selection"], "release": self.candidate["release"],
+            "regressions": report["eligibility"]["regressions"], "correctnessOverride": None}
+        source = self.root / "decision.json"
+        source.write_bytes(encoded(decision))
+        before = (self.project / ".agent-profiles/agents.yaml").read_bytes()
+        preview = self.profiles.command("migrate", "preview", str(source), project=self.project)
+        self.assertEqual(preview["status"], "preview")
+        self.assertEqual((self.project / ".agent-profiles/agents.yaml").read_bytes(), before)
+        promoted = self.profiles.command("migrate", "promote", str(source), project=self.project)
+        self.assertEqual(promoted["status"], "promoted")
+        snapshot = json.loads((self.profiles.store / "stamps/sha256" / promoted["stampDigest"] / "snapshot.json").read_bytes())
+        self.assertEqual(snapshot["selection"]["host"], self.surface)
+        self.assertTrue(self.profiles.command("verify", promoted["stampDigest"], project=self.project)["managedReproducible"])
+
+
+class OpenCodeConverterTests(ConverterTests):
+    surface = "opencode"
+    primary = "systemprompt.md"
+    skill_path = "skills/review/SKILL.md"
 
 
 if __name__ == "__main__":

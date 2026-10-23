@@ -42,8 +42,9 @@ in local, reviewable files, with a small CLI for setup and configuration.
 
 ## Quick start
 
-Requires **Node.js 24 or newer**. Supports **Claude Code, OpenAI Codex, and Hermes Agent**
-(Claude Code verified live; Codex and Hermes live bootstrap behavior not yet observed).
+Requires **Node.js 24 or newer**. Supports **Claude Code, OpenAI Codex, OpenCode, and Hermes Agent**
+(Claude Code and OpenCode verified live; Codex and Hermes live bootstrap behavior not yet observed).
+For OpenCode v2.1.3, see the [setup guide and assistant prompt](docs/hosts/opencode.md).
 
 **v0.1.0 is being prepared; it has not been published to npm.** Try this checkout
 now with `npm ci` and `npm pack`, then run these commands with the path to your
@@ -339,7 +340,7 @@ remains supported. Config3 opts into stamp2 capture/reconstruction and filesyste
 materialization with retained metadata, exact closure and peer evidence; this does
 not complete issue #21 or establish host/model compliance.
 
-The local workflow now includes deterministic routing, Claude Code/Codex/Hermes setup,
+The local workflow now includes deterministic routing, Claude Code/Codex/OpenCode/Hermes setup,
 role and skill configuration, shareable presets, context diagnostics, and a local
 visualizer. No runtime dependencies were added for these features; YAML handling remains
 the CLI's single runtime dependency. See the [release checklist](docs/release.md)
