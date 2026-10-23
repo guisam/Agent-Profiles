@@ -1,5 +1,8 @@
 # Harness² materialization
 
+For a step-by-step workflow, start with [Using Agent Profiles with Harness²](../harness2.md).
+This reference covers adapter mappings, identities and converter formats.
+
 `harness2-tree` contract version 1 exports a stamp for Harness²'s Codex or OpenCode
 surface, pinned to upstream commit `1cfe254e8d25b15f37048c3730134686abe60335`.
 

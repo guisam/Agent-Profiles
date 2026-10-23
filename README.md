@@ -202,6 +202,12 @@ same decision completes them. This checkout remains under coordinator/independen
 qualification; the package is unpublished and this is not completion of step4 or
 issue #21.
 
+## Use with Harness²
+
+Start with the [Harness² setup guide](docs/harness2.md) for a complete Windows
+example that needs no API keys. It captures, verifies and exports a starter harness.
+You can also [copy a setup prompt for your coding assistant](docs/harness2.md#ask-your-coding-assistant).
+
 ## The layers
 
 | Layer | Purpose | Delivered |
@@ -351,6 +357,7 @@ and token accounting remain future work.
 ## Further reading
 
 - [Agent-assisted setup and inventory](docs/setup.md)
+- [Using Agent Profiles with Harness²](docs/harness2.md)
 - [Role and skill configuration](docs/configure.md)
 - [Shareable presets](docs/presets.md)
 - [Context proof and accounting boundaries](docs/proof.md)
