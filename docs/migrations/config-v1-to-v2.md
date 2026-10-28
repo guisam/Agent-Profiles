@@ -9,8 +9,7 @@ Package adoption is separate, optional work (section 8).
 
 **Implemented in this checkout:** [resolve.ts](../../src/resolve.ts) validates
 both configuration versions 1 and 2. The [package manifest](../../package.json)
-remains CLI version `0.4.0`, **unpublished**; no published v2-supporting release
-number is established. The [v2 contract](../development/issue-20-contract.md#5-project-schema-and-deterministic-assignment-c08c09)
+uses CLI version `0.4.1`, which includes v2 support. The [v2 contract](../development/issue-20-contract.md#5-project-schema-and-deterministic-assignment-c08c09)
 and [package guide](../versioned-packages.md) describe the accepted working behavior.
 Artifact, supported-platform and final whole-solution review gates remain separate.
 Verify the actual local tool before use: an older installed executable may still

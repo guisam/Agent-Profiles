@@ -10,7 +10,7 @@ repository and host files remain byte-identical. Config1 must use the existing
 [v1 → v2 step](config-v1-to-v2.md) first.
 
 This checkout implements config3 selection, workflow composition and declaration
-checks. Package 0.1.0 is unpublished; an arbitrary installed copy may lack support.
+checks, included in CLI package 0.4.1; an older installed copy may lack support.
 Managed config3 stamp2 capture/reconstruction/materialization is implemented in
 this checkout, but outside this base-conversion guide's verification scope.
 Keep its resolve/proof, content/lock, no-op and rollback checks; do not substitute

@@ -28,7 +28,7 @@ Copy this into your existing coding agent (including one used through a coding b
 > context and what remains unverified. Offer an existing-format preset export only
 > with separate approval, excluding machine-local facts.
 
-**The package is unpublished.** An agent can run inspection from a trusted checkout
+An agent can run inspection from a trusted checkout
 or a packed package in a separate scratch project **before target installation**;
 see the [setup workflow](docs/setup.md) for commands, inventory limits, approval
 boundaries and programmatic examples. Tool preparation/downloads need their own
@@ -46,8 +46,7 @@ Requires **Node.js 24 or newer**. Supports **Claude Code, OpenAI Codex, OpenCode
 (Claude Code and OpenCode verified live; Codex and Hermes live bootstrap behavior not yet observed).
 For OpenCode v2.1.3, see the [setup guide and assistant prompt](docs/hosts/opencode.md).
 
-**v0.4.1 is being prepared; it has not been published to npm.** Try this checkout
-now with `npm ci` and `npm pack`, then run these commands with the path to your
+From a source checkout, run `npm ci` and `npm pack`, then use these commands with the path to your
 project. `--package` installs the packed tarball into the project so the bootstrap
 command can run there:
 
@@ -59,10 +58,10 @@ node bin/agent-profiles.ts proof --root /path/to/project --role reviewer
 node bin/agent-profiles.ts visualize --root /path/to/project
 ```
 
-After publication, from your Git repository, the same workflow will be:
+From your Git repository, install the npm package and run the same workflow:
 
 ```sh
-npm install --save-dev agent-profiles
+npm install --save-dev agent-profiles@0.4.1
 npx agent-profiles init
 npx agent-profiles configure
 npx agent-profiles doctor
@@ -144,7 +143,7 @@ target-file selection, and explicitly confirmed configuration deletion.
 The [complete local package walkthrough](docs/versioned-packages.md) imports two
 revisions, selects exact pins by model/role, locks every declared override, captures
 raw managed bytes and exports separate ordinary filesystem trees. Configuration
-v2 is implemented in this checkout; the npm package remains unpublished. Existing
+v2 is implemented in this checkout and included in version 0.4.1. Existing
 v1 source validation remains, while dependency `install` requires v2. Use the
 [scalar-only migration guide](docs/migrations/config-v1-to-v2.md) and its
 [approval-first AI prompt](docs/migrations/prompts/config-v1-to-v2.md) before
@@ -200,7 +199,7 @@ external label. It then repins only that tuple's binding, refreshes lock2 and
 captures a fresh stamp. Other tuples, defaults and old versions keep their exact
 pins. Failures after the decision commit are reported as partial, and replaying the
 same decision completes them. This checkout remains under coordinator/independent
-qualification; the package is unpublished and this is not completion of step4 or
+qualification; npm publication does not establish completion of step4 or
 issue #21.
 
 ## Use with Harness²

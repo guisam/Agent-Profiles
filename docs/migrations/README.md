@@ -10,7 +10,7 @@ stamp versions, or host bootstrap protocol versions.
 
 | From → to | Guide | AI-tool prompt | Readiness |
 | --- | --- | --- | --- |
-| 1 → 2 | [v1 → v2](config-v1-to-v2.md) | [v1 → v2 prompt](prompts/config-v1-to-v2.md) | V2 validator implemented in this checkout; package 0.1.0 remains unpublished. Verify the selected local tool and obtain exact-preview approval before application. |
+| 1 → 2 | [v1 → v2](config-v1-to-v2.md) | [v1 → v2 prompt](prompts/config-v1-to-v2.md) | V2 validator included in CLI package 0.4.1. Verify the selected local tool and obtain exact-preview approval before application. |
 | 2 → 3 | [v2 → v3](config-v2-to-v3.md) | [v2 → v3 prompt](prompts/config-v2-to-v3.md) | Config3 selection/lock2/workflow declarations implemented in this checkout; managed snapshot2 is implemented in this checkout. Verify actual tool support, preview and approve YAML plus explicit lock refresh. Base conversion does not adopt workflows. |
 
 The [issue-20 contract](../development/issue-20-contract.md) retains the historical design record. The current [package guide](../versioned-packages.md) describes implemented checkout behavior. Guide/prompt examples require real-validator rehearsal in owned fixtures; new v2→v3 rehearsal is coordinator-owned and pending this package's verification. Fixture results are not a consumer migration, AI compliance or published-artifact qualification. Missing suitable local tools still blocks a real operation.

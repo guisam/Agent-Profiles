@@ -1,6 +1,6 @@
 # v0.4.1 release checklist
 
-The repository is preparing `agent-profiles@0.4.1`. Publication and live-host
+This checklist targets the first npm release, `agent-profiles@0.4.1`. Publication and live-host
 verification are explicit release steps; a passing local test does not publish
 anything or prove a model followed the bootstrap.
 
@@ -42,12 +42,13 @@ below open until their evidence is reviewed.
    npm configuration, or credential-named files appeared in the reviewed listing.
 8. [ ] Review passing CI for the exact release commit on Windows, macOS, and
    Linux; resolve or explicitly document the delivery and live-host gates below.
-   CI passed for base commit `50c0da2`; this working change has not run on GitHub.
+   Review the latest commit's checks on [PR #35](https://github.com/guisam/Agent-Profiles/pull/35).
 9. [x] Update the GitHub wiki's Versioning and upgrades page with this patch's
    changes and upgrade guidance; keep its source mirror under `docs/wiki/`.
-10. [ ] Obtain explicit authorization to publish the reviewed artifact; only then
-    publish, update publication status/date, and verify the installed registry copy.
-    Tags and GitHub releases also require explicit authorization.
+10. [x] Obtain explicit authorization: the maintainer chose direct publication of
+    the first release after CI passes. Publish the reviewed artifact only after
+    that condition is met, then verify the installed registry copy. Git tags and
+    GitHub releases remain separate decisions.
 
 Public package versions cannot be overwritten; fixes need a new version. Beta
 numbering remains a maintainer decision.
@@ -95,7 +96,7 @@ and retained experiment evidence; no schema migration is required for this updat
 Update the source checkout deliberately and use Node 24. If using a packed
 artifact, rebuild it and select the `agent-profiles-0.4.1.tgz` artifact explicitly;
 changing this checkout does not update an installed copy. Follow the artifact
-checks below before installing a new build. The package remains unpublished.
+checks below before installing a new build.
 
 Start the [guided workflow](guided-evaluation.md) with read-only inspection. Paid
 search/evaluation, workspace proposal acceptance, promotion, and installation into
@@ -133,7 +134,7 @@ host boundary; no tokenizer or live-host introspection is used.
 Configuration v2 and add/install/stamp/verify/diff/materialize are implemented in
 this checkout. The [local tutorial](versioned-packages.md) and
 [adjacent migration guide/prompt](migrations/README.md) describe source behavior;
-0.4.1 is still unpublished. Preserve the distinction between source checkout tests,
+Preserve the distinction between source checkout tests,
 installed artifact behavior, platform qualification and live host observation.
 
 - [ ] Qualify every complete tutorial YAML/required file with real validators;

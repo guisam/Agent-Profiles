@@ -9,7 +9,7 @@ not a new Agent Profiles host adapter.
 
 ## 1. Inspect before installing
 
-Requires Node.js 24 or newer. **The package is not published to npm yet.** From a
+Requires Node.js 24 or newer. The first npm release is `agent-profiles@0.4.1`. From a
 trusted checkout with dependencies already available, inspection does not require
 installing Agent Profiles in the target project:
 
@@ -27,7 +27,7 @@ a trusted packed artifact, install it into a separate scratch project with
 `npm install --ignore-scripts /absolute/path/agent-profiles-0.4.1.tgz`, then run
 `node /scratch/project/node_modules/agent-profiles/dist/bin/agent-profiles.js inspect
 --root /path/to/project --json`. This prepares the tool outside the target; review
-and approve dependency/registry access first. Do not run an unpublished package name
+and approve dependency/registry access first. Do not run an unverified package name
 from a registry and assume it is this checkout. `npm pack --pack-destination
 /path/to/new-artifact-directory` can create a candidate without overwriting an
 existing tarball. No project installation or `init` is necessary to inspect it.

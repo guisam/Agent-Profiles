@@ -18,7 +18,7 @@ and export it back into a directory Harness² can use. It does not run a model.
 ## 1. Point to your checkouts
 
 You need **Node 24**, **Python 3.12 or newer**, and both source checkouts. Agent
-Profiles is currently unpublished, so these commands run it from source.
+Profiles integrations require the source checkout, so these commands run it from source.
 
 Open PowerShell and paste this, changing the first two paths if necessary:
 
