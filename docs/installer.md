@@ -24,7 +24,7 @@ need a build step. To test the package before publishing:
 
 ```sh
 npm pack
-npx --yes --package /absolute/path/agent-profiles-0.1.0.tgz agent-profiles init --root /path/to/repository
+npx --yes --package /absolute/path/agent-profiles-0.4.0.tgz agent-profiles init --root /path/to/repository
 ```
 
 After a separate publication step, the entry point will be

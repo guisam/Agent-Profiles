@@ -1,8 +1,25 @@
-# v0.1.0 release checklist
+# v0.4.0 release checklist
 
-The repository is preparing `agent-profiles@0.1.0`. Publication and live-host
+The repository is preparing `agent-profiles@0.4.0`. Publication and live-host
 verification are explicit release steps; a passing local test does not publish
 anything or prove a model followed the bootstrap.
+
+## Upgrading the source checkout from 0.1.0 to 0.4.0
+
+The new assistant-assisted evaluation guide uses existing CLI and bridge APIs.
+No configuration YAML, managed lock, package, stamp, plan, result or promotion
+format changes are introduced. Keep existing project configuration, package pins,
+and retained experiment evidence; no schema migration is required for this update.
+
+Update the source checkout deliberately and use Node 24. If using a packed
+artifact, rebuild it and select the `agent-profiles-0.4.0.tgz` artifact explicitly;
+changing this checkout does not update an installed copy. Follow the artifact
+checks below before installing a new build. The package remains unpublished.
+
+Start the [guided workflow](guided-evaluation.md) with read-only inspection. Paid
+search/evaluation, workspace proposal acceptance, promotion, and installation into
+an active project remain separate explicit decisions. The guide does not certify
+new model/host combinations or make prior results valid for changed conditions.
 
 ## Automated checks
 
@@ -35,7 +52,7 @@ host boundary; no tokenizer or live-host introspection is used.
 Configuration v2 and add/install/stamp/verify/diff/materialize are implemented in
 this checkout. The [local tutorial](versioned-packages.md) and
 [adjacent migration guide/prompt](migrations/README.md) describe source behavior;
-0.1.0 is still unpublished. Preserve the distinction between source checkout tests,
+0.4.0 is still unpublished. Preserve the distinction between source checkout tests,
 installed artifact behavior, platform qualification and live host observation.
 
 - [ ] Qualify every complete tutorial YAML/required file with real validators;
@@ -101,8 +118,8 @@ workspace, and host skill invocation remain unverified.
 - [ ] Change the changelog's Unreleased heading to the release date and update
       README publication status when publishing.
 - [ ] Build and inspect the final tarball and publish that reviewed artifact.
-- [ ] Tag the released commit `v0.1.0` and create release notes.
-- [ ] Verify `npx agent-profiles@0.1.0 init`, `configure`, `doctor`, and `uninstall`
+- [ ] Tag the released commit `v0.4.0` and create release notes.
+- [ ] Verify `npx agent-profiles@0.4.0 init`, `configure`, `doctor`, and `uninstall`
       against the published package in a disposable repository.
 
 No credentials or publishing automation are required for development or CI.

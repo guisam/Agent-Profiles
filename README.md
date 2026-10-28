@@ -46,13 +46,13 @@ Requires **Node.js 24 or newer**. Supports **Claude Code, OpenAI Codex, OpenCode
 (Claude Code and OpenCode verified live; Codex and Hermes live bootstrap behavior not yet observed).
 For OpenCode v2.1.3, see the [setup guide and assistant prompt](docs/hosts/opencode.md).
 
-**v0.1.0 is being prepared; it has not been published to npm.** Try this checkout
+**v0.4.0 is being prepared; it has not been published to npm.** Try this checkout
 now with `npm ci` and `npm pack`, then run these commands with the path to your
 project. `--package` installs the packed tarball into the project so the bootstrap
 command can run there:
 
 ```sh
-node bin/agent-profiles.ts init --root /path/to/project --package ./agent-profiles-0.1.0.tgz
+node bin/agent-profiles.ts init --root /path/to/project --package ./agent-profiles-0.4.0.tgz
 node bin/agent-profiles.ts configure --root /path/to/project
 node bin/agent-profiles.ts doctor --root /path/to/project
 node bin/agent-profiles.ts proof --root /path/to/project --role reviewer
@@ -205,9 +205,19 @@ issue #21.
 
 ## Use with Harness²
 
+To decide whether an agent meets a role's quality, turnaround and cost targets,
+start with [Qualify an agent](docs/agent-qualification.md). One pasteable prompt
+guides requirements, evaluation evidence and a retained qualification report,
+including optional basic/premium service labels and an explicit adoption choice.
+
 Start with the [Harness² setup guide](docs/harness2.md) for a complete Windows
 example that needs no API keys. It captures, verifies and exports a starter harness.
 You can also [copy a setup prompt for your coding assistant](docs/harness2.md#ask-your-coding-assistant).
+
+To evaluate and improve a role's skill, use the
+[guided workflow and copyable assistant prompt](docs/guided-evaluation.md).
+It covers compatibility, separate tuning/evaluation tasks, baseline/candidate
+comparisons, explicit adoption, restoration, and repeating for another model.
 
 ## The layers
 
@@ -359,6 +369,8 @@ and token accounting remain future work.
 
 - [Agent-assisted setup and inventory](docs/setup.md)
 - [Using Agent Profiles with Harness²](docs/harness2.md)
+- [Qualify an agent for a role or service tier](docs/agent-qualification.md)
+- [Guided skill evaluation and improvement](docs/guided-evaluation.md)
 - [Role and skill configuration](docs/configure.md)
 - [Shareable presets](docs/presets.md)
 - [Context proof and accounting boundaries](docs/proof.md)

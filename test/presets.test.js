@@ -27,6 +27,57 @@ const metadata = {
 	version: "1.0.0",
 	license: "Apache-2.0",
 };
+
+test("API documentation preset selects each model profile and confines its skill to the assigned role", (t) => {
+	const { root } = fixture(t);
+	const source = path.join(project, "examples/presets/api-documentation");
+	const plan = planPresetImport({ root, source });
+	assert.equal(plan.ready, true);
+	applyPresetImport(plan, true);
+	for (const [model, profile, role, skill] of [
+		[
+			"gpt-6-luna",
+			"api-docs-luna",
+			"api-documentation-luna",
+			"source-evidence-audit",
+		],
+		[
+			"gpt-6.1-sol",
+			"api-docs-sol",
+			"api-documentation-sol",
+			"api-contract-review",
+		],
+	]) {
+		const context = resolveInstructions({
+			root,
+			model,
+			role,
+		});
+		assert.equal(context.profile, profile);
+		assert.deepEqual(
+			context.required.map((skill) => skill.id),
+			["api-documentation", skill],
+		);
+		assert.deepEqual(context.available, []);
+		assert.deepEqual(
+			context.loaded.map((part) => part.id),
+			[profile, role, "api-documentation", skill],
+		);
+		const other = resolveInstructions({ root, model, role: "implementer" });
+		assert.ok(
+			other.loaded.every(
+				(part) =>
+					![
+						"api-documentation",
+						"source-evidence-audit",
+						"api-contract-review",
+					].includes(part.id),
+			),
+		);
+	}
+	assert.equal(resolveInstructions({ root }).role, "implementer");
+});
+
 function fixture(t) {
 	// Canonical, like the implementation: macOS temp directories are reached through /var -> /private/var.
 	const directory = fs.realpathSync(

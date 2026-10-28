@@ -7,6 +7,14 @@ You must strictly enforce modern GitHub Actions standards. Completely disregard 
 2. Every GitHub Action step must use modern, non-deprecated releases (e.g., pin actions/checkout and actions/setup-node to `@v4` or higher).
 3. If setting up a macOS environment runner, you must target `macos-14` or newer to maintain Node 24 runtime compatibility. Never fall back to older macOS images.
 
+## Task completion and versions
+
+- For each completed repository task, bump the version in `package.json` and keep the root package versions in `package-lock.json` synchronized.
+- Use a patch bump (`x.y.z` → `x.y.(z+1)`) for minor revisions, bug fixes, and documentation changes; a minor bump (`x.y.z` → `x.(y+1).0`) for a new feature; and a major bump (`x.y.z` → `(x+1).0.0`) for a backward-incompatible rewrite of the configuration YAML. Apply the highest applicable bump once per task.
+- Check version-dependent fixtures, packaging checks, and documentation when bumping. A version edit does not authorize publishing a package, creating a release, or tagging Git.
+- The final task-completion step is updating the GitHub wiki with relevant changes and version-upgrade instructions. For incompatible changes, document the old/new configuration formats, migration steps, and required user actions. Report any wiki publication blocker explicitly.
+- Beta numbering is pending the maintainer's choice; do not introduce a prerelease convention without that decision.
+
 <!-- trail:start -->
 ## Trail — repo context graph
 

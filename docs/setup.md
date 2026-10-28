@@ -24,7 +24,7 @@ node /path/to/Agent-Profiles/bin/agent-profiles.ts inspect --root /path/to/proje
 In a fresh checkout, `npm ci` obtains its dependencies: that is a separate,
 permission-requiring preparation step, not an effect of inspection. If you received
 a trusted packed artifact, install it into a separate scratch project with
-`npm install --ignore-scripts /absolute/path/agent-profiles-0.1.0.tgz`, then run
+`npm install --ignore-scripts /absolute/path/agent-profiles-0.4.0.tgz`, then run
 `node /scratch/project/node_modules/agent-profiles/dist/bin/agent-profiles.js inspect
 --root /path/to/project --json`. This prepares the tool outside the target; review
 and approve dependency/registry access first. Do not run an unpublished package name
@@ -204,7 +204,7 @@ Use existing `init`, the role wizard or its programmatic planner/applier, resolv
 and adapters. For example, after the user approves the chosen adapter and package:
 
 ```sh
-node /path/to/Agent-Profiles/bin/agent-profiles.ts init --root /path/to/project --agent hermes --package /absolute/path/agent-profiles-0.1.0.tgz
+node /path/to/Agent-Profiles/bin/agent-profiles.ts init --root /path/to/project --agent hermes --package /absolute/path/agent-profiles-0.4.0.tgz
 # Interactive alternative for role edits, with its own previews/confirmation:
 node /path/to/Agent-Profiles/bin/agent-profiles.ts configure --root /path/to/project
 # Add --external or --sources only when the corresponding discovery was approved.

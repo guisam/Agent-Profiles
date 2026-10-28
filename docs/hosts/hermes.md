@@ -23,8 +23,8 @@ They are never passed to `hermes -p`, `hermes profile`, or a Hermes configuratio
 ## Install from a checkout or a shared package
 
 Requires Node.js 24 or newer. Until publication, use a tarball built from the
-checkout containing this adapter; an older `0.1.0` tarball does not contain it.
-The development package version is still `0.1.0`: equality of version strings is
+checkout containing this adapter; an older tarball may not contain it.
+The development package version is `0.4.0`: equality of version strings is
 not proof that two tarballs contain the same code. Share the actual tested artifact.
 
 From the Agent Profiles checkout, `npm pack --pack-destination <output-directory>`
@@ -32,7 +32,7 @@ builds that artifact without publishing it. The output directory must exist.
 In the target repository, install the tarball, then initialize only the host you want:
 
 ```sh
-npm install --save-dev /path/to/agent-profiles-0.1.0.tgz
+npm install --save-dev /path/to/agent-profiles-0.4.0.tgz
 npx --no agent-profiles init --agent hermes
 npx --no agent-profiles doctor
 npx --no agent-profiles configure
@@ -44,7 +44,7 @@ version from inside it. On Windows, use a quoted path when it contains spaces.
 Alternatively, from the checkout:
 
 ```sh
-node bin/agent-profiles.ts init --root /path/to/project --agent hermes --package /path/to/agent-profiles-0.1.0.tgz
+node bin/agent-profiles.ts init --root /path/to/project --agent hermes --package /path/to/agent-profiles-0.4.0.tgz
 ```
 
 To enable all supported hosts, repeat `--agent` for `claude`, `codex`, `opencode`, and `hermes`.

@@ -2,6 +2,76 @@
 
 ## Unreleased
 
+### Saved profile evidence and distinct skill examples (source version 0.4.0)
+
+- Add two inspectable model/role preset examples with distinct required skill
+  assignments and a routing regression test. Add an offline per-rollout YAML
+  archive tool with referenced instruction copies, skill/version/hash manifests
+  and safe restoration notes. Backfill 25 historical task runs and retain two
+  explicitly configuration-only examples; no historical skill set is rewritten.
+  Optimization experiments are stopped. The examples demonstrate persistence and
+  selection, not model-quality parity or production qualification. No schema or
+  live-project migration is introduced.
+
+### Luna/Sol diagnostic (source version 0.3.1)
+
+- Record twelve completed documentation trials and six blind rubric grading
+  sessions using the existing Codex subscription. The verification candidate
+  did not demonstrate improved Luna performance. Preserve rubric conflicts,
+  CSV-format defects, timing/usage observations and native evidence without
+  equating no-regression eligibility with qualification or adopting the skill.
+  This documentation patch introduces no application or schema changes.
+
+### Guided agent qualification (source version 0.3.0)
+
+- Add one assistant-assisted qualification entry point with a small requirements
+  intake, a readable retained report template and a worked live-pilot example.
+  Separate native no-regression eligibility from absolute service quality,
+  repeated held-out coverage, turnaround and measured cost. Missing evidence
+  stays unknown; adoption and routing remain explicit decisions. This workflow
+  uses the existing native plans/results and promotion tools without new schemas,
+  a model runner, automatic certification or production routing implementation.
+
+### Twenty-minute Strata follow-up (source version 0.2.2)
+
+- Record the user-authorized, fresh candidate-only trial with a 1,200-second
+  limit. The same candidate completed four documents in about 691 seconds and
+  passed integrity checks. Offline example checks found correct boundary
+  chunking/retry behavior and a separate sync helper that rejects valid 202
+  responses. Confirmed authentication facts were also mislabeled unknown. Keep
+  the candidate unadopted and the old ten-minute failure unchanged. The normal
+  pilot default, installed skills, application behavior and schemas are unchanged.
+
+### Strata verification-skill experiment (source version 0.2.1)
+
+- Record an isolated native skill candidate and matched Strata control on the
+  JobBench writing task. Required-skill selection changes generated context, so
+  both new arms use that loading mode. The control completed four documents;
+  the candidate timed out after 600 seconds with two partial documents and
+  retained unsupported examples. Keep it unadopted; no improvement or held-out
+  qualification is claimed. No application behavior or configuration schema
+  changes are introduced by this experiment-recording patch.
+
+### Guided evaluation workflow (#33; source version 0.2.0)
+
+- Add a bounded Windows JobBench pilot launcher using the public Harness² Codex
+  substrate and stamped seeds, with two-model file-access preflight, pinned task
+  inputs, retained logs, unchanged-input checks and explicit ungraded status.
+  Preserve normal executor policies and distinguish the custom Windows deployment
+  from the stock Linux runner. Carry forward the user's configured native Windows
+  sandbox while excluding unrelated user settings; refuse missing selections.
+
+- Add one assistant-assisted entry point for selecting a role/model/host, checking
+  compatibility, keeping tuning and held-out cases separate, reviewing one skill
+  candidate, comparing fixed arms, explicitly adopting or rejecting it, and
+  rehearsing guarded restoration before repeating for a second model.
+- Keep internal artifact generation with the coding assistant and execution with
+  the external Harness² driver. Record unavailable metrics, driver/budget gaps,
+  and live qualification separately; no model runner in core resolution, schema
+  change, or new Agent Profiles CLI command.
+- Bump application metadata from 0.1.0 to 0.2.0. Existing configuration, lock,
+  package and evidence formats are unchanged. The package remains unpublished.
+
 ### OpenCode host integration (#30)
 
 - Verify a live four-rollout OpenCode/Harness² paired workflow through measured
