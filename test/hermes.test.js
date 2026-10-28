@@ -27,20 +27,20 @@ function repository(t) {
 		fs.readFileSync(path.join(project, "package.json"), "utf8"),
 	);
 	fs.writeFileSync(path.join(root, "package.json"), '{"private":true}\n');
-	fs.mkdirSync(path.join(root, "node_modules/agent-profiles/bin"), {
+	fs.mkdirSync(path.join(root, "node_modules/@guisam/agent-profiles/bin"), {
 		recursive: true,
 	});
 	fs.writeFileSync(
-		path.join(root, "node_modules/agent-profiles/package.json"),
+		path.join(root, "node_modules/@guisam/agent-profiles/package.json"),
 		JSON.stringify({
-			name: "agent-profiles",
+			name: "@guisam/agent-profiles",
 			version,
 			bin: { "agent-profiles": "bin/agent-profiles.js" },
 		}),
 	);
 	const executable = path.join(
 		root,
-		"node_modules/agent-profiles/bin/agent-profiles.js",
+		"node_modules/@guisam/agent-profiles/bin/agent-profiles.js",
 	);
 	fs.writeFileSync(executable, "#!/usr/bin/env node\n", { mode: 0o755 });
 	fs.mkdirSync(path.join(root, "node_modules/.bin"));
@@ -49,9 +49,9 @@ function repository(t) {
 		fs.writeFileSync(bin, "#!/bin/sh\n");
 		fs.writeFileSync(
 			`${bin}.cmd`,
-			'@echo off\r\nnode "%~dp0..\\agent-profiles\\bin\\agent-profiles.js" %*\r\n',
+			'@echo off\r\nnode "%~dp0..\\@guisam\\agent-profiles\\bin\\agent-profiles.js" %*\r\n',
 		);
-	} else fs.symlinkSync("../agent-profiles/bin/agent-profiles.js", bin);
+	} else fs.symlinkSync("../@guisam/agent-profiles/bin/agent-profiles.js", bin);
 	return root;
 }
 

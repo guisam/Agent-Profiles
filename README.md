@@ -51,7 +51,7 @@ project. `--package` installs the packed tarball into the project so the bootstr
 command can run there:
 
 ```sh
-node bin/agent-profiles.ts init --root /path/to/project --package ./agent-profiles-0.4.1.tgz
+node bin/agent-profiles.ts init --root /path/to/project --package ./guisam-agent-profiles-0.4.1.tgz
 node bin/agent-profiles.ts configure --root /path/to/project
 node bin/agent-profiles.ts doctor --root /path/to/project
 node bin/agent-profiles.ts proof --root /path/to/project --role reviewer
@@ -61,7 +61,7 @@ node bin/agent-profiles.ts visualize --root /path/to/project
 From your Git repository, install the npm package and run the same workflow:
 
 ```sh
-npm install --save-dev agent-profiles@0.4.1
+npm install --save-dev @guisam/agent-profiles@0.4.1
 npx agent-profiles init
 npx agent-profiles configure
 npx agent-profiles doctor

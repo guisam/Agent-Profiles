@@ -7,6 +7,11 @@ publication and qualification status; they are not separate npm releases.
 
 ### npm publication preparation (source version 0.4.1)
 
+- Publish under the personal scope `@guisam/agent-profiles`; npm rejected the
+  unscoped name as too similar to `agentprofiles`. The CLI command stays
+  `agent-profiles`. Bootstrap verification, fixtures and tarball paths use the
+  scoped package identity.
+
 - Track npm publication readiness in the existing release checklist and correct
   the lockfile CLI path to match the compiled executable in the package manifest.
   Add a manually triggered GitHub Actions trusted-publishing workflow with

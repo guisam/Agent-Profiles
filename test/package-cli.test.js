@@ -1319,7 +1319,7 @@ test("P9-05 init --package safely counts native executable dispatch; dependency 
 			"--agent",
 			"codex",
 			"--package",
-			"agent-profiles@0.0.0-owned-counter",
+			"@guisam/agent-profiles@0.0.0-owned-counter",
 		],
 		{ allowExecutableCounter: true },
 	);
@@ -1335,7 +1335,7 @@ test("P9-05 init --package safely counts native executable dispatch; dependency 
 		"--save-dev",
 		"--no-audit",
 		"--no-fund",
-		"agent-profiles@0.0.0-owned-counter",
+		"@guisam/agent-profiles@0.0.0-owned-counter",
 	]);
 	assert.match(r.stderr, /Bootstrap:/);
 	const g = fixture(t);

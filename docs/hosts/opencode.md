@@ -14,10 +14,10 @@ promotion. Reproduction and evidence are in the observation record.
 
 Requires Node 24 and an OpenCode CLI. From a trusted Agent Profiles checkout,
 build a tarball with `npm pack --pack-destination <existing-output-directory>`.
-Install the actual tested tarball in your project, or use `agent-profiles@0.4.1` from npm.
+Install the actual tested tarball in your project, or use `@guisam/agent-profiles@0.4.1` from npm.
 
 ```powershell
-npm install --save-dev C:\artifacts\agent-profiles-0.4.1.tgz
+npm install --save-dev C:\artifacts\guisam-agent-profiles-0.4.1.tgz
 npx --no agent-profiles inspect --json
 npx --no agent-profiles init --agent opencode
 npx --no agent-profiles doctor

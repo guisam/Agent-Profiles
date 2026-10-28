@@ -31,16 +31,16 @@ function repository(t) {
 	put(root, "package.json", '{"private":true}\n');
 	put(
 		root,
-		"node_modules/agent-profiles/package.json",
+		"node_modules/@guisam/agent-profiles/package.json",
 		JSON.stringify({
-			name: "agent-profiles",
+			name: "@guisam/agent-profiles",
 			version,
 			bin: { "agent-profiles": "bin/agent-profiles.js" },
 		}),
 	);
 	put(
 		root,
-		"node_modules/agent-profiles/bin/agent-profiles.js",
+		"node_modules/@guisam/agent-profiles/bin/agent-profiles.js",
 		"#!/usr/bin/env node\n",
 	);
 	if (process.platform === "win32") {
@@ -48,16 +48,19 @@ function repository(t) {
 		put(
 			root,
 			"node_modules/.bin/agent-profiles.cmd",
-			'@echo off\r\nnode "%~dp0..\\agent-profiles\\bin\\agent-profiles.js" %*\r\n',
+			'@echo off\r\nnode "%~dp0..\\@guisam\\agent-profiles\\bin\\agent-profiles.js" %*\r\n',
 		);
 	} else {
 		fs.chmodSync(
-			path.join(root, "node_modules/agent-profiles/bin/agent-profiles.js"),
+			path.join(
+				root,
+				"node_modules/@guisam/agent-profiles/bin/agent-profiles.js",
+			),
 			0o755,
 		);
 		fs.mkdirSync(path.join(root, "node_modules/.bin"));
 		fs.symlinkSync(
-			"../agent-profiles/bin/agent-profiles.js",
+			"../@guisam/agent-profiles/bin/agent-profiles.js",
 			path.join(root, "node_modules/.bin/agent-profiles"),
 		);
 	}

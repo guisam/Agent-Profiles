@@ -139,7 +139,8 @@ export function bootstrapAvailability(root: string): {
 	try {
 		const project = read(path.join(prefix, "package.json"));
 		const selfBin =
-			typeof project?.bin === "string" && project.name === "agent-profiles"
+			typeof project?.bin === "string" &&
+			project.name === "@guisam/agent-profiles"
 				? project.bin
 				: project?.bin?.["agent-profiles"];
 		let executable: string | undefined;
@@ -183,7 +184,7 @@ export function bootstrapAvailability(root: string): {
 					? manifest.bin
 					: manifest?.bin?.["agent-profiles"];
 			if (
-				manifest?.name !== "agent-profiles" ||
+				manifest?.name !== "@guisam/agent-profiles" ||
 				typeof bin !== "string" ||
 				realpathSync(path.resolve(directory, bin)) !== executable ||
 				typeof manifest.version !== "string"
@@ -206,7 +207,7 @@ export function bootstrapAvailability(root: string): {
 			runnable: false,
 			version,
 			reason:
-				"agent-profiles is not installed in this repository, so the bootstrap command fails; run init with --package, or npm install --save-dev agent-profiles",
+				"agent-profiles is not installed in this repository, so the bootstrap command fails; run init with --package, or npm install --save-dev @guisam/agent-profiles",
 		};
 	// An older or newer copy may not understand this configuration or print this protocol.
 	if (version !== ownVersion)
@@ -624,7 +625,7 @@ function npmCli() {
 
 /**
  * Install the package the bootstrap runs, as a dev dependency of the repository.
- * spec is an npm package spec, such as agent-profiles@0.1.0 or a tarball path.
+ * spec is an npm package spec, such as @guisam/agent-profiles@0.1.0 or a tarball path.
  */
 export function installPackage(root: string, spec: string) {
 	root = realpathSync(root);

@@ -799,9 +799,9 @@ Examples:
 				spec =
 					(
 						await question(
-							`Install agent-profiles as a dev dependency now? Package spec or tarball [agent-profiles@${result.ownVersion}], or "skip": `,
+							`Install agent-profiles as a dev dependency now? Package spec or tarball [@guisam/agent-profiles@${result.ownVersion}], or "skip": `,
 						)
-					).trim() || `agent-profiles@${result.ownVersion}`;
+					).trim() || `@guisam/agent-profiles@${result.ownVersion}`;
 				if (spec === "skip") spec = undefined;
 			}
 			if (spec !== undefined) availability = installPackage(root, spec);

@@ -1,6 +1,6 @@
 # v0.4.1 release checklist
 
-This checklist targets the first npm release, `agent-profiles@0.4.1`. Publication and live-host
+This checklist targets the first npm release, `@guisam/agent-profiles@0.4.1`. Publication and live-host
 verification are explicit release steps; a passing local test does not publish
 anything or prove a model followed the bootstrap.
 
@@ -14,20 +14,21 @@ below open until their evidence is reviewed.
    requirement, compiled CLI entry, file allowlist, and prepack build are present.
 2. [x] Synchronize the manifest and lockfile at `0.4.1`, including the CLI path
    `dist/bin/agent-profiles.js`. This is a source preparation patch, not a release.
-3. [x] Query the public npm registry for `agent-profiles`: returned E404 on
-   2026-10-28. This does not reserve the name or establish publishing rights.
+3. [x] Check registry naming: the unscoped name returned E404, but npm rejected
+   publication as too similar to `agentprofiles`. The maintainer chose the
+   personal scope `@guisam/agent-profiles`; its registry lookup returned E404 on
+   2026-10-28. A missing public package does not establish publishing rights.
 4. [x] Confirm the personal npm account `guisam`. The maintainer confirmed email
    verification, enabled 2FA, and saved recovery codes. Package ownership is still
-   pending the bootstrap step below. If a scoped name is chosen,
-   update metadata, packaging assertions, installer references, and documentation
-   together before repeating artifact checks.
+   pending the bootstrap step below. Metadata, bootstrap package verification,
+   fixtures, tarball paths, and install documentation use the chosen scoped name.
 5. [x] Choose GitHub Actions trusted publishing for the personally maintained
    `guisam/Agent-Profiles` repository. Prepare `.github/workflows/publish.yml`:
    manual dispatch on `main`, version/lock checks, tests, artifact rehearsal,
    Node 24, and OIDC. Publication defaults to off. Ordinary CI stays credential-free.
    GitHub environment `npm` now exists with deployments restricted to the `main`
-   branch. npm trust, merging the workflow, and a successful remote rehearsal
-   remain pending as described below.
+   branch. The initial workflow was merged in PR #35; the scoped-name update must
+   also pass CI and merge before publication and a fresh remote rehearsal.
 6. [x] Run local type checking and `npx --no-install biome ci` (Windows, Node
    24.20.0, npm 11.19.0). These passed on 2026-10-28.
    An isolated manifest/lockfile-only `npm ci --ignore-scripts` also passed;
@@ -42,7 +43,8 @@ below open until their evidence is reviewed.
    npm configuration, or credential-named files appeared in the reviewed listing.
 8. [ ] Review passing CI for the exact release commit on Windows, macOS, and
    Linux; resolve or explicitly document the delivery and live-host gates below.
-   Review the latest commit's checks on [PR #35](https://github.com/guisam/Agent-Profiles/pull/35).
+   The unscoped preparation passed [CI](https://github.com/guisam/Agent-Profiles/actions/runs/40767942616).
+   The scoped-name changes need their own complete passing CI matrix.
 9. [x] Update the GitHub wiki's Versioning and upgrades page with this patch's
    changes and upgrade guidance; keep its source mirror under `docs/wiki/`.
 10. [x] Obtain explicit authorization: the maintainer chose direct publication of
@@ -60,7 +62,7 @@ and enable 2FA before proceeding. An organization is not required.
 
 1. Merge the reviewed workflow into `main` and create a GitHub environment named
    `npm`, restricted to `main`. No npm publishing token secret is needed.
-2. Establish ownership of `agent-profiles` on npm. npm requires the package to
+2. Establish ownership of `@guisam/agent-profiles` on npm. npm requires the package to
    exist before configuring trust. A one-time authenticated first publication
    is one option; staged publication is another, but creates a publicly visible
    placeholder for a new package. Both require separate explicit authorization.
@@ -94,7 +96,7 @@ format changes are introduced. Keep existing project configuration, package pins
 and retained experiment evidence; no schema migration is required for this update.
 
 Update the source checkout deliberately and use Node 24. If using a packed
-artifact, rebuild it and select the `agent-profiles-0.4.1.tgz` artifact explicitly;
+artifact, rebuild it and select the `guisam-agent-profiles-0.4.1.tgz` artifact explicitly;
 changing this checkout does not update an installed copy. Follow the artifact
 checks below before installing a new build.
 
@@ -201,7 +203,7 @@ workspace, and host skill invocation remain unverified.
       README publication status when publishing.
 - [ ] Build and inspect the final tarball and publish that reviewed artifact.
 - [ ] Tag the released commit `v0.4.1` and create release notes.
-- [ ] Verify `npx agent-profiles@0.4.1 init`, `configure`, `doctor`, and `uninstall`
+- [ ] Verify `npx @guisam/agent-profiles@0.4.1 init`, `configure`, `doctor`, and `uninstall`
       against the published package in a disposable repository.
 
 No credentials or publishing automation are required for development or CI.
