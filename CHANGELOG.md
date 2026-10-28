@@ -1,6 +1,18 @@
 # Changelog
 
-## Unreleased
+## 0.4.1 — 2026-10-28
+
+First npm release. The source-development notes below retain their historical
+publication and qualification status; they are not separate npm releases.
+
+### npm publication preparation (source version 0.4.1)
+
+- Track npm publication readiness in the existing release checklist and correct
+  the lockfile CLI path to match the compiled executable in the package manifest.
+  Add a manually triggered GitHub Actions trusted-publishing workflow with
+  version checks, validation, and publication disabled by default. No configuration
+  migration is required. Initial publication is authenticated manually; future
+  releases use the configured GitHub Actions trusted publisher.
 
 ### Saved profile evidence and distinct skill examples (source version 0.4.0)
 

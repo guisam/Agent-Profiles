@@ -6,7 +6,7 @@ bounded immutable task-only candidate publication/readback, offline paired exter
 and explicit promotion of that candidate for its one evaluated role/model/host tuple.
 It reuses the existing package store, raw-byte stamps and resolver. It
 adds no runtime dependencies, compiler, repository-per-skill requirement, second
-evaluated-content hash or automatic Git commits. The npm package is unpublished.
+evaluated-content hash or automatic Git commits. These commands are included in CLI package 0.4.1.
 
 **This is not the complete migration lifecycle.** Actual package forks/lineage,
 broader candidate targets/batches, provider execution, promotion of more than the
@@ -335,7 +335,7 @@ fresh independent whole-evidence review remain acceptance gates for this checkou
 
 The local checkout implements offline plan/result v1 retention and a read-only report
 for one retained candidate and its exact primary role/model/host/requested context.
-It runs no harness, judge, grader, provider or model. The npm package is unpublished;
+It runs no harness, judge, grader, provider or model. npm publication does not qualify the evaluation;
 this is not completion of step3 or issue #21.
 
 ```sh
@@ -437,7 +437,7 @@ all live/provider operations remain later separately bounded work.
 The local checkout implements read-only preview and explicit synthetic promotion of
 ONE retained task-only candidate for ONLY the primary role/model/host of its paired
 evidence. Collateral and workflow cases are observations inside primary trials; they
-never authorize promoting a peer tuple. The npm package is unpublished; this is not
+never authorize promoting a peer tuple. npm publication does not establish
 completion of step4 or issue #21.
 
 ```sh

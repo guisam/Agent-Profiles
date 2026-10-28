@@ -1,0 +1,65 @@
+name: Publish to npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact package version to validate
+        required: true
+        type: string
+      publish:
+        description: Publish to npm after validation (leave off for a rehearsal)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'guisam/Agent-Profiles' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm install --global npm@11.19.0
+      - name: Verify version and lockfile
+        run: |
+          node --input-type=module -e '
+            import assert from "node:assert/strict";
+            import fs from "node:fs";
+            const manifest = JSON.parse(fs.readFileSync("package.json"));
+            const lock = JSON.parse(fs.readFileSync("package-lock.json"));
+            assert.equal(manifest.version, process.env.RELEASE_VERSION);
+            assert.equal(lock.version, manifest.version);
+            assert.equal(lock.packages[""].version, manifest.version);
+            assert.deepEqual(lock.packages[""].bin, manifest.bin);
+          '
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npx --no-install biome ci
+      - run: npm test
+      - run: npm run test:package
+      - name: Pack the validated build
+        run: npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP"
+      - name: Rehearse publication
+        run: npm publish "$RUNNER_TEMP/agent-profiles-$RELEASE_VERSION.tgz" --dry-run --access public --registry=https://registry.npmjs.org
+      - name: Publish with OIDC
+        if: inputs.publish
+        run: npm publish "$RUNNER_TEMP/agent-profiles-$RELEASE_VERSION.tgz" --access public --registry=https://registry.npmjs.org

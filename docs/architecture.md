@@ -238,7 +238,7 @@ Immutable stamps retain raw Buffers/full trees/provenance independently of live
 text diagnostics. Verification checks all backing; diff is structural. Filesystem
 exports preserve managed bytes into absent destinations, without native layout,
 invocation, runtime attestation or universal host visibility isolation. Checkout
-implementation is not installed-artifact/platform/live qualification; 0.1.0 is unpublished.
+implementation is not installed-artifact/platform/live qualification; npm publication does not establish those guarantees.
 
 ## Model resolution
 
