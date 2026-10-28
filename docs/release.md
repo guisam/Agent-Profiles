@@ -1,18 +1,99 @@
-# v0.4.0 release checklist
+# v0.4.1 release checklist
 
-The repository is preparing `agent-profiles@0.4.0`. Publication and live-host
+The repository is preparing `agent-profiles@0.4.1`. Publication and live-host
 verification are explicit release steps; a passing local test does not publish
 anything or prove a model followed the bootstrap.
 
-## Upgrading the source checkout from 0.1.0 to 0.4.0
+## npm publication readiness (2026-10-28)
 
-The new assistant-assisted evaluation guide uses existing CLI and bridge APIs.
+Work through these steps in order. Checked items record inspected configuration
+or completed checks, not publication approval. Leave platform and live-host gates
+below open until their evidence is reviewed.
+
+1. [x] Inspect package metadata: Apache-2.0 license, repository links, Node 24
+   requirement, compiled CLI entry, file allowlist, and prepack build are present.
+2. [x] Synchronize the manifest and lockfile at `0.4.1`, including the CLI path
+   `dist/bin/agent-profiles.js`. This is a source preparation patch, not a release.
+3. [x] Query the public npm registry for `agent-profiles`: returned E404 on
+   2026-10-28. This does not reserve the name or establish publishing rights.
+4. [x] Confirm the personal npm account `guisam`. The maintainer confirmed email
+   verification, enabled 2FA, and saved recovery codes. Package ownership is still
+   pending the bootstrap step below. If a scoped name is chosen,
+   update metadata, packaging assertions, installer references, and documentation
+   together before repeating artifact checks.
+5. [x] Choose GitHub Actions trusted publishing for the personally maintained
+   `guisam/Agent-Profiles` repository. Prepare `.github/workflows/publish.yml`:
+   manual dispatch on `main`, version/lock checks, tests, artifact rehearsal,
+   Node 24, and OIDC. Publication defaults to off. Ordinary CI stays credential-free.
+   GitHub environment `npm` now exists with deployments restricted to the `main`
+   branch. npm trust, merging the workflow, and a successful remote rehearsal
+   remain pending as described below.
+6. [x] Run local type checking and `npx --no-install biome ci` (Windows, Node
+   24.20.0, npm 11.19.0). These passed on 2026-10-28.
+   An isolated manifest/lockfile-only `npm ci --ignore-scripts` also passed;
+   this checks dependency installation, not a clean full-checkout CI run.
+7. [x] Run the complete test suite and packed-package smoke; inspect the final
+   tarball inventory, especially bundled `.agent-profiles/`, docs, and presets.
+   The full run reported 2,081 passes, one skip, and one version-mismatch failure
+   caused by editing the manifest during the run. With the version stable, all
+   48 protocol/workflow tests passed. Packed-package smoke passed on Windows.
+   The dry-run inventory has 94 files (~360 KB compressed); the bundled scaffold
+   contains profiles, roles, and two example skills. No test/source trees, caches,
+   npm configuration, or credential-named files appeared in the reviewed listing.
+8. [ ] Review passing CI for the exact release commit on Windows, macOS, and
+   Linux; resolve or explicitly document the delivery and live-host gates below.
+   CI passed for base commit `50c0da2`; this working change has not run on GitHub.
+9. [x] Update the GitHub wiki's Versioning and upgrades page with this patch's
+   changes and upgrade guidance; keep its source mirror under `docs/wiki/`.
+10. [ ] Obtain explicit authorization to publish the reviewed artifact; only then
+    publish, update publication status/date, and verify the installed registry copy.
+    Tags and GitHub releases also require explicit authorization.
+
+Public package versions cannot be overwritten; fixes need a new version. Beta
+numbering remains a maintainer decision.
+
+### Set up trusted publishing
+
+The npm account is separate from GitHub's `guisam` account. Confirm its username
+and enable 2FA before proceeding. An organization is not required.
+
+1. Merge the reviewed workflow into `main` and create a GitHub environment named
+   `npm`, restricted to `main`. No npm publishing token secret is needed.
+2. Establish ownership of `agent-profiles` on npm. npm requires the package to
+   exist before configuring trust. A one-time authenticated first publication
+   is one option; staged publication is another, but creates a publicly visible
+   placeholder for a new package. Both require separate explicit authorization.
+   Do not publish a dummy release or invent beta numbering to bootstrap trust.
+3. In npm package settings, add a GitHub Actions trusted publisher with owner
+   `guisam`, repository `Agent-Profiles`, workflow filename `publish.yml`, and
+   environment `npm`. Enable direct `npm publish` permission for this workflow.
+   Configure this only when ready: unused new configurations expire after two days.
+4. Run **Publish to npm** on `main` with the exact manifest version and leave
+   **publish** off. Inspect the check results and tarball listing. A dry run
+   verifies packaging, not the OIDC publishing permission.
+5. After release authorization and all gates pass, run the same reviewed commit
+   with **publish** enabled. The workflow publishes the tarball it rehearsed;
+   it does not create Git tags or GitHub releases. If bootstrapping already
+   published that version, prepare and verify a new version before running it.
+
+References: [npm publication and artifact contents](https://docs.npmjs.com/cli/v11/commands/npm-publish/),
+[account publishing security](https://docs.npmjs.com/requiring-2fa-for-package-publishing-and-settings-modification/),
+[trusted publishing](https://docs.npmjs.com/trusted-publishers/),
+[trust prerequisites](https://docs.npmjs.com/cli/v11/commands/npm-trust/),
+and [staged publication](https://docs.npmjs.com/staged-publishing/).
+
+## Upgrading the source checkout from 0.1.0 to 0.4.1
+
+The `0.4.1` patch adds release preparation and a manual OIDC publishing workflow,
+and corrects the root lockfile's compiled CLI path. From `0.4.0`, rebuild and
+explicitly select the new tarball; existing installations do not change by
+updating the checkout. The assistant-assisted evaluation guide uses existing CLI and bridge APIs.
 No configuration YAML, managed lock, package, stamp, plan, result or promotion
 format changes are introduced. Keep existing project configuration, package pins,
 and retained experiment evidence; no schema migration is required for this update.
 
 Update the source checkout deliberately and use Node 24. If using a packed
-artifact, rebuild it and select the `agent-profiles-0.4.0.tgz` artifact explicitly;
+artifact, rebuild it and select the `agent-profiles-0.4.1.tgz` artifact explicitly;
 changing this checkout does not update an installed copy. Follow the artifact
 checks below before installing a new build. The package remains unpublished.
 
@@ -26,7 +107,7 @@ new model/host combinations or make prior results valid for changed conditions.
 - [ ] `npm ci --ignore-scripts` succeeds from a clean checkout.
 - [ ] `npm run typecheck`, `npm run lint`, and `npm test` pass.
 - [ ] `npm run test:package` passes on Windows, macOS, and Linux with Node 24.
-- [ ] Review `npm pack --dry-run --json`: executable, source, scaffold, docs,
+- [ ] Review `npm pack --dry-run --json`: compiled executable, compiled modules, scaffold, docs,
       README, license, changelog, and metadata included; tests, caches, local
       agent settings, developer tooling, and generated artifacts excluded.
 - [ ] README examples, CLI help, version/lockfile, Apache-2.0 license, repository
@@ -52,7 +133,7 @@ host boundary; no tokenizer or live-host introspection is used.
 Configuration v2 and add/install/stamp/verify/diff/materialize are implemented in
 this checkout. The [local tutorial](versioned-packages.md) and
 [adjacent migration guide/prompt](migrations/README.md) describe source behavior;
-0.4.0 is still unpublished. Preserve the distinction between source checkout tests,
+0.4.1 is still unpublished. Preserve the distinction between source checkout tests,
 installed artifact behavior, platform qualification and live host observation.
 
 - [ ] Qualify every complete tutorial YAML/required file with real validators;
@@ -111,15 +192,15 @@ workspace, and host skill invocation remain unverified.
 
 ## Publish (maintainer)
 
-- [ ] Review the six CI jobs and live-host results; resolve failures before release.
+- [ ] Review the current CI matrix and store-cache-off job and live-host results; resolve failures before release.
 - [ ] Confirm the intended npm account can publish `agent-profiles`. A registry
       lookup returned no public package on 2026-09-26; that does not reserve the
       name or establish account permissions. Recheck at release time.
 - [ ] Change the changelog's Unreleased heading to the release date and update
       README publication status when publishing.
 - [ ] Build and inspect the final tarball and publish that reviewed artifact.
-- [ ] Tag the released commit `v0.4.0` and create release notes.
-- [ ] Verify `npx agent-profiles@0.4.0 init`, `configure`, `doctor`, and `uninstall`
+- [ ] Tag the released commit `v0.4.1` and create release notes.
+- [ ] Verify `npx agent-profiles@0.4.1 init`, `configure`, `doctor`, and `uninstall`
       against the published package in a disposable repository.
 
 No credentials or publishing automation are required for development or CI.

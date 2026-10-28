@@ -95,8 +95,34 @@ project. A portable YAML snapshot does not restore package-lock history or host
 runtime state. If rebuilding, deliberately choose `agent-profiles-0.4.0.tgz` and
 verify its metadata; the source-only archive helper requires this trusted checkout.
 
+## Source patch: 0.4.1 — npm publication preparation
+
+The unpublished `0.4.1` working-source patch prepares an ordered npm publication
+checklist and a manually triggered GitHub Actions OIDC workflow. It also corrects
+the root lockfile's executable path to `dist/bin/agent-profiles.js`. Publication
+defaults to off and the workflow creates neither tags nor GitHub releases.
+
+No configuration YAML, managed lock, stamp, package or evaluation schema changes
+are introduced. Keep existing configuration, pins and evidence. If rebuilding
+from source, use Node 24 and explicitly select `agent-profiles-0.4.1.tgz`; updating
+the checkout does not upgrade an installed copy. No migration is required.
+
+The maintainer chose personal ownership and GitHub Actions trusted publishing
+for `guisam/Agent-Profiles` using the personal npm account `guisam`. The maintainer
+confirmed verified email, 2FA and saved recovery codes. GitHub environment `npm`
+has been created with deployment restricted to the `main` branch. npm requires an
+existing package before trust can be configured; a bootstrap publish or staging
+action needs separate approval. After the workflow is committed to `main`,
+configure npm trust for `publish.yml` and environment `npm`, then run a rehearsal
+with publication off. Configure
+trust near release time because unused new configurations expire after two days.
+
+See the [repository release checklist](https://github.com/guisam/Agent-Profiles/blob/main/docs/release.md)
+for current gates. This page records working-source preparation, not an npm
+release announcement or proof that the new workflow has run on GitHub.
+
 ## Beta releases
 
-The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The current working application manifest is `0.4.0`, unpublished; this policy documentation does not announce a release or a configuration migration.
+The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The current working application manifest is `0.4.1`, unpublished; this policy documentation does not announce a release or a configuration migration.
 
 [Return to the documentation home](https://github.com/guisam/Agent-Profiles/wiki).

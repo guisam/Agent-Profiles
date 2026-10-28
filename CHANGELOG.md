@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### npm publication preparation (source version 0.4.1)
+
+- Track npm publication readiness in the existing release checklist and correct
+  the lockfile CLI path to match the compiled executable in the package manifest.
+  Add a manually triggered GitHub Actions trusted-publishing workflow with
+  version checks, validation, and publication disabled by default. No configuration
+  migration is required; the package remains unpublished.
+
 ### Saved profile evidence and distinct skill examples (source version 0.4.0)
 
 - Add two inspectable model/role preset examples with distinct required skill

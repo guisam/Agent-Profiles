@@ -46,13 +46,13 @@ Requires **Node.js 24 or newer**. Supports **Claude Code, OpenAI Codex, OpenCode
 (Claude Code and OpenCode verified live; Codex and Hermes live bootstrap behavior not yet observed).
 For OpenCode v2.1.3, see the [setup guide and assistant prompt](docs/hosts/opencode.md).
 
-**v0.4.0 is being prepared; it has not been published to npm.** Try this checkout
+**v0.4.1 is being prepared; it has not been published to npm.** Try this checkout
 now with `npm ci` and `npm pack`, then run these commands with the path to your
 project. `--package` installs the packed tarball into the project so the bootstrap
 command can run there:
 
 ```sh
-node bin/agent-profiles.ts init --root /path/to/project --package ./agent-profiles-0.4.0.tgz
+node bin/agent-profiles.ts init --root /path/to/project --package ./agent-profiles-0.4.1.tgz
 node bin/agent-profiles.ts configure --root /path/to/project
 node bin/agent-profiles.ts doctor --root /path/to/project
 node bin/agent-profiles.ts proof --root /path/to/project --role reviewer
