@@ -59,7 +59,7 @@ jobs:
       - name: Pack the validated build
         run: npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP"
       - name: Rehearse publication
-        run: npm publish "$RUNNER_TEMP/agent-profiles-$RELEASE_VERSION.tgz" --dry-run --access public --registry=https://registry.npmjs.org
+        run: npm publish "$RUNNER_TEMP/guisam-agent-profiles-$RELEASE_VERSION.tgz" --dry-run --access public --registry=https://registry.npmjs.org
       - name: Publish with OIDC
         if: inputs.publish
-        run: npm publish "$RUNNER_TEMP/agent-profiles-$RELEASE_VERSION.tgz" --access public --registry=https://registry.npmjs.org
+        run: npm publish "$RUNNER_TEMP/guisam-agent-profiles-$RELEASE_VERSION.tgz" --access public --registry=https://registry.npmjs.org

@@ -29,6 +29,6 @@ test("npm publishing requires explicit dispatch and publishes the rehearsed tarb
 	assert.equal(rehearsal.run.replace(" --dry-run", ""), publish.run);
 	assert.match(
 		publish.run,
-		/\$RUNNER_TEMP\/agent-profiles-\$RELEASE_VERSION\.tgz/,
+		/\$RUNNER_TEMP\/guisam-agent-profiles-\$RELEASE_VERSION\.tgz/,
 	);
 });

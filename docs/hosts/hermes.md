@@ -32,7 +32,7 @@ builds that artifact without publishing it. The output directory must exist.
 In the target repository, install the tarball, then initialize only the host you want:
 
 ```sh
-npm install --save-dev /path/to/agent-profiles-0.4.0.tgz
+npm install --save-dev /path/to/guisam-agent-profiles-0.4.1.tgz
 npx --no agent-profiles init --agent hermes
 npx --no agent-profiles doctor
 npx --no agent-profiles configure
@@ -44,7 +44,7 @@ version from inside it. On Windows, use a quoted path when it contains spaces.
 Alternatively, from the checkout:
 
 ```sh
-node bin/agent-profiles.ts init --root /path/to/project --agent hermes --package /path/to/agent-profiles-0.4.0.tgz
+node bin/agent-profiles.ts init --root /path/to/project --agent hermes --package /path/to/guisam-agent-profiles-0.4.1.tgz
 ```
 
 To enable all supported hosts, repeat `--agent` for `claude`, `codex`, `opencode`, and `hermes`.

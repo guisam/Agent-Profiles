@@ -9,7 +9,7 @@ not a new Agent Profiles host adapter.
 
 ## 1. Inspect before installing
 
-Requires Node.js 24 or newer. The first npm release is `agent-profiles@0.4.1`. From a
+Requires Node.js 24 or newer. The first npm release is `@guisam/agent-profiles@0.4.1`. From a
 trusted checkout with dependencies already available, inspection does not require
 installing Agent Profiles in the target project:
 
@@ -24,8 +24,8 @@ node /path/to/Agent-Profiles/bin/agent-profiles.ts inspect --root /path/to/proje
 In a fresh checkout, `npm ci` obtains its dependencies: that is a separate,
 permission-requiring preparation step, not an effect of inspection. If you received
 a trusted packed artifact, install it into a separate scratch project with
-`npm install --ignore-scripts /absolute/path/agent-profiles-0.4.1.tgz`, then run
-`node /scratch/project/node_modules/agent-profiles/dist/bin/agent-profiles.js inspect
+`npm install --ignore-scripts /absolute/path/guisam-agent-profiles-0.4.1.tgz`, then run
+`node /scratch/project/node_modules/@guisam/agent-profiles/dist/bin/agent-profiles.js inspect
 --root /path/to/project --json`. This prepares the tool outside the target; review
 and approve dependency/registry access first. Do not run an unverified package name
 from a registry and assume it is this checkout. `npm pack --pack-destination
@@ -204,7 +204,7 @@ Use existing `init`, the role wizard or its programmatic planner/applier, resolv
 and adapters. For example, after the user approves the chosen adapter and package:
 
 ```sh
-node /path/to/Agent-Profiles/bin/agent-profiles.ts init --root /path/to/project --agent hermes --package /absolute/path/agent-profiles-0.4.1.tgz
+node /path/to/Agent-Profiles/bin/agent-profiles.ts init --root /path/to/project --agent hermes --package /absolute/path/guisam-agent-profiles-0.4.1.tgz
 # Interactive alternative for role edits, with its own previews/confirmation:
 node /path/to/Agent-Profiles/bin/agent-profiles.ts configure --root /path/to/project
 # Add --external or --sources only when the corresponding discovery was approved.

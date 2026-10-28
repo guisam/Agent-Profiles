@@ -51,7 +51,7 @@ project. `--package` installs the packed tarball into the project so the bootstr
 command can run there:
 
 ```sh
-node bin/agent-profiles.ts init --root /path/to/project --package ./agent-profiles-0.4.1.tgz
+node bin/agent-profiles.ts init --root /path/to/project --package ./guisam-agent-profiles-0.4.1.tgz
 node bin/agent-profiles.ts configure --root /path/to/project
 node bin/agent-profiles.ts doctor --root /path/to/project
 node bin/agent-profiles.ts proof --root /path/to/project --role reviewer
@@ -61,13 +61,19 @@ node bin/agent-profiles.ts visualize --root /path/to/project
 From your Git repository, install the npm package and run the same workflow:
 
 ```sh
-npm install --save-dev agent-profiles@0.4.1
+npm install --save-dev @guisam/agent-profiles@0.4.1
 npx agent-profiles init
 npx agent-profiles configure
 npx agent-profiles doctor
 npx agent-profiles proof --role reviewer
 npx agent-profiles visualize
 ```
+
+The npm package is `@guisam/agent-profiles`; the command remains `agent-profiles`.
+If you previously installed an unscoped source tarball, remove that dependency
+with `npm uninstall --save-dev agent-profiles`, then install the scoped package.
+Keep your `.agent-profiles/` configuration and package pins; no YAML migration is
+needed for this package-name change.
 
 `init` asks which agents to enable and adds a small bootstrap block to their
 instruction files. The block asks the agent to run `npx --no agent-profiles resolve`

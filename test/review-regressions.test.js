@@ -65,12 +65,12 @@ function nativeSkills(root) {
 let built;
 function executable(root, installedVersion = version, realCLI = false) {
 	write(root, "package.json", '{"private":true}');
-	const target = path.join(root, "node_modules/agent-profiles");
+	const target = path.join(root, "node_modules/@guisam/agent-profiles");
 	write(
 		root,
-		"node_modules/agent-profiles/package.json",
+		"node_modules/@guisam/agent-profiles/package.json",
 		JSON.stringify({
-			name: "agent-profiles",
+			name: "@guisam/agent-profiles",
 			version: installedVersion,
 			type: "module",
 			bin: { "agent-profiles": "bin/agent-profiles.js" },
@@ -99,7 +99,7 @@ function executable(root, installedVersion = version, realCLI = false) {
 	} else
 		write(
 			root,
-			"node_modules/agent-profiles/bin/agent-profiles.js",
+			"node_modules/@guisam/agent-profiles/bin/agent-profiles.js",
 			`#!/usr/bin/env node\nconsole.log(${JSON.stringify(installedVersion)});\n`,
 		);
 	const bin = path.join(root, "node_modules/.bin/agent-profiles");
@@ -108,16 +108,16 @@ function executable(root, installedVersion = version, realCLI = false) {
 		write(
 			root,
 			"node_modules/.bin/agent-profiles",
-			'#!/bin/sh\nexec node "$basedir/../agent-profiles/bin/agent-profiles.js" "$@"\n',
+			'#!/bin/sh\nexec node "$basedir/../@guisam/agent-profiles/bin/agent-profiles.js" "$@"\n',
 		);
 		write(
 			root,
 			"node_modules/.bin/agent-profiles.cmd",
-			'@echo off\r\nnode "%~dp0..\\agent-profiles\\bin\\agent-profiles.js" %*\r\n',
+			'@echo off\r\nnode "%~dp0..\\@guisam\\agent-profiles\\bin\\agent-profiles.js" %*\r\n',
 		);
 	} else {
 		fs.chmodSync(path.join(target, "bin/agent-profiles.js"), 0o755);
-		fs.symlinkSync("../agent-profiles/bin/agent-profiles.js", bin);
+		fs.symlinkSync("../@guisam/agent-profiles/bin/agent-profiles.js", bin);
 	}
 }
 
@@ -159,9 +159,9 @@ test("review #2: availability follows the ancestor executable instead of unrelat
 	write(root, "package.json", '{"private":true}');
 	write(
 		root,
-		"node_modules/agent-profiles/package.json",
+		"node_modules/@guisam/agent-profiles/package.json",
 		JSON.stringify({
-			name: "agent-profiles",
+			name: "@guisam/agent-profiles",
 			version,
 			bin: { "agent-profiles": "missing.js" },
 		}),
@@ -188,12 +188,29 @@ test("review #2: availability follows the ancestor executable instead of unrelat
 	assert.equal(bootstrapAvailability(root).version, "9.9.9");
 });
 
+test("availability rejects the unscoped lookalike package even with a working CLI", (t) => {
+	const root = fixture(t);
+	executable(root);
+	const file = path.join(
+		root,
+		"node_modules/@guisam/agent-profiles/package.json",
+	);
+	const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
+	manifest.name = "agent-profiles";
+	fs.writeFileSync(file, JSON.stringify(manifest));
+	assert.equal(bootstrapAvailability(root).runnable, false);
+	assert.match(
+		bootstrapAvailability(root).reason,
+		/cannot verify an agent-profiles package/,
+	);
+});
+
 test("review #2: package metadata without a working executable is not runnable", (t) => {
 	const root = fixture(t);
 	write(
 		root,
 		"package.json",
-		JSON.stringify({ name: "agent-profiles", version }),
+		JSON.stringify({ name: "@guisam/agent-profiles", version }),
 	);
 	assert.equal(bootstrapAvailability(root).runnable, false);
 });

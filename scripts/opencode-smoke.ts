@@ -111,32 +111,35 @@ try {
 	);
 	put("package.json", '{"private":true}\n');
 	put(
-		"node_modules/agent-profiles/package.json",
+		"node_modules/@guisam/agent-profiles/package.json",
 		JSON.stringify({
-			name: "agent-profiles",
+			name: "@guisam/agent-profiles",
 			version: metadata.version,
 			type: "module",
 			bin: { "agent-profiles": "bin/agent-profiles.js" },
 		}),
 	);
 	put(
-		"node_modules/agent-profiles/bin/agent-profiles.js",
+		"node_modules/@guisam/agent-profiles/bin/agent-profiles.js",
 		`#!/usr/bin/env node\nimport ${JSON.stringify(new URL("../bin/agent-profiles.ts", import.meta.url).href)};\n`,
 	);
 	if (process.platform === "win32") {
 		put("node_modules/.bin/agent-profiles", "#!/bin/sh\n");
 		put(
 			"node_modules/.bin/agent-profiles.cmd",
-			'@echo off\r\nnode "%~dp0..\\agent-profiles\\bin\\agent-profiles.js" %*\r\n',
+			'@echo off\r\nnode "%~dp0..\\@guisam\\agent-profiles\\bin\\agent-profiles.js" %*\r\n',
 		);
 	} else {
 		chmodSync(
-			path.join(project, "node_modules/agent-profiles/bin/agent-profiles.js"),
+			path.join(
+				project,
+				"node_modules/@guisam/agent-profiles/bin/agent-profiles.js",
+			),
 			0o755,
 		);
 		mkdirSync(path.join(project, "node_modules/.bin"), { recursive: true });
 		symlinkSync(
-			"../agent-profiles/bin/agent-profiles.js",
+			"../@guisam/agent-profiles/bin/agent-profiles.js",
 			path.join(project, "node_modules/.bin/agent-profiles"),
 		);
 	}

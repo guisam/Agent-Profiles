@@ -92,7 +92,7 @@ changed. No migration is required. Review preset imports and model-mapping
 conflicts explicitly; the preset sets no defaults. Restore historical snapshots
 into a new project first, compare their hashes, then review any merge into a live
 project. A portable YAML snapshot does not restore package-lock history or host
-runtime state. If rebuilding, deliberately choose `agent-profiles-0.4.0.tgz` and
+runtime state. If rebuilding, deliberately choose `guisam-agent-profiles-0.4.1.tgz` and
 verify its metadata; the source-only archive helper requires this trusted checkout.
 
 ## Source patch: 0.4.1 — npm publication preparation
@@ -102,9 +102,20 @@ checklist and a manually triggered GitHub Actions OIDC workflow. It also correct
 the root lockfile's executable path to `dist/bin/agent-profiles.js`. Publication
 defaults to off and the workflow creates neither tags nor GitHub releases.
 
+npm rejected the unscoped name `agent-profiles` as too similar to `agentprofiles`.
+The maintainer chose `@guisam/agent-profiles`; the terminal command remains
+`agent-profiles`. Bootstrap package verification and install instructions use the
+scoped identity. The rejected attempt published no package.
+
+If a consuming project already has an unscoped source tarball installed, run
+`npm uninstall --save-dev agent-profiles`, then
+`npm install --save-dev @guisam/agent-profiles@0.4.1`. Keep `.agent-profiles/`,
+configuration, pins, stores and evidence; no YAML migration is needed. The command
+stays `agent-profiles`. Run doctor after replacing the dependency.
+
 No configuration YAML, managed lock, stamp, package or evaluation schema changes
 are introduced. Keep existing configuration, pins and evidence. If rebuilding
-from source, use Node 24 and explicitly select `agent-profiles-0.4.1.tgz`; updating
+from source, use Node 24 and explicitly select `guisam-agent-profiles-0.4.1.tgz`; updating
 the checkout does not upgrade an installed copy. No migration is required.
 
 The maintainer chose personal ownership and GitHub Actions trusted publishing

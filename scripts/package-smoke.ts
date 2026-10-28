@@ -120,7 +120,7 @@ try {
 	const manifest = JSON.parse(
 		fs.readFileSync(path.join(project, "package.json"), "utf8"),
 	);
-	assert.equal(artifact.name, "agent-profiles");
+	assert.equal(artifact.name, "@guisam/agent-profiles");
 	assert.equal(artifact.version, manifest.version);
 	const files = new Set<string>(
 		artifact.files.map((file: Untyped) => file.path),
@@ -210,7 +210,7 @@ try {
 		],
 		consumer,
 	);
-	const installed = path.join(consumer, "node_modules/agent-profiles");
+	const installed = path.join(consumer, "node_modules/@guisam/agent-profiles");
 	const installedManifest = JSON.parse(
 		fs.readFileSync(path.join(installed, "package.json"), "utf8"),
 	);
