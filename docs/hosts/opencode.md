@@ -17,7 +17,7 @@ build a tarball with `npm pack --pack-destination <existing-output-directory>`.
 The package is not published; install the actual tested tarball in your project.
 
 ```powershell
-npm install --save-dev C:\artifacts\agent-profiles-0.1.0.tgz
+npm install --save-dev C:\artifacts\agent-profiles-0.4.0.tgz
 npx --no agent-profiles inspect --json
 npx --no agent-profiles init --agent opencode
 npx --no agent-profiles doctor

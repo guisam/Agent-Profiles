@@ -170,6 +170,14 @@ Finish with what works, what remains to configure, and commands I can reuse.
 
 ## When you are ready to evaluate a change
 
+For a role or service-tier decision, start with [Qualify an agent](agent-qualification.md).
+It provides the requirements intake, report template and worked pilot outcome.
+
+For a single assistant-assisted entry point, use
+[Evaluate and improve a role's skill](guided-evaluation.md). Its copyable prompt
+coordinates the existing bridge and CLI, prepares internal artifacts for you,
+and keeps paid execution and adoption behind explicit decisions.
+
 For Codex or OpenCode, [prepare a migration before searching for a skill change](hosts/harness2.md#convert-adopted-edits-into-proposals-codex).
 Use its new base stamp for that search, rather than the original capture stamp.
 Review the generated proposals and unsupported-edit report, then explicitly

@@ -2,7 +2,7 @@
 
 > Current checkout status (P9b): P2–P9a implementation and the finite P9b test
 > contract were parent-accepted. Configuration v2 validation and the six public
-> package/stamp commands are implemented; version 0.1.0 remains unpublished.
+> package/stamp commands are implemented; version 0.4.0 remains unpublished.
 > [Current package workflow](../versioned-packages.md) and
 > [migration guide/prompt](../migrations/README.md) supersede historical statements
 > below that v2/tool validation is unavailable. This P1 proposal/decision history

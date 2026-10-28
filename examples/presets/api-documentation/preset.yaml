@@ -1,0 +1,40 @@
+schema_version: 1
+preset:
+  name: api-documentation
+  display_name: API Documentation
+  description: Task-tuned Luna and Sol profiles for source-grounded API documentation.
+  author: Agent Profiles contributors
+  version: 1.0.0
+  license: Apache-2.0
+roles:
+  api-documentation-luna:
+    file: roles/api-documentation-luna.md
+    description: Draft API documentation with explicit source-evidence auditing.
+    skills:
+      required: [api-documentation, source-evidence-audit]
+      available: []
+  api-documentation-sol:
+    file: roles/api-documentation-sol.md
+    description: Reconcile API documentation with a contract-consistency review.
+    skills:
+      required: [api-documentation, api-contract-review]
+      available: []
+profiles:
+  api-docs-luna:
+    file: profiles/api-docs-luna.md
+  api-docs-sol:
+    file: profiles/api-docs-sol.md
+models:
+  gpt-6-luna:
+    profile: api-docs-luna
+  gpt-6.1-sol:
+    profile: api-docs-sol
+skills:
+  requires: []
+  includes:
+    api-documentation:
+      file: skills/api-documentation/SKILL.md
+    source-evidence-audit:
+      file: skills/source-evidence-audit/SKILL.md
+    api-contract-review:
+      file: skills/api-contract-review/SKILL.md

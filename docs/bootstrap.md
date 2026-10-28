@@ -67,7 +67,7 @@ by someone else.
 ## Host setup
 
 1. Install the package in the repository: `npm install --save-dev agent-profiles`,
-   or `init --package <spec>` (a packed tarball until v0.1.0 is published). The
+   or `init --package <spec>` (a packed tarball until v0.4.0 is published). The
    command then resolves from `node_modules/.bin`. `init` exits nonzero while the
    package is missing, and `doctor` reports it under **Bootstrap availability**. The
    installed version must match the CLI that checked the configuration.

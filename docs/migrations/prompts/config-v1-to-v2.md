@@ -5,7 +5,7 @@ Contract: [v1 → v2 guide](../config-v1-to-v2.md), using the
 fill in approved boundaries. If that tool cannot open repository-relative links,
 supply the guide and pattern contents with their exact file paths and hashes; do not
 ask it to invent a substitute. Placeholder values are not permissions. This prompt
-requests preparation first, not immediate application. This checkout validates both schemas; version 0.1.0 remains unpublished. Verify the selected local executable rather than assuming an installed copy has that capability. Missing validation still blocks an edit.
+requests preparation first, not immediate application. This checkout validates both schemas; version 0.4.0 remains unpublished. Verify the selected local executable rather than assuming an installed copy has that capability. Missing validation still blocks an edit.
 
 ```text
 Prepare a bounded Agent Profiles configuration v1 -> v2 migration for ONE generic
