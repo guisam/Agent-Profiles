@@ -69,6 +69,12 @@ npx agent-profiles proof --role reviewer
 npx agent-profiles visualize
 ```
 
+The npm package is `@guisam/agent-profiles`; the command remains `agent-profiles`.
+If you previously installed an unscoped source tarball, remove that dependency
+with `npm uninstall --save-dev agent-profiles`, then install the scoped package.
+Keep your `.agent-profiles/` configuration and package pins; no YAML migration is
+needed for this package-name change.
+
 `init` asks which agents to enable and adds a small bootstrap block to their
 instruction files. The block asks the agent to run `npx --no agent-profiles resolve`
 with the exact model ID its host states. Code does all routing, and the agent

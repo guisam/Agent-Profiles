@@ -107,6 +107,12 @@ The maintainer chose `@guisam/agent-profiles`; the terminal command remains
 `agent-profiles`. Bootstrap package verification and install instructions use the
 scoped identity. The rejected attempt published no package.
 
+If a consuming project already has an unscoped source tarball installed, run
+`npm uninstall --save-dev agent-profiles`, then
+`npm install --save-dev @guisam/agent-profiles@0.4.1`. Keep `.agent-profiles/`,
+configuration, pins, stores and evidence; no YAML migration is needed. The command
+stays `agent-profiles`. Run doctor after replacing the dependency.
+
 No configuration YAML, managed lock, stamp, package or evaluation schema changes
 are introduced. Keep existing configuration, pins and evidence. If rebuilding
 from source, use Node 24 and explicitly select `guisam-agent-profiles-0.4.1.tgz`; updating

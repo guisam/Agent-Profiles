@@ -91,6 +91,13 @@ The `0.4.1` patch adds release preparation and a manual OIDC publishing workflow
 and corrects the root lockfile's compiled CLI path. From `0.4.0`, rebuild and
 explicitly select the new tarball; existing installations do not change by
 updating the checkout. The assistant-assisted evaluation guide uses existing CLI and bridge APIs.
+
+For an existing unscoped tarball installation, run `npm uninstall --save-dev
+agent-profiles` in the consuming project, then install `@guisam/agent-profiles@0.4.1`
+as a dev dependency. This replaces the npm executable shim with the scoped package's
+copy. Keep `.agent-profiles/`, configuration, pins, stores, and retained evidence.
+The terminal command remains `agent-profiles`; rerun doctor after installation.
+
 No configuration YAML, managed lock, package, stamp, plan, result or promotion
 format changes are introduced. Keep existing project configuration, package pins,
 and retained experiment evidence; no schema migration is required for this update.
