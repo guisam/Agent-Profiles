@@ -101,7 +101,7 @@ export function detectAgents(root: string) {
 	return integrations.map((adapter) => integrationState(root, adapter));
 }
 
-const ownVersion = JSON.parse(
+export const ownVersion: string = JSON.parse(
 	readFileSync(path.join(packageRoot, "package.json"), "utf8"),
 ).version;
 

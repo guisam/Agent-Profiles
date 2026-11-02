@@ -8,6 +8,7 @@
 - [Windows JobBench pilot](https://github.com/guisam/Agent-Profiles/wiki/Windows-JobBench-pilot)
 - [Luna/Sol comparison](https://github.com/guisam/Agent-Profiles/wiki/Luna-Sol-qualification)
 - [Saved profiles and run evidence](https://github.com/guisam/Agent-Profiles/wiki/Saved-profile-evidence)
+- [MCP service](https://github.com/guisam/Agent-Profiles/wiki/MCP-service)
 - [Use and share profiles](https://github.com/guisam/Agent-Profiles/wiki#use-and-share-profiles)
 - [Troubleshoot](https://github.com/guisam/Agent-Profiles/wiki#troubleshoot)
 - [Technical reference](https://github.com/guisam/Agent-Profiles/wiki#technical-reference)

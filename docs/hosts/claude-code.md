@@ -75,6 +75,15 @@ trust. Until the workspace is trusted, each session asks for approval of `resolv
 | A custom agent whose definition only names a role does not run `resolve` (Haiku) | verified |
 | A custom agent whose definition contains the exact `resolve --role` command runs it with its own ID (Haiku) | verified |
 
+## MCP service
+
+| Behavior | Status |
+| --- | --- |
+| The `agent-profiles mcp` tools are callable without Bash/PowerShell permission rules or workspace trust | unverified |
+| Server instructions (bound `--model`/`--role`) remain in context after `/compact` and `/clear` | unverified |
+
+See [MCP service](../mcp.md).
+
 ## Not covered
 
 macOS and Linux hosts, other Claude Code versions, Sonnet on the final protocol-2

@@ -91,30 +91,55 @@ try {
 			project,
 		),
 	);
-	const yamlRoot = path.join(project, "node_modules/yaml");
+	// Pack the whole production dependency closure (yaml, the MCP server SDK and its
+	// own dependencies) from node_modules so the consumer installs strictly offline.
+	const runtime = new Map<string, string>();
+	const visit = (name: string) => {
+		if (runtime.has(name)) return;
+		const root = path.join(project, "node_modules", name);
+		const pkg = JSON.parse(
+			fs.readFileSync(path.join(root, "package.json"), "utf8"),
+		);
+		runtime.set(name, root);
+		for (const dependency of Object.keys(pkg.dependencies ?? {}))
+			visit(dependency);
+	};
+	for (const name of Object.keys(
+		JSON.parse(fs.readFileSync(path.join(project, "package.json"), "utf8"))
+			.dependencies ?? {},
+	))
+		visit(name);
 	assert.equal(
-		JSON.parse(fs.readFileSync(path.join(yamlRoot, "package.json"), "utf8"))
-			.version,
+		JSON.parse(
+			fs.readFileSync(
+				path.join(runtime.get("yaml") ?? "", "package.json"),
+				"utf8",
+			),
+		).version,
 		"2.9.1",
 	);
-	const [yamlArtifact] = JSON.parse(
-		run(
-			process.execPath,
-			[
-				npm,
-				"pack",
-				"--offline",
-				"--json",
-				"--ignore-scripts",
-				"--pack-destination",
-				temporary,
-			],
-			yamlRoot,
-		),
-	);
-	assert.equal(yamlArtifact.name, "yaml");
-	assert.equal(yamlArtifact.version, "2.9.1");
-	const tarballs = [artifact, yamlArtifact].map((packed) =>
+	const dependencyArtifacts = [...runtime.entries()]
+		.sort(([a], [b]) => a.localeCompare(b))
+		.map(([name, root]) => {
+			const [packed] = JSON.parse(
+				run(
+					process.execPath,
+					[
+						npm,
+						"pack",
+						"--offline",
+						"--json",
+						"--ignore-scripts",
+						"--pack-destination",
+						temporary,
+					],
+					root,
+				),
+			);
+			assert.equal(packed.name, name);
+			return packed;
+		});
+	const tarballs = [artifact, ...dependencyArtifacts].map((packed) =>
 		path.join(temporary, packed.filename),
 	);
 	const manifest = JSON.parse(
@@ -177,6 +202,8 @@ try {
 		"src/visualizer/style.css",
 		"docs/visualize.md",
 		"docs/hosts/hermes.md",
+		"src/mcp.js",
+		"docs/mcp.md",
 		"examples/presets/release-review/preset.yaml",
 		...versionedFiles,
 	].map(built))
@@ -216,7 +243,11 @@ try {
 	);
 	assert.equal(installedManifest.license, "Apache-2.0");
 	assert.equal(installedManifest.version, manifest.version);
-	assert.deepEqual(Object.keys(installedManifest.dependencies), ["yaml"]);
+	assert.deepEqual(Object.keys(installedManifest.dependencies).sort(), [
+		"@modelcontextprotocol/server",
+		"yaml",
+		"zod",
+	]);
 	assert.equal(
 		JSON.parse(
 			fs.readFileSync(
@@ -275,8 +306,43 @@ try {
 		"materialize",
 		"migrate",
 		"revision",
+		"mcp",
 	])
 		assert.match(cli(command, "--help"), new RegExp(command));
+	// The installed `mcp` command answers an MCP initialize over stdio with its
+	// own version, using only the packed runtime dependencies.
+	{
+		const initialize = `${JSON.stringify({
+			jsonrpc: "2.0",
+			id: 1,
+			method: "initialize",
+			params: {
+				protocolVersion: "2025-06-18",
+				capabilities: {},
+				clientInfo: { name: "package-smoke", version: "1" },
+			},
+		})}\n`;
+		const served = spawnSync(
+			process.execPath,
+			[
+				path.join(installed, "dist/bin/agent-profiles.js"),
+				"mcp",
+				"--root",
+				consumer,
+			],
+			{
+				cwd: consumer,
+				env: environment,
+				input: initialize,
+				encoding: "utf8",
+				timeout: 60000,
+			},
+		);
+		const reply = JSON.parse(served.stdout.split("\n")[0]);
+		assert.equal(reply.result.serverInfo.name, "agent-profiles");
+		assert.equal(reply.result.serverInfo.version, manifest.version);
+		assert.match(reply.result.instructions, /`resolve` tool/);
+	}
 	const { configureRoles } = await import(
 		pathToFileURL(path.join(installed, "dist/src/wizard.js")).href
 	);
