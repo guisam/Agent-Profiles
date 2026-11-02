@@ -66,17 +66,47 @@ Whether a host keeps server instructions in context after compaction, `/clear`
 or a new conversation is host behavior. It is recorded per host as it is
 observed; see [Host status](#host-status).
 
+## Managed block handoff
+
+`init --mcp` writes a variant of the managed bootstrap block that adds one
+paragraph: if an `agent-profiles` MCP server is connected, call its `resolve`
+tool with the same values (`host`, `identitySource`, `model`, `role`), or follow
+the server's instructions when they already carry the session's profile. The
+shell command stays in the block, so the block still works where no server is
+connected.
+
+```sh
+agent-profiles init --agent claude --mcp     # write the handoff block
+agent-profiles init --agent claude           # keep whichever variant is installed
+agent-profiles init --agent claude --no-mcp  # back to the shell-only block
+```
+
+- The flags apply to the agents named with `--agent`; other installed blocks keep
+  their variant.
+- `init --mcp` prints the host setup below for each selected agent. It does not
+  write host MCP configuration.
+- `doctor` reports `bootstrap installed with MCP handoff` and a note per handoff
+  block: whether the project's host file names the server, or the snippet to
+  add. User-scope configuration (`~/.claude.json`, `~/.codex/config.toml`,
+  `~/.hermes/config.yaml`) is not read, so a server configured there is reported
+  as not found in the project.
+- Both variants are protocol 2, and doctor accepts either; neither is reported as
+  stale. Keep the shell permission rules: they serve the fallback.
+
 ## Host setup
 
 Install the package in the project first (`npm i -D @guisam/agent-profiles`),
 or use `npx` with the published package. Check each host's MCP documentation
-for its current configuration format.
+for its current configuration format. `init --mcp` prints the matching snippet
+with `--host` set.
 
 **Claude Code** (project scope writes `.mcp.json`):
 
 ```sh
-claude mcp add --scope project agent-profiles -- npx --no agent-profiles mcp
+claude mcp add --scope project agent-profiles -- npx --no agent-profiles mcp --host claude
 ```
+
+Claude Code asks each user to approve project-scope servers from `.mcp.json`.
 
 Per session, with a bound role and model:
 
@@ -84,12 +114,24 @@ Per session, with a bound role and model:
 claude --mcp-config '{"mcpServers":{"agent-profiles":{"command":"npx","args":["--no","agent-profiles","mcp","--host","claude","--model","<exact-model-id>","--role","reviewer"]}}}'
 ```
 
-**Codex** (`~/.codex/config.toml` or the project's Codex configuration):
+**Codex** (`~/.codex/config.toml`, or the project's `.codex/config.toml`, which
+Codex reads only for a trusted project):
 
 ```toml
 [mcp_servers.agent-profiles]
 command = "npx"
 args = ["--no", "agent-profiles", "mcp", "--host", "codex"]
+```
+
+**Hermes Agent** (`~/.hermes/config.yaml`; Hermes reads MCP servers from user
+configuration only, so add `--root <repository>` to `args` if it starts the
+server outside the repository):
+
+```yaml
+mcp_servers:
+  agent-profiles:
+    command: "npx"
+    args: ["--no", "agent-profiles", "mcp", "--host", "hermes"]
 ```
 
 **OpenCode** (`opencode.json`):
@@ -117,7 +159,9 @@ scope changes every project for that user; choose that explicitly.
 | No tool changes repository, store or home files | verified (automated tests) |
 | Claude Code: tools callable without Bash permission rules | unverified |
 | Claude Code: server instructions present after `/compact` and `/clear` | unverified |
-| Codex, OpenCode: live use | unverified |
+| Managed block handoff: variants, `init` flags, `doctor` detection | verified (automated tests) |
+| Agents follow the handoff instead of the shell command | unverified |
+| Codex, OpenCode, Hermes: live use | unverified |
 
 ## Limits
 

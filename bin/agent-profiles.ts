@@ -22,6 +22,7 @@ import {
 } from "../src/install.ts";
 import { integrations } from "../src/integrations.ts";
 import { materializeStamp } from "../src/materialize.ts";
+import { mcpSetupLines } from "../src/mcp-setup.ts";
 import {
 	abandonMigration,
 	acceptMigrationProposal,
@@ -81,6 +82,8 @@ try {
 			"identity-source": { type: "string" },
 			host: { type: "string" },
 			package: { type: "string" },
+			mcp: { type: "boolean" },
+			"no-mcp": { type: "boolean" },
 			skill: { type: "string", multiple: true },
 			json: { type: "boolean", default: false },
 			port: { type: "string" },
@@ -227,6 +230,8 @@ Options:
   --agent <id>        Select ${agentChoices} for init; repeat for multiple agents
   --package <spec>    For init: install this agent-profiles package or tarball as a
                       dev dependency so the bootstrap command can run
+  --mcp, --no-mcp     For init: write (or remove) the block's MCP handoff for the
+                      selected agents; otherwise each block keeps its variant
   --external          Include external native skill inventory in inspect/skills/configure/doctor
   --sources <file>    Machine-local skill roots JSON; implies --external
   --delete-config     Also delete .agent-profiles during uninstall; asks to confirm
@@ -234,6 +239,7 @@ Options:
 
 Examples:
   agent-profiles init --agent claude --agent codex
+  agent-profiles init --agent claude --mcp
   agent-profiles configure
   agent-profiles doctor`);
 	} else if (command === "mcp") {
@@ -361,6 +367,10 @@ Examples:
 			);
 		if (values.package !== undefined && command !== "init")
 			throw new Error("--package is only supported by init");
+		if ((values.mcp || values["no-mcp"]) && command !== "init")
+			throw new Error("--mcp and --no-mcp are only supported by init");
+		if (values.mcp && values["no-mcp"])
+			throw new Error("Choose --mcp or --no-mcp, not both");
 		if (values.agent && command !== "init")
 			throw new Error("--agent is only supported by init");
 		if (values["delete-config"] && command !== "uninstall")
@@ -822,10 +832,20 @@ Examples:
 				);
 				agents = answer.trim() ? answer.trim().split(/[\s,]+/) : defaults;
 			}
-			const result = install({ root, agents, storeRoot });
+			const result = install({
+				root,
+				agents,
+				storeRoot,
+				mcp: values.mcp ? true : values["no-mcp"] ? false : undefined,
+			});
 			for (const file of result.modified) console.log(`Updated ${file}`);
 			if (!result.modified.length)
 				console.log("Already installed. No changes required.");
+			// The installer never writes host MCP configuration; it says what to add.
+			for (const agent of result.agents.filter(
+				(item) => item.mcp && agents?.includes(item.id),
+			))
+				for (const line of mcpSetupLines(root, agent.id)) console.log(line);
 			console.log(
 				`Configuration validated. Default profile: ${result.profile}; default role: ${result.role}.`,
 			);
@@ -898,7 +918,7 @@ Examples:
 				);
 			for (const agent of result.agents)
 				console.log(
-					`${agent.name}: ${agent.installed ? "bootstrap installed" : "not installed"} (${agent.file})`,
+					`${agent.name}: ${agent.installed ? `bootstrap installed${agent.mcp ? " with MCP handoff" : ""}` : "not installed"} (${agent.file})`,
 				);
 			for (const note of result.notes) console.log(note);
 			// Three independent questions: is the configuration valid, can the bootstrap run, can each host satisfy each role?

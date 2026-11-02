@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.6.0 — 2026-11-02
+
+### MCP handoff in the managed block (#39, part of #38)
+
+- `init --mcp` writes a managed-block variant that tells the agent to call the
+  connected `agent-profiles` MCP server's `resolve` tool with the same values, or
+  to follow the server's instructions when they already carry the session's
+  profile. The shell command stays in the block as the fallback.
+- `init` without a flag keeps each block's current variant; `init --no-mcp`
+  restores the shell-only block. The flags apply to the agents selected with
+  `--agent`; other installed blocks keep their variant.
+- `init --mcp` prints the host's MCP server setup (a `claude mcp add` command,
+  Codex TOML, OpenCode JSON or Hermes YAML). `doctor` shows which blocks have the
+  handoff and whether the project's host file (`.mcp.json`,
+  `.codex/config.toml`, `opencode.json`) names the server. User-scope host
+  configuration is not read, and the installer still never writes host MCP
+  configuration.
+- Protocol stays 2 and `BOOTSTRAP.md` is unchanged: existing shell-only blocks
+  remain current, so no repository has to re-run `init` after upgrading.
+
 ## 0.5.0 — 2026-11-02
 
 ### MCP service (#39, part of #38)

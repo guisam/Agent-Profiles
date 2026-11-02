@@ -64,6 +64,16 @@ validation, and file selection therefore happen in code.
 package fetched from the registry at bootstrap time, even if the name is taken
 by someone else.
 
+### MCP handoff variant
+
+`init --mcp` adds one paragraph to the block, after the failure rule: when an
+`agent-profiles` MCP server is connected, the agent calls its `resolve` tool with
+the same values instead of the command, or follows the server's instructions when
+they already carry the session's resolved profile. The command stays as the
+fallback. Both variants are protocol 2; `doctor` accepts either, and `init`
+without `--mcp` or `--no-mcp` keeps the installed one. See
+[MCP service](mcp.md#managed-block-handoff).
+
 ## Host setup
 
 1. Install the package in the repository: `npm install --save-dev @guisam/agent-profiles`,
