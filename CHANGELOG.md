@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.5.0 — 2026-11-02
+
+### MCP service (#39, part of #38)
+
+- Add `agent-profiles mcp`, an optional stdio MCP server with five read-only
+  tools: `resolve`, `explain`, `verify`, `diff` and `report`. Each matches its
+  CLI equivalent (`resolve`, `resolve --json`, `verify --json`, `diff --json`,
+  `migrate report --json`). Started with `--model` or `--role`, the server's MCP
+  instructions carry the resolved profile for that session; otherwise they point
+  the agent to `resolve`. No tool writes configuration, locks, stores or host
+  configuration. See [MCP service](docs/mcp.md).
+- `resolve` rendered for MCP points packaged skills and "run again" to the
+  `resolve` tool instead of shell commands. The CLI rendering is unchanged.
+- New runtime dependencies, loaded only by the `mcp` command: the official MCP
+  TypeScript SDK v2 (`@modelcontextprotocol/server` 2.4.0) and `zod` 4.6.7.
+  Rationale is recorded in #38.
+- No configuration change and no migration required. Host MCP configuration is
+  never written by the installer.
+
 ## 0.4.1 — 2026-10-28
 
 First npm release. The source-development notes below retain their historical

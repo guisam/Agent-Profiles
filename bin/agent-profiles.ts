@@ -173,6 +173,7 @@ Commands:
               --destination <absolute-new-child> [--protect-root <absolute-path> ...]
   migrate     Develop isolated migration workspaces and review evidence-linked proposals
   revision    Adopt metadata for an existing immutable legacy release
+  mcp         Serve the read-only tools over MCP (stdio) for agent hosts
 
 Release metadata (declarations only; no workflow activation):
   revision record <manifest-file> [--store <directory>] [--json]
@@ -199,6 +200,12 @@ Agent context:
 Context proof:
   proof [--host <id>] [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...]
         [--json [--contents]]
+
+MCP service (stdio; stdout carries the protocol):
+  mcp [--root <directory>] [--store <directory>] [--host <id>] [--model <id>] [--family <id>]
+      [--identity-source host|host-stated|user] [--role <id>]
+      Tools: resolve, explain, verify, diff, report (all read-only). With --model or --role,
+      the server's instructions carry the resolved profile for that session.
 
 Setup inventory (works before init, including an empty/non-Git --root):
   inspect [--json] [--external] [--sources <approved-roots-json>]
@@ -229,6 +236,43 @@ Examples:
   agent-profiles init --agent claude --agent codex
   agent-profiles configure
   agent-profiles doctor`);
+	} else if (command === "mcp") {
+		if (positionals.length !== 1)
+			throw new Error(
+				"Usage: agent-profiles mcp accepts no positional arguments",
+			);
+		const allowed = [
+			"root",
+			"store",
+			"host",
+			"model",
+			"family",
+			"identity-source",
+			"role",
+		];
+		for (const option of seen)
+			if (!allowed.includes(option))
+				throw new Error(`--${option} is not supported by mcp`);
+		if ((values.role?.length ?? 0) > 1)
+			throw new Error("mcp accepts one --role");
+		for (const option of ["root", "store"] as const)
+			if (values[option] !== undefined && !values[option].trim())
+				throw new Error(`--${option} requires a directory`);
+		// Loaded only here, so other commands never import the MCP SDK.
+		const { startMcpServer } = await import("../src/mcp.ts");
+		startMcpServer({
+			root: values.root === undefined ? undefined : realpathSync(values.root),
+			storeRoot: values.store,
+			host: values.host,
+			model: values.model,
+			family: values.family,
+			identitySource: values["identity-source"] as
+				| "host"
+				| "host-stated"
+				| "user"
+				| undefined,
+			role: values.role?.[0],
+		});
 	} else {
 		if (command === "preset") {
 			if (
@@ -313,7 +357,7 @@ Examples:
 			].includes(command)
 		)
 			throw new Error(
-				"Choose one command: inspect, init, configure, skills, doctor, uninstall, resolve, preset, proof, visualize, add, install, stamp, verify, diff, materialize",
+				"Choose one command: inspect, init, configure, skills, doctor, uninstall, resolve, preset, proof, visualize, add, install, stamp, verify, diff, materialize, mcp",
 			);
 		if (values.package !== undefined && command !== "init")
 			throw new Error("--package is only supported by init");

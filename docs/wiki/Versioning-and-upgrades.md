@@ -95,45 +95,66 @@ project. A portable YAML snapshot does not restore package-lock history or host
 runtime state. If rebuilding, deliberately choose `guisam-agent-profiles-0.4.1.tgz` and
 verify its metadata; the source-only archive helper requires this trusted checkout.
 
-## Source patch: 0.4.1 — npm publication preparation
+## npm release: 0.4.1
 
-The `0.4.1` release preparation adds an ordered npm publication
-checklist and a manually triggered GitHub Actions OIDC workflow. It also corrects
-the root lockfile's executable path to `dist/bin/agent-profiles.js`. Publication
-defaults to off and the workflow creates neither tags nor GitHub releases.
+The first npm release, [`@guisam/agent-profiles@0.4.1`](https://www.npmjs.com/package/@guisam/agent-profiles/v/0.4.1), was published on 2026-10-28 by `guisam` with browser 2FA. npm rejected the unscoped name as too similar to `agentprofiles`; no unscoped version was published. The terminal command remains `agent-profiles`.
 
-npm rejected the unscoped name `agent-profiles` as too similar to `agentprofiles`.
-The maintainer chose `@guisam/agent-profiles`; the terminal command remains
-`agent-profiles`. Bootstrap package verification and install instructions use the
-scoped identity. The rejected attempt published no package.
+```sh
+npm install --save-dev @guisam/agent-profiles@0.4.1
+npx --no agent-profiles init --agent codex
+npx --no agent-profiles doctor
+```
 
-If a consuming project already has an unscoped source tarball installed, run
-`npm uninstall --save-dev agent-profiles`, then
-`npm install --save-dev @guisam/agent-profiles@0.4.1`. Keep `.agent-profiles/`,
-configuration, pins, stores and evidence; no YAML migration is needed. The command
-stays `agent-profiles`. Run doctor after replacing the dependency.
+Choose the agents appropriate to your project; the example selects Codex.
 
-No configuration YAML, managed lock, stamp, package or evaluation schema changes
-are introduced. Keep existing configuration, pins and evidence. If rebuilding
-from source, use Node 24 and explicitly select `guisam-agent-profiles-0.4.1.tgz`; updating
-the checkout does not upgrade an installed copy. No migration is required.
+### Completed release checklist
 
-The maintainer chose personal ownership and GitHub Actions trusted publishing
-for `guisam/Agent-Profiles` using the personal npm account `guisam`. The maintainer
-confirmed verified email, 2FA and saved recovery codes. GitHub environment `npm`
-has been created with deployment restricted to the `main` branch. npm requires an
-existing package before trust can be configured. The maintainer authorized direct
-first publication after CI passes. After the workflow is committed to `main`,
-configure npm trust for `publish.yml` and environment `npm`, then run a rehearsal
-with publication off. Configure
-trust near release time because unused new configurations expire after two days.
+- [x] Personal npm account `guisam` confirmed, with verified email, 2FA and recovery codes.
+- [x] [PR #35](https://github.com/guisam/Agent-Profiles/pull/35) merged release preparation and the manually dispatched Node 24 publishing workflow.
+- [x] [PR #36](https://github.com/guisam/Agent-Profiles/pull/36) merged the scoped package identity, bootstrap verification, fixtures, tarball paths and installation guidance.
+- [x] [Full scoped-release CI](https://github.com/guisam/Agent-Profiles/actions/runs/40771102673) passed Windows, macOS, Linux and cache-disabled tests. Local type checking, Biome, 97 affected tests, packed-package smoke and the runtime dependency audit also passed.
+- [x] Published the reviewed 94-file tarball. The live registry's integrity exactly matched the approved artifact. npm's publish-time scanning delayed initial availability; the version subsequently became installable.
+- [x] Installed the actual registry version in an isolated project and exercised inspect, init, interactive role creation, doctor, resolve, proof and uninstall. Assertions confirmed that uninstall preserved the original instructions and retained the configuration and created role.
+- [x] Created GitHub environment `npm`, restricted to the `main` branch, and the npm trusted publisher for repository `guisam/Agent-Profiles`, workflow `publish.yml`, environment `npm`, with publication permission.
+- [x] [Publishing workflow rehearsal](https://github.com/guisam/Agent-Profiles/actions/runs/40773083025) passed on `main` with publication disabled.
 
-See the [repository release checklist](https://github.com/guisam/Agent-Profiles/blob/main/docs/release.md)
-for current gates and [PR #35](https://github.com/guisam/Agent-Profiles/pull/35)
-for release preparation. A local rehearsal does not prove OIDC authentication.
+The reviewed tarball's SHA-256 is `448396a5cf0454a326db98def743cd5ff515cacec21570a9450c2cf259805228`.
+
+### Upgrade instructions
+
+For a previous unscoped source-tarball installation, run `npm uninstall --save-dev agent-profiles`, then install `@guisam/agent-profiles@0.4.1` as a dev dependency. Re-run init for the previously selected agents and run doctor. Keep `.agent-profiles/`, existing configuration, pins, stores and retained evidence. No configuration YAML, managed-lock, stamp or evaluation-schema migration is introduced by this publication. Updating a source checkout does not update an installed copy.
+
+### Future releases and verification limits
+
+The first release used manual authentication; an actual OIDC publication has not yet been exercised. Dispatch `publish.yml` on `main` with the exact next manifest version, rehearse with publication off, then enable publication only for an authorized release. npm versions cannot be overwritten; do not try to republish 0.4.1.
+
+A newly created trusted-publisher configuration must complete its first successful publication within two days or be recreated before use. The non-publishing rehearsal does not validate that first-publication requirement. See [npm trusted-publisher expiry](https://docs.npmjs.com/trusted-publishers/#trusted-publisher-configuration-expiry).
+
+npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
+
+## Source feature: 0.5.0 — MCP service
+
+The working package version is `0.5.0`, not yet published to npm. It adds
+`agent-profiles mcp`, an optional stdio [MCP service](https://github.com/guisam/Agent-Profiles/wiki/MCP-service)
+with five read-only tools (`resolve`, `explain`, `verify`, `diff`, `report`) that
+match their CLI equivalents. Started with `--model` or `--role`, the server's
+instructions carry that session's resolved profile. Tracking: #38 and #39.
+
+### Upgrade instructions
+
+No configuration YAML, managed-lock, stamp, evidence or package-format change is
+introduced; no migration is required. Existing bootstrap integrations keep working.
+To try the service, rebuild from source (`npm ci`, `npm pack`) and deliberately
+install `guisam-agent-profiles-0.5.0.tgz`, then add the server to your host's MCP
+configuration as shown in [docs/mcp.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/mcp.md).
+The installer never writes host MCP configuration.
+
+New runtime dependencies, loaded only by the `mcp` command: `@modelcontextprotocol/server`
+2.4.0 and `zod` 4.6.7. Live behavior in Claude Code, Codex and OpenCode is not yet
+verified; automated protocol, parity and no-write tests pass.
 
 ## Beta releases
 
-The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.4.1`; package publication does not introduce a configuration migration.
+The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.5.0` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
 
 [Return to the documentation home](https://github.com/guisam/Agent-Profiles/wiki).

@@ -321,9 +321,16 @@ export function formatProof(result: Untyped) {
 }
 
 // Agent-facing resolution: everything the model needs, so it never parses agents.yaml itself.
+// "mcp" names the MCP `resolve` tool instead of shell commands; the CLI default is unchanged.
+export type ContextInvocation = "cli" | "mcp";
+
 export function formatContext(
 	result: Untyped,
-	{ root, storeRoot }: { root?: string; storeRoot?: string } = {},
+	{
+		root,
+		storeRoot,
+		invocation = "cli",
+	}: { root?: string; storeRoot?: string; invocation?: ContextInvocation } = {},
 ) {
 	const args: string[] = [];
 	if (root !== undefined) args.push("--root", root);
@@ -347,6 +354,8 @@ export function formatContext(
 			const identity = `${clean(entry.package.name)}@${clean(entry.package.version)} (sha256 ${clean(entry.package.sha256)})`;
 			if (entry.type === "host")
 				return `Native package ${identity}; supported hosts: ${entry.supportedHosts.map(clean).join(", ")}. Host-visible address unavailable; invocation unverified.`;
+			if (invocation === "mcp")
+				return `Package ${identity}. Load by binding ID: call the Agent Profiles \`resolve\` tool with \`skills: [${JSON.stringify(clean(entry.id))}]\`.`;
 			return (
 				`Package ${identity}. Load by binding ID:\n` +
 				shells
@@ -439,9 +448,14 @@ export function formatContext(
 		"",
 		"## Run again",
 		"",
-		...shells.map(
-			(shell) => `Command (${shell}): \`${renderResolveCommand(args, shell)}\``,
-		),
+		...(invocation === "mcp"
+			? [
+					"Call the Agent Profiles `resolve` tool again (it needs no shell permission):",
+				]
+			: shells.map(
+					(shell) =>
+						`Command (${shell}): \`${renderResolveCommand(args, shell)}\``,
+				)),
 		"- after context compaction or in a new agent context;",
 		...(result.host === "opencode"
 			? [
@@ -450,7 +464,9 @@ export function formatContext(
 				]
 			: [
 					"- after a model change, with the new exact model ID;",
-					"- to change role, with `--role <id>`; a new session gives a cleaner transition.",
+					invocation === "mcp"
+						? "- to change role, with `role`; a new session gives a cleaner transition."
+						: "- to change role, with `--role <id>`; a new session gives a cleaner transition.",
 				]),
 	);
 	return lines.join("\n");
