@@ -29,9 +29,21 @@ const TOOLS = ["diff", "explain", "report", "resolve", "verify"];
 
 // A disposable repository (a copy of this project's example configuration),
 // store and home, so nothing outside the temporary directory can change.
+// Cleanup closes every server before removing the directory: Windows refuses to
+// delete a directory that a running process uses as its working directory, and
+// `t.after` hooks run in registration order.
 function fixture(t) {
 	const base = mkdtempSync(path.join(os.tmpdir(), "agent-profiles-mcp-"));
-	t.after(() => rmSync(base, { recursive: true, force: true }));
+	const clients = [];
+	t.after(async () => {
+		for (const client of clients) await client.close();
+		rmSync(base, {
+			recursive: true,
+			force: true,
+			maxRetries: 10,
+			retryDelay: 100,
+		});
+	});
 	const root = path.join(base, "repo");
 	const store = path.join(base, "store");
 	const home = path.join(base, "home");
@@ -48,7 +60,7 @@ function fixture(t) {
 		USERPROFILE: home,
 		AGENT_PROFILES_STORE: path.join(home, "ambient-store"),
 	};
-	return { base, root, store, home, env };
+	return { base, root, store, home, env, clients };
 }
 
 function run(f, ...args) {
@@ -60,7 +72,7 @@ function run(f, ...args) {
 	return result;
 }
 
-async function connect(t, f, args = [], cwd = f.root) {
+async function connect(f, args = [], cwd = f.root) {
 	const client = new Client({ name: "agent-profiles-test", version: "1" });
 	await client.connect(
 		new StdioClientTransport({
@@ -71,7 +83,7 @@ async function connect(t, f, args = [], cwd = f.root) {
 			stderr: "pipe",
 		}),
 	);
-	t.after(() => client.close());
+	f.clients.push(client);
 	return client;
 }
 
@@ -116,7 +128,7 @@ function stamp(f, model, role) {
 
 test("lists exactly the read-only tools and reports the package version", async (t) => {
 	const f = fixture(t);
-	const client = await connect(t, f, ["--root", f.root]);
+	const client = await connect(f, ["--root", f.root]);
 	assert.deepEqual(client.getServerVersion(), {
 		name: "agent-profiles",
 		version,
@@ -131,7 +143,7 @@ test("lists exactly the read-only tools and reports the package version", async 
 
 test("unbound instructions point to the resolve tool", async (t) => {
 	const f = fixture(t);
-	const client = await connect(t, f, ["--root", f.root]);
+	const client = await connect(f, ["--root", f.root]);
 	const instructions = client.getInstructions();
 	assert.match(instructions, /call the `resolve` tool/);
 	assert.doesNotMatch(instructions, /# Agent Profiles context/);
@@ -139,7 +151,7 @@ test("unbound instructions point to the resolve tool", async (t) => {
 
 test("bound instructions carry the session's resolved profile", async (t) => {
 	const f = fixture(t);
-	const client = await connect(t, f, [
+	const client = await connect(f, [
 		"--root",
 		f.root,
 		"--model",
@@ -162,7 +174,7 @@ test("bound instructions carry the session's resolved profile", async (t) => {
 
 test("a failed bound resolution is reported in the instructions, not a crash", async (t) => {
 	const f = fixture(t);
-	const client = await connect(t, f, [
+	const client = await connect(f, [
 		"--root",
 		f.root,
 		"--model",
@@ -176,7 +188,7 @@ test("a failed bound resolution is reported in the instructions, not a crash", a
 
 test("resolve returns the MCP rendering and never shell commands", async (t) => {
 	const f = fixture(t);
-	const client = await connect(t, f, ["--root", f.root]);
+	const client = await connect(f, ["--root", f.root]);
 	const result = await client.callTool({
 		name: "resolve",
 		arguments: { model: "example-model", role: "reviewer" },
@@ -206,7 +218,7 @@ test("the CLI rendering of resolve is unchanged", () => {
 
 test("explain matches resolve --json", async (t) => {
 	const f = fixture(t);
-	const client = await connect(t, f, ["--root", f.root]);
+	const client = await connect(f, ["--root", f.root]);
 	const result = await client.callTool({
 		name: "explain",
 		arguments: { model: "example-model", role: "reviewer" },
@@ -232,7 +244,7 @@ test("verify and diff match the CLI on real stamps", async (t) => {
 	const f = fixture(t);
 	const first = stamp(f, "example-model", "reviewer");
 	const second = stamp(f, "other-model", "implementer");
-	const client = await connect(t, f, ["--root", f.root, "--store", f.store]);
+	const client = await connect(f, ["--root", f.root, "--store", f.store]);
 
 	const verified = await client.callTool({
 		name: "verify",
@@ -253,7 +265,7 @@ test("verify and diff match the CLI on real stamps", async (t) => {
 test("report errors match the CLI", async (t) => {
 	const f = fixture(t);
 	stamp(f, "example-model", "reviewer");
-	const client = await connect(t, f, ["--root", f.root, "--store", f.store]);
+	const client = await connect(f, ["--root", f.root, "--store", f.store]);
 	const result = await client.callTool({
 		name: "report",
 		arguments: { resultId: "missing-result" },
@@ -274,7 +286,7 @@ test("report errors match the CLI", async (t) => {
 
 test("invalid arguments are rejected before any operation runs", async (t) => {
 	const f = fixture(t);
-	const client = await connect(t, f, ["--root", f.root, "--store", f.store]);
+	const client = await connect(f, ["--root", f.root, "--store", f.store]);
 	const result = await client.callTool({
 		name: "verify",
 		arguments: { digest: "not-a-digest" },
@@ -292,7 +304,7 @@ test("no tool writes to the repository, store or home", async (t) => {
 		store: tree(f.store),
 		home: tree(f.home),
 	};
-	const client = await connect(t, f, [
+	const client = await connect(f, [
 		"--root",
 		f.root,
 		"--store",
@@ -321,7 +333,7 @@ test("roots: a tool argument overrides --root; missing roots are refused", async
 	const f = fixture(t);
 	const outside = path.join(f.base, "not-a-repo");
 	mkdirSync(outside);
-	const client = await connect(t, f, [], outside);
+	const client = await connect(f, [], outside);
 
 	const noRoot = await client.callTool({
 		name: "resolve",
