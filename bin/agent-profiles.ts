@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
@@ -48,6 +48,12 @@ import {
 	rejectMigrationProposal,
 	startMigration,
 } from "../src/migrations.ts";
+import {
+	claudeHookOutput,
+	noticeLevel,
+	updateNotice,
+	updateSummary,
+} from "../src/notice.ts";
 import {
 	applyUpdate,
 	formatOutdated,
@@ -102,6 +108,8 @@ try {
 			type: { type: "string" },
 			apply: { type: "boolean" },
 			"require-evidence": { type: "boolean" },
+			check: { type: "boolean" },
+			hook: { type: "string" },
 			expect: { type: "string" },
 			mcp: { type: "boolean" },
 			"no-mcp": { type: "boolean" },
@@ -198,6 +206,7 @@ Commands:
   library     Browse, search, inspect and publish packages in the local store (list, search, info, evidence, publish)
   outdated    Pins with newer library versions, and their evidence for the tuples each pin serves (read-only)
   update      Preview, then with --apply write, a move of one exact role × model × host pin
+  notice      The once-a-day update notice; --hook claude for the SessionStart hook
   migrate     Develop isolated migration workspaces and review evidence-linked proposals
   revision    Adopt metadata for an existing immutable legacy release
   mcp         Serve the read-only tools over MCP (stdio) for agent hosts
@@ -314,13 +323,45 @@ Examples:
 				| undefined,
 			role: values.role?.[0],
 		});
+	} else if (command === "notice") {
+		// Session-start notice. With --hook claude it never fails and prints only a
+		// SessionStart hook's user-facing systemMessage (or nothing).
+		if (positionals.length !== 1)
+			throw new Error(
+				"Usage: agent-profiles notice [--hook claude] [--root <directory>] [--store <directory>] [--json]",
+			);
+		for (const option of seen)
+			if (!["root", "store", "json", "hook"].includes(option))
+				throw new Error(`--${option} is not supported by notice`);
+		if (values.hook !== undefined && values.hook !== "claude")
+			throw new Error("--hook: only claude is supported");
+		const run = () =>
+			updateNotice({
+				root: realpathSync(values.root ?? findRoot()),
+				storeRoot: values.store,
+			});
+		if (values.hook === "claude") {
+			let input = "";
+			try {
+				input = stdin.isTTY ? "" : readFileSync(0, "utf8");
+			} catch {}
+			const output = claudeHookOutput(input, run);
+			if (output) console.log(output);
+		} else {
+			const result = run();
+			console.log(
+				values.json
+					? JSON.stringify(result, null, 2)
+					: result.lines.join("\n") || `No notice (${result.reason}).`,
+			);
+		}
 	} else if (command === "outdated" || command === "update") {
 		const update = command === "update";
 		if (positionals.length !== (update ? 3 : 1))
 			throw new Error(
 				update
 					? "Usage: agent-profiles update <binding> <version> --model <id> --role <id> --host <id> [--apply [--expect <previewDigest>]] [--require-evidence] [--root <directory>] [--store <directory>] [--json]"
-					: "Usage: agent-profiles outdated [--model <id>] [--role <id>] [--host <id>] [--root <directory>] [--store <directory>] [--json]",
+					: "Usage: agent-profiles outdated [--check] [--model <id>] [--role <id>] [--host <id>] [--root <directory>] [--store <directory>] [--json]",
 			);
 		const allowed = [
 			"root",
@@ -329,7 +370,7 @@ Examples:
 			"model",
 			"role",
 			"host",
-			...(update ? ["apply", "require-evidence", "expect"] : []),
+			...(update ? ["apply", "require-evidence", "expect"] : ["check"]),
 		];
 		for (const option of seen)
 			if (!allowed.includes(option))
@@ -339,7 +380,20 @@ Examples:
 		const root = realpathSync(values.root ?? findRoot());
 		const print = (result: unknown, text: () => string) =>
 			console.log(values.json ? JSON.stringify(result, null, 2) : text());
-		if (!update) {
+		if (!update && values.check) {
+			// For CI and scheduled jobs: exit 1 when something is actionable.
+			const summary = updateSummary({
+				root,
+				storeRoot: values.store,
+				level: noticeLevel(),
+			});
+			print(summary, () =>
+				summary.lines.length
+					? summary.lines.join("\n")
+					: "No library updates for this project.",
+			);
+			if (summary.actionable.length) process.exitCode = 1;
+		} else if (!update) {
 			const result = outdatedPins({
 				root,
 				storeRoot: values.store,
@@ -525,7 +579,7 @@ Examples:
 			].includes(command)
 		)
 			throw new Error(
-				"Choose one command: inspect, init, configure, skills, doctor, uninstall, resolve, preset, proof, visualize, add, install, stamp, verify, diff, materialize, library, outdated, update, mcp",
+				"Choose one command: inspect, init, configure, skills, doctor, uninstall, resolve, preset, proof, visualize, add, install, stamp, verify, diff, materialize, library, outdated, update, notice, mcp",
 			);
 		if (values.package !== undefined && command !== "init")
 			throw new Error("--package is only supported by init");
@@ -1101,6 +1155,13 @@ Examples:
 				result.capabilities,
 				"no cross-host required-skill conflicts; native invocation not verified",
 			);
+			if (result.updates) {
+				const { actionable, informational } = result.updates;
+				console.log(
+					`\nUpdates: ${actionable.length || informational ? `${actionable.length} actionable, ${informational} without evidence for their tuples; run agent-profiles outdated` : "none in the library"}`,
+				);
+				for (const line of actionable) console.log(`  ${line}`);
+			}
 			console.log(
 				result.valid
 					? "\nInstallation is ready."

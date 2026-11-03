@@ -22,6 +22,7 @@ import {
 	blockProtocol,
 	blockVariant,
 	expectedBlock,
+	hookMarker,
 	type Integration,
 	integrations,
 	managedSpan,
@@ -29,6 +30,7 @@ import {
 	type SurfaceRecord,
 } from "./integrations.ts";
 import { mcpSetupLines } from "./mcp-setup.ts";
+import { noticeLevel, updateSummary } from "./notice.ts";
 import type { Untyped } from "./packages.ts";
 import { type ResolvedSkill, resolveInstructions } from "./resolve.ts";
 
@@ -269,8 +271,11 @@ function permissionOwnership(root: string): {
 	if (!hosts || typeof hosts !== "object" || Array.isArray(hosts))
 		throw new Error(`${ownershipFile}: expected a host-to-rule mapping`);
 	for (const [host, rules] of Object.entries(hosts)) {
-		const allowed = integrations.find((adapter) => adapter.id === host)
-			?.permissions?.rules;
+		const adapter = integrations.find((item) => item.id === host);
+		const allowed = adapter?.permissions && [
+			...adapter.permissions.rules,
+			...(adapter.hooks ?? []).map(hookMarker),
+		];
 		if (
 			!allowed ||
 			!Array.isArray(rules) ||
@@ -303,10 +308,62 @@ function permissionChange(
 	next.permissions.allow = add
 		? [...allow, ...added]
 		: allow.filter((rule: string) => !owned.includes(rule));
+	let changed = add
+		? added.length > 0
+		: owned.some((rule) => allow.includes(rule));
+	// Managed hooks live in the same file, so they change in the same write (#49).
+	for (const hook of adapter.hooks ?? []) {
+		const marker = hookMarker(hook);
+		const hooks = next.hooks ?? {};
+		if (typeof hooks !== "object" || Array.isArray(hooks))
+			throw new Error(`${file}: hooks must be an object`);
+		const entries = hooks[hook.event] ?? [];
+		if (!Array.isArray(entries))
+			throw new Error(`${file}: hooks.${hook.event} must be a list`);
+		const ours = (item: Untyped) =>
+			item?.type === "command" && item.command === hook.command;
+		const present = entries.some(
+			(entry: Untyped) =>
+				entry?.matcher === hook.matcher &&
+				Array.isArray(entry.hooks) &&
+				entry.hooks.some(ours),
+		);
+		if (add && !present) {
+			hooks[hook.event] = [
+				...entries,
+				{
+					matcher: hook.matcher,
+					hooks: [{ type: "command", command: hook.command }],
+				},
+			];
+			next.hooks = hooks;
+			added.push(marker);
+			changed = true;
+		} else if (!add && present && owned.includes(marker)) {
+			// Remove only the exact owned hook; drop containers it leaves empty.
+			const kept = entries
+				.map((entry: Untyped) =>
+					entry?.matcher === hook.matcher && Array.isArray(entry.hooks)
+						? {
+								...entry,
+								hooks: entry.hooks.filter((item: Untyped) => !ours(item)),
+							}
+						: entry,
+				)
+				.filter(
+					(entry: Untyped) =>
+						!Array.isArray(entry?.hooks) || entry.hooks.length,
+				);
+			if (kept.length) hooks[hook.event] = kept;
+			else delete hooks[hook.event];
+			if (Object.keys(hooks).length) next.hooks = hooks;
+			else delete next.hooks;
+			changed = true;
+		}
+	}
 	// Untouched when nothing changes, so an existing file keeps its exact bytes.
-	if (add ? !added.length : !owned.some((rule) => allow.includes(rule)))
-		return null;
-	// A settings file that held only these rules is removed rather than left empty.
+	if (!changed) return null;
+	// A settings file that held only these rules (and hooks) is removed rather than left empty.
 	const emptied =
 		!add &&
 		JSON.stringify(next) === JSON.stringify({ permissions: { allow: [] } });
@@ -477,6 +534,32 @@ export function doctor(
 			bootstrap.push(`${agent.name}: ${errorMessage(error)}`);
 		}
 		if (agent.mcp) notes.push(...mcpSetupLines(root, agent.id));
+		// The update-notice hook is optional: its absence is a note, not a bootstrap problem.
+		try {
+			const settings = adapter.hooks?.length
+				? readSettings(root, adapter.permissions?.file ?? "").settings
+				: null;
+			for (const hook of adapter.hooks ?? []) {
+				const entries = settings?.hooks?.[hook.event];
+				const present =
+					Array.isArray(entries) &&
+					entries.some(
+						(entry: Untyped) =>
+							entry?.matcher === hook.matcher &&
+							Array.isArray(entry.hooks) &&
+							entry.hooks.some(
+								(item: Untyped) =>
+									item?.type === "command" && item.command === hook.command,
+							),
+					);
+				if (!present)
+					notes.push(
+						`${agent.name}: the ${hook.event} (${hook.matcher}) update-notice hook is not installed; run init to add it`,
+					);
+			}
+		} catch {
+			// A malformed settings file is already reported by the permission check above.
+		}
 		const { mode, verified, ...limits } = adapter.capabilities;
 		notes.push(
 			[
@@ -485,8 +568,25 @@ export function doctor(
 			].join("\n"),
 		);
 	}
+	// Updates (#49): the same summary as the session notice, without state or rate limits.
+	let updates: { actionable: string[]; informational: number } | null = null;
+	if (resolution)
+		try {
+			const level = noticeLevel();
+			if (level !== "off") {
+				const { actionable, informational } = updateSummary({
+					root,
+					storeRoot,
+					level,
+				});
+				updates = { actionable, informational };
+			}
+		} catch (error) {
+			notes.push(`Updates: not checked (${errorMessage(error)})`);
+		}
 	return {
 		root,
+		updates,
 		valid:
 			errors.length === 0 &&
 			bootstrap.length === 0 &&

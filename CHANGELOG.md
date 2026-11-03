@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.11.0 — 2026-11-03
+
+### Update notice (#49, follow-up to #48)
+
+- **New command, `agent-profiles notice`.** It shows a once-a-day summary of
+  library updates for the project:
+  - actionable lines for newer, pinnable versions with `promoted` evidence for a
+    tuple a pin serves;
+  - a count of pins with newer versions but no such evidence.
+
+  It is silent until a cheap fingerprint changes (store index names, plus the
+  project's configuration and lock), at most once a day per project, with state
+  under `~/.agent-profiles/notices/`. `--hook claude` prints only a user-facing
+  `systemMessage` for a Claude Code `SessionStart` hook, ignores non-startup
+  sources, and is silent on any error.
+- **The installer adds the hook.** `init --agent claude` adds a startup-only
+  `SessionStart` hook to `.claude/settings.json` next to the permission rules,
+  recorded in `.agent-profiles/permissions.json`. `uninstall` removes exactly that
+  hook. `doctor` notes a missing hook without failing.
+- **CI check.** `outdated --check` prints the summary and exits 1 when something
+  is actionable.
+- **Doctor.** `doctor` adds an "Updates" line.
+- **Setting.** `AGENT_PROFILES_NOTICE=all|actionable|off` controls the level.
+- **Fix to `outdated`.** A host-less tuple no longer counts evidence recorded on a
+  host that a rule of the same binding names.
+- No configuration, lock or store-format change. Re-run `init --agent claude` to
+  add the hook to an existing installation.
+
 ## 0.10.0 — 2026-11-03
 
 ### Outdated and update (#48, phase 4 of #38)

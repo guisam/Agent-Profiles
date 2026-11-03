@@ -90,6 +90,17 @@ throwaway repository (see [MCP live check](../host-observations.md#mcp-service-o
 | Bound server instructions, stamp line included, are in context at start, after `/compact`, and after `/clear`; after `/clear` the agent follows them without calling `resolve` | verified (Opus) |
 | Haiku and Sonnet follow the handoff | unverified |
 
+## Update notice hook
+
+| Behavior | Status |
+| --- | --- |
+| The `SessionStart` hook with matcher `startup` runs on new sessions only, not `/clear`, `/compact` or `resume` | unverified |
+| Its `systemMessage` is shown to the user | unverified |
+| Its output does not enter the model's context | unverified |
+
+The hook's logic (startup-only guard, user-facing output only, silent on errors)
+is verified by automated tests; the rows above need a live session.
+
 See [MCP service](../mcp.md).
 
 ## Not covered
