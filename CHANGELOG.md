@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.8.0 — 2026-11-03
+
+### Local skill library (#44, phase 2 of #38)
+
+- Add `agent-profiles library` over the existing store:
+  - `list [--type skill|instruction]` shows every package with its versions,
+    newest first;
+  - `search <text>` matches names and descriptions;
+  - `info <@namespace/name>[@<version>] [--root <directory>]` shows verified
+    details per version and, with `--root`, which versions that project pins
+    and locks;
+  - `publish <directory>` imports a package directory, reading its identity from
+    `package.yaml`, with the same validation and store bytes as `add`.
+
+  All take `--json`.
+- `list`, `search` and `info` never write. They verify every version they report,
+  and a corrupted object is reported rather than listed as valid. Stray entries in
+  the store are reported as problems without hiding the rest.
+- New APIs: `listLibrary`, `searchLibrary`, `libraryInfo`, `publishPackage`, and
+  `listIdentities` in the store module.
+- No configuration, lock, stamp or store-format change; no migration. `add` is
+  unchanged.
+
 ## 0.7.1 — 2026-11-03
 
 ### MCP live check on Claude Code (#38)

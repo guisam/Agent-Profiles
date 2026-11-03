@@ -333,6 +333,43 @@ lock stealing, visible-copy fallback, universal concurrent-edit or power-loss gu
 Source/offline tests do not qualify every OS/filesystem/browser/installed artifact/live
 host. See [release gates](release.md) and [architecture](architecture.md).
 
+## Library: browse, search, inspect and publish
+
+The store is also your local skill library. `library` commands list what it holds
+and add to it, using the same store selection as every other command (`--store`,
+then `AGENT_PROFILES_STORE`, then the home store). The listing is derived from the
+store's identity records on every call; there is no separate index to keep in sync.
+
+```sh
+agent-profiles library publish ./skills/security-review   # identity from package.yaml
+agent-profiles library list                               # every package, versions newest first
+agent-profiles library list --type instruction
+agent-profiles library search security                    # name or description, case-insensitive
+agent-profiles library info @example/security-review      # every version, verified
+agent-profiles library info @example/security-review@2.0.0 --root /path/to/project
+```
+
+- **publish** reads `name` and `version` from the directory's `package.yaml`, then
+  validates and imports it exactly as `add <name>@<version> --source <directory>`
+  does. The store bytes are identical. Republishing unchanged bytes reports
+  "Already in the library"; changed bytes under the same identity are refused as
+  `identity-conflict`. A directory without `package.yaml` is refused; write the
+  manifest shown in the [walkthrough](#complete-local-walkthrough).
+- **list**, **search** and **info** never write. Every version they report is
+  verified, with its object hashed as `resolve` would, so a corrupted object is
+  reported as "Not verified" with the reason instead of being shown as valid.
+  Entries in the store that are not identity records are reported as store
+  problems; the rest of the library still lists.
+- **info** shows each version's digest, type, delivery, hosts, effects, license,
+  description, file count and size. With `--root`, it also marks which versions
+  that project's `agents.yaml` pins (binding by binding) and whether its lock
+  covers them with the same digest.
+- Every command takes `--json`.
+
+The library has no removal, deprecation, version ranges or remote feed. Pins stay
+exact; finding newer versions for a project is planned as `outdated` and `update`
+(#38, phase 4).
+
 ## Store read caching
 
 Each store command checks the store's directories for links and junctions and

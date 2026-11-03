@@ -21,6 +21,14 @@ import {
 	uninstall,
 } from "../src/install.ts";
 import { integrations } from "../src/integrations.ts";
+import {
+	formatLibrary,
+	formatLibraryInfo,
+	libraryInfo,
+	listLibrary,
+	publishPackage,
+	searchLibrary,
+} from "../src/library.ts";
 import { materializeStamp } from "../src/materialize.ts";
 import { mcpSetupLines } from "../src/mcp-setup.ts";
 import {
@@ -82,6 +90,7 @@ try {
 			"identity-source": { type: "string" },
 			host: { type: "string" },
 			package: { type: "string" },
+			type: { type: "string" },
 			mcp: { type: "boolean" },
 			"no-mcp": { type: "boolean" },
 			skill: { type: "string", multiple: true },
@@ -174,6 +183,7 @@ Commands:
   materialize Export a stamp using --adapter filesystem-v1|harness2-tree --output-root <absolute-root>
               Harness² requires --surface codex|opencode; the harness root is <destination>/content
               --destination <absolute-new-child> [--protect-root <absolute-path> ...]
+  library     Browse, search, inspect and publish packages in the local store (list, search, info, publish)
   migrate     Develop isolated migration workspaces and review evidence-linked proposals
   revision    Adopt metadata for an existing immutable legacy release
   mcp         Serve the read-only tools over MCP (stdio) for agent hosts
@@ -203,6 +213,13 @@ Agent context:
 Context proof:
   proof [--host <id>] [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...]
         [--json [--contents]]
+
+Library (the local store; read-only except publish):
+  library list [--type skill|instruction]     Every package and its versions, newest first
+  library search <text>                        Match package names and descriptions
+  library info <@namespace/name>[@<version>] [--root <directory>]
+                                               Verified details; --root marks that project's pins
+  library publish <directory>                  Import a package directory, identity from package.yaml
 
 MCP service (stdio; stdout carries the protocol):
   mcp [--root <directory>] [--store <directory>] [--host <id>] [--model <id>] [--family <id>]
@@ -279,6 +296,60 @@ Examples:
 				| undefined,
 			role: values.role?.[0],
 		});
+	} else if (command === "library") {
+		const action = positionals[1];
+		const shapes: Record<string, { count: number; options: string[] }> = {
+			list: { count: 2, options: ["store", "json", "type"] },
+			search: { count: 3, options: ["store", "json"] },
+			info: { count: 3, options: ["store", "json", "root"] },
+			publish: { count: 3, options: ["store", "json"] },
+		};
+		const shape = Object.hasOwn(shapes, action) ? shapes[action] : undefined;
+		if (!shape || positionals.length !== shape.count)
+			throw new Error(
+				"Usage: agent-profiles library list [--type skill|instruction] | search <text> | info <@namespace/name>[@<version>] [--root <directory>] | publish <directory> [--store <directory>] [--json]",
+			);
+		for (const option of seen)
+			if (!shape.options.includes(option))
+				throw new Error(`--${option} is not supported by library ${action}`);
+		const storeRoot = values.store;
+		const print = (result: unknown, text: () => string) =>
+			console.log(values.json ? JSON.stringify(result, null, 2) : text());
+		if (action === "list") {
+			const result = listLibrary({
+				storeRoot,
+				type: values.type as "skill" | "instruction" | undefined,
+			});
+			print(result, () => formatLibrary(result));
+		} else if (action === "search") {
+			const result = searchLibrary({ storeRoot, text: positionals[2] });
+			print(result, () => formatLibrary(result));
+		} else if (action === "info") {
+			// "@ns/name@1.2.3": the version follows the last "@" after the scope.
+			const spec = positionals[2];
+			const split = spec.lastIndexOf("@");
+			const [name, version] =
+				split > 0
+					? [spec.slice(0, split), spec.slice(split + 1)]
+					: [spec, undefined];
+			const result = libraryInfo({
+				storeRoot,
+				name,
+				version,
+				root: values.root === undefined ? undefined : realpathSync(values.root),
+			});
+			print(result, () => formatLibraryInfo(result));
+		} else {
+			const result = publishPackage({
+				storeRoot,
+				sourceDirectory: positionals[2],
+			});
+			print(
+				result,
+				() =>
+					`${result.status === "reused" ? "Already in the library" : "Published"}: ${result.identity.name}@${result.identity.version} sha256 ${result.sha256}`,
+			);
+		}
 	} else {
 		if (command === "preset") {
 			if (
@@ -363,7 +434,7 @@ Examples:
 			].includes(command)
 		)
 			throw new Error(
-				"Choose one command: inspect, init, configure, skills, doctor, uninstall, resolve, preset, proof, visualize, add, install, stamp, verify, diff, materialize, mcp",
+				"Choose one command: inspect, init, configure, skills, doctor, uninstall, resolve, preset, proof, visualize, add, install, stamp, verify, diff, materialize, library, mcp",
 			);
 		if (values.package !== undefined && command !== "init")
 			throw new Error("--package is only supported by init");

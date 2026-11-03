@@ -132,6 +132,19 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source feature: 0.8.0 — local skill library
+
+The working package version is `0.8.0`, not yet published to npm. It adds
+`agent-profiles library list | search | info | publish` over the existing store.
+See the [Skill library](https://github.com/guisam/Agent-Profiles/wiki/Skill-library). Tracking: #38 and #44.
+
+### Upgrade instructions
+
+No configuration YAML, lock, stamp, store-format or managed-block change; no
+migration. Packages already in your store appear in `library list` as they are.
+`library publish <directory>` is an alternative to `add` that reads the identity
+from `package.yaml`; `add` keeps working unchanged.
+
 ## Source patch: 0.7.1 — MCP live check
 
 The working package version is `0.7.1`, not yet published to npm. Documentation
@@ -198,6 +211,6 @@ verified; automated protocol, parity and no-write tests pass.
 
 ## Beta releases
 
-The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.7.1` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
+The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.8.0` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
 
 [Return to the documentation home](https://github.com/guisam/Agent-Profiles/wiki).
