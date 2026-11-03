@@ -77,7 +77,7 @@ trust. Until the workspace is trusted, each session asks for approval of `resolv
 
 ## MCP service
 
-Observed interactively on **Claude Code (version not yet recorded), Windows 11, 2026-11-03**, with
+Observed interactively on **Claude Code 2.1.317, Windows 11, 2026-11-03**, with
 Opus 5.5 (`claude-opus-5-5`) and Agent Profiles 0.7.0 packed from source, in a
 throwaway repository (see [MCP live check](../host-observations.md#mcp-service-on-claude-code-windows-11-2026-11-03)).
 
@@ -94,7 +94,7 @@ See [MCP service](../mcp.md).
 
 ## Not covered
 
-macOS and Linux hosts, other Claude Code versions, Sonnet on the final protocol-2
+macOS and Linux hosts, Claude Code versions other than the one each section names, Sonnet on the final protocol-2
 block, provider identities, a trusted workspace end to end, and host skill
 invocation were not tested. Re-run the [live-host checklist](../release.md#live-host-checks)
 before relying on any of them.

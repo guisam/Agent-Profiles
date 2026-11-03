@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.1 — 2026-11-03
+
+### MCP live check on Claude Code (#38)
+
+- Documentation only. Recorded a live check on Claude Code 2.1.317 (Windows 11,
+  Opus 5.5) in `docs/hosts/claude-code.md`, `docs/host-observations.md` and the
+  `docs/mcp.md` status table. Verified:
+  - the `resolve` tool runs without the shell allow rules and without a
+    permission prompt;
+  - with the `init --mcp` block, the agent calls the tool instead of the shell
+    command;
+  - Claude Code offers workspace roots;
+  - bound server instructions, stamp line included, survive `/compact` and
+    `/clear`.
+- Still unverified: other models, workspace trust as a variable, and Codex,
+  OpenCode and Hermes.
+
 ## 0.7.0 — 2026-11-02
 
 ### MCP workspace roots and session stamp digest (#39, part of #38)

@@ -14,6 +14,10 @@ operations to MCP hosts over stdio, alongside the CLI.
 - **Workspace roots and stamp digest (0.7.0):** without `--root`, the server uses
   the host's workspace root that holds Agent Profiles configuration. Bound
   instructions start with the session's stamp digest, computed without writing.
+- **Live check (0.7.1):** on Claude Code 2.1.317 with Opus 5.5, the tool ran
+  without shell permission rules, the agent followed the `init --mcp` handoff,
+  Claude Code offered workspace roots, and bound instructions survived
+  `/compact` and `/clear`. Other models and hosts are not yet checked.
 - **Optional:** removing the server changes nothing else.
 
 Setup per host, the tool reference and verified behavior are in

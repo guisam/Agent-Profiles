@@ -135,7 +135,7 @@ expectation rather than a guarantee.
 
 ## MCP service on Claude Code (Windows 11, 2026-11-03)
 
-Claude Code (version not yet recorded), interactive sessions, Opus 5.5 (`claude-opus-5-5`), Agent
+Claude Code 2.1.317, interactive sessions, Opus 5.5 (`claude-opus-5-5`), Agent
 Profiles 0.7.0 packed from source and installed in a throwaway repository with
 `init --agent claude --mcp`. The checks follow `docs/mcp.md`; answers are the
 operator's observations of the sessions.
