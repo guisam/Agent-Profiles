@@ -133,6 +133,24 @@ Model-side identity copying was reliable in every run. Re-resolution after a
 model change without a related prompt was not, so it remains a bootstrap
 expectation rather than a guarantee.
 
+## MCP service on Claude Code (Windows 11, 2026-11-03)
+
+Claude Code 2.1.317, interactive sessions, Opus 5.5 (`claude-opus-5-5`), Agent
+Profiles 0.7.0 packed from source and installed in a throwaway repository with
+`init --agent claude --mcp`. The checks follow `docs/mcp.md`; answers are the
+operator's observations of the sessions.
+
+| Check | Setup | Observation |
+| --- | --- | --- |
+| Connection | `claude mcp add --scope project agent-profiles -- npx --no agent-profiles mcp --host claude`; server approved at startup | `/mcp` shows the server connected |
+| Tool without shell rules | Both `npx --no agent-profiles resolve` allow rules removed from `.claude/settings.json`; asked "What Agent Profiles profile and role are you using?" | The agent called the `resolve` tool with `host: claude` and its exact ID; no shell command and no permission prompt. Resolution: `constrained` (default profile), `implementer` (default role), `testing` available |
+| Workspace roots | User-scope server started with `cmd /c "cd /d C:\ && node .../agent-profiles.ts mcp --host claude"`, no `--root`; asked to call `resolve` with no `root` | Resolved the throwaway repository. Its working directory was not a repository, so only the roots Claude Code sent could select it |
+| Bound instructions | `claude --mcp-config bound.json` with `--model claude-opus-5-5 --role reviewer`; asked to quote the stamp line | The same `Stamp: sha256 af06a096…6d2a86 (not retained; …)` line quoted at start, after `/compact`, and after `/clear`. After `/clear` the agent said the profile came from the server's instructions and did not call `resolve` |
+
+Not covered: other models, workspace trust as a variable, Codex, OpenCode and
+Hermes, and whether Claude Code's permission settings (an earlier "don't ask
+again", a permissive mode) contributed to the missing prompt.
+
 ## Implications for Phase 2
 
 1. Model-side matching is the dominant failure: the only incorrect routes came
