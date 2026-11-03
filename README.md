@@ -51,7 +51,7 @@ project. `--package` installs the packed tarball into the project so the bootstr
 command can run there:
 
 ```sh
-node bin/agent-profiles.ts init --root /path/to/project --package ./guisam-agent-profiles-0.7.1.tgz
+node bin/agent-profiles.ts init --root /path/to/project --package ./guisam-agent-profiles-0.8.0.tgz
 node bin/agent-profiles.ts configure --root /path/to/project
 node bin/agent-profiles.ts doctor --root /path/to/project
 node bin/agent-profiles.ts proof --root /path/to/project --role reviewer
@@ -164,6 +164,11 @@ composition metadata. Retained content can then be verified, compared, and
 reconstructed without relying on the original source files. This verifies
 captured managed content—not every file an agent reads or the host's complete
 runtime context. See the [capture, verify and compare walkthrough](docs/versioned-packages.md#capture-verify-and-compare).
+
+The store doubles as a local skill library: `library publish <directory>` adds a
+version, and `library list`, `search` and `info` browse what you have, with
+verified digests and, with `--root`, which versions a project pins. See
+[Library](docs/versioned-packages.md#library-browse-search-inspect-and-publish).
 
 ## Skill migration workspaces
 

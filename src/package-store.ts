@@ -565,6 +565,63 @@ export function lookupPackage({
 	};
 }
 
+/**
+ * Every identity record in the store, validated as lookupPackage validates one,
+ * without reading objects. A missing store or identities directory lists nothing.
+ * Entries that are not identity records are reported as problems, not thrown,
+ * so one bad entry does not hide the rest of the library.
+ */
+export function listIdentities({
+	storeRoot: selected = undefined,
+}: {
+	storeRoot?: string;
+} = {}) {
+	const root = storeRoot(selected);
+	const records: { identity: Identity; sha256: string }[] = [];
+	const problems: string[] = [];
+	const base = safePath(root, "identities");
+	if (!statOrNull(base)) return { store: root, records, problems };
+	// A directory level that cannot be listed (a stray file, say) is one problem.
+	const entries = (directoryPath: string, relative: string) => {
+		try {
+			return readdirSync(directoryPath).sort((a, b) =>
+				Buffer.compare(Buffer.from(a), Buffer.from(b)),
+			);
+		} catch (error) {
+			problems.push(`${relative}: ${errorMessage(error)}`);
+			return [];
+		}
+	};
+	for (const namespace of entries(base, "identities")) {
+		const namespacePath = path.join(base, namespace);
+		for (const component of entries(namespacePath, `identities/${namespace}`)) {
+			const componentPath = path.join(namespacePath, component);
+			for (const file of entries(
+				componentPath,
+				`identities/${namespace}/${component}`,
+			)) {
+				const relative = `identities/${namespace}/${component}/${file}`;
+				try {
+					if (!file.endsWith(".json"))
+						throw new Error("not an identity record");
+					const name = `@${decodeComponent(namespace)}/${decodeComponent(component)}`;
+					const version = file.slice(0, -".json".length);
+					const record = recordAt(
+						root,
+						identityPath(root, name, version),
+						name,
+						version,
+					);
+					if (record) records.push(record);
+				} catch (error) {
+					problems.push(`${relative}: ${errorMessage(error)}`);
+				}
+			}
+		}
+	}
+	return { store: root, records, problems };
+}
+
 export type ImportOptions = {
 	sourceDirectory: string;
 	storeRoot?: string;
