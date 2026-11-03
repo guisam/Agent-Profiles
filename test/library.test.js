@@ -178,6 +178,8 @@ test("info reports every verified field for all versions or one", (t) => {
 		{ ...one, sha256: undefined },
 		{
 			version: "2.0.0",
+			source: "package",
+			revisionDigest: null,
 			sha256: undefined,
 			type: "skill",
 			description: "Review fictional changes for security defects.",

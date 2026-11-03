@@ -1,9 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, mkdtempSync, renameSync, rmSync } from "node:fs";
+import {
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	renameSync,
+	rmSync,
+} from "node:fs";
 import path from "node:path";
 import { errorCode, errorMessage } from "./files.ts";
 import {
 	candidateReservation,
+	decodeComponent,
 	encodeComponent,
 	type Identity,
 	inStoreSession,
@@ -477,6 +484,77 @@ function readLabel(root: string, identity: Identity) {
 	digest(label.recordDigest, "label.recordDigest");
 	if (!canonicalJSON(label).equals(bytes)) fail("label", "noncanonical record");
 	return label;
+}
+
+/**
+ * Every release label in the store (`revisions/labels/…`), each with its verified
+ * revision record. Labels name promoted releases (revision v2), which have no
+ * legacy identity record, and adopted legacy releases. Entries that are not valid
+ * labels are reported as problems, not thrown.
+ */
+export function listReleaseLabels({
+	storeRoot: selected = undefined,
+}: {
+	storeRoot?: string;
+} = {}) {
+	const root = storeRoot(selected);
+	const records: {
+		identity: Identity;
+		recordDigest: string;
+		manifest: RevisionRecord;
+	}[] = [];
+	const problems: string[] = [];
+	const base = safePath(root, "revisions/labels");
+	if (!statOrNull(base)) return { store: root, records, problems };
+	const entries = (directory: string, relative: string) => {
+		try {
+			return readdirSync(directory).sort((a, b) =>
+				Buffer.compare(Buffer.from(a), Buffer.from(b)),
+			);
+		} catch (error) {
+			problems.push(`${relative}: ${errorMessage(error)}`);
+			return [];
+		}
+	};
+	for (const namespace of entries(base, "revisions/labels"))
+		for (const component of entries(
+			path.join(base, namespace),
+			`revisions/labels/${namespace}`,
+		))
+			for (const file of entries(
+				path.join(base, namespace, component),
+				`revisions/labels/${namespace}/${component}`,
+			)) {
+				const relative = `revisions/labels/${namespace}/${component}/${file}`;
+				try {
+					if (!file.endsWith(".json")) fail("label", "not a label record");
+					const identity = {
+						name: `@${decodeComponent(namespace)}/${decodeComponent(component)}`,
+						version: file.slice(0, -".json".length),
+					};
+					if (labelPath(identity) !== relative)
+						fail("label", "noncanonical label path");
+					const label = readLabel(root, identity);
+					if (!label) continue;
+					const manifest = lookupRevisionManifest({
+						storeRoot: root,
+						recordDigest: label.recordDigest,
+					});
+					if (
+						manifest.identity.name !== identity.name ||
+						manifest.identity.version !== identity.version
+					)
+						fail("label", "revision identity mismatch");
+					records.push({
+						identity,
+						recordDigest: label.recordDigest,
+						manifest,
+					});
+				} catch (error) {
+					problems.push(`${relative}: ${errorMessage(error)}`);
+				}
+			}
+	return { store: root, records, problems };
 }
 
 function backing(root: string, manifest: RevisionRecord) {
