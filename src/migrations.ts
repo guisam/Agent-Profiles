@@ -8,6 +8,7 @@ import {
 	rmSync,
 } from "node:fs";
 import path from "node:path";
+import { exactRule } from "./binding-target.ts";
 import { applyChanges, errorCode, errorMessage } from "./files.ts";
 import { integrations } from "./integrations.ts";
 import { installDependencies } from "./package-lock.ts";
@@ -2257,28 +2258,9 @@ function promotionEvidence(store: Untyped, decision: Untyped) {
 	};
 }
 // Unqualified rules keep their original id; a profile qualifier is part of the derived identity.
-const promotionRuleId = ({ role, model, host, profile }: Untyped) =>
-	`promotion-${hash(Buffer.from(JSON.stringify(profile === undefined ? [role, model, host] : [role, model, host, profile]))).slice(0, 16)}`;
-// Shared by planning and replay freshness. The resolver selects the unique containment-maximal matching rule, so every other
-// matching rule is a subset of the selected one: replace it when it already pins the exact tuple (its other qualifiers already
-// match), otherwise add one rule that keeps its qualifiers and pins the tuple, which strictly contains every matching rule.
-function promotionRule(selected: Untyped, { role, model, host }: Untyped) {
-	const selectors =
-		selected.selectedBy === "binding-default" ? {} : (selected.selectors ?? {});
-	if (
-		selected.selectedBy !== "binding-default" &&
-		selectors.role === role &&
-		selectors.model === model &&
-		selectors.host === host
-	)
-		return {
-			id: selected.selectedBy,
-			when: { ...selectors },
-			action: "replace",
-		};
-	const when = { ...selectors, role, model, host };
-	return { id: promotionRuleId(when), when, action: "add" };
-}
+// Exact-tuple targeting is shared with update (#48); "promotion" keeps existing rule ids unchanged.
+const promotionRule = (selected: Untyped, assignment: Untyped) =>
+	exactRule(selected, assignment, "promotion");
 // Completed-promotion freshness: live selection, actors, peers, bytes and local inputs must equal the evaluated candidate capture,
 // modulo ONLY the intended primary candidate→release digest and the deliberate rule-specificity change on that binding.
 function candidateFreshness(

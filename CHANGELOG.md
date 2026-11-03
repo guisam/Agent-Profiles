@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.10.0 — 2026-11-03
+
+### Outdated and update (#48, phase 4 of #38)
+
+- Add `agent-profiles outdated`. For every pin (the shared default and each
+  assignment rule) it shows:
+  - the role × model tuples the pin serves;
+  - newer library versions, marked when the major version changes and, in v3,
+    when a version needs a `revision record`;
+  - per newer version and served tuple, the #46 evidence or "untested".
+
+  It's read-only, filters by model, role and host, and takes `--json`.
+- Add `agent-profiles update <binding> <version> --model --role --host`.
+  - It previews by default. It moves one exact tuple's pin, using promotion's
+    targeting: the selected rule is replaced if it already pins the tuple, and
+    otherwise one `update-<hash>` rule is added.
+  - It refuses if any other tuple's selection would change.
+  - `--apply` edits `agents.yaml` (comments kept), refreshes the lock and
+    captures a stamp. `--expect <previewDigest>` refuses if anything changed
+    since the preview.
+  - `--require-evidence` refuses without promoted evidence for the tuple.
+  - "Already pinned" writes nothing.
+- Promotion's exact-tuple targeting moved to `src/binding-target.ts`, shared by
+  both. Promotion rule ids are unchanged.
+- New APIs: `outdatedPins`, `previewUpdate`, `applyUpdate`.
+- No configuration, lock, stamp or store-format change; no migration.
+
 ## 0.9.0 — 2026-11-03
 
 ### Library evidence (#46, phase 3 of #38)

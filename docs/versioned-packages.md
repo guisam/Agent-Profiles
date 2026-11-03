@@ -408,8 +408,64 @@ reported as a store problem and never shown as evidence. Evidence stays on the
 machine whose store holds it; there is no export or import of evidence yet.
 
 The library has no removal, deprecation, version ranges or remote feed. Pins stay
-exact; finding newer versions for a project is planned as `outdated` and `update`
-(#38, phase 4).
+exact; see [Outdated and update](#outdated-and-update) to move one.
+
+## Outdated and update
+
+`outdated` lists every package pin in `agents.yaml`, both the shared default and
+each assignment rule, and compares it with the library:
+
+```sh
+agent-profiles outdated --root /path/to/project [--model <id>] [--role <id>] [--host <id>] [--json]
+```
+
+- **Serves:** the configured role × model tuples whose resolution selects that
+  pin. A rule that names a host serves only that host.
+- **Newer:** each newer version in the library, with **(major)** when the first
+  number changes. In configuration v3, a version that has no release label (only
+  an imported identity) is marked **needs revision record**, because v3 bindings
+  pin a revision digest.
+- **Evidence:** for each newer version and served tuple, the outcome and origin
+  from [library evidence](#evidence-per-version), or **untested**.
+
+`outdated` never writes. Filters keep only the pins that serve a matching tuple.
+
+`update` moves the pin for one exact role × model × host. It previews by
+default, and writes only with `--apply`:
+
+```sh
+agent-profiles update skills.security-review 2.0.0 --model fictional-small --role reviewer --host codex
+agent-profiles update skills.security-review 2.0.0 --model fictional-small --role reviewer --host codex --apply --expect <previewDigest>
+```
+
+- **Targeting** is the same as [promotion](skill-migrations.md#promote-the-exact-evaluated-tuple)'s:
+  - the resolver picks the rule that selects the binding for that tuple;
+  - if that rule already pins exactly the tuple, only its binding changes;
+  - otherwise one rule (`update-<hash>`) is added that keeps the selected rule's
+    qualifiers and pins the tuple.
+
+  Shared defaults and every other model's pins don't change.
+- **Preview** shows the before and after, the rule that is replaced or added, the
+  selections that change, the evidence for that tuple, and a `previewDigest`.
+  Before showing anything, it resolves every configured tuple with and without
+  the edit, and refuses if any selection other than the target's would change.
+- **Apply:**
+  1. repeats those checks;
+  2. with `--expect <previewDigest>`, refuses if the configuration, lock, target
+     or version changed since the preview;
+  3. edits `agents.yaml` through the YAML document, so comments are kept;
+  4. validates the result;
+  5. refreshes the lock through `install`;
+  6. captures a stamp and prints its digest.
+- **`--require-evidence`** refuses unless the version has a `promoted` evidence
+  row for that exact tuple. Without it, evidence is shown but never required.
+- **Already pinned:** if the tuple already selects that version (for example,
+  after a promotion), `update` says so and writes nothing.
+- In configuration v2, a rule's override is written under `versions`; in v3, it
+  is written under `bindings` with `package`, `version` and `revision`.
+
+`update` moves one tuple per command. There are no version ranges, "latest" tags
+or automatic updates.
 
 ## Store read caching
 

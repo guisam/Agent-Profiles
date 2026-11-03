@@ -48,6 +48,13 @@ import {
 	rejectMigrationProposal,
 	startMigration,
 } from "../src/migrations.ts";
+import {
+	applyUpdate,
+	formatOutdated,
+	formatUpdate,
+	outdatedPins,
+	previewUpdate,
+} from "../src/outdated.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, rootPath } from "../src/package-store.ts";
 import { readPackage, type Untyped } from "../src/packages.ts";
@@ -93,6 +100,9 @@ try {
 			host: { type: "string" },
 			package: { type: "string" },
 			type: { type: "string" },
+			apply: { type: "boolean" },
+			"require-evidence": { type: "boolean" },
+			expect: { type: "string" },
 			mcp: { type: "boolean" },
 			"no-mcp": { type: "boolean" },
 			skill: { type: "string", multiple: true },
@@ -185,7 +195,9 @@ Commands:
   materialize Export a stamp using --adapter filesystem-v1|harness2-tree --output-root <absolute-root>
               Harness² requires --surface codex|opencode; the harness root is <destination>/content
               --destination <absolute-new-child> [--protect-root <absolute-path> ...]
-  library     Browse, search, inspect and publish packages in the local store (list, search, info, publish)
+  library     Browse, search, inspect and publish packages in the local store (list, search, info, evidence, publish)
+  outdated    Pins with newer library versions, and their evidence for the tuples each pin serves (read-only)
+  update      Preview, then with --apply write, a move of one exact role × model × host pin
   migrate     Develop isolated migration workspaces and review evidence-linked proposals
   revision    Adopt metadata for an existing immutable legacy release
   mcp         Serve the read-only tools over MCP (stdio) for agent hosts
@@ -302,6 +314,61 @@ Examples:
 				| undefined,
 			role: values.role?.[0],
 		});
+	} else if (command === "outdated" || command === "update") {
+		const update = command === "update";
+		if (positionals.length !== (update ? 3 : 1))
+			throw new Error(
+				update
+					? "Usage: agent-profiles update <binding> <version> --model <id> --role <id> --host <id> [--apply [--expect <previewDigest>]] [--require-evidence] [--root <directory>] [--store <directory>] [--json]"
+					: "Usage: agent-profiles outdated [--model <id>] [--role <id>] [--host <id>] [--root <directory>] [--store <directory>] [--json]",
+			);
+		const allowed = [
+			"root",
+			"store",
+			"json",
+			"model",
+			"role",
+			"host",
+			...(update ? ["apply", "require-evidence", "expect"] : []),
+		];
+		for (const option of seen)
+			if (!allowed.includes(option))
+				throw new Error(`--${option} is not supported by ${command}`);
+		if ((values.role?.length ?? 0) > 1)
+			throw new Error(`${command} accepts one --role`);
+		const root = realpathSync(values.root ?? findRoot());
+		const print = (result: unknown, text: () => string) =>
+			console.log(values.json ? JSON.stringify(result, null, 2) : text());
+		if (!update) {
+			const result = outdatedPins({
+				root,
+				storeRoot: values.store,
+				filter: {
+					model: values.model,
+					role: values.role?.[0],
+					host: values.host,
+				},
+			});
+			print(result, () => formatOutdated(result));
+		} else {
+			const input = {
+				root,
+				storeRoot: values.store,
+				binding: positionals[1],
+				version: positionals[2],
+				assignment: {
+					role: values.role?.[0] as string,
+					model: values.model as string,
+					host: values.host as string,
+				},
+				requireEvidence: values["require-evidence"] === true,
+				expect: values.expect,
+			};
+			if (values.expect !== undefined && !values.apply)
+				throw new Error("--expect is only supported with --apply");
+			const result = values.apply ? applyUpdate(input) : previewUpdate(input);
+			print(result, () => formatUpdate(result));
+		}
 	} else if (command === "library") {
 		const action = positionals[1];
 		const shapes: Record<string, { count: number; options: string[] }> = {
@@ -458,7 +525,7 @@ Examples:
 			].includes(command)
 		)
 			throw new Error(
-				"Choose one command: inspect, init, configure, skills, doctor, uninstall, resolve, preset, proof, visualize, add, install, stamp, verify, diff, materialize, library, mcp",
+				"Choose one command: inspect, init, configure, skills, doctor, uninstall, resolve, preset, proof, visualize, add, install, stamp, verify, diff, materialize, library, outdated, update, mcp",
 			);
 		if (values.package !== undefined && command !== "init")
 			throw new Error("--package is only supported by init");
