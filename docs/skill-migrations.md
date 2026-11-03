@@ -432,6 +432,10 @@ Programmatic entry points in `src/migrations.ts` are `planMigrationEvaluation`,
 only the explicit promotion below can. Broader forks/batches, session continuity and
 all live/provider operations remain later separately bounded work.
 
+To see retained results and promotions per released version, including ones
+from other projects that share the store, use
+[`library evidence`](versioned-packages.md#evidence-per-version).
+
 ## Promote the exact evaluated tuple
 
 The local checkout implements read-only preview and explicit synthetic promotion of

@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.9.0 — 2026-11-03
+
+### Library evidence (#46, phase 3 of #38)
+
+- `library info` shows an Evidence section per version, and the new
+  `library evidence <@ns/name>[@<version>] [--model] [--role] [--host] [--root]`
+  filters it. Each row is one retained paired evaluation for one exact
+  role × model × host, with:
+  - the outcome: `promoted`, `promoted with override` (naming the waived cases),
+    `eligible, not promoted`, or `blocked` (with its regressions);
+  - correctness per side, and metric deltas when both sides are completely
+    measured;
+  - the harness, judge and rubric;
+  - the origin: `evaluated here`, `approved elsewhere` or `evaluated elsewhere`;
+  - with `--root`, the configured family.
+
+  With a filter, versions that have no matching row are listed as `untested`.
+- The library now includes promoted releases (source `promoted`), which have a
+  release label but no imported identity, and marks adopted releases (source
+  `adopted`). Previously `library list` did not show promoted versions.
+- Evidence is read through the existing revalidating readbacks; nothing is written,
+  and a record that fails revalidation is reported as a problem. Correctness stays
+  an external claim and runtime stays unverified.
+- New APIs: `libraryEvidence` and `listReleaseLabels`. Library versions gain
+  `source` and `revisionDigest` fields.
+- No configuration, lock, stamp, evaluation or promotion format change; no
+  migration.
+
 ## 0.8.0 — 2026-11-03
 
 ### Local skill library (#44, phase 2 of #38)

@@ -23,7 +23,9 @@ import {
 import { integrations } from "../src/integrations.ts";
 import {
 	formatLibrary,
+	formatLibraryEvidence,
 	formatLibraryInfo,
+	libraryEvidence,
 	libraryInfo,
 	listLibrary,
 	publishPackage,
@@ -218,7 +220,11 @@ Library (the local store; read-only except publish):
   library list [--type skill|instruction]     Every package and its versions, newest first
   library search <text>                        Match package names and descriptions
   library info <@namespace/name>[@<version>] [--root <directory>]
-                                               Verified details; --root marks that project's pins
+                                               Verified details and evidence; --root marks that
+                                               project's pins and which evidence it produced
+  library evidence <@namespace/name>[@<version>] [--model <id>] [--role <id>] [--host <id>] [--root <directory>]
+                                               Retained evaluations per role × model × host;
+                                               with a filter, lists untested versions too
   library publish <directory>                  Import a package directory, identity from package.yaml
 
 MCP service (stdio; stdout carries the protocol):
@@ -302,12 +308,16 @@ Examples:
 			list: { count: 2, options: ["store", "json", "type"] },
 			search: { count: 3, options: ["store", "json"] },
 			info: { count: 3, options: ["store", "json", "root"] },
+			evidence: {
+				count: 3,
+				options: ["store", "json", "root", "model", "role", "host"],
+			},
 			publish: { count: 3, options: ["store", "json"] },
 		};
 		const shape = Object.hasOwn(shapes, action) ? shapes[action] : undefined;
 		if (!shape || positionals.length !== shape.count)
 			throw new Error(
-				"Usage: agent-profiles library list [--type skill|instruction] | search <text> | info <@namespace/name>[@<version>] [--root <directory>] | publish <directory> [--store <directory>] [--json]",
+				"Usage: agent-profiles library list [--type skill|instruction] | search <text> | info <@namespace/name>[@<version>] [--root <directory>] | evidence <@namespace/name>[@<version>] [--model <id>] [--role <id>] [--host <id>] [--root <directory>] | publish <directory> [--store <directory>] [--json]",
 			);
 		for (const option of seen)
 			if (!shape.options.includes(option))
@@ -324,7 +334,7 @@ Examples:
 		} else if (action === "search") {
 			const result = searchLibrary({ storeRoot, text: positionals[2] });
 			print(result, () => formatLibrary(result));
-		} else if (action === "info") {
+		} else if (action === "info" || action === "evidence") {
 			// "@ns/name@1.2.3": the version follows the last "@" after the scope.
 			const spec = positionals[2];
 			const split = spec.lastIndexOf("@");
@@ -332,13 +342,27 @@ Examples:
 				split > 0
 					? [spec.slice(0, split), spec.slice(split + 1)]
 					: [spec, undefined];
-			const result = libraryInfo({
-				storeRoot,
-				name,
-				version,
-				root: values.root === undefined ? undefined : realpathSync(values.root),
-			});
-			print(result, () => formatLibraryInfo(result));
+			const root =
+				values.root === undefined ? undefined : realpathSync(values.root);
+			if (action === "info") {
+				const result = libraryInfo({ storeRoot, name, version, root });
+				print(result, () => formatLibraryInfo(result));
+			} else {
+				if ((values.role?.length ?? 0) > 1)
+					throw new Error("library evidence accepts one --role");
+				const result = libraryEvidence({
+					storeRoot,
+					name,
+					version,
+					root,
+					filter: {
+						model: values.model,
+						role: values.role?.[0],
+						host: values.host,
+					},
+				});
+				print(result, () => formatLibraryEvidence(result));
+			}
 		} else {
 			const result = publishPackage({
 				storeRoot,

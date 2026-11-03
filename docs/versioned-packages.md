@@ -347,6 +347,7 @@ agent-profiles library list --type instruction
 agent-profiles library search security                    # name or description, case-insensitive
 agent-profiles library info @example/security-review      # every version, verified
 agent-profiles library info @example/security-review@2.0.0 --root /path/to/project
+agent-profiles library evidence @example/security-review --model claude-haiku-4-5 --role reviewer
 ```
 
 - **publish** reads `name` and `version` from the directory's `package.yaml`, then
@@ -364,7 +365,47 @@ agent-profiles library info @example/security-review@2.0.0 --root /path/to/proje
   description, file count and size. With `--root`, it also marks which versions
   that project's `agents.yaml` pins (binding by binding) and whether its lock
   covers them with the same digest.
+- The library includes promoted releases. A version created by
+  [promotion](skill-migrations.md#promote-the-exact-evaluated-tuple) has a release
+  label but no imported identity; it is listed with source `promoted`. A package
+  adopted with `revision record` is listed with source `adopted`.
 - Every command takes `--json`.
+
+### Evidence per version
+
+`library info` adds an **Evidence** section to each version. `library evidence`
+shows the same rows for one package, and can filter them by exact `--model`,
+`--role` and `--host`. Each row is one retained
+[paired evaluation](skill-migrations.md#retain-paired-external-evaluation-claims)
+of that version for one role × model × host:
+
+- **Outcome:** `promoted`, `promoted with override` (naming the waived cases),
+  `eligible, not promoted` (passed the correctness gate, but has no promotion
+  decision), or `blocked` (with its per-case regressions).
+- **Correctness** per side as passed/trials, and **deltas** (candidate − base) for
+  cost, tokens, turns, tool calls and latency when both sides are completely
+  measured. Correctness stays an external claim and runtime stays unverified.
+- **Conditions:** the harness, judge and rubric id and version, plus the result
+  and decision ids.
+- **Origin:**
+  - `evaluated here` means the candidate's migration is recorded in the
+    `--root` project's `.agent-profiles/migrations/`;
+  - `approved elsewhere` means another project's promotion in this store;
+  - `evaluated elsewhere` means another project's result without a promotion.
+
+  Without `--root`, nothing is "here".
+- **Family:** with `--root`, the family that project configures for the model,
+  when it reaches the model through a family prefix.
+
+Rows are always per exact model ID. Evidence for one model never stands in for
+another, even within one family. With a filter, versions that have no matching
+row are listed as **untested**. An eligible candidate that was never promoted
+appears under its planned version, marked as not in the library.
+
+Evidence is read through the same revalidating readbacks as `migrate report`
+and promotion, and nothing is written. A record that fails revalidation is
+reported as a store problem and never shown as evidence. Evidence stays on the
+machine whose store holds it; there is no export or import of evidence yet.
 
 The library has no removal, deprecation, version ranges or remote feed. Pins stay
 exact; finding newer versions for a project is planned as `outdated` and `update`

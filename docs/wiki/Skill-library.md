@@ -1,6 +1,6 @@
 # Skill library
 
-The package store is also your local skill library (source version 0.8.0). One
+The package store is also your local skill library (source version 0.8.0; evidence in 0.9.0). One
 folder on your machine (`~/.agent-profiles/store` by default) holds every version
 you have published, content-addressed by SHA-256. Projects pin exact versions in
 `agents.yaml` and lock them.
@@ -10,13 +10,21 @@ agent-profiles library publish ./skills/security-review
 agent-profiles library list
 agent-profiles library search security
 agent-profiles library info @example/security-review --root /path/to/project
+agent-profiles library evidence @example/security-review --model claude-haiku-4-5 --role reviewer
 ```
 
 - **publish** imports a package directory, reading its name and version from
   `package.yaml`. It gives the same result as `add`.
 - **list**, **search** and **info** are read-only and verify every version they
   show. **info** `--root` marks which versions a project pins and whether its lock
-  agrees.
+  agrees. Promoted releases are listed too.
+- **Evidence (0.9.0):** `info` and `evidence` show, for each version, the paired
+  evaluations retained for each exact role × model × host. Each row gives the
+  outcome (promoted, overridden, eligible but not promoted, or blocked),
+  correctness on each side, metric deltas, and whether the evidence came from
+  this project or another one. With a model filter, versions without evidence are
+  listed as untested, so you can choose a version that has shown it works for
+  that model.
 
 Details, the manifest format and limits are in
 [docs/versioned-packages.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/versioned-packages.md#library-browse-search-inspect-and-publish).
