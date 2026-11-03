@@ -51,7 +51,7 @@ project. `--package` installs the packed tarball into the project so the bootstr
 command can run there:
 
 ```sh
-node bin/agent-profiles.ts init --root /path/to/project --package ./guisam-agent-profiles-0.9.0.tgz
+node bin/agent-profiles.ts init --root /path/to/project --package ./guisam-agent-profiles-0.10.0.tgz
 node bin/agent-profiles.ts configure --root /path/to/project
 node bin/agent-profiles.ts doctor --root /path/to/project
 node bin/agent-profiles.ts proof --root /path/to/project --role reviewer
@@ -170,7 +170,10 @@ version, and `library list`, `search` and `info` browse what you have, with
 verified digests and, with `--root`, which versions a project pins.
 `library evidence @ns/name --model <id> --role <id>` shows which versions have
 retained evaluations for that exact model and role, whether they were promoted,
-and whether that evidence came from this project or another. See
+and whether that evidence came from this project or another. `outdated` lists
+pins with newer versions, and the evidence for the tuples each one serves;
+`update` previews, then with `--apply` writes, a move of one exact role × model ×
+host pin. See
 [Library](docs/versioned-packages.md#library-browse-search-inspect-and-publish).
 
 ## Skill migration workspaces

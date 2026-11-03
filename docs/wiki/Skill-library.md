@@ -1,6 +1,6 @@
 # Skill library
 
-The package store is also your local skill library (source version 0.8.0; evidence in 0.9.0). One
+The package store is also your local skill library (source version 0.8.0; evidence in 0.9.0; outdated and update in 0.10.0). One
 folder on your machine (`~/.agent-profiles/store` by default) holds every version
 you have published, content-addressed by SHA-256. Projects pin exact versions in
 `agents.yaml` and lock them.
@@ -25,6 +25,12 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   this project or another one. With a model filter, versions without evidence are
   listed as untested, so you can choose a version that has shown it works for
   that model.
+
+- **Outdated and update (0.10.0):** `outdated --root .` lists every pin with
+  the tuples it serves, newer versions, and the evidence each newer version has
+  for those tuples. `update <binding> <version> --model --role --host` previews
+  a move of one exact tuple's pin; `--apply` writes it, keeping every other
+  model's pins unchanged, then refreshes the lock.
 
 Details, the manifest format and limits are in
 [docs/versioned-packages.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/versioned-packages.md#library-browse-search-inspect-and-publish).

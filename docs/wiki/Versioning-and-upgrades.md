@@ -132,6 +132,22 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source feature: 0.10.0 — outdated and update
+
+The working package version is `0.10.0`, not yet published to npm. `outdated`
+lists pins with newer library versions and their evidence for the tuples each
+pin serves. `update` previews, then with `--apply` writes, a move of one exact
+role × model × host pin. See the
+[Skill library](https://github.com/guisam/Agent-Profiles/wiki/Skill-library). Tracking: #38 and #48.
+
+### Upgrade instructions
+
+No configuration YAML, lock, stamp or store-format change; no migration.
+`update --apply` writes to `agents.yaml` only when you run it: it replaces a rule
+that already pins the exact tuple, or adds one `update-<hash>` rule, and then
+refreshes the lock. Review the preview first. Promotion behaves as before, and
+its rule ids are unchanged.
+
 ## Source feature: 0.9.0 — library evidence
 
 The working package version is `0.9.0`, not yet published to npm. `library info`
@@ -226,6 +242,6 @@ verified; automated protocol, parity and no-write tests pass.
 
 ## Beta releases
 
-The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.9.0` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
+The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.10.0` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
 
 [Return to the documentation home](https://github.com/guisam/Agent-Profiles/wiki).
