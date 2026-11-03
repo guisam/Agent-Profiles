@@ -100,6 +100,12 @@ without `--mcp` or `--no-mcp` keeps the installed one. See
    }
    ```
 
+   `init` also adds one startup-only `SessionStart` hook to the same file, which runs
+   `npx --no agent-profiles notice --hook claude` for the
+   [update notice](versioned-packages.md#update-notice). `uninstall` removes exactly
+   that hook. `doctor` notes it when it's missing, but a missing hook is not a
+   bootstrap problem.
+
 3. Run `agent-profiles doctor`. It reports three independent results:
    - **Configuration**: schema, references, and managed markers.
    - **Bootstrap availability**: whether each installed block's command can run,

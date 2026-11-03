@@ -1,6 +1,6 @@
 # Skill library
 
-The package store is also your local skill library (source version 0.8.0; evidence in 0.9.0; outdated and update in 0.10.0). One
+The package store is also your local skill library (source version 0.8.0; evidence in 0.9.0; outdated and update in 0.10.0; update notice in 0.11.0). One
 folder on your machine (`~/.agent-profiles/store` by default) holds every version
 you have published, content-addressed by SHA-256. Projects pin exact versions in
 `agents.yaml` and lock them.
@@ -31,6 +31,12 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   for those tuples. `update <binding> <version> --model --role --host` previews
   a move of one exact tuple's pin; `--apply` writes it, keeping every other
   model's pins unchanged, then refreshes the lock.
+
+- **Update notice (0.11.0):** for Claude Code, `init` adds a startup-only hook
+  that tells you, not the agent, when the library has newer versions for your
+  pins. Promoted evidence for your exact tuples gets its own line; the rest is a
+  count. It appears at most once a day, and only when something changed.
+  `outdated --check` gives CI the same answer as an exit code.
 
 Details, the manifest format and limits are in
 [docs/versioned-packages.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/versioned-packages.md#library-browse-search-inspect-and-publish).

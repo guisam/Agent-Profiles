@@ -1102,6 +1102,20 @@ test("init adds only the exact permission rules, preserves other settings, and u
 				"PowerShell(npx --no agent-profiles resolve:*)",
 			],
 		},
+		// The update notice (#49): startup only; removed again by uninstall below.
+		hooks: {
+			SessionStart: [
+				{
+					matcher: "startup",
+					hooks: [
+						{
+							type: "command",
+							command: "npx --no agent-profiles notice --hook claude",
+						},
+					],
+				},
+			],
+		},
 	});
 	const installed = fs.readFileSync(
 		path.join(repo.root, ".claude/settings.json"),

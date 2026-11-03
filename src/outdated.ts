@@ -143,9 +143,19 @@ function outdatedPinsOperation({
 	const lock = validated.bindings.size
 		? readLockState(repository, validated, storeRoot)
 		: { state: "not-required" };
-	const swept = sweep(repository, storeRoot, tuples(validated), problems);
+	// No package pins: nothing to compare, and no reason to resolve every tuple.
+	const swept = validated.bindings.size
+		? sweep(repository, storeRoot, tuples(validated), problems)
+		: new Map();
 	const pins = [];
-	for (const [binding, value] of validated.bindings)
+	for (const [binding, value] of validated.bindings) {
+		// Hosts some rule of this binding names: a host-less tuple stands for every OTHER
+		// host, so evidence recorded on a named host never counts for it.
+		const namedHosts = new Set(
+			value.rules
+				.map((rule) => rule.when.get("host"))
+				.filter((host): host is string => typeof host === "string"),
+		);
 		for (const { reference, rule, entry } of packageReferences(
 			binding,
 			value,
@@ -213,8 +223,9 @@ function outdatedPinsOperation({
 												row.version === candidate.version &&
 												row.assignment.role === tuple.role &&
 												row.assignment.model === tuple.model &&
-												(tuple.host === null ||
-													row.assignment.host === tuple.host),
+												(tuple.host === null
+													? !namedHosts.has(row.assignment.host)
+													: row.assignment.host === tuple.host),
 										)
 										.map((row) => ({
 											host: row.assignment.host,
@@ -238,6 +249,7 @@ function outdatedPinsOperation({
 				newer,
 			});
 		}
+	}
 	return {
 		root: repository,
 		configurationVersion: validated.config.get("version") as number,

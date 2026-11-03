@@ -132,6 +132,21 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source feature: 0.11.0 — update notice
+
+The working package version is `0.11.0`, not yet published to npm. `notice`, a
+Claude Code startup hook, `outdated --check` and a `doctor` "Updates" line tell
+you when the library has newer versions for your pins. See the
+[Skill library](https://github.com/guisam/Agent-Profiles/wiki/Skill-library). Tracking: #38 and #49.
+
+### Upgrade instructions
+
+No configuration YAML, lock or store-format change; no migration. To add the
+Claude Code hook to an existing installation, run `agent-profiles init --agent claude`
+again. It adds one `SessionStart` entry (matcher `startup`) to
+`.claude/settings.json`, and `uninstall` removes it. Set
+`AGENT_PROFILES_NOTICE=off` to disable the notice.
+
 ## Source feature: 0.10.0 — outdated and update
 
 The working package version is `0.10.0`, not yet published to npm. `outdated`
@@ -242,6 +257,6 @@ verified; automated protocol, parity and no-write tests pass.
 
 ## Beta releases
 
-The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.10.0` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
+The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.11.0` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
 
 [Return to the documentation home](https://github.com/guisam/Agent-Profiles/wiki).

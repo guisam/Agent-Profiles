@@ -12,6 +12,12 @@ export type SurfaceRecord = {
 	span: { start: number; end: number } | null;
 };
 
+/** One installer-owned hook: an exact command under an event and matcher. */
+export type ManagedHook = { event: string; matcher: string; command: string };
+/** The ownership marker recorded for a managed hook beside the owned permission rules. */
+export const hookMarker = (hook: ManagedHook) =>
+	`hook:${hook.event}:${hook.matcher}:${hook.command}`;
+
 /** A host adapter: where its instructions live and how it addresses native skills. */
 export type Integration = {
 	id: string;
@@ -24,6 +30,8 @@ export type Integration = {
 		Record<string, { id: RegExp; path?: (id: string) => string }>
 	>;
 	permissions?: { file: string; also: string[]; rules: string[] };
+	/** Hooks the installer manages in the permissions settings file (#49). */
+	hooks?: ManagedHook[];
 	bootstrapGuidance?: string[];
 	capabilities: Record<string, string>;
 };
@@ -90,6 +98,8 @@ export function blockProtocol(span: Buffer) {
 }
 // --no refuses to download: an unpublished or squatted npm name must never run from a bootstrap.
 export const resolveCommand = "npx --no agent-profiles resolve";
+// The update notice (#49): startup only, user-facing systemMessage, never model context.
+export const noticeCommand = "npx --no agent-profiles notice --hook claude";
 
 // Agent-specific path and precedence choices stay here; file editing is shared.
 // capabilities record observed host behavior (docs/host-observations.md), not guarantees.
@@ -121,6 +131,9 @@ export const integrations: Integration[] = [
 			also: [".claude/settings.local.json"],
 			rules: [`Bash(${resolveCommand}:*)`, `PowerShell(${resolveCommand}:*)`],
 		},
+		hooks: [
+			{ event: "SessionStart", matcher: "startup", command: noticeCommand },
+		],
 		capabilities: {
 			mode: "bootstrap",
 			verified: "Claude Code 2.1.283",

@@ -467,6 +467,49 @@ agent-profiles update skills.security-review 2.0.0 --model fictional-small --rol
 `update` moves one tuple per command. There are no version ranges, "latest" tags
 or automatic updates.
 
+## Update notice
+
+`outdated` answers when you ask. The update notice tells you without being asked,
+and stays quiet otherwise. It is for you, not the agent: it never enters the
+model's context, and it never changes a pin.
+
+- **Actionable:** a newer, pinnable version has `promoted` evidence for a tuple
+  that one of your pins serves. Each one gets its own line.
+- **Informational:** pins with newer versions but no evidence for the tuples they
+  serve. These are shown as one count.
+
+A host-less tuple stands for every host that no rule of that binding names.
+Evidence recorded on a named host never counts for it.
+
+Where it appears:
+
+| Surface | When | Behavior |
+| --- | --- | --- |
+| Claude Code `SessionStart` hook (added by `init`) | new sessions only (`startup`), not `/clear`, `/compact` or `resume` | Prints a user-facing `systemMessage` and no model context. Any error is silent. |
+| `agent-profiles notice` | when you run it | The same once-a-day notice; `--json` for scripts |
+| `agent-profiles outdated --check` | CI or scheduled jobs | Prints the summary and exits 1 when something is actionable. No state or rate limit. |
+| `agent-profiles doctor` | when you run it | An "Updates" line with the actionable lines. No state or rate limit. |
+
+The hook and `notice` keep quiet in three ways:
+
+- **Only something new.** A fingerprint covers the names in the store's identity,
+  label, result and decision indexes, plus the project's `agents.yaml` and lock.
+  Computing it hashes no package object. While the fingerprint is unchanged,
+  nothing is shown.
+- **At most once a day per project.** A change within a day of the last notice is
+  held, and shown after the day passes.
+- **Machine-local state** under `~/.agent-profiles/notices/`, never in the
+  repository.
+
+Set `AGENT_PROFILES_NOTICE` to change the level:
+- `all` (the default) shows actionable lines plus the informational count;
+- `actionable` drops the count;
+- `off` disables the notice and the doctor line.
+
+Whether Claude Code shows the hook's `systemMessage` to the user, and keeps it out
+of the model's context, is recorded in the
+[Claude Code host record](hosts/claude-code.md) once it has been checked live.
+
 ## Store read caching
 
 Each store command checks the store's directories for links and junctions and
