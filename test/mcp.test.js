@@ -14,7 +14,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { formatContext } from "../src/diagnostics.ts";
@@ -72,8 +72,28 @@ function run(f, ...args) {
 	return result;
 }
 
-async function connect(f, args = [], cwd = f.root) {
-	const client = new Client({ name: "agent-profiles-test", version: "1" });
+// `roots`: directories the client offers as workspace roots (declares the capability).
+// `era: "modern"` pins protocol 2026-07-28; the default is the 2025 handshake.
+async function connect(f, args = [], cwd = f.root, { roots, era } = {}) {
+	const client = new Client(
+		{ name: "agent-profiles-test", version: "1" },
+		{
+			...(roots ? { capabilities: { roots: {} } } : {}),
+			...(era === "modern"
+				? {
+						versionNegotiation: { mode: { pin: "2026-07-28" } },
+						inputRequired: { autoFulfill: true },
+					}
+				: {}),
+		},
+	);
+	if (roots)
+		client.setRequestHandler("roots/list", async () => ({
+			roots: roots.map((directory) => ({
+				uri: pathToFileURL(directory).href,
+				name: path.basename(directory),
+			})),
+		}));
 	await client.connect(
 		new StdioClientTransport({
 			command: process.execPath,
@@ -367,4 +387,152 @@ test("the mcp command validates its options", (t) => {
 	const twoRoles = run(f, "mcp", "--role", "a", "--role", "b");
 	assert.equal(twoRoles.status, 1);
 	assert.match(twoRoles.stderr, /one --role/);
+});
+
+test("bound instructions carry the session's stamp digest without writing it", async (t) => {
+	const f = fixture(t);
+	const args = [
+		"--root",
+		f.root,
+		"--store",
+		f.store,
+		"--model",
+		"example-model",
+		"--role",
+		"reviewer",
+	];
+	const before = tree(f.store);
+	const first = await connect(f, args);
+	const line = first.getInstructions().split("\n")[1];
+	const match = /^Stamp: sha256 ([0-9a-f]{64}) \(not retained;/.exec(line);
+	assert.ok(match, line);
+	assert.deepEqual(tree(f.store), before);
+
+	// The same selectors captured through the CLI record exactly that digest.
+	const captured = run(
+		f,
+		"stamp",
+		"--root",
+		f.root,
+		"--store",
+		f.store,
+		"--model",
+		"example-model",
+		"--role",
+		"reviewer",
+		"--json",
+	);
+	assert.equal(captured.status, 0, captured.stderr);
+	assert.equal(JSON.parse(captured.stdout).digest, match[1]);
+
+	const second = await connect(f, args);
+	assert.equal(
+		second.getInstructions().split("\n")[1],
+		`Stamp: sha256 ${match[1]} (retained in the store; the \`verify\` tool reads it).`,
+	);
+	const verified = await second.callTool({
+		name: "verify",
+		arguments: { digest: match[1] },
+	});
+	assert.ok(!verified.isError, textOf(verified));
+});
+
+test("unbound instructions carry no stamp line", async (t) => {
+	const f = fixture(t);
+	const client = await connect(f, ["--root", f.root]);
+	assert.doesNotMatch(client.getInstructions(), /^Stamp:/m);
+});
+
+for (const era of ["legacy", "modern"]) {
+	test(`roots (${era} protocol): the configured workspace root selects the project`, async (t) => {
+		const f = fixture(t);
+		const outside = path.join(f.base, "elsewhere");
+		const plain = path.join(f.base, "plain");
+		mkdirSync(outside);
+		mkdirSync(plain);
+		const client = await connect(f, [], outside, {
+			roots: [plain, f.root],
+			era,
+		});
+		const result = await client.callTool({
+			name: "resolve",
+			arguments: { model: "example-model", role: "reviewer" },
+		});
+		assert.ok(!result.isError, textOf(result));
+		assert.equal(
+			textOf(result),
+			formatContext(
+				resolveInstructions({
+					root: f.root,
+					model: "example-model",
+					role: "reviewer",
+				}),
+				{ invocation: "mcp" },
+			),
+		);
+		const explained = await client.callTool({
+			name: "explain",
+			arguments: { model: "example-model" },
+		});
+		assert.ok(!explained.isError, textOf(explained));
+	});
+
+	test(`roots (${era} protocol): several configured roots are refused; none falls back to cwd`, async (t) => {
+		const f = fixture(t);
+		const other = path.join(f.base, "other");
+		cpSync(
+			path.join(f.root, ".agent-profiles"),
+			path.join(other, ".agent-profiles"),
+			{ recursive: true },
+		);
+		const outside = path.join(f.base, "elsewhere");
+		mkdirSync(outside);
+		const ambiguous = await connect(f, [], outside, {
+			roots: [f.root, other],
+			era,
+		});
+		const refused = await ambiguous.callTool({
+			name: "resolve",
+			arguments: { model: "example-model" },
+		});
+		assert.equal(refused.isError, true);
+		assert.match(textOf(refused), /several workspace roots/);
+		assert.match(textOf(refused), /pass root/);
+
+		const unconfigured = await connect(f, [], outside, {
+			roots: [outside],
+			era,
+		});
+		const fallback = await unconfigured.callTool({
+			name: "resolve",
+			arguments: { model: "example-model" },
+		});
+		assert.equal(fallback.isError, true);
+		assert.match(textOf(fallback), /--root/);
+	});
+}
+
+test("roots: --root and a root argument take precedence over workspace roots", async (t) => {
+	const f = fixture(t);
+	const other = path.join(f.base, "other");
+	cpSync(
+		path.join(f.root, ".agent-profiles"),
+		path.join(other, ".agent-profiles"),
+		{ recursive: true },
+	);
+	// Both roots configured would be ambiguous, so success proves roots were not consulted.
+	const pinned = await connect(f, ["--root", f.root], f.base, {
+		roots: [f.root, other],
+	});
+	const viaFlag = await pinned.callTool({
+		name: "resolve",
+		arguments: { model: "example-model" },
+	});
+	assert.ok(!viaFlag.isError, textOf(viaFlag));
+	const open = await connect(f, [], f.base, { roots: [f.root, other] });
+	const viaArgument = await open.callTool({
+		name: "resolve",
+		arguments: { model: "example-model", root: other },
+	});
+	assert.ok(!viaArgument.isError, textOf(viaArgument));
 });

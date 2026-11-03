@@ -1,7 +1,15 @@
 // Read-only MCP service over the existing resolver, stamp and evaluation APIs (#39).
 // Only the `mcp` command imports this module, so other commands never load the SDK.
 import { existsSync, realpathSync, statSync } from "node:fs";
-import { McpServer } from "@modelcontextprotocol/server";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+	CLIENT_CAPABILITIES_META_KEY,
+	type InputRequiredResult,
+	inputRequired,
+	McpServer,
+	type ServerContext,
+} from "@modelcontextprotocol/server";
 import {
 	type StdioServerHandle,
 	serveStdio,
@@ -12,7 +20,7 @@ import { errorMessage } from "./files.ts";
 import { findRoot, ownVersion } from "./install.ts";
 import { migrationEvaluationReport } from "./migrations.ts";
 import { type ResolveOptions, resolveInstructions } from "./resolve.ts";
-import { diffStamps, verifyStamp } from "./stamps.ts";
+import { diffStamps, previewStamp, verifyStamp } from "./stamps.ts";
 
 export type McpOptions = {
 	/** Project root for every tool call; otherwise the server's working directory is searched. */
@@ -95,8 +103,15 @@ const guarded =
 		}
 	};
 
-/** Resolve the project root: tool argument, then --root, then the repository around cwd. */
-export function projectRoot(options: McpOptions, requested?: string): string {
+/**
+ * Resolve the project root: tool argument, then --root, then the host's
+ * workspace root (when the client offers roots), then the repository around cwd.
+ */
+export function projectRoot(
+	options: McpOptions,
+	requested?: string,
+	workspace?: string,
+): string {
 	const chosen = requested ?? options.root;
 	if (chosen !== undefined) {
 		if (!chosen.trim()) throw new Error("root must name a directory");
@@ -104,12 +119,55 @@ export function projectRoot(options: McpOptions, requested?: string): string {
 			throw new Error(`root is not a directory: ${chosen}`);
 		return realpathSync(chosen);
 	}
-	return findRoot(options.cwd ?? process.cwd());
+	return workspace ?? findRoot(options.cwd ?? process.cwd());
 }
 
-function selectors(options: McpOptions, args: Selection): ResolveOptions {
+/**
+ * Choose the project from the host's workspace roots: the one root holding
+ * `.agent-profiles/agents.yaml`. None leaves the choice to the working directory;
+ * several is ambiguous and refused, naming them.
+ */
+export function workspaceRoot(listing: unknown): string | undefined {
+	const roots = (listing as { roots?: unknown } | undefined)?.roots;
+	if (!Array.isArray(roots)) return undefined;
+	const configured = new Set<string>();
+	for (const entry of roots) {
+		const uri = (entry as { uri?: unknown } | undefined)?.uri;
+		if (typeof uri !== "string" || !uri.startsWith("file:")) continue;
+		let directory: string;
+		try {
+			directory = fileURLToPath(uri);
+		} catch {
+			continue;
+		}
+		if (existsSync(path.join(directory, ".agent-profiles", "agents.yaml")))
+			configured.add(realpathSync(directory));
+	}
+	if (configured.size > 1)
+		throw new Error(
+			`several workspace roots have Agent Profiles configuration (${[...configured].join(", ")}); pass root to choose one`,
+		);
+	return [...configured][0];
+}
+
+// The client declares roots per request (2026-07-28) or at initialize (2025 eras).
+function clientOffersRoots(server: McpServer, ctx: ServerContext): boolean {
+	const envelope = ctx.mcpReq.envelope as
+		| Record<string, { roots?: unknown } | undefined>
+		| undefined;
+	const declared =
+		envelope?.[CLIENT_CAPABILITIES_META_KEY] ??
+		server.server.getClientCapabilities();
+	return Boolean(declared?.roots);
+}
+
+function selectors(
+	options: McpOptions,
+	args: Selection,
+	workspace?: string,
+): ResolveOptions {
 	return {
-		root: projectRoot(options, args.root),
+		root: projectRoot(options, args.root, workspace),
 		storeRoot: options.storeRoot,
 		host: args.host ?? options.host,
 		model: args.model ?? options.model,
@@ -135,9 +193,11 @@ const UNBOUND = [
 export function serverInstructions(options: McpOptions): string {
 	if (options.model === undefined && options.role === undefined) return UNBOUND;
 	try {
-		const result = resolveInstructions(selectors(options, {}));
+		const selected = selectors(options, {});
+		const result = resolveInstructions(selected);
 		return [
 			"Agent Profiles resolved this session's profile when the server started. Follow it as if you had called `resolve`; do not call it again unless the context was compacted or your model or role changed.",
+			stampLine(selected),
 			"",
 			formatContext(result, { invocation: "mcp" }),
 		].join("\n");
@@ -146,11 +206,62 @@ export function serverInstructions(options: McpOptions): string {
 	}
 }
 
+/**
+ * The stamp digest of this session's resolution, computed without writing to the
+ * store. Quote it to identify the exact profile state; `agent-profiles stamp` with
+ * the same selectors records the same digest.
+ */
+function stampLine(selected: ResolveOptions): string {
+	try {
+		const { digest, retained } = previewStamp({
+			root: selected.root,
+			storeRoot: selected.storeRoot,
+			host: selected.host,
+			model: selected.model,
+			family: selected.family,
+			identitySource: selected.identitySource,
+			role: selected.role,
+		});
+		return retained
+			? `Stamp: sha256 ${digest} (retained in the store; the \`verify\` tool reads it).`
+			: `Stamp: sha256 ${digest} (not retained; \`agent-profiles stamp\` with the same selectors records this digest).`;
+	} catch (error) {
+		return `Stamp: unavailable (${errorMessage(error)}).`;
+	}
+}
+
 export function createServer(options: McpOptions = {}): McpServer {
 	const server = new McpServer(
 		{ name: "agent-profiles", version: ownVersion },
 		{ instructions: serverInstructions(options) },
 	);
+
+	// Tools that select a project ask the host for its workspace roots only when
+	// neither a root argument nor --root names one and the client offers roots.
+	// The SDK carries the request in-band (2026-07-28) or as roots/list (2025 eras).
+	const withProject =
+		(run: (args: Selection, workspace?: string) => ToolResult) =>
+		async (
+			args: Selection,
+			ctx: ServerContext,
+		): Promise<ToolResult | InputRequiredResult> => {
+			try {
+				if (
+					args.root !== undefined ||
+					options.root !== undefined ||
+					!clientOffersRoots(server, ctx)
+				)
+					return run(args);
+				const listing = ctx.mcpReq.inputResponses?.roots;
+				if (listing === undefined)
+					return inputRequired({
+						inputRequests: { roots: inputRequired.listRoots() },
+					});
+				return run(args, workspaceRoot(listing));
+			} catch (error) {
+				return failure(error);
+			}
+		};
 
 	server.registerTool(
 		"resolve",
@@ -161,11 +272,12 @@ export function createServer(options: McpOptions = {}): McpServer {
 			inputSchema: selection,
 			annotations: READ_ONLY,
 		},
-		guarded((args: Selection) =>
+		withProject((args, workspace) =>
 			text(
-				formatContext(resolveInstructions(selectors(options, args)), {
-					invocation: "mcp",
-				}),
+				formatContext(
+					resolveInstructions(selectors(options, args, workspace)),
+					{ invocation: "mcp" },
+				),
 			),
 		),
 	);
@@ -179,8 +291,12 @@ export function createServer(options: McpOptions = {}): McpServer {
 			inputSchema: selection,
 			annotations: READ_ONLY,
 		},
-		guarded((args: Selection) =>
-			json(resolutionOutput(resolveInstructions(selectors(options, args)))),
+		withProject((args, workspace) =>
+			json(
+				resolutionOutput(
+					resolveInstructions(selectors(options, args, workspace)),
+				),
+			),
 		),
 	);
 
