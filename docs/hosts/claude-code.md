@@ -82,6 +82,7 @@ trust. Until the workspace is trusted, each session asks for approval of `resolv
 | The `agent-profiles mcp` tools are callable without Bash/PowerShell permission rules or workspace trust | unverified |
 | Server instructions (bound `--model`/`--role`) remain in context after `/compact` and `/clear` | unverified |
 | With the `init --mcp` block and a connected server, the agent calls the `resolve` tool instead of the shell command | unverified |
+| Claude Code offers workspace roots, so a user-scope server finds the project without `--root` | unverified |
 
 See [MCP service](../mcp.md).
 

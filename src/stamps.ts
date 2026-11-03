@@ -1630,7 +1630,9 @@ export type StampInput = {
 	sharedFiles?: string[];
 };
 
-function captureStamp(
+// Resolve and snapshot without writing: the digest is a pure function of the
+// snapshot, so a preview and a later capture of unchanged inputs agree.
+function computeStamp(
 	input: StampInput = {},
 	candidateDigest: string | null = null,
 ) {
@@ -1890,6 +1892,17 @@ function captureStamp(
 	manifestRelations(snapshot, retained, destination);
 	const stampDigest = hashRecord(stampDomain(snapshot), snapshot),
 		bytes = canonicalJSON(snapshot);
+	return { root, inputs, blobs, snapshot, stampDigest, bytes };
+}
+
+function captureStamp(
+	input: StampInput = {},
+	candidateDigest: string | null = null,
+) {
+	const { root, inputs, blobs, snapshot, stampDigest, bytes } = computeStamp(
+		input,
+		candidateDigest,
+	);
 	const store = storeRoot(input.storeRoot, true),
 		writer = safePath(store, ".writer-lock");
 	try {
@@ -1962,6 +1975,22 @@ function captureStamp(
 
 function createStampOperation(input: StampInput = {}) {
 	return captureStamp(input);
+}
+
+/**
+ * The digest `createStamp` would record for the same input, without writing to
+ * the store. `retained` says whether that stamp is already in the store (so
+ * `verify` and `diff` can read it); otherwise `createStamp` retains it.
+ */
+function previewStampOperation(input: StampInput = {}) {
+	const { snapshot, stampDigest } = computeStamp(input);
+	const store = storeRoot(input.storeRoot);
+	return {
+		digest: stampDigest,
+		snapshot,
+		retained:
+			statOrNull(safePath(store, `stamps/sha256/${stampDigest}`)) !== null,
+	};
 }
 
 // Internal typed capture only; active public options and legacy bytes remain unchanged.
@@ -2178,6 +2207,7 @@ function reconstructStampOperation(input: Untyped) {
 }
 
 export const createStamp = inStoreSession(createStampOperation);
+export const previewStamp = inStoreSession(previewStampOperation);
 export const createCandidateStamp = inStoreSession(
 	createCandidateStampOperation,
 );

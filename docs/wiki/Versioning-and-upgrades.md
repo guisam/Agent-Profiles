@@ -132,6 +132,24 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source feature: 0.7.0 — MCP workspace roots and stamp digest
+
+The working package version is `0.7.0`, not yet published to npm. Without a
+`root` argument or `--root`, the MCP `resolve` and `explain` tools use the host's
+workspace root that contains `.agent-profiles/agents.yaml`. Bound MCP
+instructions start with the session's stamp digest, computed without writing to
+the store; it matches what `agent-profiles stamp` records for the same selectors.
+See the [MCP service](https://github.com/guisam/Agent-Profiles/wiki/MCP-service). Tracking: #38 and #39.
+
+### Upgrade instructions
+
+No configuration YAML, managed-lock, stamp format, evidence, package-format,
+managed-block or `BOOTSTRAP.md` change; no migration. A server configured with
+`--root` behaves as before. If a host offers several workspace roots that each
+contain Agent Profiles configuration, pass `root` in the call or start the server
+with `--root`. To make the bound digest readable by `verify`, record it with
+`agent-profiles stamp` using the same selectors.
+
 ## Source feature: 0.6.0 — MCP handoff in the managed block
 
 The working package version is `0.6.0`, not yet published to npm. `init --mcp`
@@ -173,6 +191,6 @@ verified; automated protocol, parity and no-write tests pass.
 
 ## Beta releases
 
-The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.6.0` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
+The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.7.0` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
 
 [Return to the documentation home](https://github.com/guisam/Agent-Profiles/wiki).

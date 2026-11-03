@@ -28,13 +28,31 @@ agent-profiles mcp [--root <directory>] [--store <directory>] [--host <id>]
 ```
 
 - stdout carries the protocol; diagnostics go to stderr.
-- `--root`: project for every call. Without it, each call uses its `root`
-  argument, or the repository containing the server's working directory. A call
-  with neither fails with a message naming `--root`.
+- `--root`: project for every call. See [Choosing the project](#choosing-the-project)
+  for the order used without it.
 - `--store`: package and stamp store for `verify`, `diff` and `report`. Tools
   cannot choose a store.
 - `--host`, `--model`, `--family`, `--identity-source`, `--role`: session
   defaults. Each tool call may override them.
+
+## Choosing the project
+
+`resolve` and `explain` choose the project in this order:
+
+1. the call's `root` argument;
+2. the server's `--root`;
+3. the host's workspace roots, when the client offers them: the one root that
+   contains `.agent-profiles/agents.yaml`. Several such roots are refused with a
+   message asking for `root`; none moves on to the next step;
+4. the repository containing the server's working directory.
+
+A call that reaches step 4 outside any repository fails with a message naming
+`--root`. Workspace roots are requested only when steps 1 and 2 do not apply, once
+per call. On 2025-era connections the server sends `roots/list`; on the
+2026-07-28 revision it returns an in-band input request that the client fulfils.
+The 2026-07-28 revision deprecates roots (SEP-2577) in favor of tool arguments and
+configuration, which steps 1 and 2 already cover. Bound instructions are rendered
+at server start, before any roots exchange, so they use step 2 or 4.
 
 ## Tools
 
@@ -58,7 +76,18 @@ Errors are returned as tool errors with the same message the CLI prints.
   compaction or a model or role change.
 - **Bound** (`--model` and/or `--role`): the full resolved profile for that
   session, rendered once at server start, preceded by a note not to call
-  `resolve` again unless the context was compacted or the model or role changed.
+  `resolve` again unless the context was compacted or the model or role changed,
+  and by the session's stamp digest:
+
+  ```
+  Stamp: sha256 <digest> (not retained; `agent-profiles stamp` with the same selectors records this digest).
+  ```
+
+  The digest is computed without writing to the store. It is the digest
+  `agent-profiles stamp` records for the same selectors and unchanged inputs, so
+  it identifies the exact profile state in reports. When that stamp is already in
+  the store the line says so, and the `verify` tool can read it. If the stamp
+  cannot be computed, the line says why; the profile is still rendered.
   If resolution fails at start, the instructions say so and fall back to the
   unbound text; the server still starts.
 
@@ -162,15 +191,17 @@ scope changes every project for that user; choose that explicitly.
 | Managed block handoff: variants, `init` flags, `doctor` detection | verified (automated tests) |
 | Agents follow the handoff instead of the shell command | unverified |
 | Codex, OpenCode, Hermes: live use | unverified |
+| Workspace roots select the project (2025 and 2026-07-28 protocol) | verified (automated tests) |
+| Bound stamp digest equals the CLI `stamp` digest; nothing is written | verified (automated tests) |
+| Claude Code, Codex: offer workspace roots | unverified |
 
 ## Limits
 
 - Read-only by design. Installing, stamping, materializing, publishing,
   approving, promoting and restoring stay CLI commands.
-- MCP client workspace roots are not used yet; pass `--root` or a `root`
-  argument when the server's working directory is not the project.
-- Stamp digests are not included in bound instructions: capturing a stamp
-  writes to the store, and this server never writes. Package identities and
-  digests are included.
+- Workspace roots are read only by `resolve` and `explain`, once per call; bound
+  instructions do not use them.
+- The bound stamp digest is not retained: the server never writes, so `verify`
+  and `diff` can read that stamp only after `agent-profiles stamp` records it.
 - The server selects instructions; it does not hide native host skills,
   disable plugins or isolate files.

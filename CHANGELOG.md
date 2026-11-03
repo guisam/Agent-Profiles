@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.0 — 2026-11-02
+
+### MCP workspace roots and session stamp digest (#39, part of #38)
+
+- `resolve` and `explain` use the host's workspace roots when neither a `root`
+  argument nor `--root` names the project and the client offers roots: the one
+  root containing `.agent-profiles/agents.yaml` is used. Several are refused; none
+  falls back to the working directory. Works on 2025-era connections
+  (`roots/list`) and the 2026-07-28 revision (in-band input request), where roots
+  are deprecated.
+- Bound MCP instructions start with the session's stamp digest, computed without
+  writing to the store. It equals what `agent-profiles stamp` records for the same
+  selectors, and the line says whether that stamp is already retained.
+- New `previewStamp` API: the digest and snapshot `createStamp` would record,
+  without writing. `createStamp` output is unchanged.
+- No configuration, lock, stamp format or managed-block change; no migration.
+
 ## 0.6.0 — 2026-11-02
 
 ### MCP handoff in the managed block (#39, part of #38)
