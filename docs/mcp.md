@@ -186,14 +186,15 @@ scope changes every project for that user; choose that explicitly.
 | Protocol handshake, tool listing and calls over stdio (SDK client) | verified (automated tests) |
 | Tool results match the CLI on fixtures | verified (automated tests) |
 | No tool changes repository, store or home files | verified (automated tests) |
-| Claude Code: tools callable without Bash permission rules | unverified |
-| Claude Code: server instructions present after `/compact` and `/clear` | unverified |
+| Claude Code: `resolve` runs without Bash permission rules or a prompt, once the project server is approved | verified (live, Opus) |
+| Claude Code: bound server instructions present after `/compact` and `/clear` | verified (live, Opus) |
 | Managed block handoff: variants, `init` flags, `doctor` detection | verified (automated tests) |
-| Agents follow the handoff instead of the shell command | unverified |
+| Claude Code: the agent follows the handoff instead of the shell command | verified (live, Opus); other models unverified |
 | Codex, OpenCode, Hermes: live use | unverified |
 | Workspace roots select the project (2025 and 2026-07-28 protocol) | verified (automated tests) |
 | Bound stamp digest equals the CLI `stamp` digest; nothing is written | verified (automated tests) |
-| Claude Code, Codex: offer workspace roots | unverified |
+| Claude Code: offers workspace roots | verified (live) |
+| Codex: offers workspace roots | unverified |
 
 ## Limits
 

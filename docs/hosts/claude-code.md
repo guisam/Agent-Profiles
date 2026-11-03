@@ -77,12 +77,18 @@ trust. Until the workspace is trusted, each session asks for approval of `resolv
 
 ## MCP service
 
+Observed interactively on **Claude Code (version not yet recorded), Windows 11, 2026-11-03**, with
+Opus 5.5 (`claude-opus-5-5`) and Agent Profiles 0.7.0 packed from source, in a
+throwaway repository (see [MCP live check](../host-observations.md#mcp-service-on-claude-code-windows-11-2026-11-03)).
+
 | Behavior | Status |
 | --- | --- |
-| The `agent-profiles mcp` tools are callable without Bash/PowerShell permission rules or workspace trust | unverified |
-| Server instructions (bound `--model`/`--role`) remain in context after `/compact` and `/clear` | unverified |
-| With the `init --mcp` block and a connected server, the agent calls the `resolve` tool instead of the shell command | unverified |
-| Claude Code offers workspace roots, so a user-scope server finds the project without `--root` | unverified |
+| The `resolve` tool runs with the Bash/PowerShell allow rules removed, with no permission prompt, once the project-scope server is approved | verified |
+| The same without a trusted workspace | unverified |
+| With the `init --mcp` block and a connected server, the agent calls the `resolve` tool with its exact model ID instead of the shell command | verified (Opus) |
+| Claude Code offers workspace roots: a user-scope server started outside any repository (`cd /d C:\`) resolves the project without `--root` | verified |
+| Bound server instructions, stamp line included, are in context at start, after `/compact`, and after `/clear`; after `/clear` the agent follows them without calling `resolve` | verified (Opus) |
+| Haiku and Sonnet follow the handoff | unverified |
 
 See [MCP service](../mcp.md).
 
