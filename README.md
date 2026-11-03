@@ -51,7 +51,7 @@ project. `--package` installs the packed tarball into the project so the bootstr
 command can run there:
 
 ```sh
-node bin/agent-profiles.ts init --root /path/to/project --package ./guisam-agent-profiles-0.5.0.tgz
+node bin/agent-profiles.ts init --root /path/to/project --package ./guisam-agent-profiles-0.6.0.tgz
 node bin/agent-profiles.ts configure --root /path/to/project
 node bin/agent-profiles.ts doctor --root /path/to/project
 node bin/agent-profiles.ts proof --root /path/to/project --role reviewer
@@ -214,7 +214,9 @@ issue #21.
 `diff`, `report`) to any MCP host over stdio, alongside the CLI. A tool call needs
 no shell permission rule, and a server started with `--model` or `--role` carries
 the resolved profile in its MCP instructions. It is optional and never writes
-files. Available from source in 0.5.0 (not yet published to npm). See
+files. `init --mcp` makes the managed block hand off to the server's `resolve`
+tool, with the shell command as the fallback, and prints the host setup to add.
+Available from source (0.5.0 and 0.6.0; not yet published to npm). See
 [MCP service](docs/mcp.md) for host setup and verified behavior.
 
 ## Use with Harness²

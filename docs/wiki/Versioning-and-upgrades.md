@@ -132,6 +132,24 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source feature: 0.6.0 — MCP handoff in the managed block
+
+The working package version is `0.6.0`, not yet published to npm. `init --mcp`
+writes a managed-block variant that tells agents to call a connected
+`agent-profiles` MCP server's `resolve` tool, keeping the shell command as the
+fallback, and prints the host's server setup. `doctor` reports which blocks have
+the handoff and whether the project's host file names the server. See the
+[MCP service](https://github.com/guisam/Agent-Profiles/wiki/MCP-service). Tracking: #38 and #39.
+
+### Upgrade instructions
+
+No configuration YAML, managed-lock, stamp, evidence, package-format or
+`BOOTSTRAP.md` change; the block protocol stays 2. Existing shell-only blocks stay
+current, so nothing has to be re-run after upgrading. To opt in, run
+`agent-profiles init --agent <id> --mcp` and add the server with the snippet it
+prints; `init --agent <id> --no-mcp` reverts. Plain `init` keeps each block's
+variant. Keep the Claude Code shell permission rules: the fallback uses them.
+
 ## Source feature: 0.5.0 — MCP service
 
 The working package version is `0.5.0`, not yet published to npm. It adds
@@ -155,6 +173,6 @@ verified; automated protocol, parity and no-write tests pass.
 
 ## Beta releases
 
-The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.5.0` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
+The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.6.0` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
 
 [Return to the documentation home](https://github.com/guisam/Agent-Profiles/wiki).

@@ -35,11 +35,30 @@ export function adapterFor(host: string): Integration {
 }
 
 /** The block this adapter's surface should hold, in the surface's own newline style. */
-export function expectedBlock(host: string, before: Buffer | null) {
+export function expectedBlock(
+	host: string,
+	before: Buffer | null,
+	mcp = false,
+) {
 	return bootstrapBlock(
 		host,
 		before?.includes(Buffer.from("\r\n")) ? "\r\n" : "\n",
+		mcp,
 	);
+}
+
+/**
+ * Which current block variant an installed span is: the shell-only block, the
+ * MCP handoff block, or neither (modified or another protocol).
+ */
+export function blockVariant(
+	host: string,
+	before: Buffer,
+	span: Buffer,
+): "shell" | "mcp" | null {
+	if (span.equals(expectedBlock(host, before))) return "shell";
+	if (span.equals(expectedBlock(host, before, true))) return "mcp";
+	return null;
 }
 
 /** The managed block actually installed for a host, as bytes on disk (line endings included). */
@@ -261,7 +280,23 @@ export function managedSpan(content: Buffer, file: string, host?: string) {
 	return { start, end: end + Buffer.byteLength(closing) };
 }
 
-export function bootstrapBlock(host: string, newline = "\n") {
+/**
+ * The opt-in MCP handoff (`init --mcp`). The shell command stays the fallback, so
+ * the block still works where the server is not configured. Same protocol: the
+ * resolver, its inputs and its output mean exactly what they do in the shell block.
+ */
+function mcpHandoff(host: string) {
+	return [
+		"",
+		"If an `agent-profiles` MCP server is connected, call its `resolve` tool instead",
+		`of running the command, with the same values (\`host: "${host}"\`, \`identitySource\`,`,
+		"`model`, and `role` when assigned); it needs no shell permission. If that",
+		"server's instructions already contain this session's resolved profile, follow",
+		"them instead of calling it. Run the command only when no such server is connected.",
+	];
+}
+
+export function bootstrapBlock(host: string, newline = "\n", mcp = false) {
 	const adapter = adapterFor(host);
 	const [opening, closing] = markers(host);
 	// All added whitespace is inside the markers, so removal preserves every other byte.
@@ -286,6 +321,7 @@ export function bootstrapBlock(host: string, newline = "\n") {
 			"Add `--role <id>` only when the user or your agent definition assigns a role.",
 			"If the command fails, report its error; do not read `.agent-profiles/` to",
 			"route by hand.",
+			...(mcp ? mcpHandoff(host) : []),
 			...(adapter.bootstrapGuidance ?? []),
 			"",
 			closing,

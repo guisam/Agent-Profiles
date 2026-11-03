@@ -20,6 +20,7 @@ import {
 import {
 	adapterFor,
 	blockProtocol,
+	blockVariant,
 	expectedBlock,
 	type Integration,
 	integrations,
@@ -27,6 +28,7 @@ import {
 	PROTOCOL,
 	type SurfaceRecord,
 } from "./integrations.ts";
+import { mcpSetupLines } from "./mcp-setup.ts";
 import type { Untyped } from "./packages.ts";
 import { type ResolvedSkill, resolveInstructions } from "./resolve.ts";
 
@@ -84,6 +86,15 @@ function integrationState(root: string, adapter: Integration) {
 			`${adapter.name}: bootstrap in ${installed[0].file} is shadowed by ${target}; uninstall then init to relocate it`,
 		);
 	}
+	const [record] = installed;
+	const variant =
+		record?.before && record.span
+			? blockVariant(
+					adapter.id,
+					record.before,
+					record.before.subarray(record.span.start, record.span.end),
+				)
+			: null;
 	return {
 		id: adapter.id,
 		name: adapter.name,
@@ -92,6 +103,10 @@ function integrationState(root: string, adapter: Integration) {
 			records.some((record) => record.before !== null) ||
 			existsSync(path.join(root, adapter.hint)),
 		installed: installed.length === 1,
+		/** The installed block hands off to the MCP `resolve` tool (`init --mcp`). */
+		mcp: variant === "mcp",
+		/** The installed block is a current variant (not modified, not another protocol). */
+		current: variant !== null,
 		records,
 	};
 }
@@ -377,10 +392,7 @@ export function doctor(
 				state.installed && record?.before && record.span
 					? record.before.subarray(record.span.start, record.span.end)
 					: null;
-			if (
-				span &&
-				!span.equals(expectedBlock(adapter.id, record?.before ?? null))
-			) {
+			if (span && !state.current) {
 				const version = blockProtocol(span);
 				const found =
 					version === PROTOCOL
@@ -464,6 +476,7 @@ export function doctor(
 		} catch (error) {
 			bootstrap.push(`${agent.name}: ${errorMessage(error)}`);
 		}
+		if (agent.mcp) notes.push(...mcpSetupLines(root, agent.id));
 		const { mode, verified, ...limits } = adapter.capabilities;
 		notes.push(
 			[
@@ -504,10 +517,13 @@ export function install({
 	root,
 	agents,
 	storeRoot = undefined,
+	mcp = undefined,
 }: {
 	root: string;
 	agents: string[];
 	storeRoot?: string;
+	/** For the selected agents: true writes the MCP handoff block, false the shell block; undefined keeps the installed variant. */
+	mcp?: boolean;
 }) {
 	root = realpathSync(root);
 	const choices = integrations.map((adapter) => adapter.id).join(", ");
@@ -557,7 +573,13 @@ export function install({
 		const pending = changes.find((change) => change.file === file);
 		const before = pending ? pending.after : record.before;
 		const span = before && managedSpan(before, file, agent.id);
-		const block = expectedBlock(agent.id, before);
+		// Unselected integrations always keep their variant; selected ones take --mcp/--no-mcp when given.
+		const selectedAgent = selected.some((item) => item.id === agent.id);
+		const block = expectedBlock(
+			agent.id,
+			before,
+			(selectedAgent ? mcp : undefined) ?? agent.mcp,
+		);
 		// An outdated managed block is replaced in place; bytes outside the markers are preserved.
 		if (
 			agent.installed &&
