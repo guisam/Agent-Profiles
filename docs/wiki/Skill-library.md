@@ -45,6 +45,9 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   init, uninstall), so you run those yourself. `update` previews show the exact
   text a new version would inject, as a diff. Deny rules are a guardrail against
   accidents, not a security boundary; signed approvals are planned in #55.
+  Checked live on Claude Code 2.1.318: an agent's `library publish` was refused
+  and `outdated` ran. `update` previews are refused for agents too; run them
+  yourself.
 
 Details, the manifest format and limits are in
 [docs/versioned-packages.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/versioned-packages.md#library-browse-search-inspect-and-publish).
