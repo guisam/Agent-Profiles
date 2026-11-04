@@ -52,21 +52,8 @@ const sameText = (a: Buffer, b: Buffer) =>
 	a.toString("utf8").replace(/\r\n/g, "\n") ===
 	b.toString("utf8").replace(/\r\n/g, "\n");
 
-export function findRoot(start = process.cwd()) {
-	let current = realpathSync(start);
-	while (
-		!existsSync(path.join(current, ".git")) &&
-		!existsSync(path.join(current, ".agent-profiles/agents.yaml"))
-	) {
-		const parent = path.dirname(current);
-		if (parent === current)
-			throw new Error(
-				"No Git repository found and no Agent Profiles installation found; pass --root <directory> explicitly",
-			);
-		current = parent;
-	}
-	return current;
-}
+// Moved to root.ts (#53) so light commands can find the project without loading the installer.
+export { findRoot } from "./root.ts";
 
 function integrationState(root: string, adapter: Integration) {
 	const records: SurfaceRecord[] = adapter.files.map((file) => {
