@@ -185,6 +185,26 @@ source into the throwaway repository from the earlier checks, with
 Not covered: other invocations of the CLI, other models, and what happens when
 the user approves a denied command in the prompt.
 
+## Librarian tools on Claude Code (Windows 11, 2026-11-04)
+
+Claude Code, interactive, Opus 5.5 (`claude-opus-5-5`). Agent Profiles 0.13.0
+was packed from source into the same throwaway repository (`ap-live`), with the
+deny rules from `init --agent claude` still in place and the MCP server connected.
+Its `agents.yaml` declares only the example model; `claude-opus-5-5` reaches
+the `constrained` profile through `default_profile`.
+
+| Check | Observation |
+| --- | --- |
+| Agent asked to preview moving `security-review` to 1.1.0 | It chose the `update_preview` MCP tool, not the shell `update` the deny rules refuse, and nothing was written |
+| Its first call used the bare ID `security-review` | Error: "is not selected". The binding ID is `skills.security-review` |
+| With `skills.security-review` and its own model ID | Error: "claude-opus-5-5 is not a declared model". The tuple's pin couldn't be moved, because an assignment rule must name a declared model |
+| Resource read of `SKILL.md` for 1.1.0 | Returned the file's text |
+
+Both errors are fixed in 0.13.1: `update` declares an undeclared model with the
+profile it resolves to now (so its routing doesn't change), and an unselected
+binding that matches a skill ID suggests the `skills.` binding. A successful
+preview from the agent is not yet checked live.
+
 ## Implications for Phase 2
 
 1. Model-side matching is the dominant failure: the only incorrect routes came

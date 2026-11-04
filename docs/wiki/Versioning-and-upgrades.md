@@ -132,6 +132,24 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source patch: 0.13.1 — update for undeclared models
+
+The working package version is `0.13.1`, not yet published to npm. In a live
+check on Claude Code, an agent used `update_preview` as intended, but the preview
+failed: its model (`claude-opus-5-5`) reached a profile through `default_profile`
+and wasn't declared in `models`. `update` (and `update_preview`) now declares such
+a model with the profile it resolves to now, so routing doesn't change, and the
+preview shows it on a `Model:` line. An alias targets its canonical model, and a
+bare skill ID such as `security-review` gets a suggestion of
+`skills.security-review`. See
+[Skill library](https://github.com/guisam/Agent-Profiles/wiki/Skill-library).
+
+### Upgrade instructions
+
+No migration. An `update --apply` for an undeclared model now adds a
+`models.<id>: {profile: <current profile>}` entry to `agents.yaml` alongside the
+new rule; review it in the preview.
+
 ## Source feature: 0.13.0 — librarian tools in the MCP service
 
 The working package version is `0.13.0`, not yet published to npm. The MCP server

@@ -226,7 +226,7 @@ scope changes every project for that user; choose that explicitly.
 | Workspace roots select the project (2025 and 2026-07-28 protocol) | verified (automated tests) |
 | Bound stamp digest equals the CLI `stamp` digest; nothing is written | verified (automated tests) |
 | Librarian tools equal their CLI JSON; resources verified; nothing written | verified (automated tests) |
-| Claude Code: an agent uses `update_preview` instead of the denied `update` | unverified |
+| Claude Code: an agent uses `update_preview` instead of the denied `update` | verified (live, Opus, 0.13.0); a successful preview for an undeclared model is unverified until rechecked on 0.13.1 |
 | Claude Code: offers workspace roots | verified (live) |
 | Codex: offers workspace roots | unverified |
 

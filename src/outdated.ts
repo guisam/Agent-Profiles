@@ -50,6 +50,8 @@ function compareVersions(a: string, b: string) {
 const tupleKey = (tuple: Tuple) =>
 	JSON.stringify([tuple.role, tuple.model, tuple.host]);
 
+const PROFILE_KEY = "(profile)";
+
 type Selection = {
 	binding: string;
 	name: string;
@@ -78,6 +80,16 @@ function selections(
 		lockMode: "validation",
 	}) as unknown as Record<string, unknown>;
 	const found = new Map<string, Selection>();
+	// The resolved profile rides along under a key no binding can have, so the update
+	// blast-radius check also proves an edit leaves every tuple's profile unchanged.
+	found.set(PROFILE_KEY, {
+		binding: PROFILE_KEY,
+		name: `profile ${String(result.profile)}`,
+		version: "",
+		revisionDigest: null,
+		selectedBy: "",
+		selectors: {},
+	});
 	for (const key of ["loaded", "required", "available"])
 		for (const entry of (result[key] as { package?: Selection }[]) ?? [])
 			if (entry?.package?.binding)
@@ -325,11 +337,36 @@ function planUpdate(input: UpdateInput) {
 	const lockBytes = readLocal(root, LOCK);
 	if (!configBytes) throw new Error(`${CONFIG}: missing`);
 	const target: Tuple = { ...assignment };
-	const current = selections(root, storeRoot, target).get(binding);
-	if (!current)
-		throw new Error(
-			`update: ${binding} is not selected for ${assignment.role} × ${assignment.model} × ${assignment.host}`,
+	const targetSelections = selections(root, storeRoot, target);
+	const current = targetSelections.get(binding);
+	if (!current || binding === PROFILE_KEY) {
+		// A bare skill ID is a common slip: suggest the binding ID it names.
+		const suggestion = [...targetSelections.keys()].find(
+			(id) =>
+				id !== PROFILE_KEY && id.split(".").slice(1).join(".") === binding,
 		);
+		throw new Error(
+			`update: ${binding} is not selected for ${assignment.role} × ${assignment.model} × ${assignment.host}${suggestion ? `; did you mean ${suggestion}?` : ""}`,
+		);
+	}
+	// Rules name canonical models. An alias is written as its model; an undeclared
+	// model (reached through a family prefix or default_profile) is declared with the
+	// profile it resolves to now, so its routing is unchanged (checked below).
+	const aliases = validated.aliases as Map<string, string>;
+	const canonicalModel = validated.models.has(assignment.model)
+		? assignment.model
+		: (aliases.get(assignment.model) ?? null);
+	const currentProfile = (
+		targetSelections.get(PROFILE_KEY)?.name ?? ""
+	).replace(/^profile /, "");
+	const declaredModel =
+		canonicalModel === null
+			? { model: assignment.model, profile: currentProfile }
+			: null;
+	const ruleAssignment = {
+		...assignment,
+		model: canonicalModel ?? assignment.model,
+	};
 	const name = current.name;
 	const [found] = libraryInfo({ storeRoot, name, version }).versions;
 	if ("error" in found)
@@ -369,6 +406,8 @@ function planUpdate(input: UpdateInput) {
 		root,
 		previewDigest: previewDigest(configBytes, lockBytes, input),
 		contentDiff,
+		/** Set when the target model was undeclared: the models entry the edit adds. */
+		declaredModel,
 		configurationVersion: validated.config.get("version") as number,
 		binding,
 		package: name,
@@ -401,7 +440,7 @@ function planUpdate(input: UpdateInput) {
 		throw new Error(
 			`update: --require-evidence: ${name}@${version} has no promoted evidence for ${assignment.role} × ${assignment.model} × ${assignment.host}`,
 		);
-	const rule = exactRule(current, assignment, "update");
+	const rule = exactRule(current, ruleAssignment, "update");
 	const assignments = validated.config.get("assignments") as
 		| Map<string, Map<string, unknown>>
 		| undefined;
@@ -410,6 +449,11 @@ function planUpdate(input: UpdateInput) {
 			`update: assignments.${rule.id} already exists for another selector; nothing was written`,
 		);
 	const document = parseYamlDocument(configBytes.toString("utf8"));
+	if (declaredModel)
+		document.setIn(
+			["models", declaredModel.model],
+			document.createNode({ profile: declaredModel.profile }),
+		);
 	// v2 rules move a version within the binding's package; v3 rules pin package, version and revision.
 	const source = v3
 		? { package: name, version, revision: found.revisionDigest }
@@ -598,6 +642,11 @@ export function formatUpdate(
 		`${result.status === "updated" ? "Updated" : "Preview (nothing written)"}: ${result.binding} for ${who}`,
 		`  ${result.package}@${result.before.version} → ${result.after.version}${result.after.revision ? ` (revision ${result.after.revision})` : ""}`,
 		`  Rule: ${result.rule?.action === "replace" ? "replace the binding in" : "add"} assignments.${result.rule?.id}`,
+		...(result.declaredModel
+			? [
+					`  Model: declares models.${result.declaredModel.model} with profile ${result.declaredModel.profile}, the profile it resolves to now (routing unchanged)`,
+				]
+			: []),
 		`  Selections changed: ${result.changed.map((row) => `${describeTuple(row.tuple)} ${row.binding} ${row.from} → ${row.to}`).join("; ")}`,
 		`  Evidence for this tuple: ${result.evidence.length ? result.evidence.map((row) => `${row.outcome}, ${row.origin}`).join("; ") : "untested"}`,
 	];

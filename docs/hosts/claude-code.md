@@ -103,6 +103,20 @@ Opus 5.5 and Agent Profiles 0.12.0 packed from source, after `init --agent claud
 | An agent's `update` preview is also refused: the rule matches the `update` prefix, and a prefix rule can't single out `--apply` | by design; phase 5's read-only MCP tools are the planned way for an agent to preview |
 | Another invocation (`node` on the package script, `npm exec`) is not matched | expected limit; not tested live |
 
+## Librarian tools
+
+Observed interactively on **Claude Code, Windows 11, 2026-11-04**, with Opus 5.5
+(`claude-opus-5-5`) and Agent Profiles 0.13.0 packed from source, with the deny
+rules in place (see [librarian tools live check](../host-observations.md#librarian-tools-on-claude-code-windows-11-2026-11-04)).
+
+| Behavior | Status |
+| --- | --- |
+| Asked to preview an update, the agent calls the `update_preview` tool instead of the denied shell `update`, and writes nothing | verified |
+| A resource read returns a version's `SKILL.md` (`agent-profiles://library/…/1.1.0/SKILL.md`) | verified |
+| `update_preview` for a model that `agents.yaml` doesn't declare (routed by `default_profile`) | failed in 0.13.0 ("not a declared model"); fixed in 0.13.1 by declaring the model with the profile it resolves to now |
+| A bare skill ID (`security-review`) as the binding | failed in 0.13.0 ("is not selected"); 0.13.1 suggests `skills.security-review` |
+| A successful `update_preview` from the agent, end to end | unverified (recheck on 0.13.1) |
+
 ## Update notice hook
 
 Observed interactively on **Claude Code 2.1.318, Windows 11, 2026-11-04**, with
