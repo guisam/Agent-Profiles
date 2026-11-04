@@ -240,10 +240,19 @@ test("the printed apply command applies the preview as is", (t) => {
 		/To apply, a person runs this in a terminal \(agents can't\):\n {4}agent-profiles update /,
 	);
 	assert.ok(formatUpdate(preview).includes(preview.applyCommand));
+	// Paths are quoted when needed; on Windows runners the temp path itself may be.
+	const quoted = (value) =>
+		new RegExp(`(^| )"?${value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"?( |$)`);
 	assert.ok(
 		preview.applyCommand.startsWith(
-			`agent-profiles update ${BINDING} 1.1.0 --role implementer --model claude-opus-5-5 --host claude --root "${spaced}" --store ${f.store} --apply --expect ${preview.previewDigest}`,
+			`agent-profiles update ${BINDING} 1.1.0 --role implementer --model claude-opus-5-5 --host claude --root "`,
 		),
+		preview.applyCommand,
+	);
+	assert.match(preview.applyCommand, quoted(spaced));
+	assert.match(preview.applyCommand, quoted(f.store));
+	assert.ok(
+		preview.applyCommand.endsWith(` --apply --expect ${preview.previewDigest}`),
 	);
 	const cli = fileURLToPath(
 		new URL("../bin/agent-profiles.ts", import.meta.url),
