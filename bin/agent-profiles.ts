@@ -12,65 +12,113 @@ import {
 import { defaultUserRoots } from "../src/external-skills.ts";
 import { errorMessage } from "../src/files.ts";
 import { formatInventory, inspectRepository } from "../src/inspect.ts";
-import {
-	detectAgents,
-	doctor,
-	findRoot,
-	install,
-	installPackage,
-	uninstall,
-} from "../src/install.ts";
 import { integrations } from "../src/integrations.ts";
-import {
-	formatLibrary,
-	formatLibraryEvidence,
-	formatLibraryInfo,
-	libraryEvidence,
-	libraryInfo,
-	listLibrary,
-	publishPackage,
-	searchLibrary,
-} from "../src/library.ts";
-import { materializeStamp } from "../src/materialize.ts";
 import { mcpSetupLines } from "../src/mcp-setup.ts";
-import {
-	abandonMigration,
-	acceptMigrationProposal,
-	applyMigrationPromotion,
-	importMigrationEvaluationResults,
-	migrationEvaluationReport,
-	migrationProposals,
-	migrationStatus,
-	planMigrationEvaluation,
-	previewMigrationPromotion,
-	proposeMigration,
-	publishMigrationCandidate,
-	rejectMigrationProposal,
-	startMigration,
-} from "../src/migrations.ts";
-import {
-	claudeHookOutput,
-	noticeLevel,
-	updateNotice,
-	updateSummary,
-} from "../src/notice.ts";
-import {
-	applyUpdate,
-	formatOutdated,
-	formatUpdate,
-	outdatedPins,
-	previewUpdate,
-} from "../src/outdated.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, rootPath } from "../src/package-store.ts";
 import { readPackage, type Untyped } from "../src/packages.ts";
-import { runPreset } from "../src/preset-wizard.ts";
 import { type ResolveOptions, resolveInstructions } from "../src/resolve.ts";
 import { retainRevisionManifest } from "../src/revisions.ts";
+import { findRoot } from "../src/root.ts";
 import { discoverSkills } from "../src/skills.ts";
-import { createStamp, diffStamps, verifyStamp } from "../src/stamps.ts";
-import { startVisualizer } from "../src/visualize.ts";
 import { configureRoles, display as displayText } from "../src/wizard.ts";
+
+// Heavy command modules load only for the command that uses them (#53), so the
+// per-session `resolve` bootstrap and the notice hook start without them.
+let detectAgents!: typeof import("../src/install.ts").detectAgents;
+let doctor!: typeof import("../src/install.ts").doctor;
+let install!: typeof import("../src/install.ts").install;
+let installPackage!: typeof import("../src/install.ts").installPackage;
+let uninstall!: typeof import("../src/install.ts").uninstall;
+let formatLibrary!: typeof import("../src/library.ts").formatLibrary;
+let formatLibraryEvidence!: typeof import("../src/library.ts").formatLibraryEvidence;
+let formatLibraryInfo!: typeof import("../src/library.ts").formatLibraryInfo;
+let libraryEvidence!: typeof import("../src/library.ts").libraryEvidence;
+let libraryInfo!: typeof import("../src/library.ts").libraryInfo;
+let listLibrary!: typeof import("../src/library.ts").listLibrary;
+let publishPackage!: typeof import("../src/library.ts").publishPackage;
+let searchLibrary!: typeof import("../src/library.ts").searchLibrary;
+let materializeStamp!: typeof import("../src/materialize.ts").materializeStamp;
+let abandonMigration!: typeof import("../src/migrations.ts").abandonMigration;
+let acceptMigrationProposal!: typeof import("../src/migrations.ts").acceptMigrationProposal;
+let applyMigrationPromotion!: typeof import("../src/migrations.ts").applyMigrationPromotion;
+let importMigrationEvaluationResults!: typeof import("../src/migrations.ts").importMigrationEvaluationResults;
+let migrationEvaluationReport!: typeof import("../src/migrations.ts").migrationEvaluationReport;
+let migrationProposals!: typeof import("../src/migrations.ts").migrationProposals;
+let migrationStatus!: typeof import("../src/migrations.ts").migrationStatus;
+let planMigrationEvaluation!: typeof import("../src/migrations.ts").planMigrationEvaluation;
+let previewMigrationPromotion!: typeof import("../src/migrations.ts").previewMigrationPromotion;
+let proposeMigration!: typeof import("../src/migrations.ts").proposeMigration;
+let publishMigrationCandidate!: typeof import("../src/migrations.ts").publishMigrationCandidate;
+let rejectMigrationProposal!: typeof import("../src/migrations.ts").rejectMigrationProposal;
+let startMigration!: typeof import("../src/migrations.ts").startMigration;
+let claudeHookOutput!: typeof import("../src/notice.ts").claudeHookOutput;
+let noticeLevel!: typeof import("../src/notice.ts").noticeLevel;
+let updateNotice!: typeof import("../src/notice.ts").updateNotice;
+let updateSummary!: typeof import("../src/notice.ts").updateSummary;
+let applyUpdate!: typeof import("../src/outdated.ts").applyUpdate;
+let formatOutdated!: typeof import("../src/outdated.ts").formatOutdated;
+let formatUpdate!: typeof import("../src/outdated.ts").formatUpdate;
+let outdatedPins!: typeof import("../src/outdated.ts").outdatedPins;
+let previewUpdate!: typeof import("../src/outdated.ts").previewUpdate;
+let runPreset!: typeof import("../src/preset-wizard.ts").runPreset;
+let createStamp!: typeof import("../src/stamps.ts").createStamp;
+let diffStamps!: typeof import("../src/stamps.ts").diffStamps;
+let verifyStamp!: typeof import("../src/stamps.ts").verifyStamp;
+let startVisualizer!: typeof import("../src/visualize.ts").startVisualizer;
+async function loadCommandModules(command: string | undefined) {
+	if (command === "init" || command === "doctor" || command === "uninstall")
+		({ detectAgents, doctor, install, installPackage, uninstall } =
+			await import("../src/install.ts"));
+	if (command === "library")
+		({
+			formatLibrary,
+			formatLibraryEvidence,
+			formatLibraryInfo,
+			libraryEvidence,
+			libraryInfo,
+			listLibrary,
+			publishPackage,
+			searchLibrary,
+		} = await import("../src/library.ts"));
+	if (command === "materialize")
+		({ materializeStamp } = await import("../src/materialize.ts"));
+	if (command === "migrate")
+		({
+			abandonMigration,
+			acceptMigrationProposal,
+			applyMigrationPromotion,
+			importMigrationEvaluationResults,
+			migrationEvaluationReport,
+			migrationProposals,
+			migrationStatus,
+			planMigrationEvaluation,
+			previewMigrationPromotion,
+			proposeMigration,
+			publishMigrationCandidate,
+			rejectMigrationProposal,
+			startMigration,
+		} = await import("../src/migrations.ts"));
+	if (command === "notice" || command === "outdated")
+		({ claudeHookOutput, noticeLevel, updateNotice, updateSummary } =
+			await import("../src/notice.ts"));
+	if (command === "outdated" || command === "update")
+		({
+			applyUpdate,
+			formatOutdated,
+			formatUpdate,
+			outdatedPins,
+			previewUpdate,
+		} = await import("../src/outdated.ts"));
+	if (command === "preset")
+		({ runPreset } = await import("../src/preset-wizard.ts"));
+	if (command === "stamp" || command === "verify" || command === "diff")
+		({ createStamp, diffStamps, verifyStamp } = await import(
+			"../src/stamps.ts"
+		));
+	if (command === "visualize")
+		({ startVisualizer } = await import("../src/visualize.ts"));
+}
 
 const agentChoices = integrations.map((adapter) => adapter.id).join(", ");
 const display = (text: unknown) =>
@@ -135,6 +183,7 @@ try {
 		.filter((token) => token.kind === "positional")
 		.map((token) => token.value);
 	const [command] = positionals;
+	await loadCommandModules(command);
 	const packageCommands = [
 		"add",
 		"install",

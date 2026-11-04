@@ -82,7 +82,27 @@ function portablePath(value: unknown, location = "member path"): string {
 	return value;
 }
 
+// Validated manifests by exact bytes (#53). Store verification re-reads the same
+// immutable package.yaml for every object and companion check, and YAML parsing
+// dominated that work. Keyed by the full bytes, so different bytes always parse
+// afresh; callers get a deep copy; failures are never cached.
+const parsedManifests = new Map<string, PackageManifest>();
+const PARSED_MANIFEST_LIMIT = 256;
+
 export function parseManifest(bytes: unknown): PackageManifest {
+	const key = Buffer.isBuffer(bytes) ? bytes.toString("latin1") : null;
+	const cached = key === null ? undefined : parsedManifests.get(key);
+	if (cached) return structuredClone(cached);
+	const manifest = parseManifestUncached(bytes);
+	if (key !== null) {
+		if (parsedManifests.size >= PARSED_MANIFEST_LIMIT)
+			parsedManifests.delete(parsedManifests.keys().next().value as string);
+		parsedManifests.set(key, structuredClone(manifest));
+	}
+	return manifest;
+}
+
+function parseManifestUncached(bytes: unknown): PackageManifest {
 	const document = parseYamlDocument(decode(bytes, "package.yaml"));
 	visit(document, {
 		Node(_key, node) {
@@ -500,6 +520,18 @@ export function hashEvaluationRecord(domain: string, value: unknown) {
 function parseJSONRecord(bytes: unknown, evaluation: boolean): Untyped {
 	const text = decode(bytes, "record", false);
 	const value = JSON.parse(text);
+	// Fast path (#53): canonical text cannot hold what the YAML pass below looks for.
+	// The canonical encoder emits each key once, in sorted order, and (outside
+	// evaluation records) only safe-integer numbers, so text equal to the canonical
+	// encoding of its own parse has no duplicate key and no non-integer literal.
+	// Store records must be canonical; other input falls through to the strict path.
+	let canonical: string | null = null;
+	try {
+		canonical = canonicalRecord(value, evaluation).toString("utf8");
+	} catch {
+		// Not encodable: the strict path below reports the precise problem.
+	}
+	if (canonical === text) return value;
 	// JSON.parse enforces JSON syntax; the existing YAML AST parser detects decoded duplicate keys.
 	const document = parseDocument(text, { schema: "json" });
 	if (document.errors.length || document.warnings.length)

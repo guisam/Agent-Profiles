@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.11.2 — 2026-11-04
+
+### Performance (#53)
+
+- **Store records skip a redundant parse.** They are canonical JSON, and they no
+  longer go through a second, full YAML parse after `JSON.parse`. Text that equals
+  its own canonical encoding cannot contain a duplicate key or a non-integer
+  literal, which is all that pass checked. Other input (plan, result and decision
+  files) keeps the strict path.
+- **Manifests are parsed once.** Validated `package.yaml` manifests are cached by
+  their exact bytes within a process, instead of being re-parsed on every object
+  and companion verification. Callers get a deep copy, and failures aren't cached.
+- **Lighter CLI start.** Heavy command modules (installer, library, migrations,
+  outdated, notice, stamps, materialize, visualizer, presets) load only for the
+  command that uses them. `findRoot` moved to `src/root.ts` (still re-exported
+  from `install.ts`).
+- **CI:** Windows tests run in three shards, with the package check as a fourth
+  parallel job.
+- **Measured on Linux:**
+
+  | | Before | After |
+  | --- | --- | --- |
+  | Promotion contract suite | 147 s | 70 s |
+  | Library evidence suite | 40 s | 21 s |
+  | Outdated suite | 23 s | 12 s |
+  | Compiled `resolve` start | 185 ms | 113 ms |
+
+- No behavior, configuration or format change.
+
 ## 0.11.1 — 2026-11-04
 
 ### Update notice live check (#49)

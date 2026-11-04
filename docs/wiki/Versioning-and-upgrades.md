@@ -132,6 +132,14 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source patch: 0.11.2 — performance
+
+The working package version is `0.11.2`, not yet published to npm. It contains
+faster store reads and a lighter CLI start, with no behavior change. The compiled
+`resolve` that runs at each agent session start takes about 113 ms instead of
+185 ms. No configuration, lock, stamp or store-format change; no upgrade action
+is required. Tracking: #53.
+
 ## Source patch: 0.11.1 — update notice live check
 
 The working package version is `0.11.1`, not yet published to npm. Documentation
@@ -264,6 +272,6 @@ verified; automated protocol, parity and no-write tests pass.
 
 ## Beta releases
 
-The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.11.1` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
+The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.11.2` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
 
 [Return to the documentation home](https://github.com/guisam/Agent-Profiles/wiki).
