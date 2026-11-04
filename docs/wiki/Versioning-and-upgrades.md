@@ -132,6 +132,21 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source feature: 0.12.0 — library guardrails
+
+The working package version is `0.12.0`, not yet published to npm. For Claude
+Code, `init` adds deny rules so agents can't run the commands that change the
+library, pins or the installation. `update` previews show a content diff of what a
+new version would inject. The MCP server is read-only by design. Tracking: #55.
+
+### Upgrade instructions
+
+No configuration YAML, lock, stamp or store-format change; no migration. To add
+the deny rules to an existing installation, run `agent-profiles init --agent claude`
+again. After that, run `library publish`, `add`, `install`, `update`,
+`migrate promote`, `revision record`, `init` and `uninstall` in your own terminal;
+an agent session is refused. `uninstall` removes the rules.
+
 ## Source patch: 0.11.2 — performance
 
 The working package version is `0.11.2`, not yet published to npm. It contains
@@ -272,6 +287,6 @@ verified; automated protocol, parity and no-write tests pass.
 
 ## Beta releases
 
-The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.11.2` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
+The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.12.0` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
 
 [Return to the documentation home](https://github.com/guisam/Agent-Profiles/wiki).

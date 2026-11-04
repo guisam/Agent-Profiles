@@ -4,10 +4,11 @@
 // only agents.yaml (guarded, comments kept), then refreshes the lock and stamps.
 import { createHash } from "node:crypto";
 import { exactRule } from "./binding-target.ts";
+import { type FileDiff, packageDiff } from "./content-diff.ts";
 import { applyChanges, errorMessage, readLocal } from "./files.ts";
 import { libraryEvidence, libraryInfo } from "./library.ts";
 import { installDependencies, readLockState } from "./package-lock.ts";
-import { inStoreSession } from "./package-store.ts";
+import { inStoreSession, lookupPackage } from "./package-store.ts";
 import {
 	packageReferences,
 	parseYaml,
@@ -15,7 +16,24 @@ import {
 	resolveInstructions,
 	validateConfiguration,
 } from "./resolve.ts";
+import { releasedPackage } from "./revisions.ts";
 import { createStamp } from "./stamps.ts";
+
+// The verified files of one version: a promoted release (label only) or an imported package.
+function versionFiles(
+	storeRoot: string | undefined,
+	name: string,
+	version: string,
+	revisionDigest: string | null,
+) {
+	const released =
+		revisionDigest === null
+			? null
+			: releasedPackage({ storeRoot, name, version, revisionDigest });
+	const found = released ?? lookupPackage({ storeRoot, name, version });
+	if (!found) throw new Error(`update: ${name}@${version} is not in the store`);
+	return found.files;
+}
 
 const CONFIG = ".agent-profiles/agents.yaml";
 const LOCK = ".agent-profiles/agent-profiles.lock";
@@ -333,9 +351,24 @@ function planUpdate(input: UpdateInput) {
 		origin: row.origin,
 		resultId: row.resultId,
 	}));
+	// What the move would inject (#55): every file that differs, as a unified diff.
+	const contentDiff: FileDiff[] =
+		current.version === version
+			? []
+			: packageDiff(
+					versionFiles(
+						storeRoot,
+						name,
+						current.version,
+						current.revisionDigest,
+					),
+					versionFiles(storeRoot, name, version, found.revisionDigest),
+					{ fromLabel: current.version, toLabel: version },
+				);
 	const base = {
 		root,
 		previewDigest: previewDigest(configBytes, lockBytes, input),
+		contentDiff,
 		configurationVersion: validated.config.get("version") as number,
 		binding,
 		package: name,
@@ -568,6 +601,21 @@ export function formatUpdate(
 		`  Selections changed: ${result.changed.map((row) => `${describeTuple(row.tuple)} ${row.binding} ${row.from} → ${row.to}`).join("; ")}`,
 		`  Evidence for this tuple: ${result.evidence.length ? result.evidence.map((row) => `${row.outcome}, ${row.origin}`).join("; ") : "untested"}`,
 	];
+	// The words that would reach the agent's context, before anything is applied (#55).
+	if (result.status === "preview") {
+		lines.push(
+			result.contentDiff.length
+				? `  Content changes (${result.contentDiff.length} file${result.contentDiff.length === 1 ? "" : "s"}); read them before applying:`
+				: "  Content changes: none (identical files)",
+		);
+		for (const file of result.contentDiff) {
+			lines.push(
+				`    ${file.status}: ${file.path}${file.diff === null ? " (binary)" : ""}`,
+			);
+			if (file.diff)
+				lines.push(...file.diff.split("\n").map((line) => `      ${line}`));
+		}
+	}
 	if (result.status === "updated")
 		lines.push(`  Lock refreshed; stamp sha256 ${result.stampDigest}`);
 	else

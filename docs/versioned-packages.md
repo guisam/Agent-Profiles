@@ -447,6 +447,10 @@ agent-profiles update skills.security-review 2.0.0 --model fictional-small --rol
   Shared defaults and every other model's pins don't change.
 - **Preview** shows the before and after, the rule that is replaced or added, the
   selections that change, the evidence for that tuple, and a `previewDigest`.
+  It also shows the **content changes** (#55): a unified diff, old version to new,
+  of every text file in the package, plus binary, added and removed files. These
+  are the exact words the move would put into the agent's context, so read them
+  before applying. `--json` carries them as `contentDiff`.
   Before showing anything, it resolves every configured tuple with and without
   the edit, and refuses if any selection other than the target's would change.
 - **Apply:**

@@ -15,6 +15,34 @@ export type SurfaceRecord = {
 /** One installer-owned hook: an exact command under an event and matcher. */
 export type ManagedHook = { event: string; matcher: string; command: string };
 /** The ownership marker recorded for a managed hook beside the owned permission rules. */
+/** The ownership marker for an installer-owned deny rule (#55). */
+export const denyMarker = (rule: string) => `deny:${rule}`;
+
+/**
+ * Commands that change the library, a project's pins or the installation itself.
+ * A session agent should not run them; the user runs them in a terminal (#55).
+ * Rules match command prefixes, so they are a guardrail, not a sandbox: another
+ * invocation (node on the binary, npm exec) is not matched.
+ */
+export const guardedCommands = [
+	"library publish",
+	"add",
+	"install",
+	"update",
+	"migrate promote",
+	"revision record",
+	"init",
+	"uninstall",
+];
+const guardedInvocations = ["npx --no agent-profiles", "agent-profiles"];
+export const guardRules = guardedInvocations.flatMap((invocation) =>
+	guardedCommands.flatMap((command) =>
+		["Bash", "PowerShell"].map(
+			(shell) => `${shell}(${invocation} ${command}:*)`,
+		),
+	),
+);
+
 export const hookMarker = (hook: ManagedHook) =>
 	`hook:${hook.event}:${hook.matcher}:${hook.command}`;
 
@@ -29,7 +57,13 @@ export type Integration = {
 	skills?: Partial<
 		Record<string, { id: RegExp; path?: (id: string) => string }>
 	>;
-	permissions?: { file: string; also: string[]; rules: string[] };
+	permissions?: {
+		file: string;
+		also: string[];
+		rules: string[];
+		/** Commands an agent must not run (#55): added to permissions.deny, owned like the rules. */
+		deny?: string[];
+	};
 	/** Hooks the installer manages in the permissions settings file (#49). */
 	hooks?: ManagedHook[];
 	bootstrapGuidance?: string[];
@@ -130,6 +164,7 @@ export const integrations: Integration[] = [
 			file: ".claude/settings.json",
 			also: [".claude/settings.local.json"],
 			rules: [`Bash(${resolveCommand}:*)`, `PowerShell(${resolveCommand}:*)`],
+			deny: guardRules,
 		},
 		hooks: [
 			{ event: "SessionStart", matcher: "startup", command: noticeCommand },

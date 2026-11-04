@@ -40,6 +40,12 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   on a new session, and not after `/clear` or on an unchanged restart.
   `outdated --check` gives CI the same answer as an exit code.
 
+- **Guardrails (0.12.0):** for Claude Code, `init` denies the library-changing
+  commands to agents (publish, add, install, update, promote, revision record,
+  init, uninstall), so you run those yourself. `update` previews show the exact
+  text a new version would inject, as a diff. Deny rules are a guardrail against
+  accidents, not a security boundary; signed approvals are planned in #55.
+
 Details, the manifest format and limits are in
 [docs/versioned-packages.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/versioned-packages.md#library-browse-search-inspect-and-publish).
 This is phase 2 of the [skill librarian](https://github.com/guisam/Agent-Profiles/issues/38);

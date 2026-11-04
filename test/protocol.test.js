@@ -19,7 +19,7 @@ import {
 	installPackage,
 	uninstall,
 } from "../src/install.ts";
-import { bootstrapBlock, END, START } from "../src/integrations.ts";
+import { bootstrapBlock, END, guardRules, START } from "../src/integrations.ts";
 import {
 	applyPresetExport,
 	applyPresetImport,
@@ -1101,6 +1101,8 @@ test("init adds only the exact permission rules, preserves other settings, and u
 				"Bash(npx --no agent-profiles resolve:*)",
 				"PowerShell(npx --no agent-profiles resolve:*)",
 			],
+			// Commands an agent must not run (#55); removed again by uninstall below.
+			deny: guardRules,
 		},
 		// The update notice (#49): startup only; removed again by uninstall below.
 		hooks: {

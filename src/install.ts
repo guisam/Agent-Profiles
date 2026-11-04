@@ -21,6 +21,7 @@ import {
 	adapterFor,
 	blockProtocol,
 	blockVariant,
+	denyMarker,
 	expectedBlock,
 	hookMarker,
 	type Integration,
@@ -262,6 +263,7 @@ function permissionOwnership(root: string): {
 		const allowed = adapter?.permissions && [
 			...adapter.permissions.rules,
 			...(adapter.hooks ?? []).map(hookMarker),
+			...(adapter.permissions.deny ?? []).map(denyMarker),
 		];
 		if (
 			!allowed ||
@@ -298,6 +300,31 @@ function permissionChange(
 	let changed = add
 		? added.length > 0
 		: owned.some((rule) => allow.includes(rule));
+	// Deny rules (#55) live in permissions.deny; ownership records them with a marker.
+	const denyRules = adapter.permissions.deny ?? [];
+	if (denyRules.length) {
+		const deny = next.permissions.deny ?? [];
+		if (!Array.isArray(deny))
+			throw new Error(`${file}: permissions.deny must be a list`);
+		if (add) {
+			const missing = denyRules.filter((rule) => !deny.includes(rule));
+			if (missing.length) {
+				next.permissions.deny = [...deny, ...missing];
+				added.push(...missing.map(denyMarker));
+				changed = true;
+			}
+		} else {
+			const ownedDeny = denyRules.filter((rule) =>
+				owned.includes(denyMarker(rule)),
+			);
+			if (ownedDeny.some((rule) => deny.includes(rule))) {
+				const kept = deny.filter((rule: string) => !ownedDeny.includes(rule));
+				if (kept.length) next.permissions.deny = kept;
+				else delete next.permissions.deny;
+				changed = true;
+			}
+		}
+	}
 	// Managed hooks live in the same file, so they change in the same write (#49).
 	for (const hook of adapter.hooks ?? []) {
 		const marker = hookMarker(hook);
@@ -350,10 +377,13 @@ function permissionChange(
 	}
 	// Untouched when nothing changes, so an existing file keeps its exact bytes.
 	if (!changed) return null;
-	// A settings file that held only these rules (and hooks) is removed rather than left empty.
-	const emptied =
-		!add &&
-		JSON.stringify(next) === JSON.stringify({ permissions: { allow: [] } });
+	// On removal, drop containers left empty; a file that held only owned entries is removed.
+	if (!add) {
+		if (Array.isArray(next.permissions.allow) && !next.permissions.allow.length)
+			delete next.permissions.allow;
+		if (!Object.keys(next.permissions).length) delete next.permissions;
+	}
+	const emptied = !add && JSON.stringify(next) === "{}";
 	return {
 		file,
 		before,
@@ -523,9 +553,18 @@ export function doctor(
 		if (agent.mcp) notes.push(...mcpSetupLines(root, agent.id));
 		// The update-notice hook is optional: its absence is a note, not a bootstrap problem.
 		try {
-			const settings = adapter.hooks?.length
-				? readSettings(root, adapter.permissions?.file ?? "").settings
+			const settings = adapter.permissions
+				? readSettings(root, adapter.permissions.file).settings
 				: null;
+			// Deny rules (#55) are a guardrail, not a bootstrap requirement: note, don't fail.
+			const denied: unknown = settings?.permissions?.deny;
+			const missingDeny = (adapter.permissions?.deny ?? []).filter(
+				(rule) => !Array.isArray(denied) || !denied.includes(rule),
+			);
+			if (missingDeny.length)
+				notes.push(
+					`${agent.name}: ${missingDeny.length} deny rule${missingDeny.length === 1 ? "" : "s"} for library-changing commands ${missingDeny.length === 1 ? "is" : "are"} missing from ${adapter.permissions?.file}; run init to add them`,
+				);
 			for (const hook of adapter.hooks ?? []) {
 				const entries = settings?.hooks?.[hook.event];
 				const present =

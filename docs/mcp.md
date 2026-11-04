@@ -198,8 +198,11 @@ scope changes every project for that user; choose that explicitly.
 
 ## Limits
 
-- Read-only by design. Installing, stamping, materializing, publishing,
-  approving, promoting and restoring stay CLI commands.
+- **Read-only, as an invariant (#55).** Installing, stamping, materializing,
+  publishing, approving, promoting, updating and restoring stay CLI commands that a
+  person runs. No write tool will be added to this server. Any future write tool
+  would need a separate, off-by-default command, never the default server. A test
+  checks that no tool changes the repository, the store or the home directory.
 - Workspace roots are read only by `resolve` and `explain`, once per call; bound
   instructions do not use them.
 - The bound stamp digest is not retained: the server never writes, so `verify`
