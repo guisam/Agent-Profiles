@@ -204,7 +204,7 @@ const UNBOUND = [
 	"This server selects repository instructions and skills by model, role and host.",
 	"Before starting work, call the `resolve` tool with your exact model ID (and `role`, if you were assigned one), then follow its output.",
 	"Call `resolve` again after context compaction or a model or role change. Every tool is read-only.",
-	"Library tools (`library_list`, `library_search`, `library_info`, `library_evidence`, `outdated`, `update_preview`) only read. To change a pin, show the user the `update_preview` result and let them run the apply command themselves.",
+	"Library tools (`library_list`, `library_search`, `library_info`, `library_evidence`, `outdated`, `update_preview`) only read. To change a pin, show the user the `update_preview` result, including every agents.yaml edit it lists, and give them its `applyCommand` exactly as returned to run themselves.",
 ].join("\n");
 
 /**
@@ -532,7 +532,7 @@ export function createServer(options: McpOptions = {}): McpServer {
 		{
 			title: "Preview an update",
 			description:
-				"Preview moving one exact role × model × host pin to another library version: the rule that changes, the selections that change, the evidence, and a unified diff of the text it would inject. Never applies. To apply, the user runs `agent-profiles update ... --apply --expect <previewDigest>` in a terminal. Read-only.",
+				"Preview moving one exact role × model × host pin to another library version: the rule that changes, the selections that change, the evidence, and a unified diff of the text it would inject. Never applies. When you summarize it, include every agents.yaml edit it lists and give the user its `applyCommand` exactly as returned; only the user can run it, in a terminal. Read-only.",
 			inputSchema: z.object({
 				binding: z
 					.string()

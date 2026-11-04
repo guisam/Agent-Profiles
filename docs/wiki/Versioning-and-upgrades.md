@@ -132,6 +132,20 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source patch: 0.13.2 — complete apply command in previews
+
+The working package version is `0.13.2`, not yet published to npm. `update`
+previews (and the MCP `update_preview` tool) now end with the complete apply
+command, every argument filled in, including `--root`, and list every
+`agents.yaml` edit together (the rule, and the model declaration when there is
+one). In a live check on 0.13.1, an agent left the model declaration out of its
+summary and had to rebuild the apply command itself.
+
+### Upgrade instructions
+
+No migration. Scripts that parsed the old `Rule:` or `Model:` preview lines
+should read `--json` instead (`rule`, `declaredModel`, `applyCommand`).
+
 ## Source patch: 0.13.1 — update for undeclared models
 
 The working package version is `0.13.1`, not yet published to npm. In a live

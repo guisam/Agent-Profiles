@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.13.2 — 2026-11-04
+
+### Preview: complete apply command and every edit listed (#62)
+
+Found when rechecking 0.13.1 live on Claude Code: the agent's `update_preview`
+succeeded, but its summary left out the model declaration, and it had to rebuild
+the apply command, since "the same command" means nothing over MCP.
+
+- **Complete apply command:** previews end with the full command, every argument
+  filled in, including `--root` (and `--store` when one was given), with paths
+  quoted when needed. `--json` and `update_preview` carry it as `applyCommand`.
+- **Edits listed together:** the rule and any model declaration appear under one
+  "Edits to agents.yaml (n)" list, replacing the separate `Rule:` and `Model:`
+  lines.
+- **MCP guidance:** the `update_preview` description and server instructions ask
+  agents to relay every listed edit and the `applyCommand` as returned.
+- **Host record:** the 0.13.1 recheck is recorded, including that the agent read a
+  store file directly instead of through the verified resource.
+- No configuration, lock or store-format change.
+
 ## 0.13.1 — 2026-11-04
 
 ### Update for undeclared models (#60)

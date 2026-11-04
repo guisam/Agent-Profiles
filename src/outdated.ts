@@ -304,6 +304,36 @@ type UpdateInput = {
 	expect?: string;
 };
 
+// An argument as a terminal would need it: bare when safe, otherwise quoted. Double
+// quotes work in PowerShell, cmd and POSIX shells and keep Windows backslashes as they
+// are; a value that those would expand ($, `, ") gets single quotes instead.
+const shellArg = (value: string) => {
+	if (/^[A-Za-z0-9@%+=:,./\\_-]+$/.test(value)) return value;
+	if (!/["$`]/.test(value)) return `"${value}"`;
+	return `'${value.replaceAll("'", "''")}'`;
+};
+
+/**
+ * The complete command a person runs to apply this preview. Agents can't run it (the
+ * deny rules refuse `update`) and MCP callers have no "same command" to repeat, so the
+ * preview spells out every argument, including the project root.
+ */
+function applyCommand(input: UpdateInput, root: string, digest: string) {
+	const { role, model, host } = input.assignment;
+	return [
+		"agent-profiles update",
+		shellArg(input.binding),
+		shellArg(input.version),
+		`--role ${shellArg(role)}`,
+		`--model ${shellArg(model)}`,
+		`--host ${shellArg(host)}`,
+		`--root ${shellArg(root)}`,
+		...(input.storeRoot ? [`--store ${shellArg(input.storeRoot)}`] : []),
+		...(input.requireEvidence ? ["--require-evidence"] : []),
+		`--apply --expect ${digest}`,
+	].join(" ");
+}
+
 // What a preview saw: configuration and lock bytes, the target and the version. Apply with
 // the same digest proves nothing moved between the two commands.
 const previewDigest = (
@@ -402,9 +432,12 @@ function planUpdate(input: UpdateInput) {
 					versionFiles(storeRoot, name, version, found.revisionDigest),
 					{ fromLabel: current.version, toLabel: version },
 				);
+	const digest = previewDigest(configBytes, lockBytes, input);
 	const base = {
 		root,
-		previewDigest: previewDigest(configBytes, lockBytes, input),
+		previewDigest: digest,
+		/** The full apply command for a person to run; every argument filled in. */
+		applyCommand: applyCommand(input, root, digest),
 		contentDiff,
 		/** Set when the target model was undeclared: the models entry the edit adds. */
 		declaredModel,
@@ -641,10 +674,12 @@ export function formatUpdate(
 	const lines = [
 		`${result.status === "updated" ? "Updated" : "Preview (nothing written)"}: ${result.binding} for ${who}`,
 		`  ${result.package}@${result.before.version} → ${result.after.version}${result.after.revision ? ` (revision ${result.after.revision})` : ""}`,
-		`  Rule: ${result.rule?.action === "replace" ? "replace the binding in" : "add"} assignments.${result.rule?.id}`,
+		// Every agents.yaml edit in one list, so a summary can't drop one.
+		`  ${result.status === "updated" ? "Edited" : "Edits to"} agents.yaml (${result.declaredModel ? 2 : 1}):`,
+		`    - ${result.rule?.action === "replace" ? "replace the binding in" : "add rule"} assignments.${result.rule?.id}`,
 		...(result.declaredModel
 			? [
-					`  Model: declares models.${result.declaredModel.model} with profile ${result.declaredModel.profile}, the profile it resolves to now (routing unchanged)`,
+					`    - declare models.${result.declaredModel.model} with profile ${result.declaredModel.profile}, the profile it resolves to now (routing unchanged)`,
 				]
 			: []),
 		`  Selections changed: ${result.changed.map((row) => `${describeTuple(row.tuple)} ${row.binding} ${row.from} → ${row.to}`).join("; ")}`,
@@ -669,7 +704,8 @@ export function formatUpdate(
 		lines.push(`  Lock refreshed; stamp sha256 ${result.stampDigest}`);
 	else
 		lines.push(
-			`  Apply with the same command and --apply --expect ${result.previewDigest}`,
+			"  To apply, a person runs this in a terminal (agents can't):",
+			`    ${result.applyCommand}`,
 		);
 	return lines.join("\n");
 }

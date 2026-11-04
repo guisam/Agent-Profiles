@@ -1,10 +1,12 @@
 // update for models that agents.yaml does not declare (found live on Claude Code:
 // the example configuration routes most real models through default_profile).
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { parse, stringify } from "yaml";
 import { publishPackage } from "../src/library.ts";
 import { applyUpdate, formatUpdate, previewUpdate } from "../src/outdated.ts";
@@ -125,7 +127,7 @@ test("an undeclared model is declared with its current profile, and only its pin
 	);
 	assert.match(
 		formatUpdate(preview),
-		/Model: declares models\.claude-opus-5-5 with profile constrained, the profile it resolves to now \(routing unchanged\)/,
+		/Edits to agents\.yaml \(2\):\n {4}- add rule assignments\.update-[0-9a-f]+\n {4}- declare models\.claude-opus-5-5 with profile constrained, the profile it resolves to now \(routing unchanged\)/,
 	);
 
 	const before = resolved(f, "claude-opus-5-5");
@@ -222,5 +224,42 @@ test("a declared model's preview declares nothing", (t) => {
 	const f = project(t);
 	const preview = previewUpdate(input(f, "example-model"));
 	assert.equal(preview.declaredModel, null);
-	assert.doesNotMatch(formatUpdate(preview), /Model: declares/);
+	assert.match(formatUpdate(preview), /Edits to agents\.yaml \(1\):/);
+	assert.doesNotMatch(formatUpdate(preview), /declare models/);
+});
+
+// The preview's applyCommand is what an agent hands the user; run it as printed.
+test("the printed apply command applies the preview as is", (t) => {
+	const f = project(t);
+	const spaced = path.join(f.dir, "my project");
+	fs.renameSync(f.root, spaced);
+	const g = { ...f, root: spaced };
+	const preview = previewUpdate(input(g, "claude-opus-5-5"));
+	assert.match(
+		formatUpdate(preview),
+		/To apply, a person runs this in a terminal \(agents can't\):\n {4}agent-profiles update /,
+	);
+	assert.ok(formatUpdate(preview).includes(preview.applyCommand));
+	assert.ok(
+		preview.applyCommand.startsWith(
+			`agent-profiles update ${BINDING} 1.1.0 --role implementer --model claude-opus-5-5 --host claude --root "${spaced}" --store ${f.store} --apply --expect ${preview.previewDigest}`,
+		),
+	);
+	const cli = fileURLToPath(
+		new URL("../bin/agent-profiles.ts", import.meta.url),
+	);
+	const args = preview.applyCommand
+		.replace(/^agent-profiles /, "")
+		.match(/"[^"]*"|\S+/g)
+		.map((arg) => arg.replace(/^"(.*)"$/, "$1"));
+	const run = spawnSync(process.execPath, [cli, ...args], {
+		encoding: "utf8",
+		cwd: f.dir,
+	});
+	assert.equal(run.status, 0, run.stderr);
+	assert.match(run.stdout, /Edited agents\.yaml \(2\):/);
+	assert.deepEqual(resolved(g, "claude-opus-5-5"), {
+		profile: "constrained",
+		version: "1.1.0",
+	});
 });

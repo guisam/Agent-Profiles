@@ -453,6 +453,11 @@ agent-profiles update skills.security-review 2.0.0 --model fictional-small --rol
   before applying. `--json` carries them as `contentDiff`.
   Before showing anything, it resolves every configured tuple with and without
   the edit, and refuses if any selection other than the target's would change.
+  Every `agents.yaml` edit is listed together under **Edits to agents.yaml**
+  (the rule, and the model declaration when there is one). The preview ends with
+  the **complete apply command**, every argument filled in, including `--root`
+  (`applyCommand` in `--json`), so it can be copied as is, also from an agent's
+  `update_preview` result.
 - **Apply:**
   1. repeats those checks;
   2. with `--expect <previewDigest>`, refuses if the configuration, lock, target

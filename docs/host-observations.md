@@ -202,8 +202,20 @@ the `constrained` profile through `default_profile`.
 
 Both errors are fixed in 0.13.1: `update` declares an undeclared model with the
 profile it resolves to now (so its routing doesn't change), and an unselected
-binding that matches a skill ID suggests the `skills.` binding. A successful
-preview from the agent is not yet checked live.
+binding that matches a skill ID suggests the `skills.` binding.
+
+Rechecked on 0.13.1 the same day:
+
+| Check | Observation |
+| --- | --- |
+| "Show me the SKILL.md of version 1.1.0." | Correct text. The agent called the MCP server three times, then listed the store folder and read `objects/sha256/<digest>/tree/SKILL.md` directly instead of the resource, which skips the resource's object verification |
+| Preview of `skills.security-review` → 1.1.0 for implementer × `claude-opus-5-5` × claude | `update_preview` succeeded; nothing was applied. The agent's summary gave the scope (one tuple, new rule `update-4b1cca1e…`), the before/after table, the content diff and "no evaluation results for 1.1.0" |
+| What the summary left out | The model declaration (`models.claude-opus-5-5: {profile: constrained}`) that applying would also write |
+| Apply command | The preview said "Apply with the same command and --apply --expect …", which has no meaning over MCP. The agent rebuilt the command correctly but said it had guessed the arguments |
+
+0.13.2 lists every `agents.yaml` edit together and returns the complete apply
+command (`applyCommand`); the MCP instructions ask agents to relay both as
+returned. Not yet checked live.
 
 ## Implications for Phase 2
 

@@ -71,7 +71,7 @@ stamps, evidence or host configuration.
 | `library_info` | `name`, `version`, `root` | Verified details and evidence per version; with a project, its pins | `library info <name>[@<version>] --json` |
 | `library_evidence` | `name`, `version`, `model`, `role`, `host`, `root` | Retained evaluations per exact role × model × host; untested versions under a filter | `library evidence ... --json` |
 | `outdated` | `model`, `role`, `host`, `root` | Every pin, the tuples it serves, newer versions and their evidence | `outdated --json` |
-| `update_preview` | `binding`, `version`, `model`, `role`, `host`, `root` | The rule and selections that would change, evidence, a content diff and a `previewDigest`. **Never applies** | `update ... --json` (preview) |
+| `update_preview` | `binding`, `version`, `model`, `role`, `host`, `root` | Every `agents.yaml` edit, the selections that would change, evidence, a content diff, a `previewDigest` and the complete `applyCommand` for the user. **Never applies** | `update ... --json` (preview) |
 
 Errors are returned as tool errors with the same message the CLI prints. Each
 librarian tool (#58) returns the CLI's JSON as structured content and its text
@@ -226,7 +226,9 @@ scope changes every project for that user; choose that explicitly.
 | Workspace roots select the project (2025 and 2026-07-28 protocol) | verified (automated tests) |
 | Bound stamp digest equals the CLI `stamp` digest; nothing is written | verified (automated tests) |
 | Librarian tools equal their CLI JSON; resources verified; nothing written | verified (automated tests) |
-| Claude Code: an agent uses `update_preview` instead of the denied `update` | verified (live, Opus, 0.13.0); a successful preview for an undeclared model is unverified until rechecked on 0.13.1 |
+| Claude Code: an agent uses `update_preview` instead of the denied `update` | verified (live, Opus, 0.13.0 and 0.13.1) |
+| Claude Code: the agent relays every `agents.yaml` edit and the `applyCommand` as returned | unverified (0.13.2; in 0.13.1 it dropped the model declaration and rebuilt the command) |
+| Claude Code: the agent reads package files through resources rather than the store folder | not guaranteed: in one check it read the store file directly |
 | Claude Code: offers workspace roots | verified (live) |
 | Codex: offers workspace roots | unverified |
 
