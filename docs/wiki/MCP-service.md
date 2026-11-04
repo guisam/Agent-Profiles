@@ -18,6 +18,8 @@ operations to MCP hosts over stdio, alongside the CLI.
   without shell permission rules, the agent followed the `init --mcp` handoff,
   Claude Code offered workspace roots, and bound instructions survived
   `/compact` and `/clear`. Other models and hosts are not yet checked.
+- **Read-only, as an invariant (0.12.0):** no write tools will be added to this
+  server. Publishing, updating and promoting stay commands a person runs.
 - **Optional:** removing the server changes nothing else.
 
 Setup per host, the tool reference and verified behavior are in

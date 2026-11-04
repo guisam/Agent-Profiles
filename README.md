@@ -51,7 +51,7 @@ project. `--package` installs the packed tarball into the project so the bootstr
 command can run there:
 
 ```sh
-node bin/agent-profiles.ts init --root /path/to/project --package ./guisam-agent-profiles-0.11.2.tgz
+node bin/agent-profiles.ts init --root /path/to/project --package ./guisam-agent-profiles-0.12.0.tgz
 node bin/agent-profiles.ts configure --root /path/to/project
 node bin/agent-profiles.ts doctor --root /path/to/project
 node bin/agent-profiles.ts proof --root /path/to/project --role reviewer
@@ -81,7 +81,10 @@ with the exact model ID its host states. Code does all routing, and the agent
 follows the printed result. For Claude Code, `init` also allows exactly that command
 in `.claude/settings.json`, and adds a startup-only hook that shows you a short
 [update notice](docs/versioned-packages.md#update-notice) when the library has newer
-versions for your pins. It exits nonzero until the local bootstrap executable
+versions for your pins. It also denies agents the commands that change the
+library or your pins (`library publish`, `update`, `install` and others), so you run
+those yourself; see [bootstrap setup](docs/bootstrap.md#host-setup) for the limits.
+It exits nonzero until the local bootstrap executable
 and matching version are verified (see
 [bootstrap setup](docs/bootstrap.md#host-setup)). `configure` creates, edits, or deletes
 roles and lets you select required and available local skills. `doctor` answers three

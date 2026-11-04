@@ -106,6 +106,25 @@ without `--mcp` or `--no-mcp` keeps the installed one. See
    that hook. `doctor` notes it when it's missing, but a missing hook is not a
    bootstrap problem.
 
+   `init` also adds **deny rules** to `permissions.deny` in the same file (#55).
+   They cover the commands that change the library, a project's pins or the
+   installation itself:
+   - `library publish`, `add`, `install`, `update`;
+   - `migrate promote`, `revision record`;
+   - `init`, `uninstall`.
+
+   They are added for both `npx --no agent-profiles` and bare `agent-profiles`, in
+   Bash and PowerShell. Claude Code then refuses those commands when an agent tries
+   them, and you run them in your own terminal. Read-only commands (`resolve`,
+   `outdated`, `library list/search/info/evidence`, `doctor`) stay available to the
+   agent. `uninstall` removes only the rules it added, and `doctor` notes missing
+   ones.
+
+   **Limit:** deny rules match command prefixes, so they stop accidents and
+   well-behaved agents, not a determined one. Another invocation, such as `node` on
+   the package's script or `npm exec`, is not matched. The signed approvals
+   planned in #55 are the actual boundary.
+
 3. Run `agent-profiles doctor`. It reports three independent results:
    - **Configuration**: schema, references, and managed markers.
    - **Bootstrap availability**: whether each installed block's command can run,

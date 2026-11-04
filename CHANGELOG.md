@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.12.0 — 2026-11-04
+
+### Library guardrails (#55, step 1)
+
+- **Deny rules.** `init --agent claude` adds `permissions.deny` rules for the
+  commands that change the library, a project's pins or the installation:
+  `library publish`, `add`, `install`, `update`, `migrate promote`,
+  `revision record`, `init` and `uninstall`, for both `npx --no agent-profiles` and
+  `agent-profiles`, in Bash and PowerShell. They're owned in
+  `.agent-profiles/permissions.json`, removed exactly by `uninstall`, and noted by
+  `doctor` when missing.
+  - **Limit:** they match command prefixes, so they're a guardrail, not a
+    boundary.
+- **Content diff.** `update` previews now include `contentDiff`: a unified diff of
+  every text file, old version to new, plus binary, added and removed files. The
+  text output prints the diff before the apply hint.
+- **MCP stays read-only.** This is documented as an invariant: no write tools will
+  be added to the MCP server.
+- **Fix to `uninstall`.** It no longer leaves an empty `permissions.allow` (or an
+  empty `permissions`) in settings that had none before `init`.
+- No configuration, lock or store-format change. Re-run `init --agent claude` to
+  add the deny rules to an existing installation.
+
 ## 0.11.2 — 2026-11-04
 
 ### Performance (#53)
