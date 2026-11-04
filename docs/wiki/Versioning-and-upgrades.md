@@ -132,6 +132,13 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source patch: 0.11.1 — update notice live check
+
+The working package version is `0.11.1`, not yet published to npm. Documentation
+only: it records a live check of the update notice hook on Claude Code 2.1.318
+(see the [Skill library](https://github.com/guisam/Agent-Profiles/wiki/Skill-library)).
+No behavior, configuration or format change; no upgrade action is required.
+
 ## Source feature: 0.11.0 — update notice
 
 The working package version is `0.11.0`, not yet published to npm. `notice`, a
@@ -257,6 +264,6 @@ verified; automated protocol, parity and no-write tests pass.
 
 ## Beta releases
 
-The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.11.0` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
+The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.11.1` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
 
 [Return to the documentation home](https://github.com/guisam/Agent-Profiles/wiki).

@@ -36,6 +36,8 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   that tells you, not the agent, when the library has newer versions for your
   pins. Promoted evidence for your exact tuples gets its own line; the rest is a
   count. It appears at most once a day, and only when something changed.
+  Checked live on Claude Code 2.1.318: it shows as `SessionStart:startup says:`
+  on a new session, and not after `/clear` or on an unchanged restart.
   `outdated --check` gives CI the same answer as an exit code.
 
 Details, the manifest format and limits are in

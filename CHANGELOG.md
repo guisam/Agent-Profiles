@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.11.1 — 2026-11-04
+
+### Update notice live check (#49)
+
+- Documentation only. Recorded a live check of the update notice hook on Claude
+  Code 2.1.318 (Windows 11, Opus 5.5) in `docs/hosts/claude-code.md`,
+  `docs/host-observations.md` and `docs/versioned-packages.md`:
+  - shown on a new session as `SessionStart:startup says: …`;
+  - not shown after `/clear` or on a restart with nothing changed.
+
+  That the notice stays out of model context is recorded as limited (a model
+  self-report). `/compact` and `resume` remain unverified live.
+
 ## 0.11.0 — 2026-11-03
 
 ### Update notice (#49, follow-up to #48)

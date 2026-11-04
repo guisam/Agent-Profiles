@@ -151,6 +151,25 @@ Not covered: other models, workspace trust as a variable, Codex, OpenCode and
 Hermes, and whether Claude Code's permission settings (an earlier "don't ask
 again", a permissive mode) contributed to the missing prompt.
 
+## Update notice on Claude Code (Windows 11, 2026-11-04)
+
+Claude Code 2.1.318, interactive sessions, Opus 5.5 (`claude-opus-5-5`). Agent
+Profiles 0.11.0 was packed from source into the throwaway repository from the MCP
+check. `init --agent claude` added the startup `SessionStart` hook. The repository's
+configuration was changed to v2 with one package pin
+(`@ap-live/security-review@1.0.0`, locked), and 1.1.0 was then published to the
+library, so one pin had a newer, untested version.
+
+| Check | Observation |
+| --- | --- |
+| New session | Before the first prompt, Claude Code showed: `SessionStart:startup says: Agent Profiles: library updates for this project / - 1 pin has newer versions without evidence for the tuples it serves. / Run agent-profiles outdated for details; nothing was changed.` |
+| Model context | Asked "Do you see any Agent Profiles update notice in your context?", the agent said no, naming system reminders, the CLAUDE.md block and hook output. It then ran its bootstrap `resolve`, which reported no update (constrained, implementer, testing and security-review available). This is a self-report. |
+| `/clear` | No notice |
+| Restart, nothing changed | No notice |
+
+Not covered: `/compact` and `resume` live, other models, an actionable
+(promoted-evidence) notice live, and direct inspection of the model's context.
+
 ## Implications for Phase 2
 
 1. Model-side matching is the dominant failure: the only incorrect routes came
