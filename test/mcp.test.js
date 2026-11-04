@@ -25,7 +25,19 @@ const cli = path.join(project, "bin/agent-profiles.ts");
 const version = JSON.parse(
 	readFileSync(path.join(project, "package.json"), "utf8"),
 ).version;
-const TOOLS = ["diff", "explain", "report", "resolve", "verify"];
+const TOOLS = [
+	"diff",
+	"explain",
+	"library_evidence",
+	"library_info",
+	"library_list",
+	"library_search",
+	"outdated",
+	"report",
+	"resolve",
+	"update_preview",
+	"verify",
+];
 
 // A disposable repository (a copy of this project's example configuration),
 // store and home, so nothing outside the temporary directory can change.

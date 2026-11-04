@@ -51,7 +51,7 @@ project. `--package` installs the packed tarball into the project so the bootstr
 command can run there:
 
 ```sh
-node bin/agent-profiles.ts init --root /path/to/project --package ./guisam-agent-profiles-0.12.1.tgz
+node bin/agent-profiles.ts init --root /path/to/project --package ./guisam-agent-profiles-0.13.0.tgz
 node bin/agent-profiles.ts configure --root /path/to/project
 node bin/agent-profiles.ts doctor --root /path/to/project
 node bin/agent-profiles.ts proof --root /path/to/project --role reviewer
@@ -226,8 +226,10 @@ issue #21.
 
 ## MCP service
 
-`agent-profiles mcp` serves the read-only tools (`resolve`, `explain`, `verify`,
-`diff`, `report`) to any MCP host over stdio, alongside the CLI. A tool call needs
+`agent-profiles mcp` serves read-only tools to any MCP host over stdio, alongside
+the CLI: `resolve`, `explain`, `verify`, `diff` and `report`, plus the library
+(`library_list`, `library_search`, `library_info`, `library_evidence`, `outdated`,
+`update_preview`). Package files are available as resources. A tool call needs
 no shell permission rule, and a server started with `--model` or `--role` carries
 the resolved profile in its MCP instructions. It is optional and never writes
 files. `init --mcp` makes the managed block hand off to the server's `resolve`

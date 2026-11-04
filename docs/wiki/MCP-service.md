@@ -18,6 +18,11 @@ operations to MCP hosts over stdio, alongside the CLI.
   without shell permission rules, the agent followed the `init --mcp` handoff,
   Claude Code offered workspace roots, and bound instructions survived
   `/compact` and `/clear`. Other models and hosts are not yet checked.
+- **Librarian tools (0.13.0):** `library_list`, `library_search`, `library_info`,
+  `library_evidence`, `outdated` and `update_preview` let an agent browse the
+  library, check evidence and preview an update without a shell. Package files
+  are resources at `agent-profiles://library/@ns/name/version/path`.
+  `update_preview` never applies; you run the apply command yourself.
 - **Read-only, as an invariant (0.12.0):** no write tools will be added to this
   server. Publishing, updating and promoting stay commands a person runs.
 - **Optional:** removing the server changes nothing else.

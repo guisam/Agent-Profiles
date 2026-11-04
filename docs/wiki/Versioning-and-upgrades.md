@@ -132,6 +132,21 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source feature: 0.13.0 — librarian tools in the MCP service
+
+The working package version is `0.13.0`, not yet published to npm. The MCP server
+adds six read-only library tools (`library_list`, `library_search`,
+`library_info`, `library_evidence`, `outdated`, `update_preview`) and serves
+package files as resources. See the
+[MCP service](https://github.com/guisam/Agent-Profiles/wiki/MCP-service). Tracking: #38 and #58.
+
+### Upgrade instructions
+
+No configuration YAML, lock, stamp or store-format change; no migration. An
+existing MCP server configuration gains the tools when it runs the new version.
+`update_preview` never applies; apply with
+`agent-profiles update ... --apply --expect <previewDigest>` in a terminal.
+
 ## Source patch: 0.12.1 — deny rules live check
 
 The working package version is `0.12.1`, not yet published to npm. Documentation
@@ -294,6 +309,6 @@ verified; automated protocol, parity and no-write tests pass.
 
 ## Beta releases
 
-The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.12.1` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
+The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.13.0` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
 
 [Return to the documentation home](https://github.com/guisam/Agent-Profiles/wiki).
