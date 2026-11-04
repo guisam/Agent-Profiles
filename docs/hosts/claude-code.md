@@ -92,14 +92,21 @@ throwaway repository (see [MCP live check](../host-observations.md#mcp-service-o
 
 ## Update notice hook
 
+Observed interactively on **Claude Code 2.1.318, Windows 11, 2026-11-04**, with
+Opus 5.5 (`claude-opus-5-5`) and Agent Profiles 0.11.0 packed from source (see
+[update notice live check](../host-observations.md#update-notice-on-claude-code-windows-11-2026-11-04)).
+
 | Behavior | Status |
 | --- | --- |
-| The `SessionStart` hook with matcher `startup` runs on new sessions only, not `/clear`, `/compact` or `resume` | unverified |
-| Its `systemMessage` is shown to the user | unverified |
-| Its output does not enter the model's context | unverified |
+| The `SessionStart` hook with matcher `startup` shows the notice on a new session | verified |
+| It does not show after `/clear` | verified |
+| `/compact` and `resume` | unverified (the matcher excludes them; not run live) |
+| Its `systemMessage` is shown to the user, labeled `SessionStart:startup says:` | verified |
+| Its output does not enter the model's context | limited: the agent reported no notice in its context, and its `resolve` output had none. This is a model self-report, not an observed transcript |
+| A second session with nothing changed shows no notice (fingerprint and daily limit) | verified |
 
 The hook's logic (startup-only guard, user-facing output only, silent on errors)
-is verified by automated tests; the rows above need a live session.
+is also verified by automated tests.
 
 See [MCP service](../mcp.md).
 

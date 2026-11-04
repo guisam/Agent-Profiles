@@ -506,9 +506,10 @@ Set `AGENT_PROFILES_NOTICE` to change the level:
 - `actionable` drops the count;
 - `off` disables the notice and the doctor line.
 
-Whether Claude Code shows the hook's `systemMessage` to the user, and keeps it out
-of the model's context, is recorded in the
-[Claude Code host record](hosts/claude-code.md) once it has been checked live.
+On Claude Code 2.1.318 the notice was observed live: it appeared on a new session
+as `SessionStart:startup says: …` and did not appear after `/clear` or on a
+restart with nothing changed. That it stays out of the model's context rests on the
+agent's own report. See the [Claude Code host record](hosts/claude-code.md#update-notice-hook).
 
 ## Store read caching
 
