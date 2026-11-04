@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.1 — 2026-11-04
+
+### Deny rules live check (#55)
+
+- Documentation only. Recorded a live check on Claude Code 2.1.318 (Windows 11,
+  Opus 5.5) in `docs/hosts/claude-code.md`, `docs/host-observations.md` and
+  `docs/bootstrap.md`:
+  - an agent's `library publish` was refused and nothing was published;
+  - read-only `outdated` ran;
+  - `update` previews are refused too, because the deny rule matches the whole
+    `update` command.
+
 ## 0.12.0 — 2026-11-04
 
 ### Library guardrails (#55, step 1)

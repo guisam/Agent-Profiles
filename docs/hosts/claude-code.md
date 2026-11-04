@@ -90,6 +90,19 @@ throwaway repository (see [MCP live check](../host-observations.md#mcp-service-o
 | Bound server instructions, stamp line included, are in context at start, after `/compact`, and after `/clear`; after `/clear` the agent follows them without calling `resolve` | verified (Opus) |
 | Haiku and Sonnet follow the handoff | unverified |
 
+## Library guardrails (deny rules)
+
+Observed interactively on **Claude Code 2.1.318, Windows 11, 2026-11-04**, with
+Opus 5.5 and Agent Profiles 0.12.0 packed from source, after `init --agent claude`
+(see [deny rules live check](../host-observations.md#deny-rules-on-claude-code-windows-11-2026-11-04)).
+
+| Behavior | Status |
+| --- | --- |
+| An agent's `npx --no agent-profiles library publish …` is refused by the deny rule; nothing is published | verified |
+| Read-only `npx --no agent-profiles outdated` still runs | verified |
+| An agent's `update` preview is also refused: the rule matches the `update` prefix, and a prefix rule can't single out `--apply` | by design; phase 5's read-only MCP tools are the planned way for an agent to preview |
+| Another invocation (`node` on the package script, `npm exec`) is not matched | expected limit; not tested live |
+
 ## Update notice hook
 
 Observed interactively on **Claude Code 2.1.318, Windows 11, 2026-11-04**, with

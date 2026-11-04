@@ -170,6 +170,21 @@ library, so one pin had a newer, untested version.
 Not covered: `/compact` and `resume` live, other models, an actionable
 (promoted-evidence) notice live, and direct inspection of the model's context.
 
+## Deny rules on Claude Code (Windows 11, 2026-11-04)
+
+Claude Code 2.1.318, interactive, Opus 5.5. Agent Profiles 0.12.0 was packed from
+source into the throwaway repository from the earlier checks, with
+`init --agent claude` re-run so `.claude/settings.json` held the deny rules.
+
+| Check | Observation |
+| --- | --- |
+| Agent asked to run `npx --no agent-profiles library publish C:\workspace\ap-pkgs\1.1.0` | Refused: "permission to run … was denied, so nothing was published". The agent offered the user two ways to run it: typing `! npx --no agent-profiles library publish …` in the prompt, or approving the command |
+| Agent asked to run `npx --no agent-profiles outdated` | Ran. It reported `skills.security-review` pinned at 1.0.0 with 1.1.0 newer and untested, configuration v2, lock valid |
+| Agent's own next step | It suggested an `update` preview command but didn't run it. That command would also be refused, since the deny rule covers `update` |
+
+Not covered: other invocations of the CLI, other models, and what happens when
+the user approves a denied command in the prompt.
+
 ## Implications for Phase 2
 
 1. Model-side matching is the dominant failure: the only incorrect routes came

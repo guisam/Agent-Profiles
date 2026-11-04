@@ -120,6 +120,10 @@ without `--mcp` or `--no-mcp` keeps the installed one. See
    agent. `uninstall` removes only the rules it added, and `doctor` notes missing
    ones.
 
+   Observed on Claude Code 2.1.318: the agent's `library publish` was refused and
+   `outdated` ran. Because `update` is denied as a whole, an agent can't run an
+   `update` preview either; run it yourself.
+
    **Limit:** deny rules match command prefixes, so they stop accidents and
    well-behaved agents, not a determined one. Another invocation, such as `node` on
    the package's script or `npm exec`, is not matched. The signed approvals
