@@ -467,6 +467,13 @@ agent-profiles update skills.security-review 2.0.0 --model fictional-small --rol
   after a promotion), `update` says so and writes nothing.
 - In configuration v2, a rule's override is written under `versions`; in v3, it
   is written under `bindings` with `package`, `version` and `revision`.
+- **Undeclared models:** a rule must name a declared model, so if `--model` isn't
+  declared in `models` (it reaches a profile through a family or
+  `default_profile`), `update` also declares it, with the profile it resolves to
+  now. Its routing doesn't change, and the preview says so on a `Model:` line
+  (`declaredModel` in `--json`). An alias targets its canonical model.
+- **Binding IDs:** the first argument is a binding ID such as
+  `skills.security-review`. A bare skill ID gets a "did you mean" suggestion.
 
 `update` moves one tuple per command. There are no version ranges, "latest" tags
 or automatic updates.

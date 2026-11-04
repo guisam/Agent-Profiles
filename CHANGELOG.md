@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.13.1 — 2026-11-04
+
+### Update for undeclared models (#60)
+
+Found in a live check of the librarian tools on Claude Code: the agent chose
+`update_preview` over the denied shell `update` and read `SKILL.md` as a resource,
+but the preview failed.
+
+- **Undeclared models:** `update` and `update_preview` failed with "not a declared
+  model" when the model reached its profile through `default_profile` or a
+  family, which is how most real model IDs route in the example configuration.
+  `update` now declares the model with the profile it resolves to now, in the
+  same edit as the rule, so routing doesn't change. The preview shows a `Model:`
+  line, and `--json` carries `declaredModel`. An alias targets its canonical
+  model and declares nothing.
+- **Profile changes count:** the check that refuses an edit affecting other
+  tuples now also compares each tuple's profile, not only its bindings.
+- **Binding suggestion:** a bare skill ID such as `security-review` now gets
+  "did you mean skills.security-review?".
+- **Host record:** the live check is recorded in the Claude Code host page and
+  host observations.
+- No configuration, lock or store-format change.
+
 ## 0.13.0 — 2026-11-04
 
 ### Librarian tools in the MCP service (#58, phase 5 of #38)

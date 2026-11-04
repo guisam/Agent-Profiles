@@ -31,6 +31,9 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   for those tuples. `update <binding> <version> --model --role --host` previews
   a move of one exact tuple's pin; `--apply` writes it, keeping every other
   model's pins unchanged, then refreshes the lock.
+  Since 0.13.1, a model that `agents.yaml` doesn't declare (it reaches a profile
+  through `default_profile` or a family) is declared with its current profile in
+  the same edit, so its routing doesn't change.
 
 - **Update notice (0.11.0):** for Claude Code, `init` adds a startup-only hook
   that tells you, not the agent, when the library has newer versions for your
@@ -46,8 +49,9 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   text a new version would inject, as a diff. Deny rules are a guardrail against
   accidents, not a security boundary; signed approvals are planned in #55.
   Checked live on Claude Code 2.1.318: an agent's `library publish` was refused
-  and `outdated` ran. `update` previews are refused for agents too; run them
-  yourself.
+  and `outdated` ran. Shell `update` previews are refused for agents too; agents
+  use the MCP `update_preview` tool instead (0.13.0), which an agent chose on its
+  own in a live check.
 
 Details, the manifest format and limits are in
 [docs/versioned-packages.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/versioned-packages.md#library-browse-search-inspect-and-publish).
