@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.13.0 — 2026-11-04
+
+### Librarian tools in the MCP service (#58, phase 5 of #38)
+
+- **Six read-only tools:** `library_list`, `library_search`, `library_info`,
+  `library_evidence`, `outdated` and `update_preview`. Each returns the same JSON
+  as its CLI equivalent as structured content, plus the CLI's text rendering.
+  - `update_preview` never applies. It's how an agent previews a pin move, since
+    the #55 deny rules refuse an agent's `update` command.
+  - Tools that take `root` choose the project like `resolve` does, including
+    workspace roots.
+- **Package files as resources:**
+  `agent-profiles://library/{@namespace}/{name}/{version}/{path}`. The list
+  offers each version's entrypoint, and reads verify the object first (a tampered
+  version is an error). Text files come back as text and binary files as blobs.
+- **Server instructions** tell agents that library tools only read, and that
+  pins change only when the user runs the apply command.
+- No configuration, lock or store-format change.
+
 ## 0.12.1 — 2026-11-04
 
 ### Deny rules live check (#55)

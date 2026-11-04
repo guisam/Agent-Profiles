@@ -1,4 +1,5 @@
-// Read-only MCP service over the existing resolver, stamp and evaluation APIs (#39).
+// Read-only MCP service over the existing resolver, stamp, evaluation and library
+// APIs (#39, #58). Read-only is an invariant (#55): no tool writes, ever.
 // Only the `mcp` command imports this module, so other commands never load the SDK.
 import { existsSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
@@ -8,6 +9,7 @@ import {
 	type InputRequiredResult,
 	inputRequired,
 	McpServer,
+	ResourceTemplate,
 	type ServerContext,
 } from "@modelcontextprotocol/server";
 import {
@@ -17,9 +19,27 @@ import {
 import * as z from "zod";
 import { formatContext, resolutionOutput } from "./diagnostics.ts";
 import { errorMessage } from "./files.ts";
-import { findRoot, ownVersion } from "./install.ts";
+import { ownVersion } from "./install.ts";
+import {
+	formatLibrary,
+	formatLibraryEvidence,
+	formatLibraryInfo,
+	libraryEvidence,
+	libraryInfo,
+	listLibrary,
+	searchLibrary,
+} from "./library.ts";
 import { migrationEvaluationReport } from "./migrations.ts";
+import {
+	formatOutdated,
+	formatUpdate,
+	outdatedPins,
+	previewUpdate,
+} from "./outdated.ts";
+import { lookupPackage } from "./package-store.ts";
 import { type ResolveOptions, resolveInstructions } from "./resolve.ts";
+import { releasedPackage } from "./revisions.ts";
+import { findRoot } from "./root.ts";
 import { diffStamps, previewStamp, verifyStamp } from "./stamps.ts";
 
 export type McpOptions = {
@@ -184,6 +204,7 @@ const UNBOUND = [
 	"This server selects repository instructions and skills by model, role and host.",
 	"Before starting work, call the `resolve` tool with your exact model ID (and `role`, if you were assigned one), then follow its output.",
 	"Call `resolve` again after context compaction or a model or role change. Every tool is read-only.",
+	"Library tools (`library_list`, `library_search`, `library_info`, `library_evidence`, `outdated`, `update_preview`) only read. To change a pin, show the user the `update_preview` result and let them run the apply command themselves.",
 ].join("\n");
 
 /**
@@ -240,9 +261,11 @@ export function createServer(options: McpOptions = {}): McpServer {
 	// neither a root argument nor --root names one and the client offers roots.
 	// The SDK carries the request in-band (2026-07-28) or as roots/list (2025 eras).
 	const withProject =
-		(run: (args: Selection, workspace?: string) => ToolResult) =>
+		<A extends { root?: string }>(
+			run: (args: A, workspace?: string) => ToolResult,
+		) =>
 		async (
-			args: Selection,
+			args: A,
 			ctx: ServerContext,
 		): Promise<ToolResult | InputRequiredResult> => {
 			try {
@@ -345,6 +368,297 @@ export function createServer(options: McpOptions = {}): McpServer {
 				}),
 			),
 		),
+	);
+
+	// --- Librarian tools (#58): the library, evidence, outdated pins and update
+	// previews, all read-only. The store is always the server's --store.
+
+	// A project is optional for library_info/library_evidence (it adds pins and origin):
+	// use one only when named or offered, never the working-directory fallback.
+	const optionalRoot = (args: { root?: string }, workspace?: string) =>
+		args.root !== undefined || options.root !== undefined
+			? projectRoot(options, args.root)
+			: workspace;
+	const both = (value: unknown, rendered: string): ToolResult => ({
+		content: [{ type: "text", text: rendered }],
+		structuredContent: JSON.parse(JSON.stringify(value)) as Record<
+			string,
+			unknown
+		>,
+	});
+	const rootArg = z
+		.string()
+		.optional()
+		.describe(
+			"Project directory. Defaults to the server's --root, the host's workspace root, or the repository containing its working directory.",
+		);
+	const packageName = z
+		.string()
+		.min(1)
+		.describe("Package name, @namespace/name.");
+	const version = z
+		.string()
+		.optional()
+		.describe("One exact version; omit for all versions.");
+
+	server.registerTool(
+		"library_list",
+		{
+			title: "List the library",
+			description:
+				"Every package in the local library with its versions, newest first, and the latest version's type and description. Same as `agent-profiles library list --json`. Read-only.",
+			inputSchema: z.object({
+				type: z.enum(["skill", "instruction"]).optional(),
+			}),
+			annotations: READ_ONLY,
+		},
+		guarded(({ type }: { type?: "skill" | "instruction" }) => {
+			const result = listLibrary({ storeRoot: options.storeRoot, type });
+			return both(result, formatLibrary(result));
+		}),
+	);
+
+	server.registerTool(
+		"library_search",
+		{
+			title: "Search the library",
+			description:
+				"Packages whose name or description contains the text (case-insensitive). Same as `agent-profiles library search --json`. Read-only.",
+			inputSchema: z.object({ text: z.string().min(1) }),
+			annotations: READ_ONLY,
+		},
+		guarded(({ text: query }: { text: string }) => {
+			const result = searchLibrary({
+				storeRoot: options.storeRoot,
+				text: query,
+			});
+			return both(result, formatLibrary(result));
+		}),
+	);
+
+	server.registerTool(
+		"library_info",
+		{
+			title: "Package details",
+			description:
+				"Verified details of every version of a package (or one version): digest, type, delivery, hosts, effects, files, and retained evaluation evidence. With a project, also which versions it pins. Same as `agent-profiles library info --json`. Read-only.",
+			inputSchema: z.object({ name: packageName, version, root: rootArg }),
+			annotations: READ_ONLY,
+		},
+		withProject(
+			(args: { name: string; version?: string; root?: string }, workspace) => {
+				const result = libraryInfo({
+					storeRoot: options.storeRoot,
+					name: args.name,
+					version: args.version,
+					root: optionalRoot(args, workspace),
+				});
+				return both(result, formatLibraryInfo(result));
+			},
+		),
+	);
+
+	server.registerTool(
+		"library_evidence",
+		{
+			title: "Evaluation evidence",
+			description:
+				"Retained paired evaluations for a package, per exact role, model and host: outcome, correctness, metric deltas, and whether the evidence came from this project or another. With a filter, versions without matching evidence are listed as untested. Same as `agent-profiles library evidence --json`. Read-only.",
+			inputSchema: z.object({
+				name: packageName,
+				version,
+				model: z.string().optional(),
+				role: z.string().optional(),
+				host: z.string().optional(),
+				root: rootArg,
+			}),
+			annotations: READ_ONLY,
+		},
+		withProject(
+			(
+				args: {
+					name: string;
+					version?: string;
+					model?: string;
+					role?: string;
+					host?: string;
+					root?: string;
+				},
+				workspace,
+			) => {
+				const result = libraryEvidence({
+					storeRoot: options.storeRoot,
+					name: args.name,
+					version: args.version,
+					root: optionalRoot(args, workspace),
+					filter: { model: args.model, role: args.role, host: args.host },
+				});
+				return both(result, formatLibraryEvidence(result));
+			},
+		),
+	);
+
+	server.registerTool(
+		"outdated",
+		{
+			title: "Outdated pins",
+			description:
+				"Every package pin in the project, the tuples it serves, newer library versions, and each newer version's evidence for those tuples. Same as `agent-profiles outdated --json`. Read-only.",
+			inputSchema: z.object({
+				model: z.string().optional(),
+				role: z.string().optional(),
+				host: z.string().optional(),
+				root: rootArg,
+			}),
+			annotations: READ_ONLY,
+		},
+		withProject(
+			(
+				args: { model?: string; role?: string; host?: string; root?: string },
+				workspace,
+			) => {
+				const result = outdatedPins({
+					root: projectRoot(options, args.root, workspace),
+					storeRoot: options.storeRoot,
+					filter: { model: args.model, role: args.role, host: args.host },
+				});
+				return both(result, formatOutdated(result));
+			},
+		),
+	);
+
+	server.registerTool(
+		"update_preview",
+		{
+			title: "Preview an update",
+			description:
+				"Preview moving one exact role × model × host pin to another library version: the rule that changes, the selections that change, the evidence, and a unified diff of the text it would inject. Never applies. To apply, the user runs `agent-profiles update ... --apply --expect <previewDigest>` in a terminal. Read-only.",
+			inputSchema: z.object({
+				binding: z
+					.string()
+					.min(1)
+					.describe("Binding ID, such as skills.review."),
+				version: z.string().min(1),
+				model: z.string().min(1),
+				role: z.string().min(1),
+				host: z.string().min(1),
+				root: rootArg,
+			}),
+			annotations: READ_ONLY,
+		},
+		withProject(
+			(
+				args: {
+					binding: string;
+					version: string;
+					model: string;
+					role: string;
+					host: string;
+					root?: string;
+				},
+				workspace,
+			) => {
+				const result = previewUpdate({
+					root: projectRoot(options, args.root, workspace),
+					storeRoot: options.storeRoot,
+					binding: args.binding,
+					version: args.version,
+					assignment: {
+						role: args.role,
+						model: args.model,
+						host: args.host,
+					},
+				});
+				return both(result, formatUpdate(result));
+			},
+		),
+	);
+
+	// Package files as resources (#58): any file of a verified library version.
+	// The list offers each version's entrypoint; reads verify the object first.
+	const LIBRARY_URI = "agent-profiles://library";
+	const mimeType = (file: string) =>
+		/\.md$/i.test(file)
+			? "text/markdown"
+			: /\.ya?ml$/i.test(file)
+				? "application/yaml"
+				: /\.json$/i.test(file)
+					? "application/json"
+					: "text/plain";
+	server.registerResource(
+		"library-file",
+		new ResourceTemplate(`${LIBRARY_URI}/{scope}/{name}/{version}/{+path}`, {
+			list: async () => {
+				const { packages } = listLibrary({ storeRoot: options.storeRoot });
+				const resources = [];
+				for (const item of packages) {
+					const info = libraryInfo({
+						storeRoot: options.storeRoot,
+						name: item.name,
+					});
+					for (const entry of info.versions)
+						if (!("error" in entry))
+							resources.push({
+								uri: `${LIBRARY_URI}/${item.name}/${entry.version}/${entry.entrypoint}`,
+								name: `${item.name}@${entry.version}`,
+								title: `${item.name}@${entry.version} ${entry.entrypoint}`,
+								description: entry.description ?? undefined,
+								mimeType: mimeType(entry.entrypoint),
+							});
+				}
+				return { resources };
+			},
+		}),
+		{
+			title: "Library package file",
+			description:
+				"A file of a verified package version in the local library, such as a skill's SKILL.md. Read-only.",
+		},
+		async (uri, variables) => {
+			const one = (value: string | string[] | undefined) =>
+				Array.isArray(value) ? value.join("/") : (value ?? "");
+			const name = `${one(variables.scope)}/${one(variables.name)}`;
+			const version = one(variables.version);
+			const file = decodeURIComponent(one(variables.path));
+			const [entry] = libraryInfo({
+				storeRoot: options.storeRoot,
+				name,
+				version,
+			}).versions;
+			if ("error" in entry)
+				throw new Error(`${name}@${version} is not verified: ${entry.error}`);
+			const found =
+				entry.source === "promoted"
+					? releasedPackage({
+							storeRoot: options.storeRoot,
+							name,
+							version,
+							revisionDigest: entry.revisionDigest,
+						})
+					: lookupPackage({ storeRoot: options.storeRoot, name, version });
+			const member = found?.files.find((item) => item.path === file);
+			if (!member) throw new Error(`${name}@${version} has no file ${file}`);
+			let textValue: string | null = null;
+			try {
+				if (!member.bytes.includes(0))
+					textValue = new TextDecoder("utf-8", { fatal: true }).decode(
+						member.bytes,
+					);
+			} catch {
+				// Not UTF-8: served as a blob below.
+			}
+			return {
+				contents: [
+					textValue === null
+						? {
+								uri: uri.href,
+								mimeType: "application/octet-stream",
+								blob: member.bytes.toString("base64"),
+							}
+						: { uri: uri.href, mimeType: mimeType(file), text: textValue },
+				],
+			};
+		},
 	);
 
 	return server;

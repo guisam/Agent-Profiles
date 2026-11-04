@@ -66,8 +66,40 @@ stamps, evidence or host configuration.
 | `verify` | `digest` (64 lowercase hex) | Stamp integrity and reproducibility labels | `verify <digest> --json` |
 | `diff` | `before`, `after` | Structural changes between two stamps | `diff <a> <b> --json` |
 | `report` | `resultId` | Retained paired-evaluation report | `migrate report <id> --json` |
+| `library_list` | `type` (optional) | Every library package with its versions, newest first | `library list --json` |
+| `library_search` | `text` | Packages whose name or description contains the text | `library search <text> --json` |
+| `library_info` | `name`, `version`, `root` | Verified details and evidence per version; with a project, its pins | `library info <name>[@<version>] --json` |
+| `library_evidence` | `name`, `version`, `model`, `role`, `host`, `root` | Retained evaluations per exact role × model × host; untested versions under a filter | `library evidence ... --json` |
+| `outdated` | `model`, `role`, `host`, `root` | Every pin, the tuples it serves, newer versions and their evidence | `outdated --json` |
+| `update_preview` | `binding`, `version`, `model`, `role`, `host`, `root` | The rule and selections that would change, evidence, a content diff and a `previewDigest`. **Never applies** | `update ... --json` (preview) |
 
-Errors are returned as tool errors with the same message the CLI prints.
+Errors are returned as tool errors with the same message the CLI prints. Each
+librarian tool (#58) returns the CLI's JSON as structured content and its text
+rendering as text.
+
+`update_preview` is how an agent previews a pin move, since the
+[deny rules](bootstrap.md#host-setup) refuse an agent's `update` command
+outright. To apply, show the user the preview; the user runs
+`agent-profiles update ... --apply --expect <previewDigest>` in a terminal.
+`library_info` and `library_evidence` use a project only when `root`, `--root` or
+a workspace root names one. `outdated` and `update_preview` always need one and
+choose it like `resolve`.
+
+## Resources
+
+Every file of a verified library version is a resource:
+
+```
+agent-profiles://library/{@namespace}/{name}/{version}/{path}
+agent-profiles://library/@example/security-review/2.0.0/SKILL.md
+```
+
+- **List:** the resource list offers each version's entrypoint.
+- **Read:** any file of the version can be read. The object is verified first, so
+  a tampered version is an error, never content.
+- **Content types:** text files come back as text (`text/markdown`,
+  `application/yaml`, `application/json` or `text/plain`), and other files as a
+  base64 blob.
 
 ## Instructions
 
@@ -193,6 +225,8 @@ scope changes every project for that user; choose that explicitly.
 | Codex, OpenCode, Hermes: live use | unverified |
 | Workspace roots select the project (2025 and 2026-07-28 protocol) | verified (automated tests) |
 | Bound stamp digest equals the CLI `stamp` digest; nothing is written | verified (automated tests) |
+| Librarian tools equal their CLI JSON; resources verified; nothing written | verified (automated tests) |
+| Claude Code: an agent uses `update_preview` instead of the denied `update` | unverified |
 | Claude Code: offers workspace roots | verified (live) |
 | Codex: offers workspace roots | unverified |
 
