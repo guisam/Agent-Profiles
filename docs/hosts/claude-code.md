@@ -103,6 +103,7 @@ Opus 5.5 and Agent Profiles 0.12.0 packed from source, after `init --agent claud
 | An agent's `update` preview is also refused: the rule matches the `update` prefix, and a prefix rule can't single out `--apply` | by design; phase 5's read-only MCP tools are the planned way for an agent to preview |
 | Another invocation (`node` on the package script, `npm exec`) is not matched | expected limit; not tested live |
 
+## Update notice hook
 
 Observed interactively on **Claude Code 2.1.318, Windows 11, 2026-11-04**, with
 Opus 5.5 (`claude-opus-5-5`) and Agent Profiles 0.11.0 packed from source (see
