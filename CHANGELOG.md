@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.16.0 — 2026-11-05
+
+### Signed approvals (#71 part 2, step 2 of #55)
+
+- **`library approve <@ns/name>@<version>`:**
+  - writes `.agent-profiles/approvals/@ns/name/<version>/<principal>.json` (package,
+    version, object digest, principal, time);
+  - signs it with `ssh-keygen -Y sign` using the policy's `signing_key` (or `--key`);
+  - verifies the result.
+
+  A failed signature or verification leaves nothing behind. Commit the files with
+  the project.
+- **Formatter-proof:** the signature covers a canonical serialization, so a
+  reflowed file still verifies, while any changed value doesn't.
+- **Status:** `library info --root`, `outdated`, `update` previews and the MCP
+  `update_preview` show whether a version is approved and by whom (`approvals` /
+  `approval` in JSON; `null` without a policy). Files that don't count are listed
+  with the reason. With `require_approval`, `doctor` notes each unapproved pin.
+- **Deny rule:** `init` now also denies `library approve` to agents. Existing
+  installs get a `doctor` note until `init` is run again.
+- **Nothing is enforced yet:** `resolve`, `install` and `update` behave as before.
+- See [docs/trust.md](docs/trust.md).
+
 ## 0.15.0 — 2026-11-05
 
 ### Trust policy and SSH signature verification (#71, step 2 of #55, part 1 of 3)

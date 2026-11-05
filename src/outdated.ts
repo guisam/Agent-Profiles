@@ -3,6 +3,11 @@
 // explicit, previewed move of one exact tuple's pin. Reads never write; apply edits
 // only agents.yaml (guarded, comments kept), then refreshes the lock and stamps.
 import { createHash } from "node:crypto";
+import {
+	type ApprovalStatus,
+	approvalStatus,
+	describeApproval,
+} from "./approvals.ts";
 import { exactRule } from "./binding-target.ts";
 import { type FileDiff, packageDiff } from "./content-diff.ts";
 import { applyChanges, errorMessage, readLocal } from "./files.ts";
@@ -212,6 +217,8 @@ function outdatedPinsOperation({
 				source: string;
 				pinnable: boolean;
 				reason: string | null;
+				/** #71: approval status under the project's trust policy; null without one. */
+				approval: ApprovalStatus | null;
 				evidence: {
 					tuple: Tuple;
 					rows: { host: string; outcome: string; origin: string }[];
@@ -243,6 +250,14 @@ function outdatedPinsOperation({
 								: pinnable
 									? null
 									: "needs revision record",
+							approval: (() => {
+								const row = info.approvals?.find(
+									(item) => item.version === candidate.version,
+								);
+								if (!row) return null;
+								const { version: _version, ...status } = row;
+								return status;
+							})(),
 							evidence: serves
 								.filter((tuple) => matchesFilter(tuple, filter))
 								.map((tuple) => ({
@@ -442,6 +457,8 @@ function planUpdate(input: UpdateInput) {
 		contentDiff,
 		/** Set when the target model was undeclared: the models entry the edit adds. */
 		declaredModel,
+		/** #71: the target version's approval status; null without a trust policy. */
+		approval: approvalStatus({ root, storeRoot, name, version }),
 		configurationVersion: validated.config.get("version") as number,
 		binding,
 		package: name,
@@ -671,6 +688,8 @@ export function formatOutdated(
 			lines.push(
 				`  Newer: ${candidate.version}${candidate.major ? " (major)" : ""}${candidate.source === "package" ? "" : `, ${candidate.source}`}${candidate.reason ? `; ${candidate.reason}` : ""}`,
 			);
+			const approval = describeApproval(candidate.approval);
+			if (approval) lines.push(`    Approval: ${approval}`);
 			for (const { tuple, rows } of candidate.evidence)
 				lines.push(
 					`    ${describeTuple(tuple)}: ${rows.length ? rows.map((row) => `${row.outcome}, ${row.origin}${tuple.host ? "" : ` (${row.host})`}`).join("; ") : "untested"}`,
@@ -701,6 +720,11 @@ export function formatUpdate(
 		`  ${result.status === "updated" ? "Edited" : "Edits to"} agents.yaml (${result.edits.length}):`,
 		...result.edits.map((edit) => `    - ${edit.description}`),
 		`  Selections changed: ${result.changed.map((row) => `${describeTuple(row.tuple)} ${row.binding} ${row.from} → ${row.to}`).join("; ")}`,
+		...(result.approval
+			? [
+					`  Approval of ${result.after.version}: ${describeApproval(result.approval)}`,
+				]
+			: []),
 		`  Evidence for this tuple: ${result.evidence.length ? result.evidence.map((row) => `${row.outcome}, ${row.origin}`).join("; ") : "untested"}`,
 	];
 	// The words that would reach the agent's context, before anything is applied (#55).

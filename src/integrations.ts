@@ -26,6 +26,7 @@ export const denyMarker = (rule: string) => `deny:${rule}`;
  */
 export const guardedCommands = [
 	"library publish",
+	"library approve",
 	"add",
 	"install",
 	"update",

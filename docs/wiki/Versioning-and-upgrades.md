@@ -132,6 +132,24 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source feature: 0.16.0 — signed approvals
+
+The working package version is `0.16.0`, not yet published to npm.
+`agent-profiles library approve <@namespace/name>@<version>` signs an approval of
+that version's exact bytes with your SSH key (`ssh-keygen -Y sign`). The approval
+is written under `.agent-profiles/approvals/` for you to commit. `library info`,
+`outdated`, `update` previews and the MCP `update_preview` show approval status
+under the trust policy. Nothing is enforced yet. Tracking: #55 and #71.
+
+### Upgrade instructions
+
+No configuration YAML, lock, stamp or store-format change. For Claude Code, run
+`init` again to add the new deny rule for `library approve`; `doctor` notes it
+until then. To try approvals:
+1. Write `~/.agent-profiles/trust.yaml` with `allowed_signers` and `signing_key`.
+2. Run `library approve` for a pinned version.
+3. Commit the new files under `.agent-profiles/approvals/`.
+
 ## Source feature: 0.15.0 — trust policy (part 1 of signed approvals)
 
 The working package version is `0.15.0`, not yet published to npm. This version
