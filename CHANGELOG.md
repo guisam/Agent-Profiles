@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.14.1 — 2026-11-04
+
+### `--version` from the installed package (#69)
+
+- **Fix:** `agent-profiles --version` (added in 0.13.3) failed from an installed
+  package with `ENOENT … dist/package.json`: the published CLI runs from
+  `dist/bin/`, and it looked one folder too shallow. It now finds the package
+  root from either layout, as the rest of the CLI does. The package test checks
+  `--version` and `-v` against the installed build.
+- **Host record:** on 0.14.0, the agent read `SKILL.md` with `library_read`, with no
+  store-folder listing or shell command.
+- No configuration, lock or store-format change.
+
 ## 0.14.0 — 2026-11-04
 
 ### Verified package reads for agents (#67, follow-up to #55)

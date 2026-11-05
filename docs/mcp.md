@@ -233,7 +233,7 @@ scope changes every project for that user; choose that explicitly.
 | Claude Code: an agent uses `update_preview` instead of the denied `update` | verified (live, Opus, 0.13.0 and 0.13.1) |
 | Claude Code: the agent relays the `applyCommand` as returned | verified (live, Opus, 0.13.2 and 0.13.3) |
 | Claude Code: the agent relays every `agents.yaml` edit | failed in 0.13.1 and 0.13.2 (it reported the rule, not the model declaration); verified (live, Opus, 0.13.3) once `edits` was in the structured result |
-| Claude Code: the agent reads package files through resources rather than the store folder | not guaranteed: in one check (0.13.1) it read the store file directly. 0.14.0 adds `library_read` and tells agents to use it or the resources; unverified |
+| Claude Code: the agent reads package files through resources rather than the store folder | not guaranteed: in one check (0.13.1) it read the store file directly. verified (live, Opus, 0.14.0): the agent used `library_read` |
 | Claude Code: offers workspace roots | verified (live) |
 | Codex: offers workspace roots | unverified |
 

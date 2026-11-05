@@ -118,7 +118,7 @@ rules in place (see [librarian tools live check](../host-observations.md#librari
 | A successful `update_preview` from the agent, end to end (0.13.1) | verified: scoped to the exact tuple, content diff shown, nothing applied |
 | The agent's summary includes every `agents.yaml` edit | failed in 0.13.1 and again in 0.13.2, though 0.13.2's text listed both edits together: the agent described the rule from the structured result, which had no edit list. 0.13.3 adds `edits` to the structured result: verified, the agent listed both edits |
 | The agent gives the user a correct apply command | 0.13.1: correct, but rebuilt by the agent. 0.13.2: verified, relayed as returned. 0.13.3 prints it as `npx --no agent-profiles …` so it runs from a dev dependency: verified, relayed as returned |
-| Asked to show a version's `SKILL.md`, the agent reads it through the resource | not guaranteed: in a second check (0.13.1) it listed the store folder and read the file directly, which skips the resource's object verification. 0.14.0 adds the `library_read` tool and tells agents not to open store files; unverified |
+| Asked to show a version's `SKILL.md`, the agent reads it through the resource | not guaranteed: in a second check (0.13.1) it listed the store folder and read the file directly, which skips the resource's object verification. 0.14.0 adds the `library_read` tool and tells agents not to open store files: verified, the agent called `library_list` then `library_read` and ran no shell command |
 | The user runs the agent's apply command; new resolutions select the new version | verified (0.13.3): `Edited agents.yaml (2)`, lock refreshed, stamp recorded; `resolve` then selected 1.1.0 with the `constrained` profile, now matched by model |
 
 ## Update notice hook
