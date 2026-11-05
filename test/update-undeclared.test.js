@@ -116,6 +116,15 @@ test("an undeclared model is declared with its current profile, and only its pin
 		model: "claude-opus-5-5",
 		profile: "constrained",
 	});
+	// The JSON lists both edits together, as the text does (an agent summarizing the
+	// structured result reported the rule and dropped the declaration).
+	assert.deepEqual(
+		preview.edits.map((edit) => [edit.action, edit.path]),
+		[
+			["add-rule", preview.rule.id ? `assignments.${preview.rule.id}` : ""],
+			["declare-model", "models.claude-opus-5-5"],
+		],
+	);
 	assert.deepEqual(preview.rule.when, {
 		role: "implementer",
 		model: "claude-opus-5-5",
@@ -225,6 +234,10 @@ test("a declared model's preview declares nothing", (t) => {
 	const preview = previewUpdate(input(f, "example-model"));
 	assert.equal(preview.declaredModel, null);
 	assert.match(formatUpdate(preview), /Edits to agents\.yaml \(1\):/);
+	assert.deepEqual(
+		preview.edits.map((edit) => edit.action),
+		["add-rule"],
+	);
 	assert.doesNotMatch(formatUpdate(preview), /declare models/);
 });
 
@@ -237,7 +250,7 @@ test("the printed apply command applies the preview as is", (t) => {
 	const preview = previewUpdate(input(g, "claude-opus-5-5"));
 	assert.match(
 		formatUpdate(preview),
-		/To apply, a person runs this in a terminal \(agents can't\):\n {4}agent-profiles update /,
+		/To apply, a person runs this in a terminal \(agents can't\):\n {4}npx --no agent-profiles update /,
 	);
 	assert.ok(formatUpdate(preview).includes(preview.applyCommand));
 	// Paths are quoted when needed; on Windows runners the temp path itself may be.
@@ -245,7 +258,7 @@ test("the printed apply command applies the preview as is", (t) => {
 		new RegExp(`(^| )"?${value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"?( |$)`);
 	assert.ok(
 		preview.applyCommand.startsWith(
-			`agent-profiles update ${BINDING} 1.1.0 --role implementer --model claude-opus-5-5 --host claude --root "`,
+			`npx --no agent-profiles update ${BINDING} 1.1.0 --role implementer --model claude-opus-5-5 --host claude --root "`,
 		),
 		preview.applyCommand,
 	);
@@ -258,7 +271,7 @@ test("the printed apply command applies the preview as is", (t) => {
 		new URL("../bin/agent-profiles.ts", import.meta.url),
 	);
 	const args = preview.applyCommand
-		.replace(/^agent-profiles /, "")
+		.replace(/^npx --no agent-profiles /, "")
 		.match(/"[^"]*"|\S+/g)
 		.map((arg) => arg.replace(/^"(.*)"$/, "$1"));
 	const run = spawnSync(process.execPath, [cli, ...args], {
@@ -271,4 +284,18 @@ test("the printed apply command applies the preview as is", (t) => {
 		profile: "constrained",
 		version: "1.1.0",
 	});
+});
+
+test("--version prints the package version", () => {
+	const cli = fileURLToPath(
+		new URL("../bin/agent-profiles.ts", import.meta.url),
+	);
+	const { version } = JSON.parse(
+		fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+	);
+	for (const flag of ["--version", "-v"]) {
+		const run = spawnSync(process.execPath, [cli, flag], { encoding: "utf8" });
+		assert.equal(run.status, 0, run.stderr);
+		assert.equal(run.stdout.trim(), version);
+	}
 });

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.13.3 — 2026-11-04
+
+### Preview edits in the structured result; `npx` apply command; `--version` (#64)
+
+Found rechecking 0.13.2 live on Claude Code: the agent relayed the apply command
+exactly, but again reported only the rule, not the model declaration. It
+described the rule from the structured result, and that had no list of edits.
+
+- **`edits` in JSON and MCP:** previews carry every `agents.yaml` edit as
+  `edits` (`add-rule` or `replace-binding`, and `declare-model`), the same list
+  the text shows. The `update_preview` description and server instructions point
+  agents at it.
+- **Apply command:** now `npx --no agent-profiles update …`, the invocation
+  `init` writes for hooks, so it runs where the CLI is a dev dependency.
+- **`--version` (`-v`):** prints the installed version.
+- **Host record:** the 0.13.2 recheck is recorded.
+- No configuration, lock or store-format change.
+
 ## 0.13.2 — 2026-11-04
 
 ### Preview: complete apply command and every edit listed (#62)

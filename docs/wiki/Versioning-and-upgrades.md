@@ -132,6 +132,21 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source patch: 0.13.3 — preview edits for agents, `--version`
+
+The working package version is `0.13.3`, not yet published to npm. Previews
+carry every `agents.yaml` edit as `edits` in `--json` and in the MCP
+`update_preview` result, so an agent summarizing the structured result reports
+the model declaration too. The apply command is printed as
+`npx --no agent-profiles update …`. `agent-profiles --version` (or `-v`) prints
+the installed version.
+
+### Upgrade instructions
+
+No migration. To check what a project has installed, run
+`npx --no -- agent-profiles --version` (without the `--`, npx prints npm's own
+version instead).
+
 ## Source patch: 0.13.2 — complete apply command in previews
 
 The working package version is `0.13.2`, not yet published to npm. `update`

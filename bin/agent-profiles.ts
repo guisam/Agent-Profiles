@@ -146,6 +146,7 @@ try {
 			agent: { type: "string", multiple: true },
 			"delete-config": { type: "boolean", default: false },
 			help: { type: "boolean", short: "h" },
+			version: { type: "boolean", short: "v" },
 			role: { type: "string", multiple: true },
 			contents: { type: "boolean", default: false },
 			model: { type: "string" },
@@ -230,7 +231,13 @@ try {
 				? [token.value]
 				: [],
 		);
-	if (values.help || !command) {
+	if (values.version) {
+		console.log(
+			JSON.parse(
+				readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+			).version,
+		);
+	} else if (values.help || !command) {
 		console.log(`Usage: agent-profiles <command> [--root <directory>]
 
 Commands:
@@ -329,6 +336,7 @@ Options:
   --sources <file>    Machine-local skill roots JSON; implies --external
   --delete-config     Also delete .agent-profiles during uninstall; asks to confirm
   -h, --help          Show this help
+  -v, --version       Print the installed version
 
 Examples:
   agent-profiles init --agent claude --agent codex

@@ -212,6 +212,14 @@ test("update_preview previews like the CLI, shows the diff, and never writes", a
 	);
 	assert.deepEqual(result.structuredContent, expected);
 	assert.equal(result.structuredContent.status, "preview");
+	assert.deepEqual(
+		result.structuredContent.edits.map((edit) => edit.action),
+		["add-rule"],
+	);
+	assert.match(
+		result.structuredContent.applyCommand,
+		/^npx --no agent-profiles update skills\.guarded 2\.0\.0 .* --apply --expect [0-9a-f]{64}$/,
+	);
 	assert.match(textOf(result), /^ {6}\+Check the secrets handling\.$/m);
 	assert.match(textOf(result), /--apply --expect [0-9a-f]{64}/);
 	assert.deepEqual([f.root, f.store, f.home].map(tree), before);

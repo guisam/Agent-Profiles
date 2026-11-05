@@ -215,7 +215,20 @@ Rechecked on 0.13.1 the same day:
 
 0.13.2 lists every `agents.yaml` edit together and returns the complete apply
 command (`applyCommand`); the MCP instructions ask agents to relay both as
-returned. Not yet checked live.
+returned.
+
+Rechecked on 0.13.2 the same day, in a new session:
+
+| Check | Observation |
+| --- | --- |
+| Apply command | Relayed exactly as returned, `--root C:\workspace\ap-live` included; the agent didn't call it a guess |
+| `agents.yaml` edits | Again only the rule, described field by field (`id`, `when`, `action`), as in the structured result. The model declaration was missing |
+| The same preview run by the user in a terminal | `Edits to agents.yaml (2):` listed the rule and `declare models.claude-opus-5-5 with profile constrained`; `agents.yaml` didn't contain the model yet |
+| Command prefix | The printed `agent-profiles update …` needs `npx --no` in front in a project that installs the CLI as a dev dependency |
+
+The text was right; the agent summarized the structured result, whose `rule`
+field has no model declaration. 0.13.3 adds an `edits` list to the structured
+result and prints the apply command as `npx --no agent-profiles …`.
 
 ## Implications for Phase 2
 

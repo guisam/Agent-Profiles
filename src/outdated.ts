@@ -321,7 +321,8 @@ const shellArg = (value: string) => {
 function applyCommand(input: UpdateInput, root: string, digest: string) {
 	const { role, model, host } = input.assignment;
 	return [
-		"agent-profiles update",
+		// The invocation init writes for hooks and the bootstrap: works from a dev dependency.
+		"npx --no agent-profiles update",
 		shellArg(input.binding),
 		shellArg(input.version),
 		`--role ${shellArg(role)}`,
@@ -461,6 +462,7 @@ function planUpdate(input: UpdateInput) {
 			...base,
 			status: "already-pinned" as const,
 			rule: null,
+			edits: [],
 			changed: [],
 			configBytes,
 			lockBytes,
@@ -565,10 +567,32 @@ function planUpdate(input: UpdateInput) {
 		throw new Error(
 			"update: the edit does not change the target selection; nothing was written",
 		);
+	// Every agents.yaml edit in one list, in the JSON as in the text, so a reader of
+	// either can't report the rule and miss the model declaration.
+	const edits = [
+		{
+			path: `assignments.${rule.id}`,
+			action:
+				rule.action === "replace"
+					? ("replace-binding" as const)
+					: ("add-rule" as const),
+			description: `${rule.action === "replace" ? "replace the binding in" : "add rule"} assignments.${rule.id}`,
+		},
+		...(declaredModel
+			? [
+					{
+						path: `models.${declaredModel.model}`,
+						action: "declare-model" as const,
+						description: `declare models.${declaredModel.model} with profile ${declaredModel.profile}, the profile it resolves to now (routing unchanged)`,
+					},
+				]
+			: []),
+	];
 	return {
 		...base,
 		status: "preview" as const,
 		rule,
+		edits,
 		changed,
 		configBytes,
 		lockBytes,
@@ -674,14 +698,8 @@ export function formatUpdate(
 	const lines = [
 		`${result.status === "updated" ? "Updated" : "Preview (nothing written)"}: ${result.binding} for ${who}`,
 		`  ${result.package}@${result.before.version} → ${result.after.version}${result.after.revision ? ` (revision ${result.after.revision})` : ""}`,
-		// Every agents.yaml edit in one list, so a summary can't drop one.
-		`  ${result.status === "updated" ? "Edited" : "Edits to"} agents.yaml (${result.declaredModel ? 2 : 1}):`,
-		`    - ${result.rule?.action === "replace" ? "replace the binding in" : "add rule"} assignments.${result.rule?.id}`,
-		...(result.declaredModel
-			? [
-					`    - declare models.${result.declaredModel.model} with profile ${result.declaredModel.profile}, the profile it resolves to now (routing unchanged)`,
-				]
-			: []),
+		`  ${result.status === "updated" ? "Edited" : "Edits to"} agents.yaml (${result.edits.length}):`,
+		...result.edits.map((edit) => `    - ${edit.description}`),
 		`  Selections changed: ${result.changed.map((row) => `${describeTuple(row.tuple)} ${row.binding} ${row.from} → ${row.to}`).join("; ")}`,
 		`  Evidence for this tuple: ${result.evidence.length ? result.evidence.map((row) => `${row.outcome}, ${row.origin}`).join("; ") : "untested"}`,
 	];
