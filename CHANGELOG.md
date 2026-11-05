@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.14.0 — 2026-11-04
+
+### Verified package reads for agents (#67, follow-up to #55)
+
+In a live check, an agent asked for a version's `SKILL.md` listed the store
+folder and read the object file directly. The text was right, but nothing
+verified it: the resource read, which checks the object first, was skipped.
+
+- **`library read <@ns/name>@<version> <path>`:** prints one package file after
+  verifying the version's object, like `library info` does. A tampered version is
+  refused, never printed. `--json` carries `encoding` (`utf8` or `base64`).
+- **`library_read` MCP tool:** the same, returning the CLI's JSON. The resource
+  handler now reads through the same code.
+- **Server instructions** tell agents to read package files with `library_read`
+  or the resources, and not to open files in the store folder.
+- **Host record:** the user applying the agent's command on 0.13.3, and `resolve`
+  selecting the new version afterwards.
+- No configuration, lock or store-format change.
+
 ## 0.13.4 — 2026-11-04
 
 ### Librarian tools live recheck (docs)

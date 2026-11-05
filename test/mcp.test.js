@@ -31,6 +31,7 @@ const TOOLS = [
 	"library_evidence",
 	"library_info",
 	"library_list",
+	"library_read",
 	"library_search",
 	"outdated",
 	"report",

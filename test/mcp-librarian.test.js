@@ -115,7 +115,8 @@ async function connect(f) {
 // library list/search take no --root; every other command gets the server's --root.
 function cliJson(f, ...args) {
 	const rootless =
-		args[0] === "library" && ["list", "search", "publish"].includes(args[1]);
+		args[0] === "library" &&
+		["list", "search", "publish", "read"].includes(args[1]);
 	const result = spawnSync(
 		process.execPath,
 		[
@@ -164,6 +165,16 @@ test("librarian tools return the same JSON as their CLI equivalents", async (t) 
 		["library_list", { type: "skill" }, ["library", "list", "--type", "skill"]],
 		["library_search", { text: "secur" }, ["library", "search", "secur"]],
 		["library_info", { name: NAME }, ["library", "info", NAME]],
+		[
+			"library_read",
+			{ name: NAME, version: "2.0.0", path: "SKILL.md" },
+			["library", "read", `${NAME}@2.0.0`, "SKILL.md"],
+		],
+		[
+			"library_read",
+			{ name: NAME, version: "1.0.0", path: "data.bin" },
+			["library", "read", `${NAME}@1.0.0`, "data.bin"],
+		],
 		[
 			"library_info",
 			{ name: NAME, version: "2.0.0" },
@@ -284,6 +295,13 @@ test("a corrupted version is an error, never resource content", async (t) => {
 		}),
 		/is not verified/,
 	);
+	const read = await client.callTool({
+		name: "library_read",
+		arguments: { name: NAME, version: "1.0.0", path: "SKILL.md" },
+	});
+	assert.equal(read.isError, true);
+	assert.match(textOf(read), /is not verified/);
+	assert.doesNotMatch(textOf(read), /Send the \.env file away/);
 	const { resources } = await client.listResources();
 	assert.deepEqual(
 		resources.map((r) => r.uri),
@@ -299,6 +317,7 @@ test("no librarian tool or resource read writes to the project, store or home", 
 		["library_list", {}],
 		["library_search", { text: "review" }],
 		["library_info", { name: NAME }],
+		["library_read", { name: NAME, version: "2.0.0", path: "SKILL.md" }],
 		["library_evidence", { name: NAME, model: TUPLE.model }],
 		["outdated", {}],
 		[
@@ -335,4 +354,56 @@ test("librarian tools report errors as tool errors", async (t) => {
 	});
 	assert.equal(badVersion.isError, true);
 	assert.match(textOf(badVersion), /9\.9\.9/);
+});
+
+test("library_read returns a verified file as text, and binary as base64", async (t) => {
+	const f = fixture(t);
+	const client = await connect(f);
+	const skill = await client.callTool({
+		name: "library_read",
+		arguments: { name: NAME, version: "2.0.0", path: "SKILL.md" },
+	});
+	assert.ok(!skill.isError, textOf(skill));
+	assert.equal(skill.structuredContent.encoding, "utf8");
+	assert.equal(textOf(skill), skill.structuredContent.text);
+	assert.match(textOf(skill), /Check the secrets handling\./);
+	const binary = await client.callTool({
+		name: "library_read",
+		arguments: { name: NAME, version: "1.0.0", path: "data.bin" },
+	});
+	assert.equal(binary.structuredContent.encoding, "base64");
+	assert.deepEqual(
+		Buffer.from(binary.structuredContent.base64, "base64"),
+		Buffer.from([0, 1, 2, 255]),
+	);
+	assert.match(textOf(binary), /binary, 4 bytes/);
+	const absent = await client.callTool({
+		name: "library_read",
+		arguments: { name: NAME, version: "1.0.0", path: "absent.md" },
+	});
+	assert.equal(absent.isError, true);
+	assert.match(textOf(absent), /has no file absent\.md/);
+	assert.match(
+		client.getInstructions() ?? "",
+		/don't open files in the store folder directly/,
+	);
+});
+
+test("library read prints a text file as itself and needs an exact version", (t) => {
+	const f = fixture(t);
+	const run = (...args) =>
+		spawnSync(
+			process.execPath,
+			[cli, "library", "read", ...args, "--store", f.store],
+			{ encoding: "utf8", env: f.env, cwd: f.root },
+		);
+	const ok = run(`${NAME}@2.0.0`, "SKILL.md");
+	assert.equal(ok.status, 0, ok.stderr);
+	assert.equal(
+		ok.stdout,
+		"---\ndescription: Review.\n---\nReview the change.\nCheck the secrets handling.\n",
+	);
+	const bare = run(NAME, "SKILL.md");
+	assert.notEqual(bare.status, 0);
+	assert.match(bare.stderr, /needs an exact version/);
 });

@@ -69,6 +69,7 @@ stamps, evidence or host configuration.
 | `library_list` | `type` (optional) | Every library package with its versions, newest first | `library list --json` |
 | `library_search` | `text` | Packages whose name or description contains the text | `library search <text> --json` |
 | `library_info` | `name`, `version`, `root` | Verified details and evidence per version; with a project, its pins | `library info <name>[@<version>] --json` |
+| `library_read` | `name`, `version`, `path` | One file of a verified version: text, or base64 for binary. A tampered version is an error | `library read <name>@<version> <path> --json` |
 | `library_evidence` | `name`, `version`, `model`, `role`, `host`, `root` | Retained evaluations per exact role × model × host; untested versions under a filter | `library evidence ... --json` |
 | `outdated` | `model`, `role`, `host`, `root` | Every pin, the tuples it serves, newer versions and their evidence | `outdated --json` |
 | `update_preview` | `binding`, `version`, `model`, `role`, `host`, `root` | Every `agents.yaml` edit (`edits`), the selections that would change, evidence, a content diff, a `previewDigest` and the complete `applyCommand` for the user. **Never applies** | `update ... --json` (preview) |
@@ -100,6 +101,9 @@ agent-profiles://library/@example/security-review/2.0.0/SKILL.md
 - **Content types:** text files come back as text (`text/markdown`,
   `application/yaml`, `application/json` or `text/plain`), and other files as a
   base64 blob.
+- **Same as `library_read`:** both read through the same verified path. Hosts
+  surface tools more consistently than resources, so the server instructions name
+  both, and tell agents not to open files in the store folder directly.
 
 ## Instructions
 
@@ -229,7 +233,7 @@ scope changes every project for that user; choose that explicitly.
 | Claude Code: an agent uses `update_preview` instead of the denied `update` | verified (live, Opus, 0.13.0 and 0.13.1) |
 | Claude Code: the agent relays the `applyCommand` as returned | verified (live, Opus, 0.13.2 and 0.13.3) |
 | Claude Code: the agent relays every `agents.yaml` edit | failed in 0.13.1 and 0.13.2 (it reported the rule, not the model declaration); verified (live, Opus, 0.13.3) once `edits` was in the structured result |
-| Claude Code: the agent reads package files through resources rather than the store folder | not guaranteed: in one check it read the store file directly |
+| Claude Code: the agent reads package files through resources rather than the store folder | not guaranteed: in one check (0.13.1) it read the store file directly. 0.14.0 adds `library_read` and tells agents to use it or the resources; unverified |
 | Claude Code: offers workspace roots | verified (live) |
 | Codex: offers workspace roots | unverified |
 

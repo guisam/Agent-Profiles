@@ -23,6 +23,9 @@ operations to MCP hosts over stdio, alongside the CLI.
   library, check evidence and preview an update without a shell. Package files
   are resources at `agent-profiles://library/@ns/name/version/path`.
   `update_preview` never applies; you run the apply command yourself.
+- **Verified file reads (0.14.0):** `library_read` returns one package file after
+  verifying the version. Agents are told to use it (or the resources) instead of
+  opening files in the store folder, where nothing verifies them.
 - **Read-only, as an invariant (0.12.0):** no write tools will be added to this
   server. Publishing, updating and promoting stay commands a person runs.
 - **Optional:** removing the server changes nothing else.
