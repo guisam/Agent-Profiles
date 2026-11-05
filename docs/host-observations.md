@@ -230,6 +230,18 @@ The text was right; the agent summarized the structured result, whose `rule`
 field has no model declaration. 0.13.3 adds an `edits` list to the structured
 result and prints the apply command as `npx --no agent-profiles …`.
 
+Rechecked on 0.13.3 the same day, in a new session, with the same prompt:
+
+| Check | Observation |
+| --- | --- |
+| Tool use | Two MCP calls; nothing applied |
+| `agents.yaml` edits | "Config changes it would make (both of them)": the new rule `assignments.update-4b1cca1e54478a95`, and `models.claude-opus-5-5` declared with profile `constrained`, "the profile it already gets now, so routing stays the same" |
+| Apply command | Relayed as returned: `npx --no agent-profiles update skills.security-review 1.1.0 --role implementer --model claude-opus-5-5 --host claude --root C:\workspace\ap-live --apply --expect 1ccbcdb0…` |
+| Content diff and evidence | Reported correctly: only the version number changes; no evidence for 1.1.0 |
+
+Not covered: other models, and the user applying the command (covered by
+automated tests).
+
 ## Implications for Phase 2
 
 1. Model-side matching is the dominant failure: the only incorrect routes came

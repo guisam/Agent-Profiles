@@ -132,6 +132,13 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source patch: 0.13.4 — librarian tools live recheck
+
+The working package version is `0.13.4`, not yet published to npm. Docs only: on
+Claude Code with Opus 5.5, an agent's `update_preview` summary now lists every
+`agents.yaml` edit, including the model declaration, and gives the apply command
+exactly as returned. No upgrade steps.
+
 ## Source patch: 0.13.3 — preview edits for agents, `--version`
 
 The working package version is `0.13.3`, not yet published to npm. Previews
