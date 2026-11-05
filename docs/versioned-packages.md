@@ -347,6 +347,7 @@ agent-profiles library list --type instruction
 agent-profiles library search security                    # name or description, case-insensitive
 agent-profiles library info @example/security-review      # every version, verified
 agent-profiles library info @example/security-review@2.0.0 --root /path/to/project
+agent-profiles library read @example/security-review@2.0.0 SKILL.md    # one file, verified first
 agent-profiles library evidence @example/security-review --model claude-haiku-4-5 --role reviewer
 ```
 
@@ -365,6 +366,11 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   description, file count and size. With `--root`, it also marks which versions
   that project's `agents.yaml` pins (binding by binding) and whether its lock
   covers them with the same digest.
+- **read** prints one file of an exact version, after verifying the version's
+  object like **info** does; a tampered version is refused, never printed. Text
+  prints as itself; `--json` carries `encoding` (`utf8` or `base64`) and the
+  content. This is how an agent should read package files: the store folder
+  holds the same bytes, but nothing verifies them when they're opened there.
 - The library includes promoted releases. A version created by
   [promotion](skill-migrations.md#promote-the-exact-evaluated-tuple) has a release
   label but no imported identity; it is listed with source `promoted`. A package

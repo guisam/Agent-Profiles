@@ -132,6 +132,20 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source feature: 0.14.0 — verified package reads
+
+The working package version is `0.14.0`, not yet published to npm.
+`agent-profiles library read <@namespace/name>@<version> <path>` prints one
+package file after verifying the version, and the MCP server adds the same as the
+`library_read` tool. The server instructions tell agents to read package files
+this way (or through the `agent-profiles://library` resources), not by opening
+files in the store folder, where nothing verifies them. Tracking: #55 and #67.
+
+### Upgrade instructions
+
+No configuration YAML, lock, stamp or store-format change; no migration. An
+existing MCP server configuration gains the tool when it runs the new version.
+
 ## Source patch: 0.13.4 — librarian tools live recheck
 
 The working package version is `0.13.4`, not yet published to npm. Docs only: on
@@ -213,7 +227,7 @@ No behavior, configuration or format change; no upgrade action is required.
 The working package version is `0.12.0`, not yet published to npm. For Claude
 Code, `init` adds deny rules so agents can't run the commands that change the
 library, pins or the installation. `update` previews show a content diff of what a
-new version would inject. The MCP server is read-only by design. Tracking: #55.
+new version would inject. The MCP server is read-only by design. Tracking: #55 and #67.
 
 ### Upgrade instructions
 

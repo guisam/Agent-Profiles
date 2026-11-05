@@ -32,11 +32,13 @@ let installPackage!: typeof import("../src/install.ts").installPackage;
 let uninstall!: typeof import("../src/install.ts").uninstall;
 let formatLibrary!: typeof import("../src/library.ts").formatLibrary;
 let formatLibraryEvidence!: typeof import("../src/library.ts").formatLibraryEvidence;
+let formatLibraryFile!: typeof import("../src/library.ts").formatLibraryFile;
 let formatLibraryInfo!: typeof import("../src/library.ts").formatLibraryInfo;
 let libraryEvidence!: typeof import("../src/library.ts").libraryEvidence;
 let libraryInfo!: typeof import("../src/library.ts").libraryInfo;
 let listLibrary!: typeof import("../src/library.ts").listLibrary;
 let publishPackage!: typeof import("../src/library.ts").publishPackage;
+let readLibraryFile!: typeof import("../src/library.ts").readLibraryFile;
 let searchLibrary!: typeof import("../src/library.ts").searchLibrary;
 let materializeStamp!: typeof import("../src/materialize.ts").materializeStamp;
 let abandonMigration!: typeof import("../src/migrations.ts").abandonMigration;
@@ -74,11 +76,13 @@ async function loadCommandModules(command: string | undefined) {
 		({
 			formatLibrary,
 			formatLibraryEvidence,
+			formatLibraryFile,
 			formatLibraryInfo,
 			libraryEvidence,
 			libraryInfo,
 			listLibrary,
 			publishPackage,
+			readLibraryFile,
 			searchLibrary,
 		} = await import("../src/library.ts"));
 	if (command === "materialize")
@@ -299,6 +303,9 @@ Library (the local store; read-only except publish):
   library info <@namespace/name>[@<version>] [--root <directory>]
                                                Verified details and evidence; --root marks that
                                                project's pins and which evidence it produced
+  library read <@namespace/name>@<version> <path>
+                                               One package file, verified first (agents: use this,
+                                               not the store folder)
   library evidence <@namespace/name>[@<version>] [--model <id>] [--role <id>] [--host <id>] [--root <directory>]
                                                Retained evaluations per role × model × host;
                                                with a filter, lists untested versions too
@@ -486,6 +493,7 @@ Examples:
 			list: { count: 2, options: ["store", "json", "type"] },
 			search: { count: 3, options: ["store", "json"] },
 			info: { count: 3, options: ["store", "json", "root"] },
+			read: { count: 4, options: ["store", "json"] },
 			evidence: {
 				count: 3,
 				options: ["store", "json", "root", "model", "role", "host"],
@@ -495,7 +503,7 @@ Examples:
 		const shape = Object.hasOwn(shapes, action) ? shapes[action] : undefined;
 		if (!shape || positionals.length !== shape.count)
 			throw new Error(
-				"Usage: agent-profiles library list [--type skill|instruction] | search <text> | info <@namespace/name>[@<version>] [--root <directory>] | evidence <@namespace/name>[@<version>] [--model <id>] [--role <id>] [--host <id>] [--root <directory>] | publish <directory> [--store <directory>] [--json]",
+				"Usage: agent-profiles library list [--type skill|instruction] | search <text> | info <@namespace/name>[@<version>] [--root <directory>] | read <@namespace/name>@<version> <path> | evidence <@namespace/name>[@<version>] [--model <id>] [--role <id>] [--host <id>] [--root <directory>] | publish <directory> [--store <directory>] [--json]",
 			);
 		for (const option of seen)
 			if (!shape.options.includes(option))
@@ -512,6 +520,22 @@ Examples:
 		} else if (action === "search") {
 			const result = searchLibrary({ storeRoot, text: positionals[2] });
 			print(result, () => formatLibrary(result));
+		} else if (action === "read") {
+			const spec = positionals[2];
+			const split = spec.lastIndexOf("@");
+			if (split <= 0)
+				throw new Error(
+					"library read needs an exact version: <@namespace/name>@<version> <path>",
+				);
+			const result = readLibraryFile({
+				storeRoot,
+				name: spec.slice(0, split),
+				version: spec.slice(split + 1),
+				path: positionals[3],
+			});
+			if (values.json) console.log(JSON.stringify(result, null, 2));
+			else if (result.encoding === "utf8") process.stdout.write(result.text);
+			else console.log(formatLibraryFile(result));
 		} else if (action === "info" || action === "evidence") {
 			// "@ns/name@1.2.3": the version follows the last "@" after the scope.
 			const spec = positionals[2];

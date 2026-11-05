@@ -667,6 +667,72 @@ function publishPackageOperation({
 	});
 }
 
+export type LibraryFile = {
+	name: string;
+	version: string;
+	sha256: string;
+	path: string;
+	bytes: number;
+} & (
+	| { encoding: "utf8"; text: string }
+	| { encoding: "base64"; base64: string }
+);
+
+/**
+ * One file of a library version, read only after the version's object verifies
+ * (#55 follow-up). This is the way agents should read package files: the store
+ * folder itself holds the same bytes, but nothing checks them there.
+ */
+function readLibraryFileOperation({
+	storeRoot,
+	name,
+	version,
+	path: file,
+}: {
+	storeRoot?: string;
+	name: string;
+	version: string;
+	path: string;
+}): LibraryFile {
+	const [entry] = libraryInfoOperation({ storeRoot, name, version }).versions;
+	if (!entry) throw new Error(`${name}@${version} is not in the library`);
+	if ("error" in entry)
+		throw new Error(`${name}@${version} is not verified: ${entry.error}`);
+	const found =
+		entry.source === "promoted"
+			? releasedPackage({
+					storeRoot,
+					name,
+					version,
+					revisionDigest: entry.revisionDigest,
+				})
+			: lookupPackage({ storeRoot, name, version });
+	const member = found?.files.find((item) => item.path === file);
+	if (!member) throw new Error(`${name}@${version} has no file ${file}`);
+	const head = {
+		name,
+		version,
+		sha256: entry.sha256,
+		path: file,
+		bytes: member.bytes.length,
+	};
+	if (!member.bytes.includes(0))
+		try {
+			const text = new TextDecoder("utf-8", { fatal: true }).decode(
+				member.bytes,
+			);
+			return { ...head, encoding: "utf8", text };
+		} catch {
+			// Not UTF-8: base64 below.
+		}
+	return {
+		...head,
+		encoding: "base64",
+		base64: member.bytes.toString("base64"),
+	};
+}
+
+export const readLibraryFile = inStoreSession(readLibraryFileOperation);
 export const listLibrary = inStoreSession(listLibraryOperation);
 export const searchLibrary = inStoreSession(searchLibraryOperation);
 export const libraryInfo = inStoreSession(libraryInfoOperation);
@@ -701,6 +767,12 @@ export function formatLibrary(
 		...lines,
 		...result.problems.map((problem) => `Store problem: ${problem}`),
 	].join("\n");
+}
+
+/** A text file prints as itself; a binary file as a one-line note. */
+export function formatLibraryFile(result: LibraryFile) {
+	if (result.encoding === "utf8") return result.text;
+	return `${result.name}@${result.version} ${result.path}: binary, ${result.bytes} bytes (verified, sha256 ${result.sha256}); use --json for base64.`;
 }
 
 export function formatLibraryInfo(

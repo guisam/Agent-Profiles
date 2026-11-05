@@ -10,6 +10,7 @@ agent-profiles library publish ./skills/security-review
 agent-profiles library list
 agent-profiles library search security
 agent-profiles library info @example/security-review --root /path/to/project
+agent-profiles library read @example/security-review@2.0.0 SKILL.md
 agent-profiles library evidence @example/security-review --model claude-haiku-4-5 --role reviewer
 ```
 

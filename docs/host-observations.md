@@ -239,8 +239,13 @@ Rechecked on 0.13.3 the same day, in a new session, with the same prompt:
 | Apply command | Relayed as returned: `npx --no agent-profiles update skills.security-review 1.1.0 --role implementer --model claude-opus-5-5 --host claude --root C:\workspace\ap-live --apply --expect 1ccbcdb0…` |
 | Content diff and evidence | Reported correctly: only the version number changes; no evidence for 1.1.0 |
 
-Not covered: other models, and the user applying the command (covered by
-automated tests).
+Then the user ran the agent's command in a terminal. It printed
+`Updated: … Edited agents.yaml (2)` with both edits, refreshed the lock and
+recorded a stamp. `resolve --model claude-opus-5-5 --role implementer --host claude`
+then listed `@ap-live/security-review@1.1.0` (sha256 `216afc7f…`) with the
+`constrained` profile, now "matched by model" instead of `default_profile`.
+
+Not covered: other models.
 
 ## Implications for Phase 2
 

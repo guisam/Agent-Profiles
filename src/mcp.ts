@@ -23,10 +23,12 @@ import { ownVersion } from "./install.ts";
 import {
 	formatLibrary,
 	formatLibraryEvidence,
+	formatLibraryFile,
 	formatLibraryInfo,
 	libraryEvidence,
 	libraryInfo,
 	listLibrary,
+	readLibraryFile,
 	searchLibrary,
 } from "./library.ts";
 import { migrationEvaluationReport } from "./migrations.ts";
@@ -36,9 +38,7 @@ import {
 	outdatedPins,
 	previewUpdate,
 } from "./outdated.ts";
-import { lookupPackage } from "./package-store.ts";
 import { type ResolveOptions, resolveInstructions } from "./resolve.ts";
-import { releasedPackage } from "./revisions.ts";
 import { findRoot } from "./root.ts";
 import { diffStamps, previewStamp, verifyStamp } from "./stamps.ts";
 
@@ -204,7 +204,7 @@ const UNBOUND = [
 	"This server selects repository instructions and skills by model, role and host.",
 	"Before starting work, call the `resolve` tool with your exact model ID (and `role`, if you were assigned one), then follow its output.",
 	"Call `resolve` again after context compaction or a model or role change. Every tool is read-only.",
-	"Library tools (`library_list`, `library_search`, `library_info`, `library_evidence`, `outdated`, `update_preview`) only read. To change a pin, show the user the `update_preview` result, including every entry in its `edits` list (not only the rule), and give them its `applyCommand` exactly as returned to run themselves.",
+	"Library tools (`library_list`, `library_search`, `library_info`, `library_read`, `library_evidence`, `outdated`, `update_preview`) only read. Read package files with `library_read` or the `agent-profiles://library` resources, which verify the package first; don't open files in the store folder directly, since nothing verifies them there. To change a pin, show the user the `update_preview` result, including every entry in its `edits` list (not only the rule), and give them its `applyCommand` exactly as returned to run themselves.",
 ].join("\n");
 
 /**
@@ -459,6 +459,43 @@ export function createServer(options: McpOptions = {}): McpServer {
 	);
 
 	server.registerTool(
+		"library_read",
+		{
+			title: "Read a package file",
+			description:
+				"One file of a library version, such as its SKILL.md, read only after the version verifies against its digest. Use this (or the agent-profiles://library resources) to read package files; files opened directly in the store folder are not verified. Same as `agent-profiles library read --json`. Read-only.",
+			inputSchema: z.object({
+				name: packageName,
+				version: z.string().min(1).describe("One exact version."),
+				path: z
+					.string()
+					.min(1)
+					.describe("File path within the package, such as SKILL.md."),
+			}),
+			annotations: READ_ONLY,
+		},
+		guarded(
+			({
+				name,
+				version: exact,
+				path: file,
+			}: {
+				name: string;
+				version: string;
+				path: string;
+			}) => {
+				const result = readLibraryFile({
+					storeRoot: options.storeRoot,
+					name,
+					version: exact,
+					path: file,
+				});
+				return both(result, formatLibraryFile(result));
+			},
+		),
+	);
+
+	server.registerTool(
 		"library_evidence",
 		{
 			title: "Evaluation evidence",
@@ -620,42 +657,21 @@ export function createServer(options: McpOptions = {}): McpServer {
 			const name = `${one(variables.scope)}/${one(variables.name)}`;
 			const version = one(variables.version);
 			const file = decodeURIComponent(one(variables.path));
-			const [entry] = libraryInfo({
+			const read = readLibraryFile({
 				storeRoot: options.storeRoot,
 				name,
 				version,
-			}).versions;
-			if ("error" in entry)
-				throw new Error(`${name}@${version} is not verified: ${entry.error}`);
-			const found =
-				entry.source === "promoted"
-					? releasedPackage({
-							storeRoot: options.storeRoot,
-							name,
-							version,
-							revisionDigest: entry.revisionDigest,
-						})
-					: lookupPackage({ storeRoot: options.storeRoot, name, version });
-			const member = found?.files.find((item) => item.path === file);
-			if (!member) throw new Error(`${name}@${version} has no file ${file}`);
-			let textValue: string | null = null;
-			try {
-				if (!member.bytes.includes(0))
-					textValue = new TextDecoder("utf-8", { fatal: true }).decode(
-						member.bytes,
-					);
-			} catch {
-				// Not UTF-8: served as a blob below.
-			}
+				path: file,
+			});
 			return {
 				contents: [
-					textValue === null
+					read.encoding === "base64"
 						? {
 								uri: uri.href,
 								mimeType: "application/octet-stream",
-								blob: member.bytes.toString("base64"),
+								blob: read.base64,
 							}
-						: { uri: uri.href, mimeType: mimeType(file), text: textValue },
+						: { uri: uri.href, mimeType: mimeType(file), text: read.text },
 				],
 			};
 		},
