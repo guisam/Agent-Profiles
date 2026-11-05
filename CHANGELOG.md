@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.13.4 — 2026-11-04
+
+### Librarian tools live recheck (docs)
+
+- Records the 0.13.3 recheck on Claude Code with Opus 5.5: the agent's
+  `update_preview` summary listed both `agents.yaml` edits (the rule and the
+  model declaration) and relayed the `npx --no agent-profiles …` apply command
+  as returned. The host record and MCP status rows are marked verified.
+- No code change.
+
 ## 0.13.3 — 2026-11-04
 
 ### Preview edits in the structured result; `npx` apply command; `--version` (#64)
