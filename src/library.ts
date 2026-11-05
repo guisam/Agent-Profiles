@@ -25,7 +25,7 @@ import {
 import { parseManifest, readPackage, type Untyped } from "./packages.ts";
 import {
 	packageReferences,
-	resolveInstructions,
+	resolveConfigured,
 	validateConfiguration,
 } from "./resolve.ts";
 import { listReleaseLabels, releasedPackage } from "./revisions.ts";
@@ -444,7 +444,7 @@ function familyFor(
 ) {
 	if (root === undefined) return null;
 	try {
-		const resolved = resolveInstructions({
+		const resolved = resolveConfigured({
 			root,
 			storeRoot,
 			model: assignment.model,

@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { parseDocument } from "yaml";
+import { approvalStatus } from "./approvals.ts";
 import { contextDiagnostics, measureFile, measureText } from "./diagnostics.ts";
 import { errorCode, errorMessage, safePath } from "./files.ts";
 import {
@@ -37,6 +38,7 @@ import {
 	releasedPackage,
 	revisionClosure,
 } from "./revisions.ts";
+import { loadTrustPolicy } from "./trust.ts";
 
 /**
  * Parsed YAML (`toJS({mapAsMap: true})`). Its shape is unknown until mapping(),
@@ -2076,7 +2078,74 @@ function resolveCore(
 }
 
 function resolveInstructionsOperation(input: ResolveOptions = {}) {
-	return resolveCore(input).resolution;
+	return withholdUntrusted(resolveCore(input).resolution, input);
+}
+
+/**
+ * #71: under a trust policy, packaged skills the policy blocks are left out of the
+ * resolution and listed under `withheld`: versions without a valid signed approval
+ * when `require_approval` is on, and versions whose namespace or effects the policy
+ * doesn't allow. The profile and role still resolve, so sessions keep working.
+ * Without a policy the resolution is unchanged and has no `withheld` field.
+ */
+function withholdUntrusted<
+	R extends {
+		required: { id: string; package?: { name: string; version: string } }[];
+		available: { id: string; package?: { name: string; version: string } }[];
+		loaded: { id: string; package?: { name: string; version: string } }[];
+	},
+>(resolution: R, input: ResolveOptions) {
+	const root = realpathSync(input.root ?? process.cwd());
+	const policy = loadTrustPolicy({ root });
+	if (!policy) return resolution;
+	const verdicts = new Map<string, string | null>();
+	const blocked = (pkg: { name: string; version: string } | undefined) => {
+		if (!pkg) return null;
+		const key = `${pkg.name}@${pkg.version}`;
+		if (!verdicts.has(key)) {
+			const status = approvalStatus({
+				root,
+				storeRoot: input.storeRoot,
+				name: pkg.name,
+				version: pkg.version,
+				policy,
+			});
+			const reasons = [
+				...(status?.policy ?? []),
+				...(policy.requireApproval && status?.status !== "approved"
+					? ["not approved (require_approval is on)"]
+					: []),
+			];
+			verdicts.set(key, reasons.length ? reasons.join("; ") : null);
+		}
+		return verdicts.get(key) ?? null;
+	};
+	const withheld = new Map<
+		string,
+		{ id: string; package: { name: string; version: string }; reason: string }
+	>();
+	const keep = <
+		T extends { id: string; package?: { name: string; version: string } },
+	>(
+		entries: T[],
+	) =>
+		entries.filter((entry) => {
+			const reason = blocked(entry.package);
+			if (reason === null || !entry.package) return true;
+			withheld.set(entry.id, {
+				id: entry.id,
+				package: { name: entry.package.name, version: entry.package.version },
+				reason,
+			});
+			return false;
+		});
+	return {
+		...resolution,
+		required: keep(resolution.required),
+		available: keep(resolution.available),
+		loaded: keep(resolution.loaded),
+		withheld: [...withheld.values()],
+	};
 }
 
 // Internal capture uses the same selected roots and required-only actors as normal resolution.
@@ -2153,6 +2222,14 @@ function resolveCandidateCaptureOperation(
 }
 
 export const resolveInstructions = inStoreSession(resolveInstructionsOperation);
+/**
+ * The configured selection, before the trust policy withholds anything (#71):
+ * for library pins, outdated and update, which reason about configuration rather
+ * than what an agent receives.
+ */
+export const resolveConfigured = inStoreSession(
+	(input: ResolveOptions = {}) => resolveCore(input).resolution,
+);
 export const resolveCapture = inStoreSession(resolveCaptureOperation);
 export const resolveSharingSelection = inStoreSession(
 	resolveSharingSelectionOperation,

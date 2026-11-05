@@ -55,7 +55,7 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   own in a live check. Since 0.13.2 the preview lists every `agents.yaml` edit and
   ends with the complete command you run to apply it.
 
-- **Trust policy and approvals (0.15.0–0.16.0, in progress):**
+- **Trust policy and approvals (0.15.0–0.17.0):**
   - `~/.agent-profiles/trust.yaml` names who may approve versions (an OpenSSH
     `allowed_signers` file), which namespaces and manifest effects are allowed, and
     whether approvals are required. A project's `.agent-profiles/trust.yaml` can
@@ -63,7 +63,9 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   - `library approve <@ns/name>@<version>` signs an approval of that version's
     bytes with your SSH key, written under `.agent-profiles/approvals/` to commit.
   - `info`, `outdated` and `update` previews show approval status.
-  - Enforcement comes next (#71).
+  - Enforcement (0.17.0): `resolve` withholds blocked skills, and `install` and
+    `update --apply` refuse them. Approve existing pins before turning on
+    `require_approval`.
 
 Details, the manifest format and limits are in
 [docs/versioned-packages.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/versioned-packages.md#library-browse-search-inspect-and-publish).

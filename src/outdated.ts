@@ -7,6 +7,8 @@ import {
 	type ApprovalStatus,
 	approvalStatus,
 	describeApproval,
+	refuseUntrusted,
+	trustBlockers,
 } from "./approvals.ts";
 import { exactRule } from "./binding-target.ts";
 import { type FileDiff, packageDiff } from "./content-diff.ts";
@@ -18,7 +20,7 @@ import {
 	packageReferences,
 	parseYaml,
 	parseYamlDocument,
-	resolveInstructions,
+	resolveConfigured,
 	validateConfiguration,
 } from "./resolve.ts";
 import { releasedPackage } from "./revisions.ts";
@@ -73,7 +75,7 @@ function selections(
 	tuple: Tuple,
 	configuration?: unknown,
 ): Map<string, Selection> {
-	const result = resolveInstructions({
+	const result = resolveConfigured({
 		root,
 		storeRoot,
 		model: tuple.model,
@@ -459,6 +461,12 @@ function planUpdate(input: UpdateInput) {
 		declaredModel,
 		/** #71: the target version's approval status; null without a trust policy. */
 		approval: approvalStatus({ root, storeRoot, name, version }),
+		/** What the trust policy refuses about the target; `--apply` refuses when nonempty. */
+		trustBlockers: trustBlockers({
+			root,
+			storeRoot,
+			packages: [{ name, version }],
+		}),
 		configurationVersion: validated.config.get("version") as number,
 		binding,
 		package: name,
@@ -636,6 +644,7 @@ function applyUpdateOperation(input: UpdateInput) {
 			"update: the configuration, lock or target changed since the preview (previewDigest differs); preview again; nothing was written",
 		);
 	if (plan.status === "already-pinned") return publicPlan(plan);
+	refuseUntrusted(plan.trustBlockers, "update");
 	const { root, configBytes, lockBytes, nextConfig } = plan;
 	if (
 		!(readLocal(root, LOCK) ?? Buffer.alloc(0)).equals(
@@ -723,6 +732,11 @@ export function formatUpdate(
 		...(result.approval
 			? [
 					`  Approval of ${result.after.version}: ${describeApproval(result.approval)}`,
+				]
+			: []),
+		...(result.trustBlockers.length && result.status === "preview"
+			? [
+					`  Apply will be refused by the trust policy: ${result.trustBlockers.join("; ")}`,
 				]
 			: []),
 		`  Evidence for this tuple: ${result.evidence.length ? result.evidence.map((row) => `${row.outcome}, ${row.origin}`).join("; ") : "untested"}`,

@@ -132,6 +132,32 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source feature: 0.17.0 — trust policy enforcement
+
+The working package version is `0.17.0`, not yet published to npm. Under a trust
+policy:
+- `resolve` withholds packaged skills the policy blocks, and lists them as
+  withheld. Sessions still get their profile and role.
+- `install` and `update --apply` refuse blocked versions.
+- Without a `signing_key`, `update --apply` and `library publish` ask for a short
+  code on a terminal.
+
+Blocked versions are those whose namespace or effects aren't allowed and, with
+`require_approval`, those without a signed approval. Without a policy, nothing
+changes. Tracking: #55 and #71.
+
+### Upgrade instructions
+
+No configuration YAML, lock, stamp or store-format change. Before turning on
+`require_approval`:
+1. Approve every pinned version with
+   `agent-profiles library approve <@namespace/name>@<version>`. With
+   `require_approval` on, `doctor` lists the commands to run.
+2. Commit `.agent-profiles/approvals/`.
+
+Otherwise sessions start without those skills, and `install` refuses. See
+[docs/trust.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/trust.md).
+
 ## Source feature: 0.16.0 — signed approvals
 
 The working package version is `0.16.0`, not yet published to npm.

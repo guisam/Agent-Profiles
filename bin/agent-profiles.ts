@@ -128,6 +128,37 @@ const agentChoices = integrations.map((adapter) => adapter.id).join(", ");
 const display = (text: unknown) =>
 	displayText(text).replace(/[\x80-\x9f]/g, " ");
 
+/**
+ * #71: with a trust policy but no signing_key, library-changing commands ask on a
+ * terminal for a short code the person types back. An agent's shell has no
+ * terminal, so it can't answer; a person can. A speed bump, not a boundary: the
+ * signed approvals are the boundary.
+ */
+async function confirmWithoutKey(
+	root: string | undefined,
+	what: string,
+	makeCode: () => string,
+) {
+	const { loadTrustPolicy } = await import("../src/trust.ts");
+	const policy = loadTrustPolicy({ root });
+	if (!policy || policy.signingKey) return;
+	if (!stdin.isTTY || !stdout.isTTY)
+		throw new Error(
+			`${what} needs confirmation on a terminal: your trust policy (${policy.files.join(" + ")}) names no signing_key. Run it yourself in a terminal, or set signing_key; nothing was written`,
+		);
+	const code = makeCode();
+	const reader = createInterface({ input: stdin, output: process.stderr });
+	try {
+		const typed = await reader.question(
+			`${what}: type ${code} to confirm (trust policy without signing_key): `,
+		);
+		if (typed.trim() !== code)
+			throw new Error(`${what}: not confirmed; nothing was written`);
+	} finally {
+		reader.close();
+	}
+}
+
 async function question(prompt: string) {
 	if (!stdin.isTTY || !stdout.isTTY)
 		throw new Error(
@@ -493,6 +524,12 @@ Examples:
 			};
 			if (values.expect !== undefined && !values.apply)
 				throw new Error("--expect is only supported with --apply");
+			if (values.apply)
+				await confirmWithoutKey(
+					root,
+					`update ${input.binding} ${input.version}`,
+					() => previewUpdate(input).previewDigest.slice(0, 8),
+				);
 			const result = values.apply ? applyUpdate(input) : previewUpdate(input);
 			print(result, () => formatUpdate(result));
 		}
@@ -598,6 +635,10 @@ Examples:
 				print(result, () => formatLibraryEvidence(result));
 			}
 		} else {
+			await confirmWithoutKey(undefined, "library publish", () => {
+				const { manifest } = readPackage({ root: positionals[2] });
+				return `${manifest.package.name}@${manifest.package.version}`;
+			});
 			const result = publishPackage({
 				storeRoot,
 				sourceDirectory: positionals[2],
@@ -1023,6 +1064,19 @@ Examples:
 				`Package ${positionals[1]}`,
 			);
 		} else if (command === "install") {
+			// #71: the trust policy can refuse pinned versions before anything is written.
+			const { refuseUntrusted, trustBlockers } = await import(
+				"../src/approvals.ts"
+			);
+			const { declaredIdentities } = await import("../src/package-lock.ts");
+			refuseUntrusted(
+				trustBlockers({
+					root,
+					storeRoot,
+					packages: declaredIdentities(root, storeRoot),
+				}),
+				"install",
+			);
 			installDependencies({
 				root,
 				storeRoot,

@@ -239,6 +239,51 @@ export function describeApproval(status: ApprovalStatus | null) {
 	return parts.join("; ");
 }
 
+/**
+ * What the trust policy refuses among these package versions: policy breaks
+ * always, and missing approvals when `require_approval` is on. Empty without a
+ * policy. `install` and `update --apply` refuse when this isn't empty.
+ */
+export function trustBlockers({
+	root,
+	storeRoot,
+	packages,
+	policy = loadTrustPolicy({ root }),
+}: {
+	root: string;
+	storeRoot?: string;
+	packages: { name: string; version: string }[];
+	policy?: TrustPolicy | null;
+}) {
+	if (!policy) return [];
+	const out: string[] = [];
+	for (const { name, version } of packages) {
+		let status: ApprovalStatus | null;
+		try {
+			status = approvalStatus({ root, storeRoot, name, version, policy });
+		} catch (error) {
+			if (policy.requireApproval)
+				out.push(`${name}@${version}: ${errorMessage(error)}`);
+			continue;
+		}
+		const reasons = [
+			...(status?.policy ?? []),
+			...(policy.requireApproval && status?.status !== "approved"
+				? ["not approved (require_approval is on)"]
+				: []),
+		];
+		if (reasons.length) out.push(`${name}@${version}: ${reasons.join("; ")}`);
+	}
+	return out;
+}
+
+export function refuseUntrusted(blockers: string[], what: string) {
+	if (blockers.length)
+		throw new Error(
+			`${what}: the trust policy refuses ${blockers.join("; ")}. Approve a version with agent-profiles library approve <@namespace/name>@<version>, or see docs/trust.md; nothing was written`,
+		);
+}
+
 // --- approve
 
 function publicKeyFor(key: string) {
