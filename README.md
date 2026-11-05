@@ -84,6 +84,8 @@ in `.claude/settings.json`, and adds a startup-only hook that shows you a short
 versions for your pins. It also denies agents the commands that change the
 library or your pins (`library publish`, `update`, `install` and others), so you run
 those yourself; see [bootstrap setup](docs/bootstrap.md#host-setup) for the limits.
+A [trust policy](docs/trust.md) can limit which packages reach a project and, as it
+is built out, require SSH-signed approvals.
 It exits nonzero until the local bootstrap executable
 and matching version are verified (see
 [bootstrap setup](docs/bootstrap.md#host-setup)). `configure` creates, edits, or deletes

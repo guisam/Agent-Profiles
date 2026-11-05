@@ -132,6 +132,22 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source feature: 0.15.0 — trust policy (part 1 of signed approvals)
+
+The working package version is `0.15.0`, not yet published to npm. This version
+adds a trust policy (`~/.agent-profiles/trust.yaml`, optionally narrowed by a
+project's `.agent-profiles/trust.yaml`) and native verification of SSH signatures
+(Ed25519 and hardware Ed25519 keys) against an OpenSSH `allowed_signers` file.
+`doctor` reports the policy. Nothing is enforced yet; signed approvals and
+enforcement follow. See
+[Skill library](https://github.com/guisam/Agent-Profiles/wiki/Skill-library).
+Tracking: #55 and #71.
+
+### Upgrade instructions
+
+No configuration YAML, lock, stamp or store-format change; no migration. Without
+a `trust.yaml`, nothing changes.
+
 ## Source patch: 0.14.1 — `--version` from the installed package
 
 The working package version is `0.14.1`, not yet published to npm.

@@ -204,6 +204,8 @@ try {
 		"docs/hosts/hermes.md",
 		"src/mcp.js",
 		"docs/mcp.md",
+		"src/trust.js",
+		"docs/trust.md",
 		"examples/presets/release-review/preset.yaml",
 		...versionedFiles,
 	].map(built))

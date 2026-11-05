@@ -34,6 +34,7 @@ import { mcpSetupLines } from "./mcp-setup.ts";
 import { noticeLevel, updateSummary } from "./notice.ts";
 import type { Untyped } from "./packages.ts";
 import { type ResolvedSkill, resolveInstructions } from "./resolve.ts";
+import { trustReport } from "./trust.ts";
 
 // Sources run from src/; the published build runs from dist/src/.
 const located = ["../", "../../"]
@@ -593,6 +594,14 @@ export function doctor(
 				...Object.entries(limits).map(([key, value]) => `  ${key}: ${value}`),
 			].join("\n"),
 		);
+	}
+	// Trust policy (#71): what is configured, and anything that would stop approvals verifying.
+	try {
+		const trust = trustReport(root);
+		notes.push(...trust.notes);
+		errors.push(...trust.errors);
+	} catch (error) {
+		errors.push(`Trust policy: ${errorMessage(error)}`);
 	}
 	// Updates (#49): the same summary as the session notice, without state or rate limits.
 	let updates: { actionable: string[]; informational: number } | null = null;

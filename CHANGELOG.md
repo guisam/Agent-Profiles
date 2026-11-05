@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.15.0 — 2026-11-05
+
+### Trust policy and SSH signature verification (#71, step 2 of #55, part 1 of 3)
+
+- **Trust policy:** `~/.agent-profiles/trust.yaml` (or `AGENT_PROFILES_TRUST`)
+  holds:
+  - `allowed_signers`: an OpenSSH file naming who may approve;
+  - `signing_key`;
+  - `require_approval`: opt-in;
+  - allowed `namespaces`, manifest `effects` (default: `substitution` only), and
+    approver `principals`.
+
+  A project's `.agent-profiles/trust.yaml` can only narrow it, and can't name keys.
+- **SSH signatures, verified natively:** the SSHSIG format from `ssh-keygen -Y sign`,
+  for `ssh-ed25519` and hardware `sk-ssh-ed25519@openssh.com` keys, with Node's
+  Ed25519. It checks the namespace, `allowed_signers` principals (with patterns),
+  `namespaces=`, `valid-after=` and `valid-before=`. Hardware-key signatures must
+  carry the user-presence (touch) flag. No new dependency.
+- **`doctor`** reports the policy, and errors on anything that would stop
+  approvals from verifying.
+- **Nothing is enforced yet:** approvals (`library approve`) and enforcement in
+  `resolve`, `install` and `update` follow. Projects without a policy are
+  unaffected.
+- See [docs/trust.md](docs/trust.md).
+
 ## 0.14.1 — 2026-11-04
 
 ### `--version` from the installed package (#69)

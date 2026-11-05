@@ -55,6 +55,12 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   own in a live check. Since 0.13.2 the preview lists every `agents.yaml` edit and
   ends with the complete command you run to apply it.
 
+- **Trust policy (0.15.0, in progress):** `~/.agent-profiles/trust.yaml` names
+  who may approve versions (an OpenSSH `allowed_signers` file), which namespaces
+  and manifest effects are allowed, and whether approvals are required. A
+  project's `.agent-profiles/trust.yaml` can only narrow it. `doctor` reports the
+  policy; signed approvals (`library approve`) and enforcement come next (#71).
+
 Details, the manifest format and limits are in
 [docs/versioned-packages.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/versioned-packages.md#library-browse-search-inspect-and-publish).
 This is phase 2 of the [skill librarian](https://github.com/guisam/Agent-Profiles/issues/38);
