@@ -5,6 +5,7 @@
 // so it cannot drift.
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
+import { describeApproval, versionApproval } from "./approvals.ts";
 import { errorMessage } from "./files.ts";
 import {
 	migrationCandidate,
@@ -28,6 +29,7 @@ import {
 	validateConfiguration,
 } from "./resolve.ts";
 import { listReleaseLabels, releasedPackage } from "./revisions.ts";
+import { loadTrustPolicy } from "./trust.ts";
 
 const MANIFEST = "package.yaml";
 const DOCS = "docs/versioned-packages.md";
@@ -312,6 +314,21 @@ function libraryInfoOperation({
 		);
 	const found = evidence(store, storeRoot, root);
 	const wanted = new Set(versions.map((candidate) => candidate.version));
+	// #71: with a project and a trust policy, each version's approval status.
+	const policy = root === undefined ? null : loadTrustPolicy({ root });
+	const approvals =
+		root === undefined || !policy
+			? null
+			: versions.map((entry) => ({
+					version: entry.version,
+					...versionApproval({
+						root,
+						policy,
+						name,
+						version: entry.version,
+						entry,
+					}),
+				}));
 	return {
 		store,
 		name,
@@ -323,6 +340,7 @@ function libraryInfoOperation({
 			? {}
 			: {
 					project: pinsFor(projectPins(root, storeRoot, name), item, version),
+					approvals,
 				}),
 		problems: [...problems, ...found.problems],
 	};
@@ -803,6 +821,10 @@ export function formatLibraryInfo(
 			lines.push("  Evidence:");
 			for (const row of rows) lines.push(...evidenceLines(row, "    "));
 		} else lines.push("  Evidence: none retained");
+		const approval = result.approvals?.find(
+			(row) => row.version === version.version,
+		);
+		if (approval) lines.push(`  Approval: ${describeApproval(approval)}`);
 		const pin = pinned.get(version.version);
 		if (pin)
 			lines.push(

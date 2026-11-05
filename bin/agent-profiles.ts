@@ -182,6 +182,8 @@ try {
 			"protect-root": { type: "string", multiple: true },
 			sharing: { type: "string" },
 			reason: { type: "string" },
+			key: { type: "string" },
+			principal: { type: "string" },
 		},
 	});
 	let positionals = tokens
@@ -307,6 +309,9 @@ Library (the local store; read-only except publish):
   library info <@namespace/name>[@<version>] [--root <directory>]
                                                Verified details and evidence; --root marks that
                                                project's pins and which evidence it produced
+  library approve <@namespace/name>@<version> [--key <file>] [--principal <id>] [--root <directory>]
+                                               Sign an approval of that version's exact bytes with
+                                               your SSH key (ssh-keygen -Y sign); see docs/trust.md
   library read <@namespace/name>@<version> <path>
                                                One package file, verified first (agents: use this,
                                                not the store folder)
@@ -498,6 +503,10 @@ Examples:
 			search: { count: 3, options: ["store", "json"] },
 			info: { count: 3, options: ["store", "json", "root"] },
 			read: { count: 4, options: ["store", "json"] },
+			approve: {
+				count: 3,
+				options: ["store", "json", "root", "key", "principal"],
+			},
 			evidence: {
 				count: 3,
 				options: ["store", "json", "root", "model", "role", "host"],
@@ -507,7 +516,7 @@ Examples:
 		const shape = Object.hasOwn(shapes, action) ? shapes[action] : undefined;
 		if (!shape || positionals.length !== shape.count)
 			throw new Error(
-				"Usage: agent-profiles library list [--type skill|instruction] | search <text> | info <@namespace/name>[@<version>] [--root <directory>] | read <@namespace/name>@<version> <path> | evidence <@namespace/name>[@<version>] [--model <id>] [--role <id>] [--host <id>] [--root <directory>] | publish <directory> [--store <directory>] [--json]",
+				"Usage: agent-profiles library list [--type skill|instruction] | search <text> | info <@namespace/name>[@<version>] [--root <directory>] | read <@namespace/name>@<version> <path> | approve <@namespace/name>@<version> [--key <file>] [--principal <id>] [--root <directory>] | evidence <@namespace/name>[@<version>] [--model <id>] [--role <id>] [--host <id>] [--root <directory>] | publish <directory> [--store <directory>] [--json]",
 			);
 		for (const option of seen)
 			if (!shape.options.includes(option))
@@ -524,6 +533,25 @@ Examples:
 		} else if (action === "search") {
 			const result = searchLibrary({ storeRoot, text: positionals[2] });
 			print(result, () => formatLibrary(result));
+		} else if (action === "approve") {
+			const spec = positionals[2];
+			const split = spec.lastIndexOf("@");
+			if (split <= 0)
+				throw new Error(
+					"library approve needs an exact version: <@namespace/name>@<version>",
+				);
+			const { approvePackage, formatApproval } = await import(
+				"../src/approvals.ts"
+			);
+			const result = approvePackage({
+				root: realpathSync(values.root ?? findRoot()),
+				storeRoot,
+				name: spec.slice(0, split),
+				version: spec.slice(split + 1),
+				key: values.key,
+				principal: values.principal,
+			});
+			print(result, () => formatApproval(result));
 		} else if (action === "read") {
 			const spec = positionals[2];
 			const split = spec.lastIndexOf("@");

@@ -45,7 +45,7 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   `outdated --check` gives CI the same answer as an exit code.
 
 - **Guardrails (0.12.0):** for Claude Code, `init` denies the library-changing
-  commands to agents (publish, add, install, update, promote, revision record,
+  commands to agents (publish, approve, add, install, update, promote, revision record,
   init, uninstall), so you run those yourself. `update` previews show the exact
   text a new version would inject, as a diff. Deny rules are a guardrail against
   accidents, not a security boundary; signed approvals are planned in #55.
@@ -55,11 +55,15 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   own in a live check. Since 0.13.2 the preview lists every `agents.yaml` edit and
   ends with the complete command you run to apply it.
 
-- **Trust policy (0.15.0, in progress):** `~/.agent-profiles/trust.yaml` names
-  who may approve versions (an OpenSSH `allowed_signers` file), which namespaces
-  and manifest effects are allowed, and whether approvals are required. A
-  project's `.agent-profiles/trust.yaml` can only narrow it. `doctor` reports the
-  policy; signed approvals (`library approve`) and enforcement come next (#71).
+- **Trust policy and approvals (0.15.0–0.16.0, in progress):**
+  - `~/.agent-profiles/trust.yaml` names who may approve versions (an OpenSSH
+    `allowed_signers` file), which namespaces and manifest effects are allowed, and
+    whether approvals are required. A project's `.agent-profiles/trust.yaml` can
+    only narrow it.
+  - `library approve <@ns/name>@<version>` signs an approval of that version's
+    bytes with your SSH key, written under `.agent-profiles/approvals/` to commit.
+  - `info`, `outdated` and `update` previews show approval status.
+  - Enforcement comes next (#71).
 
 Details, the manifest format and limits are in
 [docs/versioned-packages.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/versioned-packages.md#library-browse-search-inspect-and-publish).

@@ -109,7 +109,7 @@ without `--mcp` or `--no-mcp` keeps the installed one. See
    `init` also adds **deny rules** to `permissions.deny` in the same file (#55).
    They cover the commands that change the library, a project's pins or the
    installation itself:
-   - `library publish`, `add`, `install`, `update`;
+   - `library publish`, `library approve`, `add`, `install`, `update`;
    - `migrate promote`, `revision record`;
    - `init`, `uninstall`.
 

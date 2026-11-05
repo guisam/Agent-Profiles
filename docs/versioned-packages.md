@@ -479,6 +479,9 @@ agent-profiles update skills.security-review 2.0.0 --model fictional-small --rol
   after a promotion), `update` says so and writes nothing.
 - In configuration v2, a rule's override is written under `versions`; in v3, it
   is written under `bindings` with `package`, `version` and `revision`.
+- **Approval:** with a [trust policy](trust.md), the preview shows whether the
+  target version has a signed approval (`approval` in `--json`), and `outdated`
+  shows it for each newer version.
 - **Undeclared models:** a rule must name a declared model, so if `--model` isn't
   declared in `models` (it reaches a profile through a family or
   `default_profile`), `update` also declares it, with the profile it resolves to

@@ -6,9 +6,10 @@ A trust policy says which packages may reach a project and who may approve them.
 An approval is an SSH signature over one version's exact bytes. See #55 for the
 threats and #71 for the design.
 
-> **Status (0.15.0):** the policy is read and checked, and `doctor` reports it.
-> Nothing is enforced yet. `library approve` and enforcement in `resolve`,
-> `install` and `update` come next (#71). Projects without a policy are unaffected.
+> **Status (0.16.0):** the policy is read and checked, approvals can be signed
+> and are reported, and `doctor` lists unapproved pins. Nothing is enforced yet:
+> `require_approval` in `resolve`, `install` and `update` comes next (#71).
+> Projects without a policy are unaffected.
 
 ## Policy files
 
@@ -60,6 +61,58 @@ Approvals use the SSH signature format (`ssh-keygen -Y sign`, namespace
 - **Hardware keys need a touch.** A signature from a hardware key must have the
   user-presence flag set. This is stricter than `ssh-keygen -Y verify`, which
   accepts an untouched signature: the touch is what an agent session can't supply.
+
+## Approving a version
+
+```sh
+agent-profiles library approve @ap-live/security-review@1.1.0
+```
+
+This command:
+1. Verifies the version in the library.
+2. Writes `.agent-profiles/approvals/@ap-live/security-review/1.1.0/<principal>.json`
+   with the package, version, object digest, principal and time.
+3. Signs that file with `ssh-keygen -Y sign` using `signing_key` (or `--key`).
+   A hardware key asks for a touch; a passphrase-protected key asks for the
+   passphrase or uses your `ssh-agent`.
+4. Verifies the result as every later check will. If signing or verification
+   fails, nothing is left behind.
+
+Commit both files with the project. Reviewers see the approval in the pull
+request, and CI and teammates verify the same files against their own
+`allowed_signers`.
+
+- **Principal:** taken from the `allowed_signers` line for your key. If the key
+  is listed for more than one principal, or only for patterns, pass
+  `--principal`.
+- **What's approved:** the version's exact object digest. If the library's bytes
+  for that version differ, the approval doesn't count.
+- **Formatting:** the signature covers a canonical form of the JSON, so a project
+  formatter that reflows the file doesn't break it. Changing any value does.
+- **Agents:** `init` denies `library approve` to agents, like the other
+  library-changing commands. The key is the real boundary (see below).
+
+## Approval status
+
+With a trust policy, these show whether a version is approved, by whom, and
+anything that breaks the policy:
+
+| Where | Field in `--json` / MCP |
+| --- | --- |
+| `library info --root <project>` | `approvals` (per version) |
+| `outdated` | `approval` on each newer version |
+| `update` preview and `update_preview` | `approval` for the target version |
+| `doctor` | with `require_approval`, a note for each pinned version that isn't approved |
+
+The status is `approved` when at least one approval file verifies. Files that
+don't count are listed with the reason, never silently ignored:
+- an unknown key or principal;
+- a principal the policy doesn't allow;
+- a changed payload;
+- a different digest;
+- a missing `.sig`.
+
+Without a policy the fields are `null`.
 
 ## Which key to use
 

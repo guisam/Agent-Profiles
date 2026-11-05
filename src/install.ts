@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { approvalStatus, describeApproval } from "./approvals.ts";
 import { readConfiguration } from "./configure.ts";
 import {
 	applyChanges,
@@ -32,9 +33,10 @@ import {
 } from "./integrations.ts";
 import { mcpSetupLines } from "./mcp-setup.ts";
 import { noticeLevel, updateSummary } from "./notice.ts";
+import { outdatedPins } from "./outdated.ts";
 import type { Untyped } from "./packages.ts";
 import { type ResolvedSkill, resolveInstructions } from "./resolve.ts";
-import { trustReport } from "./trust.ts";
+import { loadTrustPolicy, trustReport } from "./trust.ts";
 
 // Sources run from src/; the published build runs from dist/src/.
 const located = ["../", "../../"]
@@ -600,6 +602,27 @@ export function doctor(
 		const trust = trustReport(root);
 		notes.push(...trust.notes);
 		errors.push(...trust.errors);
+		// With require_approval on, each pinned version needs a valid approval (#71).
+		const policy = loadTrustPolicy({ root });
+		if (policy?.requireApproval && resolution) {
+			const seen = new Set<string>();
+			for (const pin of outdatedPins({ root, storeRoot }).pins) {
+				const key = `${pin.package}@${pin.version}`;
+				if (seen.has(key)) continue;
+				seen.add(key);
+				const status = approvalStatus({
+					root,
+					storeRoot,
+					name: pin.package,
+					version: pin.version,
+					policy,
+				});
+				if (status?.status !== "approved")
+					notes.push(
+						`Approval: ${key} is pinned but ${describeApproval(status)}; run agent-profiles library approve ${key}`,
+					);
+			}
+		}
 	} catch (error) {
 		errors.push(`Trust policy: ${errorMessage(error)}`);
 	}
