@@ -90,7 +90,7 @@ and matching version are verified (see
 roles and lets you select required and available local skills. `doctor` answers three
 separate questions: is the configuration valid, can the bootstrap run here, and can
 each role's required host skills belong to every installed host. Actual native
-invocation remains host-controlled. Use `--help` for options; scripts can initialize with
+invocation remains host-controlled. Use `--help` for options and `--version` for the installed version; scripts can initialize with
 `--agent claude --agent codex`. Use `--root` for a directory outside Git.
 
 | Command | Purpose |
