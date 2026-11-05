@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.17.0 — 2026-11-05
+
+### Trust policy enforcement (#71 part 3; completes step 2 of #55)
+
+- **`resolve` withholds packaged skills the policy blocks.** This covers the CLI and
+  the MCP `resolve`/`explain`.
+  - **Always:** a namespace or manifest effect the policy doesn't allow.
+  - **With `require_approval`:** versions without a valid signed approval.
+
+  The profile and role still resolve. Blocked skills leave the required,
+  available and loaded lists, and appear under `withheld` with the reason. The
+  rendered context tells the agent not to look for them elsewhere and to tell the
+  user. Without a policy, the output is unchanged.
+- **`install`** refuses pinned versions the policy blocks, and **`update --apply`**
+  refuses a blocked target. The preview shows `trustBlockers` and "Apply will be
+  refused". `outdated`, `update` and `library info` keep showing configured pins,
+  so blocked versions can still be seen and approved.
+- **Terminal confirmation without a key:** with a policy but no `signing_key`,
+  `update --apply` asks for the first 8 characters of the preview digest, and
+  `library publish` asks for `name@version`. Without a terminal, such as an agent's
+  shell, they refuse.
+- **Docs:** the enforcement table and a migration path for turning on
+  `require_approval` (approve existing pins first). This also records the Windows
+  live check of `library approve`.
+- No configuration, lock or store-format change.
+
 ## 0.16.0 — 2026-11-05
 
 ### Signed approvals (#71 part 2, step 2 of #55)

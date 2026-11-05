@@ -6,10 +6,10 @@ A trust policy says which packages may reach a project and who may approve them.
 An approval is an SSH signature over one version's exact bytes. See #55 for the
 threats and #71 for the design.
 
-> **Status (0.16.0):** the policy is read and checked, approvals can be signed
-> and are reported, and `doctor` lists unapproved pins. Nothing is enforced yet:
-> `require_approval` in `resolve`, `install` and `update` comes next (#71).
-> Projects without a policy are unaffected.
+> **Status (0.17.0):** policy, signed approvals and enforcement are in place
+> (#71). Projects without a policy are unaffected. Checked live on Windows 11
+> with OpenSSH: `library approve` signed with a passphrase-protected Ed25519 key,
+> and `library info` and `doctor` reported the approval.
 
 ## Policy files
 
@@ -113,6 +113,48 @@ don't count are listed with the reason, never silently ignored:
 - a missing `.sig`.
 
 Without a policy the fields are `null`.
+
+## Enforcement
+
+| Command | Always, with a policy | With `require_approval: true` |
+| --- | --- | --- |
+| `resolve` (CLI and MCP) | withholds packaged skills whose namespace or effects the policy doesn't allow | also withholds packaged skills without a valid approval |
+| `install` | refuses pinned versions that break the policy | also refuses unapproved pinned versions |
+| `update --apply` | refuses a target that breaks the policy | also refuses an unapproved target; the preview says so in advance |
+| `update --apply`, `library publish` | without a `signing_key`, ask on a terminal for a short code (see below) | same |
+
+**Withheld skills:**
+- **What changes:** `resolve` still returns the profile and role, so sessions keep
+  working. A withheld skill is left out of the required, available and loaded
+  lists, and listed under `withheld` with the reason (`--json` and MCP).
+- **What the agent sees:** a "Withheld by the trust policy" section. It tells the
+  agent not to look for the skill's text elsewhere, such as the store folder, and
+  to tell you.
+- **What doesn't change:** `outdated`, `update` previews and `library info` still
+  show configured pins, so you can see and approve what's withheld.
+
+**Terminal confirmation without a key:**
+- **When it applies:** a policy exists but names no `signing_key`.
+- **What it asks:** `update --apply` asks you to type the first 8 characters of the
+  preview digest, and `library publish` asks for the package's `name@version`.
+- **Why it slows agents down:** an agent's shell has no terminal, so the command
+  refuses there.
+
+It's a speed bump; signed approvals are the boundary.
+
+### Turning on require_approval
+
+Approve what's already pinned first, or sessions will start without those skills:
+1. With a policy that has `allowed_signers` and `signing_key` but not
+   `require_approval`, run `doctor`.
+2. Temporarily set `require_approval: true`. `doctor` then lists each unapproved
+   pin with the command to approve it.
+3. Run `agent-profiles library approve <@namespace/name>@<version>` for each.
+4. Commit `.agent-profiles/approvals/`.
+5. Run `doctor` again; the approval notes are gone.
+
+To limit `require_approval` to one project, set it in that project's
+`.agent-profiles/trust.yaml` instead of the machine policy.
 
 ## Which key to use
 

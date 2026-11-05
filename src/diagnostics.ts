@@ -400,6 +400,18 @@ export function formatContext(
 		for (const entry of result.unsatisfied)
 			lines.push(`- ${clean(entry.id)}: ${clean(entry.reason)}.`);
 	}
+	if (result.withheld?.length) {
+		lines.push(
+			"",
+			"## Withheld by the trust policy",
+			"",
+			"These skills are configured but were not loaded, because the user's trust policy blocks this version. Don't look for their text elsewhere (such as the store folder) or substitute another skill; tell the user, who can approve a version with `agent-profiles library approve <@namespace/name>@<version>`:",
+		);
+		for (const entry of result.withheld)
+			lines.push(
+				`- ${clean(entry.id)} (${clean(entry.package.name)}@${clean(entry.package.version)}): ${clean(entry.reason)}.`,
+			);
+	}
 	for (const entry of result.loaded) {
 		lines.push(
 			"",

@@ -695,3 +695,12 @@ function installDependenciesOperation({
 
 export const readLockState = inStoreSession(readLockStateOperation);
 export const installDependencies = inStoreSession(installDependenciesOperation);
+
+/** Every package identity the configuration pins (for the trust gate, #71). */
+export function declaredIdentities(root: string, storeRoot?: string) {
+	const validated = validateConfiguration({ root });
+	const v3 = validated.config.get("version") === 3;
+	return [...declared(validated.bindings, v3, storeRoot).wanted.values()].map(
+		({ name, version }) => ({ name, version }),
+	);
+}
