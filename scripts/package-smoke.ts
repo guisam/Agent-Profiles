@@ -309,6 +309,9 @@ try {
 		"mcp",
 	])
 		assert.match(cli(command, "--help"), new RegExp(command));
+	// The installed CLI runs from dist/bin/, not bin/: --version must find the root manifest.
+	for (const flag of ["--version", "-v"])
+		assert.equal(cli(flag).trim(), manifest.version);
 	// The installed `mcp` command answers an MCP initialize over stdio with its
 	// own version, using only the packed runtime dependencies.
 	{

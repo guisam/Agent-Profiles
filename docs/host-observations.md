@@ -245,6 +245,12 @@ recorded a stamp. `resolve --model claude-opus-5-5 --role implementer --host cla
 then listed `@ap-live/security-review@1.1.0` (sha256 `216afc7f…`) with the
 `constrained` profile, now "matched by model" instead of `default_profile`.
 
+Rechecked the store-folder read on 0.14.0, in a new session:
+
+| Check | Observation |
+| --- | --- |
+| "Show me the SKILL.md of version 1.1.0." | Three MCP calls: `resolve`, `library_list`, then `library_read` with `name`, `version: "1.1.0"` and `path: "SKILL.md"`. No directory listing and no shell command. The answer quoted the verified sha256 `216afc7f…` from the `library_read` result |
+
 Not covered: other models.
 
 ## Implications for Phase 2

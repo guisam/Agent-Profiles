@@ -132,6 +132,18 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source patch: 0.14.1 — `--version` from the installed package
+
+The working package version is `0.14.1`, not yet published to npm.
+`npx --no -- agent-profiles --version` failed in 0.13.3 through 0.14.0 from an
+installed package (`ENOENT … dist/package.json`); it now prints the version. In a
+live check on 0.14.0, an agent read a package file with `library_read` instead of
+the store folder.
+
+### Upgrade instructions
+
+No migration.
+
 ## Source feature: 0.14.0 — verified package reads
 
 The working package version is `0.14.0`, not yet published to npm.

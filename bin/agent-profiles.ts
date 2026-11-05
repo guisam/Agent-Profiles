@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
@@ -236,11 +236,15 @@ try {
 				: [],
 		);
 	if (values.version) {
-		console.log(
-			JSON.parse(
-				readFileSync(new URL("../package.json", import.meta.url), "utf8"),
-			).version,
-		);
+		// Sources run from bin/; the published build runs from dist/bin/.
+		const manifest = ["../package.json", "../../package.json"]
+			.map((up) => new URL(up, import.meta.url))
+			.find((url) => existsSync(url));
+		if (!manifest)
+			throw new Error(
+				"Cannot locate the agent-profiles package root (package.json)",
+			);
+		console.log(JSON.parse(readFileSync(manifest, "utf8")).version);
 	} else if (values.help || !command) {
 		console.log(`Usage: agent-profiles <command> [--root <directory>]
 
