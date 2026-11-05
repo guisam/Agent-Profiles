@@ -51,7 +51,8 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   Checked live on Claude Code 2.1.318: an agent's `library publish` was refused
   and `outdated` ran. Shell `update` previews are refused for agents too; agents
   use the MCP `update_preview` tool instead (0.13.0), which an agent chose on its
-  own in a live check.
+  own in a live check. Since 0.13.2 the preview lists every `agents.yaml` edit and
+  ends with the complete command you run to apply it.
 
 Details, the manifest format and limits are in
 [docs/versioned-packages.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/versioned-packages.md#library-browse-search-inspect-and-publish).

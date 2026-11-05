@@ -115,7 +115,10 @@ rules in place (see [librarian tools live check](../host-observations.md#librari
 | A resource read returns a version's `SKILL.md` (`agent-profiles://library/…/1.1.0/SKILL.md`) | verified |
 | `update_preview` for a model that `agents.yaml` doesn't declare (routed by `default_profile`) | failed in 0.13.0 ("not a declared model"); fixed in 0.13.1 by declaring the model with the profile it resolves to now |
 | A bare skill ID (`security-review`) as the binding | failed in 0.13.0 ("is not selected"); 0.13.1 suggests `skills.security-review` |
-| A successful `update_preview` from the agent, end to end | unverified (recheck on 0.13.1) |
+| A successful `update_preview` from the agent, end to end (0.13.1) | verified: scoped to the exact tuple, content diff shown, nothing applied |
+| The agent's summary includes every `agents.yaml` edit | failed in 0.13.1: it left out the model declaration. 0.13.2 lists all edits together; unverified |
+| The agent gives the user a correct apply command | 0.13.1: correct, but rebuilt by the agent ("same command" meant nothing over MCP). 0.13.2 returns the complete `applyCommand`; unverified |
+| Asked to show a version's `SKILL.md`, the agent reads it through the resource | not guaranteed: in a second check it listed the store folder and read the file directly, which skips the resource's object verification |
 
 ## Update notice hook
 
