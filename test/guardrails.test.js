@@ -248,3 +248,44 @@ test("init adds the deny rules for library-changing commands; uninstall removes 
 		{ deny: ["Bash(rm -rf:*)"] },
 	);
 });
+
+// #71: doctor reports the trust policy; a policy that can't verify approvals is an error.
+test("doctor reports the trust policy and its problems", (t) => {
+	const f = v2(t);
+	fs.mkdirSync(path.join(f.root, ".git"));
+	install({ root: f.root, agents: ["claude"], storeRoot: f.store });
+	const trust = path.join(path.dirname(f.root), "trust.yaml");
+	const saved = process.env.AGENT_PROFILES_TRUST;
+	process.env.AGENT_PROFILES_TRUST = trust;
+	t.after(() => {
+		if (saved === undefined) delete process.env.AGENT_PROFILES_TRUST;
+		else process.env.AGENT_PROFILES_TRUST = saved;
+	});
+	const before = doctor(f.root, { storeRoot: f.store });
+	assert.ok(!before.notes.some((n) => /Trust policy/.test(n)));
+
+	fs.writeFileSync(trust, "version: 1\nrequire_approval: true\n");
+	const broken = doctor(f.root, { storeRoot: f.store });
+	assert.equal(broken.valid, false);
+	assert.ok(
+		broken.errors.some((e) =>
+			/Trust policy: require_approval is on but .* no allowed_signers/.test(e),
+		),
+	);
+
+	fs.copyFileSync(
+		new URL("fixtures/trust/allowed_signers", import.meta.url),
+		path.join(path.dirname(trust), "allowed_signers"),
+	);
+	fs.writeFileSync(
+		trust,
+		"version: 1\nrequire_approval: true\nallowed_signers: allowed_signers\n",
+	);
+	const ok = doctor(f.root, { storeRoot: f.store });
+	assert.ok(!ok.errors.some((e) => /Trust policy/.test(e)));
+	assert.ok(
+		ok.notes.some((n) =>
+			/Trust policy: .*require_approval on; 2 allowed signer keys/.test(n),
+		),
+	);
+});

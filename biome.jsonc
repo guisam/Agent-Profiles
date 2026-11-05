@@ -12,7 +12,9 @@
 			"scripts/**",
 			"test/**",
 			"*.json",
-			"!src/visualizer/index.html"
+			"!src/visualizer/index.html",
+			// Signed bytes: formatting would invalidate the signatures.
+			"!test/fixtures/trust"
 		]
 	},
 	"formatter": {
