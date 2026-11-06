@@ -9,9 +9,24 @@ not a new Agent Profiles host adapter.
 
 ## 1. Inspect before installing
 
-Requires Node.js 24 or newer. The current npm release is `@guisam/agent-profiles@0.19.1`. From a
-trusted checkout with dependencies already available, inspection does not require
-installing Agent Profiles in the target project:
+Requires Node.js 24 or newer. For the published-package route, first approve the
+exact package version, registry access and execution. This example uses the
+published `0.19.1`; use the same reviewed version for inspection and installation:
+
+```sh
+npx --yes @guisam/agent-profiles@0.19.1 inspect --root /path/to/project --json
+```
+
+`npx` may download the package and install it into npm's cache. `--yes` suppresses
+npm's download confirmation; it does not replace user approval. This does not add
+a dependency to the target project. `inspect` itself is read-only. Reuse an
+approved available executable when registry access is unavailable. Add `--external`
+only for approved global sources.
+
+### Checkout and packed-artifact alternatives
+
+From a trusted checkout with dependencies already available, inspection also does
+not require installing Agent Profiles in the target project:
 
 ```sh
 node /path/to/Agent-Profiles/bin/agent-profiles.ts inspect --root /path/to/project
@@ -198,17 +213,51 @@ applicable; choosing Codex may add it to `AGENTS.md` or an existing override.
 **Wait for explicit user approval**. The initial prompt is not unrestricted write,
 install, skill-execution, or host-settings permission.
 
+For Claude Code, recommend the MCP handoff (`init --agent claude --mcp`) and
+include project-scoped server registration in the proposal. MCP is optional; keep
+the shell fallback. For other hosts, show their [MCP setup](mcp.md#host-setup)
+and its known limits. In T3 Code, configure the actual provider's host; do not
+assume a successful standalone Claude Code observation proves T3 behavior.
+
+If the user already maintains a shared library, inspect relevant packages with
+`library list` / `library info` (or the MCP equivalents) and propose exact pins
+before creating duplicate skills. Bounded `inspect` does not inventory or verify
+that library. Library adoption remains a separate approved change.
+
 ## 3. Apply only the approved changes
 
 Use existing `init`, the role wizard or its programmatic planner/applier, resolver
-and adapters. For example, after the user approves the chosen adapter and package:
+and adapters. From the target project, after approval of version `0.19.1` and
+Claude Code setup:
 
 ```sh
-node /path/to/Agent-Profiles/bin/agent-profiles.ts init --root /path/to/project --agent hermes --package /absolute/path/guisam-agent-profiles-0.19.1.tgz
+npm install --save-dev --save-exact @guisam/agent-profiles@0.19.1
+npx --no agent-profiles init --agent claude --mcp
+# Separate approved registration; init only prints this setup command:
+claude mcp add --scope project agent-profiles -- npx --no agent-profiles mcp --host claude
 # Interactive alternative for role edits, with its own previews/confirmation:
-node /path/to/Agent-Profiles/bin/agent-profiles.ts configure --root /path/to/project
+npx --no agent-profiles configure
 # Add --external or --sources only when the corresponding discovery was approved.
 ```
+
+Preserve existing MCP entries when adding the server. Claude Code asks each user
+to approve project-scoped servers. Connect/restart the session as needed, then
+verify the actual tool call in section 4. Server registration is not implied by
+`init --mcp` or a successful `doctor` check.
+
+Claude Code's `init` adds command-prefix deny rules for `init`, `uninstall`,
+`add`, `install`, `update`, `library publish`, `library approve`, `migrate promote`
+and `revision record`. Existing installations may already enforce them. Prepare
+blocked commands for the user to run in a terminal; never switch invocation to
+evade a denial. Use MCP `update_preview` for read-only update proposals.
+`npm install` installs the application; `agent-profiles install` locks/imports
+instruction dependencies. They are different operations. These host-specific
+deny rules are guardrails, not filesystem isolation or universal host enforcement.
+
+For a reviewed source build, the alternative remains `init --package
+/absolute/path/guisam-agent-profiles-<reviewed-version>.tgz` from a trusted checkout,
+with the approved host and target root. Do not mix an inspected release with an
+unreviewed installation version.
 
 Select only approved hosts; do not assume every PATH executable should receive an
 integration. `init` seeds an editable example scaffold and preserves existing
@@ -267,8 +316,8 @@ From the target project with the approved package installed:
 ```sh
 npx --no agent-profiles inspect --json
 npx --no agent-profiles doctor
-npx --no agent-profiles proof --host hermes --model '<exact host-stated model ID>' --role reviewer --json
-npx --no agent-profiles resolve --host hermes --model '<exact host-stated model ID>' --identity-source host-stated --role reviewer
+npx --no agent-profiles proof --host claude --model '<exact host-stated model ID>' --role reviewer --json
+npx --no agent-profiles resolve --host claude --model '<exact host-stated model ID>' --identity-source host-stated --role reviewer
 ```
 
 Use the actual approved host and representative configured roles/models. Omit the
@@ -285,6 +334,24 @@ agent compliance. With appropriate permissions, verify the installed managed com
 and use a fresh host context to probe routing/native invocation. Report what was
 observed, which versions/hosts were actually exercised, and what remains unverified.
 Do not reinterpret earlier adapter observations as tests of this session.
+
+For MCP setup, ask the connected agent to call the server's `resolve` tool with
+the intended project root, host, exact host-stated model and assigned role. Check
+that the returned selection and required/available skills match the approved
+configuration. If the tool is unavailable, report MCP setup as unverified even
+if CLI checks pass. Existing bound server instructions may normally avoid a
+redundant resolve call; this explicit call is the connection check during setup.
+
+Bound instructions surviving `/compact` and `/clear` were observed with Claude
+Code and Opus; see the [host record](hosts/claude-code.md). This is not a guarantee
+for other models, hosts or T3 sessions, nor proof of fresh resolution after a model
+change. Follow the bootstrap's re-resolution instructions after context or selector
+changes and report untested lifecycle behavior as unverified.
+
+Finish with optional next steps, not automatic changes: [pin shared library
+skills](versioned-packages.md), use the Claude Code [update notice](versioned-packages.md#update-notice),
+and configure a [trust policy and signed approvals](trust.md). Keep package
+integrity, approval status and measured model effectiveness distinct.
 
 ## 5. Optional reusable preset
 

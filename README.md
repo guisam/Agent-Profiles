@@ -7,33 +7,52 @@ skills. Agent Profiles resolves only the additional context each agent needs.
 
 Copy this into your existing coding agent (including one used through a coding bench):
 
-> Set up Agent Profiles for this repository. First use its read-only `inspect
-> --json` interface to inventory existing agent instructions, project/native skills,
-> configured roles/models, workflow files and the local environment. Ask for any
-> additional read permissions; use `--external` only for approved global sources.
+> Set up Agent Profiles for this repository using Node 24 or newer. Propose an
+> exact published version of `@guisam/agent-profiles` and obtain approval for any
+> registry download and execution. Then run
+> `npx --yes @guisam/agent-profiles@<approved-version> inspect --json` from this
+> repository (or pass `--root <project>`). This prepares the tool in npm's cache
+> if needed, without adding a project dependency. Inventory existing agent
+> instructions, project/native skills, roles, models, workflow files and the
+> environment. Ask for additional read permissions; use `--external` only for
+> approved global sources.
 >
 > Identify the project's actual SDLC authority and recommend a small set of roles
 > and model instruction profiles. For each role, explain required, available and
 > unassigned skills. Preserve independent review and human approval gates; do not
 > invent orchestration. Reuse native references without copying skill bodies.
 > Keep unknown models on the configured fallback and machine-specific facts local.
+> If I already maintain a shared Agent Profiles library, inspect its relevant
+> packages and propose project-specific pins before creating duplicate skills.
 >
-> Show proposed configuration, exact file changes, bootstrap mechanism, dependencies
-> and unverifiable host capabilities. Do not install, execute skills or modify files
-> until I explicitly approve. Propose any restructuring of existing instructions
-> separately; never automatically rewrite or shorten AGENTS.md.
+> Show exact file changes, roles, model mappings, dependencies, and unverified host
+> capabilities. Propose installing the same reviewed version with
+> `npm install --save-dev --save-exact @guisam/agent-profiles@<approved-version>`.
+> For Claude Code, recommend `init --agent claude --mcp` and show the separate
+> project-scoped MCP registration. For other hosts, use their supported setup.
+> Do not install into the project, execute skills or change files until I approve.
+> Preserve existing instructions; only add or refresh the approved managed bootstrap
+> block. Propose any restructuring or shortening of AGENTS.md separately.
 >
-> After approval, use the existing installer and role planner/applier or wizard.
-> Run doctor and representative host/model/role proofs; report measured managed
-> context and what remains unverified. Offer an existing-format preset export only
-> with separate approval, excluding machine-local facts.
+> After approval, use the installer and role planner/applier or wizard. Respect
+> existing permission rules: Claude Code's init adds deny rules for library/pin
+> changes and setup commands, which may already apply. Prepare blocked commands
+> for me to run; do not bypass them with another invocation. Register the approved
+> MCP server separately: init prints setup instructions but does not register it.
+> Have me approve/connect the server and start a fresh session as needed. Run
+> doctor and representative host/model/role proofs, then verify an actual MCP
+> resolve call for the intended project, host, exact model and role. Report measured
+> managed context, live observations and anything unverified. Explain optional next
+> steps: pinned library skills, update notices and trust policy. Offer preset export
+> only with separate approval, excluding machine-local facts.
 
-An agent can run inspection from a trusted checkout
-or a packed package in a separate scratch project **before target installation**;
-see the [setup workflow](docs/setup.md) for commands, inventory limits, approval
-boundaries and programmatic examples. Tool preparation/downloads need their own
-permissions. This prompt is a supported workflow, not a guarantee of every host's
-tools or live behavior. Manual installation remains available below.
+Use the [setup workflow](docs/setup.md) for a pinned npm inspection command,
+inventory limits, MCP registration and verification. Trusted checkout and packed
+artifact workflows remain available for offline or pre-release work. Tool
+preparation/downloads need their own permissions. This prompt is a supported
+workflow, not a guarantee of every host's tools or live behavior. MCP instructions
+surviving compaction or a cleared conversation are host-dependent observations,
+not a guarantee of fresh resolution after a model change.
 
 A shared `AGENTS.md` is useful for repository facts and conventions. But putting
 every model accommodation, job description, and skill into it gives agents
@@ -51,7 +70,7 @@ project. `--package` installs the packed tarball into the project so the bootstr
 command can run there:
 
 ```sh
-node bin/agent-profiles.ts init --root /path/to/project --package ./guisam-agent-profiles-0.13.0.tgz
+node bin/agent-profiles.ts init --root /path/to/project --package ./guisam-agent-profiles-0.19.2.tgz
 node bin/agent-profiles.ts configure --root /path/to/project
 node bin/agent-profiles.ts doctor --root /path/to/project
 node bin/agent-profiles.ts proof --root /path/to/project --role reviewer

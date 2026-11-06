@@ -1,5 +1,27 @@
 # Versioning and upgrades
 
+## Source patch: 0.19.2 — published-package and MCP onboarding
+
+The README's setup prompt and [setup guide](https://github.com/guisam/Agent-Profiles/blob/main/docs/setup.md)
+now lead with version-pinned npm inspection after approval of tool preparation.
+The same reviewed version is installed into the project. Inspection itself is
+read-only; npm can download and install the tool in its cache.
+
+Claude Code setup recommends the optional MCP handoff, followed by separate
+approved server registration and a live `resolve` connection check. Existing deny
+rules remain in force. Compaction/clear observations are host-specific, and CLI
+checks do not establish T3 integration. Existing shared libraries should be
+considered before duplicating skills.
+
+### Upgrade instructions
+
+This is an unpublished documentation patch. The published-package walkthrough
+uses 0.19.1; no installation or configuration change is required for existing
+users. There is no YAML, lock, store, managed-block or bootstrap migration.
+To opt into MCP, review `init --agent <host> --mcp` and the separate host setup
+it prints; preserve existing MCP entries and verify the connection in a fresh
+session. Prepare any host-denied command for the user to run in a terminal.
+
 Use the application version to identify a completed task's changes. The version is stored in `package.json`; keep the root package versions in `package-lock.json` synchronized.
 
 ## Choose the task's version bump
