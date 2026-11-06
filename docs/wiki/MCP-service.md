@@ -28,6 +28,10 @@ operations to MCP hosts over stdio, alongside the CLI.
   opening files in the store folder, where nothing verifies them.
 - **Read-only, as an invariant (0.12.0):** no write tools will be added to this
   server. Publishing, updating and promoting stay commands a person runs.
+- **Session records (0.18.0):** with `--record-sessions`, the server records each
+  resolution (stamp digest, model, role, client, package versions, withheld
+  skills) under `~/.agent-profiles/sessions/` only. `agent-profiles sessions`
+  lists them. Off by default.
 - **Optional:** removing the server changes nothing else.
 
 Setup per host, the tool reference and verified behavior are in

@@ -214,6 +214,10 @@ try {
 			sharing: { type: "string" },
 			reason: { type: "string" },
 			key: { type: "string" },
+			"record-sessions": { type: "boolean" },
+			"record-session": { type: "boolean" },
+			limit: { type: "string" },
+			all: { type: "boolean" },
 			principal: { type: "string" },
 		},
 	});
@@ -354,8 +358,15 @@ Library (the local store; read-only except publish):
 MCP service (stdio; stdout carries the protocol):
   mcp [--root <directory>] [--store <directory>] [--host <id>] [--model <id>] [--family <id>]
       [--identity-source host|host-stated|user] [--role <id>]
+      [--record-sessions]
       Tools: resolve, explain, verify, diff, report (all read-only). With --model or --role,
-      the server's instructions carry the resolved profile for that session.
+      the server's instructions carry the resolved profile for that session. With
+      --record-sessions, each resolution is recorded under ~/.agent-profiles/sessions/.
+
+Session records (machine-local; see docs/sessions.md):
+  sessions [--root <directory>] [--all] [--limit <n>] [--json]
+      Which stamp, model, role, host and package versions each recorded session ran.
+      resolve --record-session records a CLI resolution the same way.
 
 Setup inventory (works before init, including an empty/non-Git --root):
   inspect [--json] [--external] [--sources <approved-roots-json>]
@@ -403,6 +414,7 @@ Examples:
 			"family",
 			"identity-source",
 			"role",
+			"record-sessions",
 		];
 		for (const option of seen)
 			if (!allowed.includes(option))
@@ -426,6 +438,7 @@ Examples:
 				| "user"
 				| undefined,
 			role: values.role?.[0],
+			recordSessions: values["record-sessions"] === true,
 		});
 	} else if (command === "notice") {
 		// Session-start notice. With --hook claude it never fails and prints only a
@@ -459,6 +472,26 @@ Examples:
 					: result.lines.join("\n") || `No notice (${result.reason}).`,
 			);
 		}
+	} else if (command === "sessions") {
+		// #38 phase 7: machine-local session records (read-only).
+		if (positionals.length !== 1)
+			throw new Error(
+				"Usage: agent-profiles sessions [--root <directory>] [--all] [--limit <n>] [--json]",
+			);
+		for (const option of seen)
+			if (!["root", "json", "limit", "all"].includes(option))
+				throw new Error(`--${option} is not supported by sessions`);
+		const limit = values.limit === undefined ? 20 : Number(values.limit);
+		if (!Number.isInteger(limit) || limit < 1)
+			throw new Error("--limit expects a positive whole number");
+		const { formatSessions, listSessions } = await import("../src/sessions.ts");
+		const result = listSessions({
+			root: values.all ? undefined : realpathSync(values.root ?? findRoot()),
+			limit,
+		});
+		console.log(
+			values.json ? JSON.stringify(result, null, 2) : formatSessions(result),
+		);
 	} else if (command === "outdated" || command === "update") {
 		const update = command === "update";
 		if (positionals.length !== (update ? 3 : 1))
@@ -733,10 +766,12 @@ Examples:
 			].includes(command)
 		)
 			throw new Error(
-				"Choose one command: inspect, init, configure, skills, doctor, uninstall, resolve, preset, proof, visualize, add, install, stamp, verify, diff, materialize, library, outdated, update, notice, mcp",
+				"Choose one command: inspect, init, configure, skills, doctor, uninstall, resolve, preset, proof, visualize, add, install, stamp, verify, diff, materialize, library, outdated, update, notice, mcp, sessions",
 			);
 		if (values.package !== undefined && command !== "init")
 			throw new Error("--package is only supported by init");
+		if (values["record-session"] && command !== "resolve")
+			throw new Error("--record-session is only supported by resolve");
 		if ((values.mcp || values["no-mcp"]) && command !== "init")
 			throw new Error("--mcp and --no-mcp are only supported by init");
 		if (values.mcp && values["no-mcp"])
@@ -1159,6 +1194,14 @@ Examples:
 			process.once("SIGTERM", stop);
 		} else if (command === "resolve") {
 			const result = resolveInstructions(selectors);
+			if (values["record-session"]) {
+				const { createSessionRecorder } = await import("../src/sessions.ts");
+				const { ownVersion } = await import("../src/install.ts");
+				createSessionRecorder({
+					source: "cli",
+					agentProfiles: ownVersion,
+				}).record("cli", { ...selectors, root }, result);
+			}
 			console.log(
 				values.json
 					? JSON.stringify(resolutionOutput(result, values.contents), null, 2)

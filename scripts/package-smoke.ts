@@ -206,6 +206,8 @@ try {
 		"docs/mcp.md",
 		"src/trust.js",
 		"src/approvals.js",
+		"src/sessions.js",
+		"docs/sessions.md",
 		"docs/trust.md",
 		"examples/presets/release-review/preset.yaml",
 		...versionedFiles,
