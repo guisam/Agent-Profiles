@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.18.0 — 2026-11-05
+
+### Session records (#38 phase 7)
+
+- **`mcp --record-sessions`:** each resolution the server makes is written to a
+  machine-local record. That covers the bound instructions at start and every
+  `resolve` or `explain` call. A record holds:
+  - the stamp digest;
+  - model, role, host, project and profile;
+  - the MCP client's name and version;
+  - the selected package versions and digests;
+  - skills the trust policy withheld.
+
+  One record file per server process. Records go only to
+  `~/.agent-profiles/sessions/` (or `AGENT_PROFILES_SESSIONS`), never to the project
+  or store. This is the one opt-in exception to the MCP server's read-only rule,
+  and a test checks the repository, store and home stay unchanged.
+- **`resolve --record-session`** records a CLI resolution the same way.
+- **`agent-profiles sessions [--root] [--all] [--limit] [--json]`** lists records,
+  newest first.
+- Recording never fails a resolution: an unwritable folder gives one warning.
+- See [docs/sessions.md](docs/sessions.md). Off by default; nothing changes
+  without the flags.
+
 ## 0.17.0 — 2026-11-05
 
 ### Trust policy enforcement (#71 part 3; completes step 2 of #55)

@@ -237,8 +237,9 @@ the resolved profile in its MCP instructions. It is optional and never writes
 files. `init --mcp` makes the managed block hand off to the server's `resolve`
 tool, with the shell command as the fallback, and prints the host setup to add.
 The server also picks the project from the host's workspace roots and puts the
-session's stamp digest in its instructions. Available from source (0.5.0–0.7.0;
-not yet published to npm). See
+session's stamp digest in its instructions. With `--record-sessions`, it keeps
+machine-local [session records](docs/sessions.md) of what each session resolved.
+Available from source (0.5.0–0.7.0; not yet published to npm). See
 [MCP service](docs/mcp.md) for host setup and verified behavior.
 
 ## Use with Harness²

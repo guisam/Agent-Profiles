@@ -40,6 +40,7 @@ import {
 } from "./outdated.ts";
 import { type ResolveOptions, resolveInstructions } from "./resolve.ts";
 import { findRoot } from "./root.ts";
+import { createSessionRecorder } from "./sessions.ts";
 import { diffStamps, previewStamp, verifyStamp } from "./stamps.ts";
 
 export type McpOptions = {
@@ -55,6 +56,8 @@ export type McpOptions = {
 	role?: string;
 	/** Working directory used when no root is given (tests pass their own). */
 	cwd?: string;
+	/** #38 phase 7: write a machine-local session record of each resolution. */
+	recordSessions?: boolean;
 };
 
 type ToolResult = {
@@ -185,7 +188,7 @@ function selectors(
 	options: McpOptions,
 	args: Selection,
 	workspace?: string,
-): ResolveOptions {
+): ResolveOptions & { root: string } {
 	return {
 		root: projectRoot(options, args.root, workspace),
 		storeRoot: options.storeRoot,
@@ -256,6 +259,29 @@ export function createServer(options: McpOptions = {}): McpServer {
 		{ name: "agent-profiles", version: ownVersion },
 		{ instructions: serverInstructions(options) },
 	);
+	// Session records (#38 phase 7) go only to the machine-local sessions folder.
+	const recorder = options.recordSessions
+		? createSessionRecorder({ source: "mcp", agentProfiles: ownVersion })
+		: null;
+	const client = () => {
+		const info = server.server.getClientVersion();
+		return info ? { name: info.name, version: info.version } : null;
+	};
+	const resolved = (
+		via: "resolve" | "explain",
+		selected: ResolveOptions & { root: string },
+	) => {
+		const result = resolveInstructions(selected);
+		recorder?.record(via, selected, result, client());
+		return result;
+	};
+	if (recorder && (options.model !== undefined || options.role !== undefined))
+		try {
+			const selected = selectors(options, {});
+			recorder.record("bound", selected, resolveInstructions(selected));
+		} catch {
+			// The instructions already report a failed bound resolution.
+		}
 
 	// Tools that select a project ask the host for its workspace roots only when
 	// neither a root argument nor --root names one and the client offers roots.
@@ -298,7 +324,7 @@ export function createServer(options: McpOptions = {}): McpServer {
 		withProject((args, workspace) =>
 			text(
 				formatContext(
-					resolveInstructions(selectors(options, args, workspace)),
+					resolved("resolve", selectors(options, args, workspace)),
 					{ invocation: "mcp" },
 				),
 			),
@@ -317,7 +343,7 @@ export function createServer(options: McpOptions = {}): McpServer {
 		withProject((args, workspace) =>
 			json(
 				resolutionOutput(
-					resolveInstructions(selectors(options, args, workspace)),
+					resolved("explain", selectors(options, args, workspace)),
 				),
 			),
 		),

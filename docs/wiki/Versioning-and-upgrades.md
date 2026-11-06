@@ -132,6 +132,26 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source feature: 0.18.0 — session records
+
+The working package version is `0.18.0`, not yet published to npm. Start the MCP
+server with `--record-sessions` (or run `resolve --record-session`), and each
+resolution is recorded under `~/.agent-profiles/sessions/`:
+- the stamp digest;
+- model, role, host and project;
+- the client;
+- package versions;
+- withheld skills.
+
+`agent-profiles sessions` lists the records. Tracking: #38 (phase 7).
+
+### Upgrade instructions
+
+No configuration YAML, lock, stamp or store-format change; off by default. To turn
+it on for Claude Code, add `"--record-sessions"` to the `agent-profiles` server's
+`args` in `.mcp.json`. See
+[docs/sessions.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/sessions.md).
+
 ## Source feature: 0.17.0 — trust policy enforcement
 
 The working package version is `0.17.0`, not yet published to npm. Under a trust

@@ -25,6 +25,7 @@ The server uses the official MCP TypeScript SDK v2
 agent-profiles mcp [--root <directory>] [--store <directory>] [--host <id>]
                    [--model <id>] [--family <id>]
                    [--identity-source host|host-stated|user] [--role <id>]
+                   [--record-sessions]
 ```
 
 - stdout carries the protocol; diagnostics go to stderr.
@@ -34,6 +35,8 @@ agent-profiles mcp [--root <directory>] [--store <directory>] [--host <id>]
   cannot choose a store.
 - `--host`, `--model`, `--family`, `--identity-source`, `--role`: session
   defaults. Each tool call may override them.
+- `--record-sessions`: write a machine-local [session record](sessions.md) of
+  each resolution. Off by default.
 
 ## Choosing the project
 
@@ -244,6 +247,9 @@ scope changes every project for that user; choose that explicitly.
   person runs. No write tool will be added to this server. Any future write tool
   would need a separate, off-by-default command, never the default server. A test
   checks that no tool changes the repository, the store or the home directory.
+  The one opt-in exception is `--record-sessions` (#38 phase 7). It writes
+  [session records](sessions.md), and only under `~/.agent-profiles/sessions/`;
+  a test checks the repository, store and home stay unchanged with it on.
 - Workspace roots are read only by `resolve` and `explain`, once per call; bound
   instructions do not use them.
 - The bound stamp digest is not retained: the server never writes, so `verify`
