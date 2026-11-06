@@ -347,6 +347,10 @@ Library (the local store; read-only except publish):
   library approve <@namespace/name>@<version> [--key <file>] [--principal <id>] [--root <directory>]
                                                Sign an approval of that version's exact bytes with
                                                your SSH key (ssh-keygen -Y sign); see docs/trust.md
+  library lint <@namespace/name>@<version>
+                                               Heuristic warnings for text that looks like prompt
+                                               injection (never blocks); also shown by publish and
+                                               update previews
   library read <@namespace/name>@<version> <path>
                                                One package file, verified first (agents: use this,
                                                not the store folder)
@@ -573,6 +577,7 @@ Examples:
 			search: { count: 3, options: ["store", "json"] },
 			info: { count: 3, options: ["store", "json", "root"] },
 			read: { count: 4, options: ["store", "json"] },
+			lint: { count: 3, options: ["store", "json"] },
 			approve: {
 				count: 3,
 				options: ["store", "json", "root", "key", "principal"],
@@ -586,7 +591,7 @@ Examples:
 		const shape = Object.hasOwn(shapes, action) ? shapes[action] : undefined;
 		if (!shape || positionals.length !== shape.count)
 			throw new Error(
-				"Usage: agent-profiles library list [--type skill|instruction] | search <text> | info <@namespace/name>[@<version>] [--root <directory>] | read <@namespace/name>@<version> <path> | approve <@namespace/name>@<version> [--key <file>] [--principal <id>] [--root <directory>] | evidence <@namespace/name>[@<version>] [--model <id>] [--role <id>] [--host <id>] [--root <directory>] | publish <directory> [--store <directory>] [--json]",
+				"Usage: agent-profiles library list [--type skill|instruction] | search <text> | info <@namespace/name>[@<version>] [--root <directory>] | read <@namespace/name>@<version> <path> | lint <@namespace/name>@<version> | approve <@namespace/name>@<version> [--key <file>] [--principal <id>] [--root <directory>] | evidence <@namespace/name>[@<version>] [--model <id>] [--role <id>] [--host <id>] [--root <directory>] | publish <directory> [--store <directory>] [--json]",
 			);
 		for (const option of seen)
 			if (!shape.options.includes(option))
@@ -622,6 +627,26 @@ Examples:
 				principal: values.principal,
 			});
 			print(result, () => formatApproval(result));
+		} else if (action === "lint") {
+			const spec = positionals[2];
+			const split = spec.lastIndexOf("@");
+			if (split <= 0)
+				throw new Error(
+					"library lint needs an exact version: <@namespace/name>@<version>",
+				);
+			const { lintLibraryVersion } = await import("../src/library.ts");
+			const { formatLint } = await import("../src/lint.ts");
+			const result = lintLibraryVersion({
+				storeRoot,
+				name: spec.slice(0, split),
+				version: spec.slice(split + 1),
+			});
+			print(result, () =>
+				[
+					`${result.name}@${result.version} sha256 ${result.sha256}`,
+					...formatLint(result.findings),
+				].join("\n"),
+			);
 		} else if (action === "read") {
 			const spec = positionals[2];
 			const split = spec.lastIndexOf("@");
@@ -676,10 +701,12 @@ Examples:
 				storeRoot,
 				sourceDirectory: positionals[2],
 			});
-			print(
-				result,
-				() =>
+			const { formatLint } = await import("../src/lint.ts");
+			print(result, () =>
+				[
 					`${result.status === "reused" ? "Already in the library" : "Published"}: ${result.identity.name}@${result.identity.version} sha256 ${result.sha256}`,
+					...formatLint(result.lint),
+				].join("\n"),
 			);
 		}
 	} else {

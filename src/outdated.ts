@@ -14,8 +14,10 @@ import { exactRule } from "./binding-target.ts";
 import { type FileDiff, packageDiff } from "./content-diff.ts";
 import { applyChanges, errorMessage, readLocal } from "./files.ts";
 import { libraryEvidence, libraryInfo } from "./library.ts";
+import { formatLint, lintPackage, newFindings } from "./lint.ts";
 import { installDependencies, readLockState } from "./package-lock.ts";
 import { inStoreSession, lookupPackage } from "./package-store.ts";
+import { parseManifest } from "./packages.ts";
 import {
 	packageReferences,
 	parseYaml,
@@ -450,6 +452,37 @@ function planUpdate(input: UpdateInput) {
 					versionFiles(storeRoot, name, version, found.revisionDigest),
 					{ fromLabel: current.version, toLabel: version },
 				);
+	// #55 step 3: heuristic warnings on the target's text, marked new or carried over.
+	const lint = (() => {
+		const targetFiles = versionFiles(
+			storeRoot,
+			name,
+			version,
+			found.revisionDigest,
+		);
+		const effects = parseManifest(
+			targetFiles.find((file) => file.path === "package.yaml")?.bytes ??
+				Buffer.from(""),
+		).behavior.effects;
+		const after = lintPackage(targetFiles, effects);
+		if (current.version === version)
+			return after.map((f) => ({ ...f, new: false }));
+		const currentFiles = versionFiles(
+			storeRoot,
+			name,
+			current.version,
+			current.revisionDigest,
+		);
+		const before = lintPackage(
+			currentFiles,
+			parseManifest(
+				currentFiles.find((file) => file.path === "package.yaml")?.bytes ??
+					Buffer.from(""),
+			).behavior.effects,
+		);
+		const fresh = new Set(newFindings(before, after));
+		return after.map((f) => ({ ...f, new: fresh.has(f) }));
+	})();
 	const digest = previewDigest(configBytes, lockBytes, input);
 	const base = {
 		root,
@@ -457,6 +490,8 @@ function planUpdate(input: UpdateInput) {
 		/** The full apply command for a person to run; every argument filled in. */
 		applyCommand: applyCommand(input, root, digest),
 		contentDiff,
+		/** Heuristic warnings on the target version's text (#55 step 3); never blocks. */
+		lint,
 		/** Set when the target model was undeclared: the models entry the edit adds. */
 		declaredModel,
 		/** #71: the target version's approval status; null without a trust policy. */
@@ -755,6 +790,7 @@ export function formatUpdate(
 			if (file.diff)
 				lines.push(...file.diff.split("\n").map((line) => `      ${line}`));
 		}
+		lines.push(...formatLint(result.lint));
 	}
 	if (result.status === "updated")
 		lines.push(`  Lock refreshed; stamp sha256 ${result.stampDigest}`);

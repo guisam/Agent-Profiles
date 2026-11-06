@@ -132,6 +132,20 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## Source feature: 0.19.0 — instruction lint
+
+The working package version is `0.19.0`, not yet published to npm. `library
+publish`, `update` previews (and the MCP `update_preview`), and the new `library
+lint <@namespace/name>@<version>` flag text that looks like prompt injection:
+hidden characters, "ignore previous instructions", "don't tell the user", sending
+secrets somewhere, piping a download to a shell, and similar. These are
+heuristics: they never block. Tracking: #55 (step 3).
+
+### Upgrade instructions
+
+No configuration YAML, lock, stamp or store-format change; no migration.
+`library publish --json` gains a `lint` field, and update previews gain `lint`.
+
 ## Source feature: 0.18.0 — session records
 
 The working package version is `0.18.0`, not yet published to npm. Start the MCP
