@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.19.2 — 2026-11-06
+
+### Published-package and MCP onboarding
+
+- Refresh the README setup prompt and setup guide with approved, version-pinned
+  npm inspection and installation, while retaining checkout/artifact alternatives.
+- Separate MCP handoff from server registration and require an actual connection
+  check; qualify compaction observations and T3/provider behavior.
+- Explain existing deny rules, shared-library reuse and optional trust/update
+  steps without changing permissions or automatically adopting packages.
+- Documentation only; no configuration, lock, store or bootstrap migration.
+
 ## 0.19.1 — 2026-11-06
 
 ### Release preparation: the first npm release since 0.4.1
