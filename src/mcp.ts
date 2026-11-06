@@ -48,7 +48,7 @@ export type McpOptions = {
 	root?: string;
 	/** Package store; tools never choose a store. */
 	storeRoot?: string;
-	/** Session defaults; a tool call may override each one. */
+	/** Session binding; a tool call may repeat a bound value but not replace it (#80). */
 	host?: string;
 	model?: string;
 	family?: string;
@@ -189,6 +189,22 @@ function selectors(
 	args: Selection,
 	workspace?: string,
 ): ResolveOptions & { root: string } {
+	// A bound server's selectors are the operator's choice: an agent's own guess must not replace them (#80).
+	for (const key of [
+		"host",
+		"model",
+		"family",
+		"identitySource",
+		"role",
+	] as const)
+		if (
+			options[key] !== undefined &&
+			args[key] !== undefined &&
+			args[key] !== options[key]
+		)
+			throw new Error(
+				`this server is bound to ${key} ${JSON.stringify(options[key])}; omit ${key}, or ask the user to start a server bound to ${JSON.stringify(args[key])}`,
+			);
 	return {
 		root: projectRoot(options, args.root, workspace),
 		storeRoot: options.storeRoot,
@@ -201,29 +217,47 @@ function selectors(
 	};
 }
 
+const LIBRARY =
+	"Library tools (`library_list`, `library_search`, `library_info`, `library_read`, `library_evidence`, `outdated`, `update_preview`) only read. Read package files with `library_read` or the `agent-profiles://library` resources, which verify the package first; don't open files in the store folder directly, since nothing verifies them there. To change a pin, show the user the `update_preview` result, including every entry in its `edits` list (not only the rule), and give them its `applyCommand` exactly as returned to run themselves.";
+
+// Shared by bound and unbound sessions: the instructions never carry the profile itself (#80).
+// Hosts truncate server instructions (Claude Code cut them inside the first skill), so only
+// `resolve` output, which ends with a checkable final line, counts as delivery.
+const RETRIEVE = [
+	"These instructions do not contain your profile, role or skills. Call `resolve` before any role work, and again after `/clear`, context compaction, or a model or role change. Every tool is read-only.",
+	"If `resolve` is unavailable or fails, or its output lacks its final `End of Agent Profiles context:` line, tell the user Agent Profiles setup is incomplete instead of starting role work.",
+];
+
 const UNBOUND = [
 	"# Agent Profiles",
 	"",
 	"This server selects repository instructions and skills by model, role and host.",
-	"Before starting work, call the `resolve` tool with your exact model ID (and `role`, if you were assigned one), then follow its output.",
-	"Call `resolve` again after context compaction or a model or role change. Every tool is read-only.",
-	"Library tools (`library_list`, `library_search`, `library_info`, `library_read`, `library_evidence`, `outdated`, `update_preview`) only read. Read package files with `library_read` or the `agent-profiles://library` resources, which verify the package first; don't open files in the store folder directly, since nothing verifies them there. To change a pin, show the user the `update_preview` result, including every entry in its `edits` list (not only the rule), and give them its `applyCommand` exactly as returned to run themselves.",
+	"Call the `resolve` tool with your exact model ID (and `role`, if you were assigned one), then follow its output.",
+	...RETRIEVE,
+	LIBRARY,
 ].join("\n");
 
 /**
- * Server instructions: the rendered profile when the session is bound to a model,
- * otherwise a pointer to the `resolve` tool. Never throws; a failed resolution is reported.
+ * Server instructions: a short retrieval bootstrap. A bound session names its selection
+ * and stamp but never embeds resolved text. Never throws; a failed resolution is reported.
  */
 export function serverInstructions(options: McpOptions): string {
 	if (options.model === undefined && options.role === undefined) return UNBOUND;
 	try {
 		const selected = selectors(options, {});
-		const result = resolveInstructions(selected);
+		resolveInstructions(selected); // validates the binding; the text is not embedded
+		const bound = [
+			selected.host && `host ${selected.host}`,
+			selected.model && `model ${selected.model}`,
+			selected.role && `role ${selected.role}`,
+		].filter(Boolean);
 		return [
-			"Agent Profiles resolved this session's profile when the server started. Follow it as if you had called `resolve`; do not call it again unless the context was compacted or your model or role changed.",
+			`# Agent Profiles (bound: ${bound.join(", ")})`,
 			stampLine(selected),
 			"",
-			formatContext(result, { invocation: "mcp" }),
+			"This server is bound to the selection above. Call the `resolve` tool without repeating the bound values; add your exact model ID only when no model is bound. Values that conflict with the binding are refused.",
+			...RETRIEVE,
+			LIBRARY,
 		].join("\n");
 	} catch (error) {
 		return `${UNBOUND}\n\nResolution at server start failed: ${errorMessage(error)}`;

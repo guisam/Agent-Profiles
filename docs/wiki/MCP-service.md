@@ -7,7 +7,8 @@ operations to MCP hosts over stdio, alongside the CLI.
   CLI equivalent and none writes files.
 - **No shell permission needed** for `resolve`, unlike the Bash bootstrap.
 - **Session instructions:** started with `--model` or `--role`, the server's MCP
-  instructions carry the resolved profile for that session.
+  instructions name the bound selection and stamp. Since 0.19.3 they never carry
+  the profile itself; the agent must call `resolve` (#80).
 - **Block handoff (0.6.0):** `init --mcp` makes the managed block call the
   server's `resolve` tool when it is connected, with the shell command as the
   fallback, and prints the host setup to add. `doctor` reports it.
@@ -18,6 +19,11 @@ operations to MCP hosts over stdio, alongside the CLI.
   without shell permission rules, the agent followed the `init --mcp` handoff,
   Claude Code offered workspace roots, and bound instructions survived
   `/compact` and `/clear`. Other models and hosts are not yet checked.
+- **Truncation-safe delivery (0.19.3, #80):** hosts truncated large bound
+  instructions, so they became a short bootstrap. Every `resolve` output ends
+  with an `End of Agent Profiles context:` line that the agent checks; bound
+  servers refuse conflicting selectors; the managed block is protocol 3, so run
+  `init` after upgrading.
 - **Librarian tools (0.13.0):** `library_list`, `library_search`, `library_info`,
   `library_evidence`, `outdated` and `update_preview` let an agent browse the
   library, check evidence and preview an update without a shell. Package files

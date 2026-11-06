@@ -1,4 +1,4 @@
-<!-- agent-profiles:protocol 2. Managed reference: agent-profiles init replaces local edits. -->
+<!-- agent-profiles:protocol 3. Managed reference: agent-profiles init replaces local edits. -->
 # Agent Profiles routing
 
 This file documents the protocol for people and host integrations. Agents do not
@@ -33,6 +33,11 @@ run the resolver, which performs every routing decision in code.
    instructions in that context.
 6. If `resolve` fails, the agent reports the error. It does not read
    `.agent-profiles/` to route by hand.
+7. The output ends with a line starting `End of Agent Profiles context:`. If that
+   line is missing, the output was cut short (hosts truncate long instructions and
+   tool output); the agent reports incomplete setup instead of doing role work.
+   An MCP server's instructions never carry the profile, even when the server is
+   bound to a model and role; only `resolve` output does.
 
 ## What each mode can guarantee
 

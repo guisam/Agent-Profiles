@@ -10,6 +10,7 @@ import {
 	readFileSync,
 	rmSync,
 	statSync,
+	writeFileSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -178,11 +179,65 @@ test("unbound instructions point to the resolve tool", async (t) => {
 	const f = fixture(t);
 	const client = await connect(f, ["--root", f.root]);
 	const instructions = client.getInstructions();
-	assert.match(instructions, /call the `resolve` tool/);
+	assert.match(instructions, /Call the `resolve` tool/);
+	assert.match(instructions, /do not contain your profile/);
 	assert.doesNotMatch(instructions, /# Agent Profiles context/);
 });
 
-test("bound instructions carry the session's resolved profile", async (t) => {
+// #80: hosts truncate server instructions (Claude Code cut a bound payload inside its
+// first skill), so bound instructions stay a short bootstrap however large the profile.
+test("bound instructions stay compact, embed no resolved text and require resolve", async (t) => {
+	const f = fixture(t);
+	const role = path.join(f.root, ".agent-profiles/roles/reviewer.md");
+	const tail = "Final reviewer sentence: report every verification step.";
+	writeFileSync(
+		role,
+		`${readFileSync(role, "utf8")}\n${"Check each claim against the code.\n".repeat(700)}${tail}\n`,
+	);
+	const args = [
+		"--root",
+		f.root,
+		"--model",
+		"example-model",
+		"--role",
+		"reviewer",
+	];
+	const client = await connect(f, args);
+	const instructions = client.getInstructions();
+	assert.ok(
+		Buffer.byteLength(instructions) < 2048,
+		`${Buffer.byteLength(instructions)} bytes`,
+	);
+	assert.match(
+		instructions,
+		/^# Agent Profiles \(bound: model example-model, role reviewer\)/,
+	);
+	assert.doesNotMatch(
+		instructions,
+		/# Agent Profiles context|Check each claim|do not call it again/,
+	);
+	assert.match(
+		instructions,
+		/Call `resolve` before any role work, and again after `\/clear`/,
+	);
+	assert.match(
+		instructions,
+		/lacks its final `End of Agent Profiles context:` line/,
+	);
+
+	// Delivery is the resolve output: complete, and ending with its checkable final line.
+	const result = await client.callTool({ name: "resolve", arguments: {} });
+	assert.ok(!result.isError, textOf(result));
+	const body = textOf(result);
+	assert.ok(body.length > 20000, String(body.length));
+	assert.ok(body.includes(tail));
+	assert.match(
+		body.split("\n").at(-1),
+		/^End of Agent Profiles context: \d+ section\(s\): .* reviewer,/,
+	);
+});
+
+test("a bound server refuses selectors that conflict with its binding", async (t) => {
 	const f = fixture(t);
 	const client = await connect(f, [
 		"--root",
@@ -192,17 +247,26 @@ test("bound instructions carry the session's resolved profile", async (t) => {
 		"--role",
 		"reviewer",
 	]);
-	const expected = formatContext(
-		resolveInstructions({
-			root: f.root,
-			model: "example-model",
-			role: "reviewer",
-		}),
-		{ invocation: "mcp" },
-	);
-	const instructions = client.getInstructions();
-	assert.ok(instructions.endsWith(expected));
-	assert.match(instructions, /do not call it again unless/);
+	for (const name of ["resolve", "explain"]) {
+		const same = await client.callTool({
+			name,
+			arguments: { model: "example-model", role: "reviewer" },
+		});
+		assert.ok(!same.isError, textOf(same));
+		const other = await client.callTool({
+			name,
+			arguments: { role: "implementer" },
+		});
+		assert.ok(other.isError, name);
+		assert.match(textOf(other), /bound to role "reviewer"; omit role/);
+	}
+	// An unbound selector stays the agent's to supply.
+	const roleOnly = await connect(f, ["--root", f.root, "--role", "reviewer"]);
+	const supplied = await roleOnly.callTool({
+		name: "resolve",
+		arguments: { model: "example-model" },
+	});
+	assert.ok(!supplied.isError, textOf(supplied));
 });
 
 test("a failed bound resolution is reported in the instructions, not a crash", async (t) => {

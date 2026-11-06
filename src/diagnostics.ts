@@ -381,6 +381,7 @@ export function formatContext(
 		...(result.repository.exists && reminder ? [reminder] : []),
 		"This output supersedes Agent Profiles profile, role, and skill instructions from any earlier run in this context,",
 		"including copies your host re-attached after compaction.",
+		`It ends with a line starting \`${END_OF_CONTEXT}\`. If that line is missing, this output was cut short: tell the user Agent Profiles setup is incomplete and do no role work from the partial text.`,
 	];
 	const titles: Record<string, string> = {
 		profile: "Profile",
@@ -480,6 +481,12 @@ export function formatContext(
 						? "- to change role, with `role`; a new session gives a cleaner transition."
 						: "- to change role, with `--role <id>`; a new session gives a cleaner transition.",
 				]),
+		"",
+		// Last line on purpose (#80): its absence is the agent's only truncation signal.
+		`${END_OF_CONTEXT} ${result.loaded.length} section(s): ${result.loaded.map((entry: Untyped) => clean(entry.id)).join(", ")}.`,
 	);
 	return lines.join("\n");
 }
+
+/** Opens the final line of every resolve output; a missing line means truncated delivery (#80). */
+export const END_OF_CONTEXT = "End of Agent Profiles context:";

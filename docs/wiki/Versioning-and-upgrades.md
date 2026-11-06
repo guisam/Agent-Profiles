@@ -1,5 +1,46 @@
 # Versioning and upgrades
 
+## Source patch: 0.19.3 — truncation-safe MCP startup instructions (#80)
+
+Bound MCP servers (`agent-profiles mcp --model … --role …`) used to put the whole
+resolved profile into their startup instructions and tell the agent not to call
+`resolve` again. Claude Code (CLI and T3 Code) truncated that payload inside the
+first required skill, and the agent then worked from the partial copy, including
+after `/clear`.
+
+From 0.19.3:
+
+- Server instructions, bound or not, are a short bootstrap that never contains
+  profile, role or skill text. The agent must call `resolve` before role work and
+  again after `/clear`, compaction or a model or role change.
+- Every `resolve` output ends with `End of Agent Profiles context: <n> section(s): <ids>.`
+  If the agent cannot see that line, it reports incomplete setup instead of
+  working from partial instructions.
+- A bound server refuses selector arguments that conflict with its binding. Start
+  a server bound to the new model or role to change them.
+- The managed block moves to protocol 3. Its MCP variant always calls `resolve`,
+  and runs the shell command at once when the tool is not available yet.
+
+### Upgrade instructions
+
+1. Update the installed package to 0.19.3 (rebuild and install
+   `guisam-agent-profiles-0.19.3.tgz` from a checkout; a source bump does not
+   publish it).
+2. Run `agent-profiles doctor`. Protocol 2 blocks and an old
+   `.agent-profiles/BOOTSTRAP.md` are reported stale.
+3. Run `agent-profiles init` (add `--mcp` only if you use the handoff; `init`
+   keeps the installed variant otherwise). Review and commit the refreshed
+   `CLAUDE.md`/`AGENTS.md` block and `BOOTSTRAP.md`.
+4. Bound servers need no configuration change. Remove any custom prompt or
+   automation that relied on the profile appearing in server instructions or on
+   passing a different `role` or `model` to a bound server.
+5. Start a fresh session and check that the agent calls `resolve` before its
+   first task and that the output ends with the final line.
+
+No YAML, lock or store migration is needed. Lifecycle hooks for `/clear` and
+compaction are not installed; delivery after those events still depends on the
+agent following the bootstrap.
+
 ## Source patch: 0.19.2 — published-package and MCP onboarding
 
 The README's setup prompt and [setup guide](https://github.com/guisam/Agent-Profiles/blob/main/docs/setup.md)

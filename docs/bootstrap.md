@@ -21,7 +21,7 @@ behavior is in [host-observations.md](host-observations.md).
 
 ```markdown
 <!-- agent-profiles:start -->
-<!-- agent-profiles:protocol 2 -->
+<!-- agent-profiles:protocol 3 -->
 
 ## Agent Profiles
 
@@ -36,7 +36,8 @@ model ID is ..."): not a display name, another model's ID, or your own
 recollection. If the host states none, omit `--identity-source` and `--model`.
 Add `--role <id>` only when the user or your agent definition assigns a role.
 If the command fails, report its error; do not read `.agent-profiles/` to
-route by hand.
+route by hand. If its output lacks the final `End of Agent Profiles context:`
+line, it was cut short: tell the user setup is incomplete before any role work.
 
 <!-- agent-profiles:end -->
 ```
@@ -67,10 +68,10 @@ by someone else.
 ### MCP handoff variant
 
 `init --mcp` adds one paragraph to the block, after the failure rule: when an
-`agent-profiles` MCP server is connected, the agent calls its `resolve` tool with
-the same values instead of the command, or follows the server's instructions when
-they already carry the session's resolved profile. The command stays as the
-fallback. Both variants are protocol 2; `doctor` accepts either, and `init`
+`agent-profiles` MCP server's `resolve` tool is available, the agent calls it with
+the same values instead of the command. The server's instructions never contain
+the profile, so the agent always calls it; if the tool is not available yet, it
+runs the command now instead of waiting. Both variants are protocol 3; `doctor` accepts either, and `init`
 without `--mcp` or `--no-mcp` keeps the installed one. See
 [MCP service](mcp.md#managed-block-handoff).
 

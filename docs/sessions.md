@@ -62,7 +62,10 @@ Each record (`--json`) holds:
 
 Each resolution holds:
 - **`at`** and **`via`:** when it happened, and whether it came from `bound`,
-  `resolve`, `explain` or `cli`.
+  `resolve`, `explain` or `cli`. A `bound` entry records the selection a bound
+  MCP server validated at start. Since 0.19.3 the server's instructions carry no
+  profile text, so it is not evidence that anything reached the agent; a later
+  `resolve` entry is.
 - **The selectors:** `root`, `host`, `model`, `role`, and the resolved `profile`.
 - **`stamp`:** the stamp digest of the configured selection. It's the same digest
   `agent-profiles stamp` would record with the same selectors. If it couldn't be

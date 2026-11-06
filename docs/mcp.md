@@ -110,13 +110,17 @@ agent-profiles://library/@example/security-review/2.0.0/SKILL.md
 
 ## Instructions
 
-- **Unbound** (no `--model` or `--role`): a short pointer telling the agent to
-  call `resolve` with its exact model ID before starting work, and again after
-  compaction or a model or role change.
-- **Bound** (`--model` and/or `--role`): the full resolved profile for that
-  session, rendered once at server start, preceded by a note not to call
-  `resolve` again unless the context was compacted or the model or role changed,
-  and by the session's stamp digest:
+Server instructions never carry the profile, role or skill text (#80). Hosts
+truncate them: Claude Code cut a bound payload partway through its first
+required skill, and the agent carried on with the partial copy. They stay a short
+bootstrap (under 2 KB, enforced by a test) however large the profile grows.
+
+- **Unbound** (no `--model` or `--role`): tells the agent to call `resolve` with
+  its exact model ID before any role work, and again after `/clear`, compaction or
+  a model or role change.
+- **Bound** (`--model` and/or `--role`): names the bound selection, tells the
+  agent to call `resolve` without repeating the bound values, and carries the
+  session's stamp digest:
 
   ```
   Stamp: sha256 <digest> (not retained; `agent-profiles stamp` with the same selectors records this digest).
@@ -126,9 +130,22 @@ agent-profiles://library/@example/security-review/2.0.0/SKILL.md
   `agent-profiles stamp` records for the same selectors and unchanged inputs, so
   it identifies the exact profile state in reports. When that stamp is already in
   the store the line says so, and the `verify` tool can read it. If the stamp
-  cannot be computed, the line says why; the profile is still rendered.
+  cannot be computed, the line says why.
   If resolution fails at start, the instructions say so and fall back to the
   unbound text; the server still starts.
+- **Binding is authoritative:** a bound server refuses a `resolve` or `explain`
+  call whose `host`, `model`, `family`, `identitySource` or `role` differs from
+  its binding, naming the bound value. Repeating a bound value is accepted, and a
+  selector the server is not bound to stays the agent's to supply. To change a
+  bound role or model, start a server bound to the new one.
+
+Both modes tell the agent that setup is incomplete, and not to start role work,
+when `resolve` is unavailable, fails, or returns output without its final line.
+Every `resolve` output (MCP and CLI) ends with
+`End of Agent Profiles context: <n> section(s): <ids>.`, and says so at the top,
+so a cut-off tool result is visible to the agent rather than silently partial.
+Agent Profiles cannot check what the host actually put in the model's context;
+the final line makes truncation detectable, not impossible.
 
 Whether a host keeps server instructions in context after compaction, `/clear`
 or a new conversation is host behavior. It is recorded per host as it is
@@ -137,11 +154,12 @@ observed; see [Host status](#host-status).
 ## Managed block handoff
 
 `init --mcp` writes a variant of the managed bootstrap block that adds one
-paragraph: if an `agent-profiles` MCP server is connected, call its `resolve`
-tool with the same values (`host`, `identitySource`, `model`, `role`), or follow
-the server's instructions when they already carry the session's profile. The
-shell command stays in the block, so the block still works where no server is
-connected.
+paragraph: if an `agent-profiles` MCP server's `resolve` tool is available, call
+it with the same values (`host`, `identitySource`, `model`, `role`), omitting any
+the server is bound to. The server's instructions never contain the profile, so
+the agent always calls it. If the tool is not available yet (no server, or one
+still connecting, as T3 Code showed at the start of a turn), the agent runs the
+shell command right away instead of waiting. The command stays in the block.
 
 ```sh
 agent-profiles init --agent claude --mcp     # write the handoff block
@@ -158,8 +176,8 @@ agent-profiles init --agent claude --no-mcp  # back to the shell-only block
   add. User-scope configuration (`~/.claude.json`, `~/.codex/config.toml`,
   `~/.hermes/config.yaml`) is not read, so a server configured there is reported
   as not found in the project.
-- Both variants are protocol 2, and doctor accepts either; neither is reported as
-  stale. Keep the shell permission rules: they serve the fallback.
+- Both variants are protocol 3, and doctor accepts either; neither is reported as
+  stale. Protocol 2 blocks are reported stale: run `init` to refresh them. Keep the shell permission rules: they serve the fallback.
 
 ## Host setup
 
