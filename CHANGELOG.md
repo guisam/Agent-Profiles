@@ -24,6 +24,10 @@
 - `bound` session records are documented as selection, not delivery.
 - Lifecycle hooks for `/clear` and compaction are deferred until live tests show
   the instruction fix is insufficient.
+- Portable fixture `test/fixtures/issue-80/`: two required skills sized like
+  the report, each ending with a `FIXTURE-FINAL` line, used by an automated MCP
+  and shell-fallback check and documented for live runs.
+- Subagent delivery is documented as not validated (#82).
 
 ## 0.19.2 — 2026-11-06
 

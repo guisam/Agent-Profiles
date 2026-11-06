@@ -39,7 +39,9 @@ From 0.19.3:
 
 No YAML, lock or store migration is needed. Lifecycle hooks for `/clear` and
 compaction are not installed; delivery after those events still depends on the
-agent following the bootstrap.
+agent following the bootstrap. Subagent delivery is not validated: a subagent
+must call `resolve` itself with an explicitly assigned role
+([#82](https://github.com/guisam/Agent-Profiles/issues/82)).
 
 ## Source patch: 0.19.2 — published-package and MCP onboarding
 

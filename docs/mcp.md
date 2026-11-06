@@ -147,6 +147,18 @@ so a cut-off tool result is visible to the agent rather than silently partial.
 Agent Profiles cannot check what the host actually put in the model's context;
 the final line makes truncation detectable, not impossible.
 
+**Subagents are not covered.** Delivery to subagents has not been validated.
+Don't assume a subagent inherits the parent's resolved context, or that it should
+take the parent's role. A subagent gets Agent Profiles instructions only if it
+calls `resolve` itself, with a role explicitly assigned to it. Earlier
+observations: custom Claude Code agents receive the `CLAUDE.md` bootstrap, and
+the built-in Explore agent does not. Validation is tracked in
+[#82](https://github.com/guisam/Agent-Profiles/issues/82).
+
+The portable fixture in `test/fixtures/issue-80/` (two required skills sized
+like the #80 report, each ending with a `FIXTURE-FINAL` line) backs the automated
+check and documents the live test steps.
+
 Whether a host keeps server instructions in context after compaction, `/clear`
 or a new conversation is host behavior. It is recorded per host as it is
 observed; see [Host status](#host-status).

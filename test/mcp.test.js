@@ -237,6 +237,81 @@ test("bound instructions stay compact, embed no resolved text and require resolv
 	);
 });
 
+// #80 portable fixture: two required skills sized like the original report, each
+// ending with a FIXTURE-FINAL line, with no store, trust policy or private package.
+test("portable #80 fixture: bound instructions stay compact while resolve delivers every section", async (t) => {
+	const f = fixture(t);
+	const root = path.join(f.base, "issue-80");
+	cpSync(
+		fileURLToPath(new URL("./fixtures/issue-80/project", import.meta.url)),
+		root,
+		{ recursive: true },
+	);
+	const finals = [
+		"FIXTURE-FINAL review-depth:",
+		"FIXTURE-FINAL shared-language:",
+	];
+	const marker =
+		"End of Agent Profiles context: 4 section(s): base, reviewer, review-depth, shared-language.";
+	const selection = {
+		root,
+		host: "claude",
+		model: "claude-opus-5-5",
+		role: "reviewer",
+	};
+
+	// Large enough to expose truncation: the payload 0.19.2 embedded is several times the bound bootstrap.
+	const full = formatContext(resolveInstructions(selection), {
+		invocation: "mcp",
+	});
+	assert.ok(Buffer.byteLength(full) > 8192, String(Buffer.byteLength(full)));
+
+	const client = await connect(f, [
+		"--root",
+		root,
+		"--host",
+		"claude",
+		"--model",
+		"claude-opus-5-5",
+		"--role",
+		"reviewer",
+	]);
+	const instructions = client.getInstructions();
+	assert.ok(
+		Buffer.byteLength(instructions) < 2048,
+		String(Buffer.byteLength(instructions)),
+	);
+	for (const line of [...finals, "## 1. Scope"])
+		assert.ok(!instructions.includes(line), line);
+
+	const result = await client.callTool({ name: "resolve", arguments: {} });
+	assert.ok(!result.isError, textOf(result));
+	const body = textOf(result);
+	assert.equal(body, full);
+	for (const line of finals) assert.ok(body.includes(line), line);
+	assert.ok(body.indexOf(finals[0]) < body.indexOf(finals[1]));
+	assert.equal(body.split("\n").at(-1), marker);
+
+	// The shell fallback renders the same bodies and the same final line.
+	const shell = run(
+		f,
+		"resolve",
+		"--root",
+		root,
+		"--host",
+		"claude",
+		"--identity-source",
+		"host-stated",
+		"--model",
+		"claude-opus-5-5",
+		"--role",
+		"reviewer",
+	);
+	assert.equal(shell.status, 0, shell.stderr);
+	for (const line of finals) assert.ok(shell.stdout.includes(line), line);
+	assert.equal(shell.stdout.trimEnd().split("\n").at(-1), marker);
+});
+
 test("a bound server refuses selectors that conflict with its binding", async (t) => {
 	const f = fixture(t);
 	const client = await connect(f, [
