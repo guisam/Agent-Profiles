@@ -508,7 +508,7 @@ test("bootstrap block routes through the resolver and never asks the model to ro
 		/not a display name, another model's ID, or your own\nrecollection/,
 	);
 	assert.match(block, /omit `--identity-source` and `--model`/);
-	assert.match(block, /do not read `\.agent-profiles\/` to\nroute by hand/);
+	assert.match(block, /Do not\s+read `\.agent-profiles\/` to route by hand/);
 	assert.doesNotMatch(block, /run once|BOOTSTRAP\.md|agents\.yaml/);
 });
 

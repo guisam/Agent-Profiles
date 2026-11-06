@@ -19,6 +19,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { formatContext } from "../src/diagnostics.ts";
+import {
+	bootstrapBlock,
+	integrations,
+	RESOLVE_INCOMPLETE,
+} from "../src/integrations.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 
 const project = fileURLToPath(new URL("../", import.meta.url));
@@ -310,6 +315,86 @@ test("portable #80 fixture: bound instructions stay compact while resolve delive
 	assert.equal(shell.status, 0, shell.stderr);
 	for (const line of finals) assert.ok(shell.stdout.includes(line), line);
 	assert.equal(shell.stdout.trimEnd().split("\n").at(-1), marker);
+});
+
+// #80 controlled failure: in T3 an agent reported a resolver ENOENT and then reviewed
+// anyway. Every surface an agent can see must say any failure stops role work.
+test("any resolver failure says setup is incomplete on every surface", async (t) => {
+	const f = fixture(t);
+	const root = path.join(f.base, "issue-80-missing");
+	cpSync(
+		fileURLToPath(new URL("./fixtures/issue-80/project", import.meta.url)),
+		root,
+		{ recursive: true },
+	);
+	rmSync(path.join(root, ".agent-profiles/skills/shared-language/SKILL.md"));
+	const flat = (value) => value.replace(/\s+/g, " ");
+	const rule = (value) => {
+		assert.match(flat(value), /fails in any way/);
+		assert.match(
+			flat(value),
+			/Do no role work \(no review, edits or analysis\) until a later resolve succeeds; reporting the error does not complete setup/,
+		);
+	};
+
+	// The managed block, both variants, every host.
+	for (const host of integrations.map((adapter) => adapter.id))
+		for (const mcp of [false, true])
+			rule(bootstrapBlock(host, "\n", mcp).toString("utf8"));
+	assert.ok(
+		RESOLVE_INCOMPLETE.includes("reporting the error does not complete setup"),
+	);
+
+	// MCP: unbound instructions, bound instructions whose start-up resolution failed, and the tool error.
+	const unbound = await connect(f, ["--root", root]);
+	rule(unbound.getInstructions());
+	const bound = await connect(f, [
+		"--root",
+		root,
+		"--host",
+		"claude",
+		"--model",
+		"claude-opus-5-5",
+		"--role",
+		"reviewer",
+	]);
+	rule(bound.getInstructions());
+	assert.match(
+		bound.getInstructions(),
+		/Resolution at server start failed: .*ENOENT/,
+	);
+	const result = await bound.callTool({ name: "resolve", arguments: {} });
+	assert.ok(result.isError);
+	assert.match(textOf(result), /ENOENT/);
+	assert.ok(textOf(result).endsWith(RESOLVE_INCOMPLETE), textOf(result));
+	assert.doesNotMatch(textOf(result), /End of Agent Profiles context/);
+
+	// Shell fallback: nonzero exit, nothing on stdout, the rule on stderr after the error.
+	const shell = run(
+		f,
+		"resolve",
+		"--root",
+		root,
+		"--host",
+		"claude",
+		"--identity-source",
+		"host-stated",
+		"--model",
+		"claude-opus-5-5",
+		"--role",
+		"reviewer",
+	);
+	assert.equal(shell.status, 1);
+	assert.equal(shell.stdout, "");
+	assert.match(shell.stderr, /ENOENT/);
+	assert.equal(
+		shell.stderr.trimEnd().split(/\r?\n/).at(-1),
+		RESOLVE_INCOMPLETE,
+	);
+
+	// Other commands keep their plain error.
+	const other = run(f, "doctor", "--root", root);
+	assert.ok(!other.stderr.includes(RESOLVE_INCOMPLETE));
 });
 
 test("a bound server refuses selectors that conflict with its binding", async (t) => {

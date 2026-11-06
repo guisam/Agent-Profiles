@@ -20,6 +20,7 @@ import * as z from "zod";
 import { formatContext, resolutionOutput } from "./diagnostics.ts";
 import { errorMessage } from "./files.ts";
 import { ownVersion } from "./install.ts";
+import { RESOLVE_INCOMPLETE } from "./integrations.ts";
 import {
 	formatLibrary,
 	formatLibraryEvidence,
@@ -112,8 +113,15 @@ const json = (value: unknown): ToolResult => ({
 		unknown
 	>,
 });
-const failure = (error: unknown): ToolResult => ({
-	content: [{ type: "text", text: `Agent Profiles: ${errorMessage(error)}` }],
+const failure = (error: unknown, after?: string): ToolResult => ({
+	content: [
+		{
+			type: "text",
+			text: [`Agent Profiles: ${errorMessage(error)}`, after]
+				.filter(Boolean)
+				.join("\n"),
+		},
+	],
 	isError: true,
 });
 const guarded =
@@ -225,7 +233,7 @@ const LIBRARY =
 // `resolve` output, which ends with a checkable final line, counts as delivery.
 const RETRIEVE = [
 	"These instructions do not contain your profile, role or skills. Call `resolve` before any role work, and again after `/clear`, context compaction, or a model or role change. Every tool is read-only.",
-	"If `resolve` is unavailable or fails, or its output lacks its final `End of Agent Profiles context:` line, tell the user Agent Profiles setup is incomplete instead of starting role work.",
+	`If \`resolve\` is unavailable or fails in any way, or its output lacks its final \`End of Agent Profiles context:\` line: ${RESOLVE_INCOMPLETE}`,
 ];
 
 const UNBOUND = [
@@ -323,6 +331,7 @@ export function createServer(options: McpOptions = {}): McpServer {
 	const withProject =
 		<A extends { root?: string }>(
 			run: (args: A, workspace?: string) => ToolResult,
+			onFailure?: string,
 		) =>
 		async (
 			args: A,
@@ -342,7 +351,7 @@ export function createServer(options: McpOptions = {}): McpServer {
 					});
 				return run(args, workspaceRoot(listing));
 			} catch (error) {
-				return failure(error);
+				return failure(error, onFailure);
 			}
 		};
 
@@ -355,13 +364,15 @@ export function createServer(options: McpOptions = {}): McpServer {
 			inputSchema: selection,
 			annotations: READ_ONLY,
 		},
-		withProject((args, workspace) =>
-			text(
-				formatContext(
-					resolved("resolve", selectors(options, args, workspace)),
-					{ invocation: "mcp" },
+		withProject(
+			(args, workspace) =>
+				text(
+					formatContext(
+						resolved("resolve", selectors(options, args, workspace)),
+						{ invocation: "mcp" },
+					),
 				),
-			),
+			RESOLVE_INCOMPLETE,
 		),
 	);
 

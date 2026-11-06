@@ -28,6 +28,10 @@
   the report, each ending with a `FIXTURE-FINAL` line, used by an automated MCP
   and shell-fallback check and documented for live runs.
 - Subagent delivery is documented as not validated (#82).
+- **Any resolver failure stops role work.** The managed block, MCP
+  instructions, the failed `resolve` tool result and CLI stderr all say setup is
+  incomplete after any failure (not only a missing final line), and that
+  reporting the error does not complete setup.
 
 ## 0.19.2 — 2026-11-06
 

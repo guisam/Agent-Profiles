@@ -35,9 +35,11 @@ Use the exact model ID your host states for you (for example, "The exact
 model ID is ..."): not a display name, another model's ID, or your own
 recollection. If the host states none, omit `--identity-source` and `--model`.
 Add `--role <id>` only when the user or your agent definition assigns a role.
-If the command fails, report its error; do not read `.agent-profiles/` to
-route by hand. If its output lacks the final `End of Agent Profiles context:`
-line, it was cut short: tell the user setup is incomplete before any role work.
+If resolving fails in any way (an error, a missing file, no output, or output
+without the final `End of Agent Profiles context:` line), setup is incomplete:
+report the error and stop. Do no role work (no review, edits or analysis) until
+a later resolve succeeds; reporting the error does not complete setup. Do not
+read `.agent-profiles/` to route by hand.
 
 <!-- agent-profiles:end -->
 ```

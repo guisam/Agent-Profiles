@@ -139,8 +139,13 @@ bootstrap (under 2 KB, enforced by a test) however large the profile grows.
   selector the server is not bound to stays the agent's to supply. To change a
   bound role or model, start a server bound to the new one.
 
-Both modes tell the agent that setup is incomplete, and not to start role work,
-when `resolve` is unavailable, fails, or returns output without its final line.
+Both modes treat any failure as incomplete setup: when `resolve` is unavailable,
+fails in any way, or returns output without its final line, the agent reports the
+error and stops, and does no role work until a later `resolve` succeeds.
+Reporting the error does not complete setup. A failed `resolve` tool result
+repeats this rule after the error, as the CLI does on stderr; a live T3 test
+showed an agent reporting an `ENOENT` and then reviewing anyway when the rule
+only said to report the error.
 Every `resolve` output (MCP and CLI) ends with
 `End of Agent Profiles context: <n> section(s): <ids>.`, and says so at the top,
 so a cut-off tool result is visible to the agent rather than silently partial.

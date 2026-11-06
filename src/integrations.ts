@@ -133,6 +133,12 @@ export function blockProtocol(span: Buffer) {
 }
 // --no refuses to download: an unpublished or squatted npm name must never run from a bootstrap.
 export const resolveCommand = "npx --no agent-profiles resolve";
+/**
+ * Shown wherever resolution fails or is incomplete (#80): the MCP instructions, the
+ * MCP tool error and CLI stderr. The managed block carries the same rule, line-wrapped.
+ */
+export const RESOLVE_INCOMPLETE =
+	"Agent Profiles setup is incomplete: report this error and stop. Do no role work (no review, edits or analysis) until a later resolve succeeds; reporting the error does not complete setup.";
 // The update notice (#49): startup only, user-facing systemMessage, never model context.
 export const noticeCommand = "npx --no agent-profiles notice --hook claude";
 
@@ -369,9 +375,12 @@ export function bootstrapBlock(host: string, newline = "\n", mcp = false) {
 			"recollection. If the host states none, omit `--identity-source` and `--model`.",
 			// host-stated records provenance honestly: the host stated it, the agent relayed it.
 			"Add `--role <id>` only when the user or your agent definition assigns a role.",
-			"If the command fails, report its error; do not read `.agent-profiles/` to",
-			"route by hand. If its output lacks the final `End of Agent Profiles context:`",
-			"line, it was cut short: tell the user setup is incomplete before any role work.",
+			// #80: an agent reported an ENOENT from resolve and then reviewed anyway.
+			"If resolving fails in any way (an error, a missing file, no output, or output",
+			"without the final `End of Agent Profiles context:` line), setup is incomplete:",
+			"report the error and stop. Do no role work (no review, edits or analysis) until",
+			"a later resolve succeeds; reporting the error does not complete setup. Do not",
+			"read `.agent-profiles/` to route by hand.",
 			...(mcp ? mcpHandoff(host) : []),
 			...(adapter.bootstrapGuidance ?? []),
 			"",

@@ -16,6 +16,10 @@ From 0.19.3:
 - Every `resolve` output ends with `End of Agent Profiles context: <n> section(s): <ids>.`
   If the agent cannot see that line, it reports incomplete setup instead of
   working from partial instructions.
+- Any resolver failure (an error such as a missing skill file, no output, or no
+  final line) means setup is incomplete: the agent reports it and stops, with no
+  role work until a later `resolve` succeeds. The CLI's stderr and the MCP tool
+  error repeat this after the error.
 - A bound server refuses selector arguments that conflict with its binding. Start
   a server bound to the new model or role to change them.
 - The managed block moves to protocol 3. Its MCP variant always calls `resolve`,
