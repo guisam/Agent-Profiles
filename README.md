@@ -61,7 +61,7 @@ node bin/agent-profiles.ts visualize --root /path/to/project
 From your Git repository, install the npm package and run the same workflow:
 
 ```sh
-npm install --save-dev @guisam/agent-profiles@0.4.1
+npm install --save-dev @guisam/agent-profiles@0.19.1
 npx agent-profiles init
 npx agent-profiles configure
 npx agent-profiles doctor
@@ -156,7 +156,7 @@ target-file selection, and explicitly confirmed configuration deletion.
 The [complete local package walkthrough](docs/versioned-packages.md) imports two
 revisions, selects exact pins by model/role, locks every declared override, captures
 raw managed bytes and exports separate ordinary filesystem trees. Configuration
-v2 is implemented in this checkout and included in version 0.4.1. Existing
+v2 is implemented in this checkout and included since version 0.4.1. Existing
 v1 source validation remains, while dependency `install` requires v2. Use the
 [scalar-only migration guide](docs/migrations/config-v1-to-v2.md) and its
 [approval-first AI prompt](docs/migrations/prompts/config-v1-to-v2.md) before
