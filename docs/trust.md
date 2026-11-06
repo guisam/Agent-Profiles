@@ -156,6 +156,37 @@ Approve what's already pinned first, or sessions will start without those skills
 To limit `require_approval` to one project, set it in that project's
 `.agent-profiles/trust.yaml` instead of the machine policy.
 
+## Lint: text that looks like injection
+
+Signatures say who approved a version, not whether its text is safe. So
+`library publish`, `update` previews (CLI and the MCP `update_preview`) and
+`agent-profiles library lint <@namespace/name>@<version>` also flag lines worth
+reading before you approve or apply. These are **heuristics: they never block, and
+they can't prove text safe.**
+
+| Rule | Severity | Flags |
+| --- | --- | --- |
+| `hidden-text` | high | zero-width, bidirectional-override or tag characters that can hide text |
+| `override` | high | "ignore previous instructions", "you are now…", "reveal your system prompt" |
+| `concealment` | high | "don't tell the user", "without informing the user", "keep this secret" |
+| `exfiltration` | high | sending secrets (`.env`, keys, tokens, credentials) or data to an address |
+| `pipe-to-shell` | high | `curl … \| sh`, `iwr … \| iex` and similar |
+| `shell` | note | destructive or system-changing commands (`rm -rf`, `sudo`, `Set-ExecutionPolicy`…), unless the manifest declares `commands` |
+| `url` | note | links the agent may follow, unless the manifest declares `external-references` |
+| `html-comment` | note | HTML comments, which rendered Markdown hides but the agent reads |
+| `encoded` | note | long encoded-looking strings a reader can't check by eye |
+
+**Where findings show up:**
+- **`update` previews:** findings carried over from the current version are
+  labeled "also in the current version", so the new ones stand out. In `--json`,
+  each finding has `new: true` or `false`.
+- **`library publish`:** the findings are in the output, and `lint` in `--json`.
+
+**Calibration:** the rules were checked against 47 real skills (115 files) to keep
+false alarms rare. There was one high finding, a line telling the agent to treat
+pasted data as data, not instructions. The other findings were notes for links,
+HTML comments and two `sudo` commands.
+
 ## Which key to use
 
 An approval is a boundary only if an agent can't produce one. An agent with a

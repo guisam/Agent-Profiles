@@ -207,6 +207,7 @@ try {
 		"src/trust.js",
 		"src/approvals.js",
 		"src/sessions.js",
+		"src/lint.js",
 		"docs/sessions.md",
 		"docs/trust.md",
 		"examples/presets/release-review/preset.yaml",

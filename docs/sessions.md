@@ -72,6 +72,18 @@ Each resolution holds:
 - **`withheld`:** skills the trust policy left out, with the reason.
 - **`requested`:** skills loaded by `--skill` or `skills`.
 
+## Checked live
+
+Checked on Claude Code 2.1.318, Windows 11, on 2026-11-06, with Agent Profiles
+0.18.0 and `--record-sessions` in `.mcp.json`. One session called `resolve`, and
+`agent-profiles sessions` showed:
+- one record with the client `claude-code 2.1.318`;
+- a `resolve` entry `implementer × claude-opus-5-5 × claude → constrained` with
+  its stamp digest and `@ap-live/security-review@1.1.0`.
+
+The file was written under `~/.agent-profiles/sessions/2026-11-06/`, and nothing
+was written to the project.
+
 ## Limits
 
 - **Stamps aren't stored.** A record keeps the digest and the selection; the

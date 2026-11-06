@@ -7,6 +7,7 @@ import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describeApproval, versionApproval } from "./approvals.ts";
 import { errorMessage } from "./files.ts";
+import { lintPackage } from "./lint.ts";
 import {
 	migrationCandidate,
 	migrationEvaluationPlan,
@@ -678,12 +679,51 @@ function publishPackageOperation({
 				: message,
 		);
 	}
-	return importPackage({
+	const imported = importPackage({
 		sourceDirectory,
 		storeRoot,
 		expectedDigest: inspected.sha256,
 	});
+	// #55 step 3: warnings about text that looks like injection; never blocks.
+	return {
+		...imported,
+		lint: lintPackage(inspected.files, inspected.manifest.behavior.effects),
+	};
 }
+
+/** Lint one library version (#55 step 3): the same heuristics as publish. */
+function lintLibraryVersionOperation({
+	storeRoot,
+	name,
+	version,
+}: {
+	storeRoot?: string;
+	name: string;
+	version: string;
+}) {
+	const [entry] = libraryInfoOperation({ storeRoot, name, version }).versions;
+	if (!entry) throw new Error(`${name}@${version} is not in the library`);
+	if ("error" in entry)
+		throw new Error(`${name}@${version} is not verified: ${entry.error}`);
+	const found =
+		entry.source === "promoted"
+			? releasedPackage({
+					storeRoot,
+					name,
+					version,
+					revisionDigest: entry.revisionDigest,
+				})
+			: lookupPackage({ storeRoot, name, version });
+	if (!found) throw new Error(`${name}@${version} is not in the store`);
+	return {
+		name,
+		version,
+		sha256: entry.sha256,
+		findings: lintPackage(found.files, entry.effects),
+	};
+}
+
+export const lintLibraryVersion = inStoreSession(lintLibraryVersionOperation);
 
 export type LibraryFile = {
 	name: string;

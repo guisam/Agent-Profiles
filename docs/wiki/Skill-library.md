@@ -66,6 +66,8 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   - Enforcement (0.17.0): `resolve` withholds blocked skills, and `install` and
     `update --apply` refuse them. Approve existing pins before turning on
     `require_approval`.
+  - Lint (0.19.0): `publish`, `update` previews and `library lint` flag text that
+    looks like prompt injection. These are warnings only.
 
 Details, the manifest format and limits are in
 [docs/versioned-packages.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/versioned-packages.md#library-browse-search-inspect-and-publish).

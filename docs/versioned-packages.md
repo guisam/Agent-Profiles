@@ -366,6 +366,9 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   description, file count and size. With `--root`, it also marks which versions
   that project's `agents.yaml` pins (binding by binding) and whether its lock
   covers them with the same digest.
+- **publish** also prints [lint warnings](trust.md#lint-text-that-looks-like-injection)
+  for text that looks like prompt injection; they never block. **lint** runs the
+  same check on any version in the library.
 - **read** prints one file of an exact version, after verifying the version's
   object like **info** does; a tampered version is refused, never printed. Text
   prints as itself; `--json` carries `encoding` (`utf8` or `base64`) and the

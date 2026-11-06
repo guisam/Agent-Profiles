@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.19.0 — 2026-11-06
+
+### Instruction lint (#55 step 3)
+
+- **Heuristic warnings, never blocking,** for package text that looks like prompt
+  injection:
+  - **High:** hidden characters (zero-width, bidirectional overrides, tag
+    characters); instructions to override earlier rules or redefine the agent;
+    keeping things from the user; sending secrets or data to an address; and
+    `curl … | sh`-style downloads.
+  - **Notes:** destructive or system-changing shell commands (unless the manifest
+    declares `commands`), links (unless it declares `external-references`), HTML
+    comments, and long encoded strings.
+
+  Calibrated on 47 real skills: one high finding, which was a benign line.
+- **Where they show:**
+  - `library publish`: output, and `lint` in JSON.
+  - `update` previews and the MCP `update_preview`: `lint`, each finding with
+    `new`; carried-over findings are labeled.
+  - New `library lint <@ns/name>@<version>`, for any version in the library.
+- **Session records:** live check on Claude Code 2.1.318 recorded in
+  `docs/sessions.md`.
+- No configuration, lock or store-format change.
+
 ## 0.18.0 — 2026-11-05
 
 ### Session records (#38 phase 7)
