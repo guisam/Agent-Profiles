@@ -12,7 +12,7 @@ import {
 import { defaultUserRoots } from "../src/external-skills.ts";
 import { errorMessage } from "../src/files.ts";
 import { formatInventory, inspectRepository } from "../src/inspect.ts";
-import { integrations } from "../src/integrations.ts";
+import { integrations, RESOLVE_INCOMPLETE } from "../src/integrations.ts";
 import { mcpSetupLines } from "../src/mcp-setup.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import { importPackage, rootPath } from "../src/package-store.ts";
@@ -172,6 +172,8 @@ async function question(prompt: string) {
 	}
 }
 
+// Set once the command is known, so a failed resolve can say setup is incomplete (#80).
+let resolving = false;
 try {
 	const { values, tokens } = parseArgs({
 		allowPositionals: true,
@@ -225,6 +227,7 @@ try {
 		.filter((token) => token.kind === "positional")
 		.map((token) => token.value);
 	const [command] = positionals;
+	resolving = command === "resolve";
 	await loadCommandModules(command);
 	const packageCommands = [
 		"add",
@@ -1449,5 +1452,6 @@ Examples:
 	}
 } catch (error) {
 	console.error(`Agent Profiles: ${display(errorMessage(error))}`);
+	if (resolving) console.error(RESOLVE_INCOMPLETE);
 	process.exitCode = 1;
 }

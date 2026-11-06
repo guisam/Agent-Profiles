@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.19.3 — 2026-11-06
+
+### Truncation-safe MCP startup instructions (#80)
+
+- **Bound server instructions no longer embed the resolved profile.** Hosts
+  truncated them (Claude Code cut a bound payload inside its first required
+  skill) and the old text told the agent not to call `resolve` again. Bound and
+  unbound instructions are now a short bootstrap (under 2 KB, tested): call
+  `resolve` before role work and again after `/clear`, compaction or a model or
+  role change.
+- **Truncation is detectable.** Every `resolve` output ends with
+  `End of Agent Profiles context: <n> section(s): <ids>.` and says so at the
+  top; a missing line means report incomplete setup, not proceed.
+- **Bound selectors are authoritative.** A bound server refuses `resolve` or
+  `explain` arguments that conflict with its `host`, `model`, `family`,
+  `identitySource` or `role` binding.
+- **Managed block, protocol 3.** The MCP handoff always calls `resolve` (the
+  server's instructions never contain the profile) and runs the shell command
+  when the tool is not available yet, including while the server is connecting.
+  Both variants carry the final-line check. Protocol 2 blocks and
+  `.agent-profiles/BOOTSTRAP.md` are reported stale; run `init` to refresh them.
+- `bound` session records are documented as selection, not delivery.
+- Lifecycle hooks for `/clear` and compaction are deferred until live tests show
+  the instruction fix is insufficient.
+- Portable fixture `test/fixtures/issue-80/`: two required skills sized like
+  the report, each ending with a `FIXTURE-FINAL` line, used by an automated MCP
+  and shell-fallback check and documented for live runs.
+- Subagent delivery is documented as not validated (#82).
+- **Any resolver failure stops role work.** The managed block, MCP
+  instructions, the failed `resolve` tool result and CLI stderr all say setup is
+  incomplete after any failure (not only a missing final line), and that
+  reporting the error does not complete setup.
+
 ## 0.19.2 — 2026-11-06
 
 ### Published-package and MCP onboarding

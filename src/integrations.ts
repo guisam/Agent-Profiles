@@ -3,7 +3,7 @@ import { readLocal } from "./files.ts";
 export const START = "<!-- agent-profiles:start -->";
 export const END = "<!-- agent-profiles:end -->";
 // Bump when the managed block or BOOTSTRAP.md changes meaning; doctor reports older surfaces as stale.
-export const PROTOCOL = 2;
+export const PROTOCOL = 3;
 
 /** One candidate instruction file of a host, as install and doctor see it. */
 export type SurfaceRecord = {
@@ -133,6 +133,12 @@ export function blockProtocol(span: Buffer) {
 }
 // --no refuses to download: an unpublished or squatted npm name must never run from a bootstrap.
 export const resolveCommand = "npx --no agent-profiles resolve";
+/**
+ * Shown wherever resolution fails or is incomplete (#80): the MCP instructions, the
+ * MCP tool error and CLI stderr. The managed block carries the same rule, line-wrapped.
+ */
+export const RESOLVE_INCOMPLETE =
+	"Agent Profiles setup is incomplete: report this error and stop. Do no role work (no review, edits or analysis) until a later resolve succeeds; reporting the error does not complete setup.";
 // The update notice (#49): startup only, user-facing systemMessage, never model context.
 export const noticeCommand = "npx --no agent-profiles notice --hook claude";
 
@@ -337,11 +343,12 @@ export function managedSpan(content: Buffer, file: string, host?: string) {
 function mcpHandoff(host: string) {
 	return [
 		"",
-		"If an `agent-profiles` MCP server is connected, call its `resolve` tool instead",
+		"If an `agent-profiles` MCP server's `resolve` tool is available, call it instead",
 		`of running the command, with the same values (\`host: "${host}"\`, \`identitySource\`,`,
-		"`model`, and `role` when assigned); it needs no shell permission. If that",
-		"server's instructions already contain this session's resolved profile, follow",
-		"them instead of calling it. Run the command only when no such server is connected.",
+		"`model`, and `role` when assigned; omit any the server says it is bound to); it",
+		"needs no shell permission. The server's instructions never contain your profile,",
+		"so always call it. If the tool is not available yet (no server, or one still",
+		"connecting), run the command now instead of waiting.",
 	];
 }
 
@@ -368,8 +375,12 @@ export function bootstrapBlock(host: string, newline = "\n", mcp = false) {
 			"recollection. If the host states none, omit `--identity-source` and `--model`.",
 			// host-stated records provenance honestly: the host stated it, the agent relayed it.
 			"Add `--role <id>` only when the user or your agent definition assigns a role.",
-			"If the command fails, report its error; do not read `.agent-profiles/` to",
-			"route by hand.",
+			// #80: an agent reported an ENOENT from resolve and then reviewed anyway.
+			"If resolving fails in any way (an error, a missing file, no output, or output",
+			"without the final `End of Agent Profiles context:` line), setup is incomplete:",
+			"report the error and stop. Do no role work (no review, edits or analysis) until",
+			"a later resolve succeeds; reporting the error does not complete setup. Do not",
+			"read `.agent-profiles/` to route by hand.",
 			...(mcp ? mcpHandoff(host) : []),
 			...(adapter.bootstrapGuidance ?? []),
 			"",

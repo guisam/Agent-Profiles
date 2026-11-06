@@ -1,0 +1,21 @@
+# Portable #80 fixture: two required skills sized like the original repro.
+# Fictional instructions; no package store, trust policy or network needed.
+version: 1
+
+default_profile: base
+default_role: reviewer
+
+models:
+  claude-opus-5-5:
+    profile: base
+
+families: {}
+
+roles:
+  reviewer:
+    file: roles/reviewer.md
+    skills:
+      required:
+        - review-depth
+        - shared-language
+      available: []

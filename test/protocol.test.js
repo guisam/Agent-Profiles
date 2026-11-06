@@ -508,7 +508,7 @@ test("bootstrap block routes through the resolver and never asks the model to ro
 		/not a display name, another model's ID, or your own\nrecollection/,
 	);
 	assert.match(block, /omit `--identity-source` and `--model`/);
-	assert.match(block, /do not read `\.agent-profiles\/` to\nroute by hand/);
+	assert.match(block, /Do not\s+read `\.agent-profiles\/` to route by hand/);
 	assert.doesNotMatch(block, /run once|BOOTSTRAP\.md|agents\.yaml/);
 });
 
@@ -1228,7 +1228,7 @@ test("managed surfaces are versioned: stale blocks and references are reported a
 	repo.write("AGENTS.md", `# Rules\n\n${unversioned}\n`);
 	repo.write(
 		"CLAUDE.md",
-		`${bootstrapBlock("claude").toString("utf8").replace("protocol 2", "protocol 1")}\n`,
+		`${bootstrapBlock("claude").toString("utf8").replace("protocol 3", "protocol 2")}\n`,
 	);
 	fs.appendFileSync(
 		path.join(repo.root, ".agent-profiles/BOOTSTRAP.md"),
@@ -1239,9 +1239,9 @@ test("managed surfaces are versioned: stale blocks and references are reported a
 	assert.deepEqual(
 		report.bootstrap.filter((line) => !line.includes("does not allow")),
 		[
-			"Claude Code: the managed block in CLAUDE.md is protocol 1, not protocol 2; run init to replace it",
-			"OpenAI Codex: the managed block in AGENTS.md is unversioned (before protocol 2), not protocol 2; run init to replace it",
-			".agent-profiles/BOOTSTRAP.md differs from protocol 2; run init to refresh this managed reference",
+			"Claude Code: the managed block in CLAUDE.md is protocol 2, not protocol 3; run init to replace it",
+			"OpenAI Codex: the managed block in AGENTS.md is unversioned (before protocol 2), not protocol 3; run init to replace it",
+			".agent-profiles/BOOTSTRAP.md differs from protocol 3; run init to refresh this managed reference",
 		],
 	);
 	// Selecting only Claude still refreshes the installed Codex block and the reference.
@@ -1256,7 +1256,7 @@ test("managed surfaces are versioned: stale blocks and references are reported a
 		.replace("run this exact", "run the");
 	fs.writeFileSync(path.join(repo.root, "CLAUDE.md"), edited);
 	assert.deepEqual(doctor(repo.root).bootstrap, [
-		"Claude Code: the managed block in CLAUDE.md is modified, not protocol 2; run init to replace it",
+		"Claude Code: the managed block in CLAUDE.md is modified, not protocol 3; run init to replace it",
 	]);
 });
 

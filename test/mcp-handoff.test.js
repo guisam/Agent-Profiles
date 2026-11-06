@@ -46,7 +46,15 @@ test("the MCP block adds only the handoff paragraph and keeps the shell command 
 		let cursor = 0;
 		for (const line of mcpLines) if (line === shellLines[cursor]) cursor++;
 		assert.equal(cursor, shellLines.length, host);
-		assert.match(mcp, /`agent-profiles` MCP server is connected/);
+		assert.match(
+			mcp,
+			/`agent-profiles` MCP server's `resolve` tool is available/,
+		);
+		// #80: a truncated server payload must never stand in for `resolve`.
+		assert.doesNotMatch(mcp, /already contain/);
+		assert.match(mcp, /never contain your profile/);
+		assert.match(mcp, /still\s+connecting\), run the command now/);
+		assert.match(shell, /End of Agent Profiles context:/);
 		assert.match(mcp, new RegExp(`host: "${host}"`));
 		assert.match(mcp, /npx --no agent-profiles resolve --host/);
 		assert.equal(
