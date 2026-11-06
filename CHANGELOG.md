@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.19.1 — 2026-11-06
+
+### Release preparation: the first npm release since 0.4.1
+
+- Install snippets in README and `docs/setup.md` name `@guisam/agent-profiles@0.19.1`.
+- The wiki's Versioning and upgrades page gets release notes and an upgrade path
+  from 0.4.1.
+- No code, configuration, lock or store-format change.
+
 ## 0.19.0 — 2026-11-06
 
 ### Instruction lint (#55 step 3)

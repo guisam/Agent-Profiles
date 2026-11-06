@@ -132,6 +132,73 @@ A newly created trusted-publisher configuration must complete its first successf
 
 npm publication and offline packaging tests do not establish live model/host qualification or close existing qualification gates. Git tags and GitHub releases were not created.
 
+## npm release: 0.19.1
+
+The second npm release, `@guisam/agent-profiles@0.19.1`, brings everything since
+0.4.1 to `npm install`. Node 24 or newer is still required.
+
+```sh
+npm install --save-dev @guisam/agent-profiles@0.19.1
+npx --no agent-profiles init --agent claude    # the agents you use
+npx --no agent-profiles doctor
+```
+
+### What's new since 0.4.1
+
+- **MCP service (0.5.0–0.7.x):** `agent-profiles mcp` serves `resolve` and other
+  read-only tools. `init --mcp` hands the managed block off to it. It uses
+  workspace roots and binds instructions at startup. See
+  [MCP service](https://github.com/guisam/Agent-Profiles/wiki/MCP-service).
+- **Skill library (0.8.0–0.10.0):**
+  - `library publish`, `list`, `search` and `info`;
+  - evaluation evidence per version;
+  - `outdated`;
+  - `update`, which previews before `--apply --expect`.
+
+  See [Skill library](https://github.com/guisam/Agent-Profiles/wiki/Skill-library).
+- **Update notice (0.11.0):** a startup-only Claude Code hook tells you when the
+  library has newer versions for your pins.
+- **Librarian tools over MCP (0.13.0–0.14.x):**
+  - library tools and `update_preview`, with every `agents.yaml` edit and the
+    exact apply command;
+  - verified `library_read`, plus package files as resources;
+  - `--version`.
+- **Trust and safety (0.12.0, 0.15.0–0.17.0, 0.19.0):**
+  - deny rules for library-changing commands;
+  - content diffs in previews;
+  - a trust policy with SSH-signed approvals (`library approve`) and enforcement;
+  - instruction lint.
+
+  See [docs/trust.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/trust.md).
+- **Session records (0.18.0):** opt-in records of which stamp, model and package
+  versions each session resolved.
+- **Faster CLI start** and store caching (0.11.2).
+
+### Upgrade instructions from 0.4.1
+
+1. Install `@guisam/agent-profiles@0.19.1` as a dev dependency.
+2. Run `init` again for the agents you selected before. For Claude Code, this adds
+   the update-notice hook and the deny rules for library-changing commands.
+   Existing instructions, roles and configuration are kept.
+3. Run `doctor`.
+
+No configuration YAML, lock, stamp or store-format migration is needed.
+Optional:
+- the MCP server (`init --mcp`, then the host setup `init` prints);
+- a trust policy (`~/.agent-profiles/trust.yaml`);
+- session records (`--record-sessions`).
+
+Updating a source checkout does not update an installed copy.
+
+### Release checklist
+
+- [ ] Release preparation merged; CI passed on Windows, macOS, Linux and with the
+      cache disabled.
+- [ ] `publish.yml` rehearsal on `main` for `0.19.1`, with publishing off.
+- [ ] Published, either through `publish.yml` with OIDC or manually with 2FA.
+- [ ] Installed the registry version in an isolated project and exercised
+      `init`, `doctor`, `resolve`, `library list` and `uninstall`.
+
 ## Source feature: 0.19.0 — instruction lint
 
 The working package version is `0.19.0`, not yet published to npm. `library
