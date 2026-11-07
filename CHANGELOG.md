@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.19.6 — 2026-11-07
+
+- Add an experimental Superpowers role example, resource-preserving setup steps,
+  initial findings and a volunteer report template.
+- Documentation/example patch; no runtime, schema or bootstrap migration.
+
+
 ## 0.19.5 — 2026-11-06
 
 - Add a portable Ponytail preset with implementation, review, audit and debt

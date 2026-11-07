@@ -472,3 +472,9 @@ and token accounting remain future work.
 - [Changelog](CHANGELOG.md)
 
 Licensed under [Apache-2.0](LICENSE).
+
+## Volunteer testing: Superpowers roles
+
+Try the experimental [Superpowers role example](examples/superpowers/README.md),
+read the initial findings, and contribute one reproducible setup, recovery or
+isolation observation. No cost or accuracy advantage is claimed yet.
