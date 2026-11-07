@@ -665,3 +665,10 @@ verified; automated protocol, parity and no-write tests pass.
 The maintainer has not yet selected the beta numbering convention. No beta version is assigned by this policy. The application manifest is `0.13.0` (source; the latest npm release is `0.4.1`); package publication does not introduce a configuration migration.
 
 [Return to the documentation home](https://github.com/guisam/Agent-Profiles/wiki).
+
+## 0.19.6: Superpowers volunteer example
+
+Documentation/example patch only. No YAML, lock, store or bootstrap migration.
+Existing users need no configuration change. The experimental example is in the
+Git repository under examples/superpowers; it is not an installable Markdown preset.
+Use a disposable consumer and preserve the complete upstream resource tree.

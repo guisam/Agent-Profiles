@@ -21,3 +21,4 @@
 [Repository](https://github.com/guisam/Agent-Profiles) · [Report an issue](https://github.com/guisam/Agent-Profiles/issues)
 
 Guides are maintained in the repository. [Guided workflow qualification: #33](https://github.com/guisam/Agent-Profiles/issues/33).
+- [Superpowers role experiment](Superpowers-role-experiment)

@@ -1,0 +1,32 @@
+version: 1
+default_profile: base
+default_role: sp-coordinator
+models: {}
+families: {}
+roles:
+  sp-coordinator:
+    file: roles/sp-coordinator.md
+    skills:
+      required:
+        - subagent-driven-development
+      available:
+        - using-git-worktrees
+        - requesting-code-review
+        - finishing-a-development-branch
+        - dispatching-parallel-agents
+  sp-implementer:
+    file: roles/sp-implementer.md
+    skills:
+      required:
+        - sp-implementation-contract
+        - test-driven-development
+        - verification-before-completion
+      available:
+        - systematic-debugging
+        - receiving-code-review
+  sp-reviewer:
+    file: roles/sp-reviewer.md
+    skills:
+      required:
+        - sp-task-review-contract
+      available: []
