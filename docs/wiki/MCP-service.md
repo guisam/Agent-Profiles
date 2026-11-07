@@ -3,6 +3,14 @@
 `agent-profiles mcp` (source version 0.5.0; block handoff in 0.6.0; workspace roots and stamp digest in 0.7.0) serves Agent Profiles' read-only
 operations to MCP hosts over stdio, alongside the CLI.
 
+For current installation, security choices and verification, follow the
+[setup guide](https://github.com/guisam/Agent-Profiles/blob/main/docs/setup.md).
+Install the npm package and run `init --agent claude --mcp`, then register the
+server separately. Keep the protocol-3 project bootstrap and local shell resolver:
+if the MCP tool is not available when work starts, the bootstrap uses the shell.
+Inspect and preserve existing server entries and host permissions. A connected
+server or valid configuration alone does not establish complete instruction delivery.
+
 - **Tools:** `resolve`, `explain`, `verify`, `diff`, `report`. Each matches its
   CLI equivalent and none writes files.
 - **No shell permission needed** for `resolve`, unlike the Bash bootstrap.

@@ -8,8 +8,8 @@ skills. Agent Profiles resolves only the additional context each agent needs.
 Copy this into your existing coding agent (including one used through a coding bench):
 
 > Set up Agent Profiles for this repository using Node 24 or newer. Propose an
-> exact published version of `@guisam/agent-profiles` and obtain approval for any
-> registry download and execution. Then run
+> exact published version of `@guisam/agent-profiles` (0.19.4 for this guide).
+> Obtain approval for any registry download and execution, then run
 > `npx --yes @guisam/agent-profiles@<approved-version> inspect --json` from this
 > repository (or pass `--root <project>`). This prepares the tool in npm's cache
 > if needed, without adding a project dependency. Inventory existing agent
@@ -30,6 +30,18 @@ Copy this into your existing coding agent (including one used through a coding b
 > `npm install --save-dev --save-exact @guisam/agent-profiles@<approved-version>`.
 > For Claude Code, recommend `init --agent claude --mcp` and show the separate
 > project-scoped MCP registration. For other hosts, use their supported setup.
+> In T3, confirm the selected provider and model; configure that provider's host.
+> Keep the protocol-3 project bootstrap and a working local shell resolver even
+> with MCP, because the server may still be connecting when work starts.
+>
+> Include a security plan: preserve host permissions and existing trust policy;
+> explain the read-only MCP tools and the setup/library/pin commands reserved for
+> the user. For shared packages, propose exact pins and ask whether signed approvals
+> are required, which namespaces/effects are allowed, and who may approve them.
+> Show any project-policy changes separately; keep signing keys and credentials
+> outside the repository and chat. Report withheld packages without weakening policy.
+> Package integrity and approval do not prove that instructions are safe or effective.
+>
 > Do not install into the project, execute skills or change files until I approve.
 > Preserve existing instructions; only add or refresh the approved managed bootstrap
 > block. Propose any restructuring or shortening of AGENTS.md separately.
@@ -41,7 +53,14 @@ Copy this into your existing coding agent (including one used through a coding b
 > MCP server separately: init prints setup instructions but does not register it.
 > Have me approve/connect the server and start a fresh session as needed. Run
 > doctor and representative host/model/role proofs, then verify an actual MCP
-> resolve call for the intended project, host, exact model and role. Report measured
+> resolve call for the intended project, host, exact model and role. Omit selector
+> arguments already bound by the server; a conflicting value is an error.
+> Check that every required skill body and the final `End of Agent Profiles context:`
+> line arrived. Then use a neutral task in a fresh session and after clear/compaction
+> to observe resolution before work; test the shell fallback separately if approved.
+> Any resolver error, empty output or missing final line means report incomplete
+> setup and stop role work until resolution succeeds. A successful doctor check,
+> explain result or stamp alone does not establish delivery. Report measured
 > managed context, live observations and anything unverified. Explain optional next
 > steps: pinned library skills, update notices and trust policy. Offer preset export
 > only with separate approval, excluding machine-local facts.
@@ -50,9 +69,10 @@ Use the [setup workflow](docs/setup.md) for a pinned npm inspection command,
 inventory limits, MCP registration and verification. Trusted checkout and packed
 artifact workflows remain available for offline or pre-release work. Tool
 preparation/downloads need their own permissions. This prompt is a supported
-workflow, not a guarantee of every host's tools or live behavior. MCP instructions
-surviving compaction or a cleared conversation are host-dependent observations,
-not a guarantee of fresh resolution after a model change.
+workflow, not a guarantee of every host's tools or live behavior. MCP startup
+instructions are a short retrieval reminder, not the skill bodies. The project
+bootstrap requires fresh resolution after clear, compaction or a model change;
+live compliance and subagent delivery must be verified for the selected host.
 
 A shared `AGENTS.md` is useful for repository facts and conventions. But putting
 every model accommodation, job description, and skill into it gives agents
@@ -65,28 +85,35 @@ Requires **Node.js 24 or newer**. Supports **Claude Code, OpenAI Codex, OpenCode
 (Claude Code and OpenCode verified live; Codex and Hermes live bootstrap behavior not yet observed).
 For OpenCode v2.1.3, see the [setup guide and assistant prompt](docs/hosts/opencode.md).
 
-From a source checkout, run `npm ci` and `npm pack`, then use these commands with the path to your
-project. `--package` installs the packed tarball into the project so the bootstrap
-command can run there:
+For Claude Code, run these from your Git repository after reviewing the setup
+changes (for a non-Git project, pass `--root /path/to/project` to AP commands):
 
 ```sh
-node bin/agent-profiles.ts init --root /path/to/project --package ./guisam-agent-profiles-0.19.3.tgz
-node bin/agent-profiles.ts configure --root /path/to/project
-node bin/agent-profiles.ts doctor --root /path/to/project
-node bin/agent-profiles.ts proof --root /path/to/project --role reviewer
-node bin/agent-profiles.ts visualize --root /path/to/project
+npm install --save-dev --save-exact @guisam/agent-profiles@0.19.4
+npx --no agent-profiles init --agent claude --mcp
+claude mcp add --scope project agent-profiles -- npx --no agent-profiles mcp --host claude
+npx --no agent-profiles configure
+npx --no agent-profiles doctor
+npx --no agent-profiles proof --role reviewer
 ```
 
-From your Git repository, install the npm package and run the same workflow:
+`init --mcp` writes the project bootstrap and prints registration instructions;
+the separate `claude mcp add` command registers the server. Preserve or update an
+existing entry instead of adding a duplicate. Approve the project server in Claude
+and start a fresh session. Verify that `resolve` runs before work and returns the
+required instructions plus its final context line. If MCP is not ready, the
+bootstrap uses the installed shell resolver; retain both paths.
 
-```sh
-npm install --save-dev @guisam/agent-profiles@0.19.1
-npx agent-profiles init
-npx agent-profiles configure
-npx agent-profiles doctor
-npx agent-profiles proof --role reviewer
-npx agent-profiles visualize
-```
+For other hosts, use their [setup instructions](docs/mcp.md#host-setup).
+For existing installations, update the dependency and re-run
+`npx --no agent-profiles init --agent claude --mcp` to refresh the bootstrap;
+prepare host-denied commands for the user to run. Version 0.19.4 keeps protocol 3
+and needs no YAML, lock or store migration. Review [security choices](docs/setup.md#security-choices-before-adopting-shared-skills)
+before adopting shared packages.
+
+From a trusted source checkout, run `npm ci` and `npm pack`, then
+`node bin/agent-profiles.ts init --root /path/to/project --agent claude --mcp --package ./guisam-agent-profiles-0.19.4.tgz`.
+Use the separate registration and verification steps above from the target project.
 
 The npm package is `@guisam/agent-profiles`; the command remains `agent-profiles`.
 If you previously installed an unscoped source tarball, remove that dependency
@@ -410,8 +437,8 @@ not complete issue #21 or establish host/model compliance.
 
 The local workflow now includes deterministic routing, Claude Code/Codex/OpenCode/Hermes setup,
 role and skill configuration, shareable presets, context diagnostics, and a local
-visualizer. No runtime dependencies were added for these features; YAML handling remains
-the CLI's single runtime dependency. See the [release checklist](docs/release.md)
+visualizer. The npm package also includes the dependencies for the read-only MCP
+service. See the [release checklist](docs/release.md)
 for platform and live-host verification before publication.
 
 Agent Profiles is a small convention and CLI for composing additional instruction

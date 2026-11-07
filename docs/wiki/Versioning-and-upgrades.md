@@ -1,6 +1,41 @@
 # Versioning and upgrades
 
-## Source patch: 0.19.3 — truncation-safe MCP startup instructions (#80)
+## 0.19.4 — complete npm, MCP and security onboarding
+
+The README setup prompt and [setup guide](https://github.com/guisam/Agent-Profiles/blob/main/docs/setup.md)
+now include MCP registration, the protocol-3 project bootstrap, security decisions
+and live verification. The npm examples use 0.19.4 instead of 0.19.1.
+
+The setup proposal covers existing host permissions, exact shared-package pins,
+whether signed approvals are required, allowed namespaces/effects and approvers.
+Machine signing keys and credentials stay outside the repository and chat;
+project policy can only narrow machine policy. Package integrity and approval do
+not establish safe instructions or model effectiveness.
+
+After publication, upgrade from the target project:
+
+```sh
+npm install --save-dev --save-exact @guisam/agent-profiles@0.19.4
+npx --no agent-profiles init --agent claude --mcp
+npx --no agent-profiles doctor
+```
+
+Use the intended host, preserve other installed integrations, and run host-denied
+setup commands yourself. Version 0.19.4 is documentation-only and retains protocol
+3. Re-running init is particularly important when upgrading from before 0.19.3;
+a current 0.19.3 bootstrap has no new protocol migration. No YAML, lock or store
+migration is needed.
+
+Register MCP separately if it is not already configured; preserve existing server
+entries. Keep the local resolver and project bootstrap even with MCP, because the
+server can connect after the first task begins. Start a fresh session and verify
+resolution before work, every required skill body, and the final context marker.
+On failure, stop role work until resolution succeeds. CLI checks alone do not
+verify host behavior; subagents and further failure scenarios remain tracked in
+[#82](https://github.com/guisam/Agent-Profiles/issues/82) and
+[#83](https://github.com/guisam/Agent-Profiles/issues/83).
+
+## 0.19.3 — truncation-safe MCP startup instructions (#80)
 
 Bound MCP servers (`agent-profiles mcp --model … --role …`) used to put the whole
 resolved profile into their startup instructions and tell the agent not to call
@@ -27,9 +62,8 @@ From 0.19.3:
 
 ### Upgrade instructions
 
-1. Update the installed package to 0.19.3 (rebuild and install
-   `guisam-agent-profiles-0.19.3.tgz` from a checkout; a source bump does not
-   publish it).
+1. Update the installed package to 0.19.3 or newer from npm, or rebuild and
+   install a reviewed tarball from a checkout. A source bump alone does not publish it.
 2. Run `agent-profiles doctor`. Protocol 2 blocks and an old
    `.agent-profiles/BOOTSTRAP.md` are reported stale.
 3. Run `agent-profiles init` (add `--mcp` only if you use the handoff; `init`
@@ -62,9 +96,10 @@ considered before duplicating skills.
 
 ### Upgrade instructions
 
-This is an unpublished documentation patch. The published-package walkthrough
-uses 0.19.1; no installation or configuration change is required for existing
-users. There is no YAML, lock, store, managed-block or bootstrap migration.
+This documentation patch was included in the published 0.19.3 release; 0.19.2
+was not published separately. At the time its walkthrough used 0.19.1; current
+examples above use 0.19.4. This patch itself required no YAML, lock, store,
+managed-block or bootstrap migration.
 To opt into MCP, review `init --agent <host> --mcp` and the separate host setup
 it prints; preserve existing MCP entries and verify the connection in a fresh
 session. Prepare any host-denied command for the user to run in a terminal.
