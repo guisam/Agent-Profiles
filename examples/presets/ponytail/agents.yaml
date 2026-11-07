@@ -1,0 +1,33 @@
+version: 1
+default_profile: ponytail-base
+default_role: ponytail-implementer
+models: {}
+families: {}
+roles:
+  ponytail-implementer:
+    file: roles/ponytail-implementer.md
+    skills:
+      required:
+        - ponytail-implementation
+      available:
+        - ponytail-debt
+  ponytail-reviewer:
+    file: roles/ponytail-reviewer.md
+    skills:
+      required:
+        - ponytail-review
+      available:
+        - ponytail-debt
+  ponytail-auditor:
+    file: roles/ponytail-auditor.md
+    skills:
+      required:
+        - ponytail-audit
+      available:
+        - ponytail-debt
+  ponytail-maintainer:
+    file: roles/ponytail-maintainer.md
+    skills:
+      required:
+        - ponytail-debt
+      available: []

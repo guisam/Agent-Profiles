@@ -1,0 +1,10 @@
+{
+  "upstream": "https://github.com/DietrichGebert/ponytail",
+  "version": "5.3.3",
+  "commit": "96608e078b2d5ea607c5c3b8b5a54d1c1fba6846",
+  "path": "skills/ponytail-audit/SKILL.md",
+  "sha256": "3ab632ce4695de214dafe4db13d6f939e1c4be328bd0754ea751dc28b70be554",
+  "adaptations": [
+    "Replace plugin invocation metadata with role-specific discovery; retain the upstream policy body."
+  ]
+}

@@ -417,6 +417,10 @@ include Markdown skills or declare exact local dependencies; imports never
 download missing skills. Roles remain editable through the same wizard after
 import, and their origins are recorded separately.
 
+The [Ponytail preset](examples/presets/ponytail/README.md) demonstrates four
+role-specific skills, a self-contained `agents.yaml`, and the path from local
+instructions to evaluated model-specific package pins.
+
 ## Scope and status
 
 An additional issue #21 slice supports `revision record <manifest-file> --store

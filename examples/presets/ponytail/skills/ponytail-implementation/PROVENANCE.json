@@ -1,0 +1,11 @@
+{
+  "upstream": "https://github.com/DietrichGebert/ponytail",
+  "version": "5.3.3",
+  "commit": "96608e078b2d5ea607c5c3b8b5a54d1c1fba6846",
+  "path": "skills/ponytail/SKILL.md",
+  "sha256": "f18008471528f0adde90a560d053f85935eed5cee26c447b7177ad24472bcf32",
+  "adaptations": [
+    "Replace plugin invocation metadata with role-specific discovery; retain the upstream policy body.",
+    "Fix implementation policy at full; remove native session toggle and lite/ultra level selection."
+  ]
+}
