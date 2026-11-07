@@ -10,6 +10,7 @@
 - [Saved profiles and run evidence](https://github.com/guisam/Agent-Profiles/wiki/Saved-profile-evidence)
 - [MCP service](https://github.com/guisam/Agent-Profiles/wiki/MCP-service)
 - [Skill library](https://github.com/guisam/Agent-Profiles/wiki/Skill-library)
+- [Ponytail role preset](https://github.com/guisam/Agent-Profiles/wiki/Ponytail-role-preset)
 - [Use and share profiles](https://github.com/guisam/Agent-Profiles/wiki#use-and-share-profiles)
 - [Troubleshoot](https://github.com/guisam/Agent-Profiles/wiki#troubleshoot)
 - [Technical reference](https://github.com/guisam/Agent-Profiles/wiki#technical-reference)

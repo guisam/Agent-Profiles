@@ -1,0 +1,56 @@
+schema_version: 1
+preset:
+  name: ponytail
+  display_name: Ponytail by role
+  description: Portable role-specific Ponytail instructions; no plugin hooks or
+    private library required.
+  author: Agent Profiles contributors; skills adapted from DietrichGebert/ponytail
+  version: 1.0.0
+  license: MIT
+roles:
+  ponytail-implementer:
+    file: roles/ponytail-implementer.md
+    skills:
+      required:
+        - ponytail-implementation
+      available:
+        - ponytail-debt
+  ponytail-reviewer:
+    file: roles/ponytail-reviewer.md
+    skills:
+      required:
+        - ponytail-review
+      available:
+        - ponytail-debt
+  ponytail-auditor:
+    file: roles/ponytail-auditor.md
+    skills:
+      required:
+        - ponytail-audit
+      available:
+        - ponytail-debt
+  ponytail-maintainer:
+    file: roles/ponytail-maintainer.md
+    skills:
+      required:
+        - ponytail-debt
+      available: []
+profiles:
+  ponytail-base:
+    file: profiles/ponytail-base.md
+models: {}
+families: {}
+skills:
+  requires: []
+  includes:
+    ponytail-implementation:
+      file: skills/ponytail-implementation/SKILL.md
+    ponytail-review:
+      file: skills/ponytail-review/SKILL.md
+    ponytail-audit:
+      file: skills/ponytail-audit/SKILL.md
+    ponytail-debt:
+      file: skills/ponytail-debt/SKILL.md
+defaults:
+  profile: ponytail-base
+  role: ponytail-implementer

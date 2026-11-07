@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.19.5 — 2026-11-06
+
+- Add a portable Ponytail preset with implementation, review, audit and debt
+  roles, adapted MIT-licensed instructions, provenance and standalone agents.yaml.
+- Document the cross-project experiment, clear/compact recovery limits and how
+  evaluated model-specific library pins differ from copied preset instructions.
+- No runtime or configuration schema changes; existing projects need no migration.
+
 ## 0.19.4 — 2026-11-06
 
 ### Complete npm, MCP and security onboarding

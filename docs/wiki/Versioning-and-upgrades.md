@@ -1,5 +1,13 @@
 # Versioning and upgrades
 
+## 0.19.5 — portable Ponytail role preset
+
+Adds the [Ponytail role preset](Ponytail-role-preset) with four MIT-licensed
+instruction skills, standalone agents.yaml and model-specific pinning guidance.
+No runtime, YAML schema, lock or bootstrap migration is required. Existing
+projects can keep their configuration and optionally inspect/import the preset.
+This source version does not itself imply an npm release.
+
 ## 0.19.4 — complete npm, MCP and security onboarding
 
 The README setup prompt and [setup guide](https://github.com/guisam/Agent-Profiles/blob/main/docs/setup.md)

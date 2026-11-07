@@ -39,6 +39,12 @@ summarizes the source and explicitly reports that those checks were not performe
 
 ## Inspect and import
 
+For a self-contained role breakdown, see the
+[Ponytail preset](../examples/presets/ponytail/README.md). It includes four
+MIT-licensed skill adaptations and an equivalent standalone `agents.yaml`.
+Its README distinguishes copied preset instructions from versioned library
+packages and documents the live experiment's evidence and limits.
+
 Inspection lists author/version/license, roles and skill assignments, included
 profiles and skills, required local skills, model/family mappings, and defaults.
 With a target, it also lists proposed file changes, conflicts, and unresolved
