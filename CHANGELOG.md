@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.19.4 — 2026-11-06
+
+### Complete npm, MCP and security onboarding
+
+- Update the README prompt, quick start and setup guide to use 0.19.4 and
+  explicitly configure MCP registration alongside the protocol-3 project bootstrap.
+- Include host permissions, package pins, trust-policy choices, signed approvals,
+  credential handling and withheld-package reporting in the setup proposal.
+- Verify complete resolution before work, recovery after clear/compaction and the
+  shell fallback; distinguish successful delivery from instruction adherence.
+- Correct stale MCP documentation that said startup instructions contain profiles
+  or that tool calls can override bound selectors. Prefer the npm quick start and
+  keep source-package alternatives.
+- Documentation patch only: no runtime, YAML, lock, store or bootstrap protocol change.
+
 ## 0.19.3 — 2026-11-06
 
 ### Truncation-safe MCP startup instructions (#80)

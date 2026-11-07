@@ -15,9 +15,11 @@ The server uses the official MCP TypeScript SDK v2
 - **No shell permission for `resolve`.** The Bash bootstrap needs a permission
   rule, a trusted workspace and the right shell (see the
   [Claude Code compatibility record](hosts/claude-code.md)). A tool call does not.
-- **One integration for every MCP host**, instead of a bootstrap block per host.
+- **A shared read-only service for MCP hosts**, alongside each host's project bootstrap.
 - **Session instructions.** Started with `--model` or `--role`, the server's MCP
-  `instructions` carry the resolved profile for that session.
+  `instructions` name the bound selection and require a `resolve` call; they do
+  not contain the profile or skill bodies. Keep the project bootstrap for delayed
+  connections and shell fallback.
 
 ## Command
 
@@ -33,8 +35,9 @@ agent-profiles mcp [--root <directory>] [--store <directory>] [--host <id>]
   for the order used without it.
 - `--store`: package and stamp store for `verify`, `diff` and `report`. Tools
   cannot choose a store.
-- `--host`, `--model`, `--family`, `--identity-source`, `--role`: session
-  defaults. Each tool call may override them.
+- `--host`, `--model`, `--family`, `--identity-source`, `--role`: server bindings.
+  Tool calls may fill unbound values or repeat a bound value; conflicting values
+  are refused. Change the server binding when changing a bound model or role.
 - `--record-sessions`: write a machine-local [session record](sessions.md) of
   each resolution. Off by default.
 
