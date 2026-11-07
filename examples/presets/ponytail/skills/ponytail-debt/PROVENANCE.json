@@ -1,0 +1,11 @@
+{
+  "upstream": "https://github.com/DietrichGebert/ponytail",
+  "version": "5.3.3",
+  "commit": "96608e078b2d5ea607c5c3b8b5a54d1c1fba6846",
+  "path": "skills/ponytail-debt/SKILL.md",
+  "sha256": "f0b59cb7e623f68568f2164864c757d41f0452d176c2f28b5b9b3c6b7ef3a799",
+  "adaptations": [
+    "Replace plugin invocation metadata with role-specific discovery; retain the upstream policy body.",
+    "Express the custom-marker example as a request rather than a native slash command."
+  ]
+}
