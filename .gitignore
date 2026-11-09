@@ -3,3 +3,6 @@
 /node_modules/
 /.npm-cache/
 /dist/
+
+# Local adapter reference (#85): machine-specific, never committed.
+/.agent-profiles/agents.local.yaml

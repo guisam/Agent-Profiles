@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.20.0 — 2026-11-09 — project adapter (#85)
+
+- An ignored `.agent-profiles/agents.local.yaml` can name one external adapter
+  whose `.agent-profiles/` composes over the committed configuration. The adapter
+  may add package skills, roles and assignments over its own bindings, and append
+  skills to project roles. It cannot override project policy, routing or trust.
+  See [docs/project-adapter.md](docs/project-adapter.md).
+- In adapter mode, `install` writes only the adapter's lock, which covers the composed
+  configuration. Approval checks read project and adapter approvals.
+  `library approve` records new approvals in the adapter. Install and update never sign.
+- Adapter assignments may select an exact model ID the project does not declare,
+  for adapter-owned bindings only. Routing stays the project's; any other model,
+  alias, prefix or near match keeps the adapter's baseline pin.
+- `resolve`/`explain` and `doctor` report adapter provenance. Committed-only output
+  is unchanged. Commands that don't compose an adapter yet refuse while one is
+  configured.
+
 ## 0.19.10 — 2026-11-09
 
 - Ship only the ten named `.agent-profiles/` templates in the npm package instead

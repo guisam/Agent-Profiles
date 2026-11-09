@@ -13,6 +13,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import path from "node:path";
+import { readAdapter } from "./adapter.ts";
 import { errorMessage } from "./files.ts";
 import { type LibraryVersion, libraryInfo } from "./library.ts";
 import {
@@ -173,53 +174,68 @@ export function versionApproval({
 	if (effects.length)
 		status.policy.push(`effects not allowed: ${effects.join(", ")}`);
 	const signers = policySigners(policy);
-	let directory: string;
+	// #85: approvals committed with the project and those kept in its adapter both count.
+	const adapter = readAdapter(root);
+	let directories: [string, string][];
 	try {
-		directory = approvalDirectory(root, name, version);
+		directories = [
+			[root, approvalDirectory(root, name, version)],
+			...(adapter
+				? ([[adapter.root, approvalDirectory(adapter.root, name, version)]] as [
+						string,
+						string,
+					][])
+				: []),
+		];
 	} catch (error) {
 		status.problems.push(errorMessage(error));
 		return status;
 	}
-	if (!existsSync(directory)) return status;
-	const relative = (file: string) =>
-		path.relative(root, file).split(path.sep).join("/");
-	for (const file of readdirSync(directory).sort()) {
-		if (!file.endsWith(".json")) continue;
-		const payloadFile = path.join(directory, file);
-		const principal = file.slice(0, -".json".length);
-		try {
-			const payload = parsePayload(readFileSync(payloadFile, "utf8"));
-			if (payload.principal !== principal)
-				throw new Error(`names principal ${payload.principal}`);
-			if (payload.package !== name || payload.version !== version)
-				throw new Error(
-					`approves ${payload.package}@${payload.version}, not ${name}@${version}`,
+	for (const [base, directory] of directories) {
+		if (!existsSync(directory)) continue;
+		const relative = (file: string) =>
+			(base === root ? "" : `${adapter?.reference}/`) +
+			path.relative(base, file).split(path.sep).join("/");
+		for (const file of readdirSync(directory).sort()) {
+			if (!file.endsWith(".json")) continue;
+			const payloadFile = path.join(directory, file);
+			const principal = file.slice(0, -".json".length);
+			try {
+				const payload = parsePayload(readFileSync(payloadFile, "utf8"));
+				if (payload.principal !== principal)
+					throw new Error(`names principal ${payload.principal}`);
+				if (payload.package !== name || payload.version !== version)
+					throw new Error(
+						`approves ${payload.package}@${payload.version}, not ${name}@${version}`,
+					);
+				if (payload.sha256 !== entry.sha256)
+					throw new Error(
+						`approves digest ${payload.sha256}, but the library's ${version} is ${entry.sha256}`,
+					);
+				if (payload.revisionDigest !== entry.revisionDigest)
+					throw new Error("approves a different revision");
+				if (!approverAllowed(policy, principal))
+					throw new Error(`${principal} is not an allowed approver here`);
+				const sigFile = `${payloadFile}.sig`;
+				if (!existsSync(sigFile)) throw new Error("no .sig file");
+				const verified = verifySshSignature({
+					message: canonicalPayload(payload),
+					signature: readFileSync(sigFile, "utf8"),
+					namespace: APPROVAL_NAMESPACE,
+					principal,
+					signers,
+				});
+				status.approvedBy.push({
+					principal,
+					fingerprint: verified.fingerprint,
+					keyType: verified.keyType,
+					approvedAt: payload.approvedAt,
+				});
+			} catch (error) {
+				status.problems.push(
+					`${relative(payloadFile)}: ${errorMessage(error)}`,
 				);
-			if (payload.sha256 !== entry.sha256)
-				throw new Error(
-					`approves digest ${payload.sha256}, but the library's ${version} is ${entry.sha256}`,
-				);
-			if (payload.revisionDigest !== entry.revisionDigest)
-				throw new Error("approves a different revision");
-			if (!approverAllowed(policy, principal))
-				throw new Error(`${principal} is not an allowed approver here`);
-			const sigFile = `${payloadFile}.sig`;
-			if (!existsSync(sigFile)) throw new Error("no .sig file");
-			const verified = verifySshSignature({
-				message: canonicalPayload(payload),
-				signature: readFileSync(sigFile, "utf8"),
-				namespace: APPROVAL_NAMESPACE,
-				principal,
-				signers,
-			});
-			status.approvedBy.push({
-				principal,
-				fingerprint: verified.fingerprint,
-				keyType: verified.keyType,
-				approvedAt: payload.approvedAt,
-			});
-		} catch (error) {
-			status.problems.push(`${relative(payloadFile)}: ${errorMessage(error)}`);
+			}
 		}
 	}
 	if (status.approvedBy.length) status.status = "approved";
@@ -375,7 +391,12 @@ export function approvePackage({
 		principal,
 		approvedAt: now.toISOString().replace(/\.\d{3}Z$/, "Z"),
 	};
-	const directory = approvalDirectory(root, name, version);
+	// #85: signing stays an explicit command; with an adapter it records the approval there.
+	const directory = approvalDirectory(
+		readAdapter(root)?.root ?? root,
+		name,
+		version,
+	);
 	mkdirSync(directory, { recursive: true });
 	const file = path.join(directory, `${principal}.json`);
 	const sig = `${file}.sig`;

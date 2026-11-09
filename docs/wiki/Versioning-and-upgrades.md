@@ -1,5 +1,16 @@
 # Versioning and upgrades
 
+## 0.20.0 — project adapter (#85)
+
+New feature: an ignored `.agent-profiles/agents.local.yaml` can name one external
+adapter whose additions compose over the committed configuration. The additions
+are package skills, roles, extra role skills, and assignments over the adapter's
+own bindings, including exact-model selection. The adapter keeps its own lock and
+approvals. Projects without the local file are unaffected: there is no YAML, lock,
+store or bootstrap migration. Commands that do not compose an adapter yet (`update`,
+`configure`, `preset`, `migrate`, `stamp`, `inspect` and others) refuse while one
+is configured. See [project adapter](https://github.com/guisam/Agent-Profiles/blob/main/docs/project-adapter.md).
+
 ## 0.19.10 — npm package ships only named templates
 
 The package now lists each shipped `.agent-profiles/` template by name instead

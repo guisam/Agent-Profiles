@@ -13,6 +13,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { LOCAL_REFERENCE, readAdapter } from "./adapter.ts";
 import { readLocal } from "./files.ts";
 import { outdatedPins } from "./outdated.ts";
 import { storeRoot as selectStore } from "./package-store.ts";
@@ -65,10 +66,22 @@ export function noticeFingerprint(root: string, storeRoot?: string) {
 	names.sort();
 	const hash = createHash("sha256");
 	hash.update(JSON.stringify(names));
-	for (const file of [CONFIG, LOCK])
+	// #85: with an adapter, its reference, configuration and lock count as well.
+	const adapter = readAdapter(root);
+	for (const [base, file] of [
+		[root, CONFIG],
+		[root, LOCK],
+		...(adapter
+			? [
+					[root, LOCAL_REFERENCE],
+					[adapter.root, CONFIG],
+					[adapter.root, LOCK],
+				]
+			: []),
+	])
 		hash.update(
 			createHash("sha256")
-				.update(readLocal(root, file) ?? "")
+				.update(readLocal(base, file) ?? "")
 				.digest("hex"),
 		);
 	return hash.digest("hex");
