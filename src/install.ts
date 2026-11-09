@@ -9,8 +9,8 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { LOCAL_REFERENCE } from "./adapter.ts";
 import { approvalStatus, describeApproval } from "./approvals.ts";
-import { readConfiguration } from "./configure.ts";
 import {
 	applyChanges,
 	errorMessage,
@@ -35,7 +35,11 @@ import { mcpSetupLines } from "./mcp-setup.ts";
 import { noticeLevel, updateSummary } from "./notice.ts";
 import { outdatedPins } from "./outdated.ts";
 import type { Untyped } from "./packages.ts";
-import { type ResolvedSkill, resolveInstructions } from "./resolve.ts";
+import {
+	type ResolvedSkill,
+	resolveInstructions,
+	validateConfiguration,
+} from "./resolve.ts";
 import { loadTrustPolicy, trustReport } from "./trust.ts";
 
 // Sources run from src/; the published build runs from dist/src/.
@@ -409,7 +413,15 @@ export function doctor(
 		roleIDs: string[] = [];
 	try {
 		resolution = resolveInstructions({ root, storeRoot });
-		const { configuration } = readConfiguration(root, { storeRoot });
+		// The composed configuration (#85): adapter roles are checked like project ones.
+		const validated = validateConfiguration({ root });
+		const configuration = validated.config;
+		if (validated.adapter) {
+			const added = Object.keys(validated.adapterSources).sort();
+			notes.push(
+				`Configuration: committed .agent-profiles/agents.yaml composed with adapter ${validated.adapter.reference} (${validated.adapter.root}) via ${LOCAL_REFERENCE}. Adapter entries (${added.length}): ${added.join(", ") || "none"}. Lock and new approvals: ${validated.adapter.reference}/.agent-profiles/.`,
+			);
+		}
 		roleIDs = [...configuration.get("roles").keys()];
 		if (configuration.get("version") === 3) {
 			const actors = new Map<string, Record<string, Untyped>>();

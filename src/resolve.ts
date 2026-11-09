@@ -10,6 +10,12 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { parseDocument } from "yaml";
+import {
+	type Adapter,
+	composeConfiguration,
+	readAdapter,
+	type Sources,
+} from "./adapter.ts";
 import { approvalStatus } from "./approvals.ts";
 import { contextDiagnostics, measureFile, measureText } from "./diagnostics.ts";
 import { errorCode, errorMessage, safePath } from "./files.ts";
@@ -454,6 +460,17 @@ export function validateConfiguration({
 			`${errorMessage(error)}; run agent-profiles init for a new installation, or repair the existing configuration and run agent-profiles doctor`,
 		);
 	}
+	// #85: only the configuration read from disk composes; an explicit one is the caller's.
+	let adapter: Adapter | null = null,
+		adapterSources: Sources = {};
+	if (configuration === undefined) {
+		adapter = readAdapter(repository);
+		if (adapter) {
+			mapping(config, "agents.yaml");
+			preview = new Map(preview);
+			adapterSources = composeConfiguration(config, adapter, base, preview);
+		}
+	}
 	if (newRoleFile !== undefined) {
 		if (typeof newRoleFile?.content !== "string")
 			fail("newRoleFile", "expected path and text content");
@@ -727,6 +744,7 @@ export function validateConfiguration({
 		config.has("assignments") ? config.get("assignments") : new Map(),
 		"assignments",
 	);
+	const adapterModels = new Set<string>();
 	for (const [id, value] of assignments) {
 		const entry = `assignments.${id}`;
 		identifier(id, entry);
@@ -745,6 +763,26 @@ export function validateConfiguration({
 			host: new Set(integrations.map((item) => item.id)),
 		};
 		for (const [key, value] of when) {
+			// #85: an adapter rule may select an exact, undeclared model ID for its own
+			// bindings. Routing stays the project's; only that exact stated ID matches.
+			if (
+				key === "model" &&
+				adapterSources[entry] === "adapter" &&
+				!models.has(value)
+			) {
+				if (
+					typeof value !== "string" ||
+					!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(value)
+				)
+					fail(`${entry}.when.model`, "expected an exact model ID");
+				if (aliases.has(value))
+					fail(
+						`${entry}.when.model`,
+						`${value} is an alias of models.${aliases.get(value)}; use the canonical ID`,
+					);
+				adapterModels.add(value);
+				continue;
+			}
 			if (!allowed[key].has(value))
 				fail(
 					`${entry}.when.${key}`,
@@ -795,6 +833,11 @@ export function validateConfiguration({
 			[null, defaultProfile],
 			...[...models].map(([id, value]) => [id, value.get("profile")]),
 			...[...families.values()].map((value) => [null, value.get("profile")]),
+			// An adapter-named model can route by default, prefix or supplied family.
+			...[...adapterModels].flatMap((id) => [
+				[id, defaultProfile],
+				...[...families.values()].map((value) => [id, value.get("profile")]),
+			]),
 		];
 		for (const [model, profile] of pairs) {
 			for (const role of roles.keys()) {
@@ -1021,6 +1064,10 @@ export function validateConfiguration({
 	return {
 		repository,
 		config,
+		adapter,
+		adapterSources,
+		adapterModels,
+		preview,
 		bindings,
 		local,
 		profiles,
@@ -1236,6 +1283,8 @@ function resolveCore(
 		prefixes,
 		roles,
 	} = validated;
+	// Adapter role files are served from the adapter at their project path (#85).
+	preview = validated.preview;
 	// Lock state is settled before any store access; zero package pins need no lock and never read one.
 	const lock: {
 		state: string;
@@ -1439,7 +1488,12 @@ function resolveCore(
 		return selected;
 	}
 	const selectedPackages = selectPackages({
-		model: canonical,
+		// Exact-model adapter rules see the stated ID; everything else, the canonical one.
+		model:
+			canonical ??
+			(model !== undefined && validated.adapterModels.has(model)
+				? model
+				: null),
 		profile,
 		role: selectedRole,
 		host: host ?? null,
@@ -2058,6 +2112,16 @@ function resolveCore(
 		lockMode,
 		lockState: lock.state,
 		installRequired: !["valid", "not-required"].includes(lock.state),
+		// #85: present only when an adapter composes; committed-only output is unchanged.
+		...(validated.adapter
+			? {
+					adapter: {
+						reference: validated.adapter.reference,
+						root: validated.adapter.root,
+						entries: Object.keys(validated.adapterSources).sort(),
+					},
+				}
+			: {}),
 		diagnostics: contextDiagnostics(
 			loaded,
 			diagnosticAvailable,
