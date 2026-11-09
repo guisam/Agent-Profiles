@@ -68,21 +68,19 @@ If the team uses [signed approvals](https://github.com/guisam/Agent-Profiles/blo
 
 ## Personal choices that aren't team policy
 
-Everything committed under `.agent-profiles/` is team policy. Agent Profiles
-doesn't yet have an ignored local layer for one person's extra pins or roles
-([#85](https://github.com/guisam/Agent-Profiles/issues/85) tracks it). Until it does:
+Everything committed under `.agent-profiles/` is team policy. Keep one person's
+extra pins and roles in a **project adapter** instead: an ignored
+`.agent-profiles/agents.local.yaml` names a separate directory whose additions
+compose over the committed configuration. The adapter has its own lock and
+approvals. It can add skills, roles and assignments; it can't override project
+policy or trust. See [project adapter](https://github.com/guisam/Agent-Profiles/blob/main/docs/project-adapter.md)
+for precedence, supported commands and snapshot-backed migration.
 
-- Put experiments in a separate project or Git worktree, not in your main
-  checkout's committed configuration.
 - Don't hide local edits with `git update-index --skip-worktree`. It hides them
   from review, not from a commit made from another tool, a pack or a release.
 - Don't release from a checkout that carries local adoption. Release from CI
   or from a clean worktree:
   `git worktree add ../my-project-release origin/main`.
-
-The layered setup discussed in #85 (workshop, a per-project adapter, then the
-project) is a design proposal. Any file name or key shown there isn't supported
-syntax yet.
 
 ## If you develop Agent Profiles itself
 

@@ -3,6 +3,8 @@
 // explicit, previewed move of one exact tuple's pin. Reads never write; apply edits
 // only agents.yaml (guarded, comments kept), then refreshes the lock and stamps.
 import { createHash } from "node:crypto";
+import { realpathSync } from "node:fs";
+import { refuseWithAdapter } from "./adapter.ts";
 import {
 	type ApprovalStatus,
 	approvalStatus,
@@ -375,6 +377,8 @@ const previewDigest = (
 
 function planUpdate(input: UpdateInput) {
 	const { storeRoot, binding, version, assignment } = input;
+	// #85: update edits agents.yaml and the lock; it does not yet target an adapter's.
+	refuseWithAdapter(realpathSync(input.root), "update");
 	for (const key of ["role", "model", "host"] as const)
 		if (typeof assignment[key] !== "string" || !assignment[key])
 			throw new Error(

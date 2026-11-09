@@ -3,6 +3,7 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
+import { refuseWithAdapter } from "../src/adapter.ts";
 import { readConfiguration } from "../src/configure.ts";
 import {
 	formatContext,
@@ -25,6 +26,20 @@ import { configureRoles, display as displayText } from "../src/wizard.ts";
 
 // Heavy command modules load only for the command that uses them (#53), so the
 // per-session `resolve` bootstrap and the notice hook start without them.
+// Commands that compose an adapter (#85): resolution, dependency install, checks,
+// the library (approve writes to the adapter) and stamp reads that use only the store.
+const ADAPTER_COMMANDS = [
+	"resolve",
+	"install",
+	"doctor",
+	"notice",
+	"library",
+	"outdated",
+	"mcp",
+	"verify",
+	"diff",
+];
+
 let detectAgents!: typeof import("../src/install.ts").detectAgents;
 let doctor!: typeof import("../src/install.ts").doctor;
 let install!: typeof import("../src/install.ts").install;
@@ -229,6 +244,20 @@ try {
 	const [command] = positionals;
 	resolving = command === "resolve";
 	await loadCommandModules(command);
+	// #85: while an adapter is configured, commands that don't compose it refuse
+	// rather than read or write only the committed layer.
+	if (
+		command &&
+		!values.help &&
+		!values.version &&
+		!ADAPTER_COMMANDS.includes(command)
+	) {
+		let root: string | undefined;
+		try {
+			root = realpathSync(values.root ?? findRoot());
+		} catch {}
+		if (root) refuseWithAdapter(root, command);
+	}
 	const packageCommands = [
 		"add",
 		"install",

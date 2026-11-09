@@ -10,6 +10,12 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { parseDocument } from "yaml";
+import {
+	type Adapter,
+	composeConfiguration,
+	readAdapter,
+	type Sources,
+} from "./adapter.ts";
 import { approvalStatus } from "./approvals.ts";
 import { contextDiagnostics, measureFile, measureText } from "./diagnostics.ts";
 import { errorCode, errorMessage, safePath } from "./files.ts";
@@ -453,6 +459,17 @@ export function validateConfiguration({
 			".agent-profiles/agents.yaml",
 			`${errorMessage(error)}; run agent-profiles init for a new installation, or repair the existing configuration and run agent-profiles doctor`,
 		);
+	}
+	// #85: only the configuration read from disk composes; an explicit one is the caller's.
+	let adapter: Adapter | null = null,
+		adapterSources: Sources = {};
+	if (configuration === undefined) {
+		adapter = readAdapter(repository);
+		if (adapter) {
+			mapping(config, "agents.yaml");
+			preview = new Map(preview);
+			adapterSources = composeConfiguration(config, adapter, base, preview);
+		}
 	}
 	if (newRoleFile !== undefined) {
 		if (typeof newRoleFile?.content !== "string")
@@ -1021,6 +1038,9 @@ export function validateConfiguration({
 	return {
 		repository,
 		config,
+		adapter,
+		adapterSources,
+		preview,
 		bindings,
 		local,
 		profiles,
@@ -1236,6 +1256,8 @@ function resolveCore(
 		prefixes,
 		roles,
 	} = validated;
+	// Adapter role files are served from the adapter at their project path (#85).
+	preview = validated.preview;
 	// Lock state is settled before any store access; zero package pins need no lock and never read one.
 	const lock: {
 		state: string;
@@ -2058,6 +2080,16 @@ function resolveCore(
 		lockMode,
 		lockState: lock.state,
 		installRequired: !["valid", "not-required"].includes(lock.state),
+		// #85: present only when an adapter composes; committed-only output is unchanged.
+		...(validated.adapter
+			? {
+					adapter: {
+						reference: validated.adapter.reference,
+						root: validated.adapter.root,
+						entries: Object.keys(validated.adapterSources).sort(),
+					},
+				}
+			: {}),
 		diagnostics: contextDiagnostics(
 			loaded,
 			diagnosticAvailable,

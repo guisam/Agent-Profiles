@@ -16,6 +16,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { type Adapter, LOCAL_REFERENCE, readAdapter } from "./adapter.ts";
 import { errorCode, errorMessage, safePath } from "./files.ts";
 import {
 	candidateReservation,
@@ -437,16 +438,24 @@ function coverage(lock: Lock, { pins, wanted }: ReturnType<typeof declared>) {
 /** Read-only lock state: never writes or repairs; v3 also verifies the declared revision closure in the explicit store. */
 function readLockStateOperation(
 	root: string,
-	validated: { config: YamlMap; bindings: Map<string, PackageBinding> },
+	validated: {
+		config: YamlMap;
+		bindings: Map<string, PackageBinding>;
+		adapter?: Adapter | null;
+	},
 	storeRoot?: string,
 ): LockState {
 	const configSha256 = configDigest(validated.config);
+	// #85: with an adapter, its lock covers the whole composed configuration.
+	const label = validated.adapter
+		? `${validated.adapter.reference}/${lockFile}`
+		: lockFile;
 	try {
-		const found = input(root, lockFile);
+		const found = input(validated.adapter?.root ?? root, lockFile);
 		if (!found)
 			return {
 				state: "missing",
-				error: `${lockFile}: missing; run dependency install`,
+				error: `${label}: missing; run dependency install`,
 			};
 		const lock = readLock(found.bytes);
 		const v3 = validated.config.get("version") === 3;
@@ -458,14 +467,14 @@ function readLockStateOperation(
 		if (lock.configSha256 !== configSha256)
 			return {
 				state: "stale",
-				error: `${lockFile}: stale-lock: configuration changed; run dependency install`,
+				error: `${label}: stale-lock: configuration changed; run dependency install`,
 			};
 		return {
 			state: "valid",
 			locked: coverage(lock, declared(validated.bindings, v3, storeRoot)),
 		};
 	} catch (error) {
-		return { state: "invalid", error: `${lockFile}: ${errorMessage(error)}` };
+		return { state: "invalid", error: `${label}: ${errorMessage(error)}` };
 	}
 }
 
@@ -490,16 +499,38 @@ function installDependenciesOperation({
 	if (lstatSync(root).isSymbolicLink())
 		fail("root", "link/junction is forbidden");
 	root = realpathSync(root);
-	const beforeConfig = input(root, configurationFile),
-		beforeLock = input(root, lockFile);
+	// #85: with an adapter, install reads the composed configuration and writes only
+	// the adapter's lock. It never signs or writes approvals.
+	const adapter = readAdapter(root);
+	const lockRoot = adapter?.root ?? root;
+	const inputs: [string, string][] = [
+		[root, configurationFile],
+		...(adapter
+			? ([
+					[root, LOCAL_REFERENCE],
+					[adapter.root, configurationFile],
+				] as [string, string][])
+			: []),
+		[lockRoot, lockFile],
+	];
+	const before = inputs.map(([base, relative]) => input(base, relative));
+	const [beforeConfig] = before,
+		beforeLock = before[before.length - 1];
 	if (!beforeConfig) fail(configurationFile, "missing configuration");
-	const configuration = parseYaml(beforeConfig.bytes.toString("utf8"));
-	if (configuration instanceof Map && configuration.get("version") === 1)
+	let configuration = parseYaml(beforeConfig.bytes.toString("utf8"));
+	if (
+		!adapter &&
+		configuration instanceof Map &&
+		configuration.get("version") === 1
+	)
 		fail(
 			"version 1",
 			"migrate to version 2 using docs/migrations/config-v1-to-v2.md before installing dependencies",
 		);
-	const validated = validateConfiguration({ root, configuration });
+	const validated = validateConfiguration(
+		adapter ? { root } : { root, configuration },
+	);
+	configuration = validated.config;
 	const v3 = configuration.get("version") === 3;
 	const configSha256 = configDigest(configuration);
 	const { pins, wanted } = declared(validated.bindings, v3, storeRoot);
@@ -641,22 +672,20 @@ function installDependenciesOperation({
 		packages,
 	});
 	const unchanged = () => {
-		for (const [relative, before] of new Map([
-			[configurationFile, beforeConfig],
-			[lockFile, beforeLock],
-		])) {
-			const now = input(root, relative);
+		for (const [index, [base, relative]] of inputs.entries()) {
+			const was = before[index];
+			const now = input(base, relative);
 			if (
-				before === null
+				was === null
 					? now !== null
 					: !now ||
-						!before.bytes.equals(now.bytes) ||
-						!sameStat(before.stat, now.stat)
+						!was.bytes.equals(now.bytes) ||
+						!sameStat(was.stat, now.stat)
 			)
 				fail(relative, "stale-input: changed during install; retry");
 		}
 	};
-	const writer = safePath(root, ".agent-profiles/.dependency-writer");
+	const writer = safePath(lockRoot, ".agent-profiles/.dependency-writer");
 	try {
 		mkdirSync(writer);
 	} catch (error) {
@@ -686,7 +715,7 @@ function installDependenciesOperation({
 				closeSync(fd);
 			}
 			unchanged();
-			renameSync(temporary, safePath(root, lockFile));
+			renameSync(temporary, safePath(lockRoot, lockFile));
 		} else unchanged();
 	} finally {
 		rmSync(writer, { recursive: true, force: true });
