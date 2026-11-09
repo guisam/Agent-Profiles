@@ -60,7 +60,97 @@ do not convert its schema solely to run this guide.
 The preset's `skill-compactor` role always requires the compaction skill. Its
 standalone discovery cases do not qualify that role's delivery behavior.
 
-## 3. Prepare one candidate at a time
+## 3. Audit for the target model before compacting
+
+Vendor guidance supplies hypotheses, not adoption evidence. Review the current
+official guidance for the exact target model, recording the URL, access date,
+model coverage and relevant host/settings. Do not apply a Claude recommendation
+to Codex, or an Astra recommendation to Sol, without labeling and testing that
+transfer. The sources below were checked on 2026-11-09.
+
+### Anthropic: dated prompting patterns
+
+Anthropic's [prompt-audit procedure](https://github.com/anthropics/skills/blob/main/skills/claude-api/shared/prompt-audit.md)
+looks for model mismatches, stale project facts and conflicting instructions.
+It produces findings and a proposed diff. Candidate issues include excessive
+thoroughness, repeated verification, blanket tool-use demands and rigid planning
+or manual reasoning scaffolds. These are audit leads, not automatic deletions.
+
+In a supported Claude Code session, scope the audit to the candidate directory:
+
+```text
+/doctor prompt-audit <candidate-directory>
+```
+
+The [command documentation](https://code.claude.com/docs/en/memory#audit-your-instruction-files)
+requires Claude Code 2.1.283 or later and the bundled `claude-api` skill enabled.
+The direct skill entry point is `/claude-api prompt-audit`. Verify availability
+in the actual host; this guide does not establish that T3 exposes those slash
+commands. Keep the scope explicit and request proposed edits without application.
+
+Do not universally ban think-first instructions. Anthropic's
+[Sonnet 5.5 guidance](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5-5#reasoning-tasks-with-json-output)
+recommends a brief think-first cue for particular structured-output reasoning
+tasks with adaptive thinking. That is narrower than requiring a written reasoning
+scratchpad for every task. Retain the task and settings alongside the advice.
+
+### OpenAI: skill selection, context and model-specific guidance
+
+OpenAI's [Rethinking skills and prompts for GPT-6 Astra](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra)
+recommends precise, concise skill triggers, progressive disclosure of supporting
+material, and reconsidering overly rigid procedures. It flags unconditional
+document reading and excessive testing reminders, while emphasizing clear
+completion boundaries. It explicitly distinguishes Astra from Sol and Luna.
+
+OpenAI's [reasoning best practices](https://developers.openai.com/api/docs/guides/reasoning-best-practices)
+also advises simple instructions rather than explicit chain-of-thought prompts
+for the reasoning models discussed there. This older general guidance is not
+an exact-model performance result. Consult the target's current guidance first.
+OpenAI's [skill evaluation guide](https://developers.openai.com/blog/eval-skills)
+supports evaluating skill invocation and observable execution rather than
+judging the wording alone. No equivalent built-in Codex prompt-audit command
+was verified for this guide; use the scoped prompt below when needed.
+
+### Turn findings into testable proposals
+
+For every finding record: file/section, current instruction, source/date,
+applicable model/settings, expected behavioral problem, proposed edit,
+confidence and evaluation case. Separate:
+
+- Editorial improvements that preserve meaning.
+- Capability-dependent cuts requiring target-model evidence.
+- Selection changes, such as narrowing an available skill's trigger.
+- Policy or runtime-setting changes requiring separate review.
+
+Removing a redundant reminder is different from removing a required test,
+independent review or approval gate. A vendor's general advice does not override
+project authority. Test changes to descriptions for both activation and nearby
+non-triggers; test moved resources for actual access. Preserve the baseline for
+other models. If effort or thinking settings also change, evaluate them separately
+from the skill-text comparison so the result remains attributable.
+
+Copyable audit prompt:
+
+```text
+Audit [explicit files/candidate directory] for [exact model ID, host/version,
+effort/thinking settings, role]. Report findings and a proposed diff only.
+Do not edit live instructions, change pins/settings or run paid evaluations.
+
+Read current official guidance for this exact model. Cite source URLs and access
+dates; label guidance for other models as unverified transfer. Check dated
+reasoning scaffolds, repeated verification, unconditional tool/document use,
+overbroad skill triggers, contradictions and stale references. Do not treat a
+phrase match as proof that an instruction is harmful.
+
+For each finding give its location, preserved requirement, expected failure,
+proposed change, confidence and behavioral test. Distinguish editorial edits,
+capability assumptions, selection changes and policy/runtime changes. Preserve
+required checks and approval gates. Do not resolve a policy conflict silently.
+Hand appropriate candidates to skill-compaction, then baseline/candidate and
+held-out evaluation. Leave uncertain findings unchanged or explicitly unvalidated.
+```
+
+## 4. Prepare one candidate at a time
 
 Inventory each skill's triggers, decisions, order, exceptions, authority,
 verification and output contract. Read supporting files and incoming references.
@@ -87,7 +177,7 @@ Assess the whole role, then edit and compare one skill at a time. After individu
 candidates pass, evaluate their combined role context: individually good edits
 can interact badly. Preserve upstream versions for other models and roles.
 
-## 4. Evaluate before changing active selections
+## 5. Evaluate before changing active selections
 
 Freeze the cases, grading criteria, repetition count, permitted usage and adoption
 rule before running the target model. Use the existing runner; if none is
@@ -120,7 +210,7 @@ did not run held-out confirmation. The candidate remains **not adopted**. See
 the [close-out](https://github.com/guisam/agent-profiles-superpowers/blob/main/experiments/tdd-compaction/CLOSEOUT.md).
 These findings do not establish benefits for another model, host or skill.
 
-## 5. Save a version and select it narrowly
+## 6. Save a version and select it narrowly
 
 Saving a skill version is different from editing a model profile. A profile
 holds model-level instructions; a role defines duties and skill bindings; a
@@ -188,6 +278,11 @@ versions/digests, resources, callers and active plugins/hooks. Verify the target
 selection with resolve/explain in an isolated consumer. Do not overwrite bound
 MCP selectors or change live configuration. Stop on incomplete resolution.
 
+Audit against current official guidance for the exact target model first.
+Record source URLs/dates, applicability, confidence and behavioral cases.
+Vendor advice and phrase matches are hypotheses, not demonstrated improvements.
+Separate selection, policy and runtime-setting changes from equivalent compaction.
+
 Assess every attached skill. Recommend keep, editorial compaction,
 capability-dependent candidate, or separate policy/tooling repair. Preserve
 triggers, order, exceptions, authority, verification, scripts and references.
@@ -228,7 +323,10 @@ judgment calls may need reviewer guidance. Retro can also identify navigation,
 tooling and information-access problems. It does not establish which model
 variant is best, and this guide does not install either skill.
 
-For AP, use its findings as inputs to the next tuning cycle. Preserve this
+For AP, use its findings as inputs to the next tuning cycle: retro after code
+review, model-specific prompt audit, candidate compaction, behavioral evaluation,
+then authorized AP assignment. A new model can also trigger an audit without a
+preceding retro. Preserve this
 record for each proposed improvement:
 
 | Evidence | Interpretation | Destination | Validation |

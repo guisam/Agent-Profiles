@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.19.9 — 2026-11-09
+
+- Add Anthropic and OpenAI model-specific prompt auditing to the skill-tuning
+  guide, with a scoped audit prompt and dated official sources.
+- Separate editing, selection, policy and runtime-setting changes; retain
+  behavioral evaluation before adoption. Documentation only, no migration.
+
 ## 0.19.8 — 2026-11-09
 
 - Add a model-and-role skill tuning guide with preparation and retrospective

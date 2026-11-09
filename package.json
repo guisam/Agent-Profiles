@@ -1,6 +1,6 @@
 {
 	"name": "@guisam/agent-profiles",
-	"version": "0.19.8",
+	"version": "0.19.9",
 	"description": "Repository-local instruction routing for coding agents",
 	"license": "Apache-2.0",
 	"repository": {
