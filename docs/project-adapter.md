@@ -1,6 +1,6 @@
 # Project adapter: a local layer over committed configuration
 
-Issue: [#85](https://github.com/guisam/Agent-Profiles/issues/85). Status: first slice.
+Issue: [#85](https://github.com/guisam/Agent-Profiles/issues/85). Since 0.20.0 (first slice).
 
 A contributor can use private, pinned skills in a project without changing the
 project's committed configuration, lock or npm package. One ignored file names one
@@ -49,6 +49,28 @@ adds; it never overrides.
 | Add roles, with a file in the adapter or a package | Shadow a project file with an adapter file |
 | Add assignments that select only adapter-declared bindings | Assign versions to a project binding |
 | | Set `default_profile`, `default_role`, `models`, `families`, `profiles` or `workflow_links` |
+
+### Exact-model selection
+
+An adapter assignment may name, in `when.model`, an exact model ID that the
+project does not declare. This applies only to the adapter's own bindings. The
+project's `models` routing is not changed: the profile still comes from the
+project's model, family or default route.
+
+```yaml
+skills:
+  review: {package: "@local/review", version: 1.0.0}      # baseline
+assignments:
+  opus-review:
+    when: {model: claude-opus-5-5}
+    versions: {skills.review: 1.1.0}                       # exact model only
+```
+
+Only a host-stated model equal to that ID selects the rule. No model, another model,
+a near match such as `claude-opus-5-5-20261101`, a prefix, or a different case keeps
+the baseline. An ID that is a project alias is refused; name the canonical model.
+Validation checks every adapter-named model under the default and each family
+profile, so an ambiguous combination is refused before any session.
 
 Within one layer the existing rule applies: per binding, a matching rule with a
 strict superset selector wins, and incomparable or duplicate rules are refused.
@@ -107,5 +129,6 @@ The workshop repository provides a snapshot-backed tool:
 ## Not in this slice
 
 `update` and the configure, preset and migration writers do not target an
-adapter yet. Adapters cannot declare models, so model-specific assignments
-must use project-declared models. Adapter roles cannot declare `resources`.
+adapter yet (#97 guarded updates; #98 stamps, evidence and inspect). Adapters cannot declare or route models;
+exact-model selection above does not change routing. Adapter roles cannot declare
+`resources`.

@@ -481,3 +481,145 @@ test("signing stays explicit: approve writes to the adapter, both locations veri
 	fs.rmSync(path.join(f.root, LOCAL_REFERENCE));
 	assert.equal(status("1.0.0"), "approved");
 });
+
+test("exact-model selection for adapter-owned skills, with baseline fallback", (t) => {
+	const f = fixture(t);
+	// The project routes; a supplied family selects another profile.
+	const committed = fs.readFileSync(path.join(f.root, CONFIG), "utf8");
+	put(
+		path.join(f.root, CONFIG),
+		committed.replace(
+			"families: {}",
+			"families:\n  example-family:\n    profile: autonomous",
+		),
+	);
+	const rules = {
+		"opus-exact": {
+			when: { model: "claude-opus-5-5" },
+			versions: { "skills.shared-review": "1.1.0" },
+		},
+	};
+	fs.rmSync(path.join(f.config, ".agent-profiles"), { recursive: true });
+	adapter(
+		f.dir,
+		"project-config",
+		{ ...overlay(), assignments: rules },
+		{ "roles/auditor.md": "# auditor\n" },
+	);
+	f.link();
+	installDependencies({ root: f.root, storeRoot: f.store });
+	const pick = (input) => {
+		const r = resolveInstructions({
+			root: f.root,
+			storeRoot: f.store,
+			...input,
+		});
+		return [
+			r.required.find((skill) => skill.id === "shared-review").package.version,
+			r.profile,
+			r.matchedBy,
+		];
+	};
+	// Only the exact stated ID selects the variant; routing is unchanged.
+	assert.deepEqual(pick({ model: "claude-opus-5-5" }), [
+		"1.1.0",
+		"constrained",
+		"default",
+	]);
+	assert.deepEqual(pick({ model: "claude-opus-5-5", role: "auditor" }), [
+		"1.1.0",
+		"constrained",
+		"default",
+	]);
+	assert.deepEqual(
+		pick({ model: "claude-opus-5-5", family: "example-family" }),
+		["1.1.0", "autonomous", "family"],
+	);
+	// Fallback: no model, other models, near matches and prefixes keep the baseline.
+	for (const model of [
+		undefined,
+		"claude-sonnet-5-5",
+		"claude-opus-5-5-20261101",
+		"claude-opus-5",
+		"CLAUDE-OPUS-5-5",
+		"example-model",
+	])
+		assert.equal(pick({ model })[0], "1.0.0", String(model));
+	assert.equal(pick({ model: "example-model" })[1], "autonomous");
+
+	// Within the adapter, a strict superset selector wins as usual.
+	fs.rmSync(path.join(f.config, ".agent-profiles"), { recursive: true });
+	adapter(
+		f.dir,
+		"project-config",
+		{
+			...overlay(),
+			skills: {
+				"shared-review": { package: "@example/review", version: "1.1.0" },
+			},
+			assignments: {
+				"opus-baseline": {
+					when: { model: "claude-opus-5-5" },
+					versions: { "skills.shared-review": "1.0.0" },
+				},
+				"opus-auditor": {
+					when: { model: "claude-opus-5-5", role: "auditor" },
+					versions: { "skills.shared-review": "1.1.0" },
+				},
+			},
+		},
+		{ "roles/auditor.md": "# auditor\n" },
+	);
+	installDependencies({ root: f.root, storeRoot: f.store });
+	assert.equal(pick({ model: "claude-opus-5-5" })[0], "1.0.0");
+	assert.equal(pick({ model: "claude-opus-5-5", role: "auditor" })[0], "1.1.0");
+	assert.equal(
+		pick({ model: "claude-sonnet-5-5", role: "auditor" })[0],
+		"1.1.0",
+	);
+
+	// Incomparable adapter rules for an undeclared model are refused at validation.
+	fs.rmSync(path.join(f.config, ".agent-profiles"), { recursive: true });
+	adapter(
+		f.dir,
+		"project-config",
+		{
+			...overlay(),
+			assignments: {
+				"by-model": {
+					when: { model: "claude-opus-5-5" },
+					versions: { "skills.shared-review": "1.1.0" },
+				},
+				"by-role": {
+					when: { role: "auditor" },
+					versions: { "skills.shared-review": "1.1.0" },
+				},
+			},
+		},
+		{ "roles/auditor.md": "# auditor\n" },
+	);
+	assert.throws(
+		() => resolveInstructions({ root: f.root, storeRoot: f.store }),
+		/ambiguous assignments by-model, by-role/,
+	);
+
+	// A project alias is not an exact ID: the adapter must name the canonical model.
+	put(
+		path.join(f.root, CONFIG),
+		committed.replace(
+			"profile: autonomous",
+			"profile: autonomous\n    aliases:\n      - claude-opus-5-5",
+		),
+	);
+	fs.rmSync(path.join(f.config, ".agent-profiles"), { recursive: true });
+	adapter(
+		f.dir,
+		"project-config",
+		{ ...overlay(), assignments: rules },
+		{ "roles/auditor.md": "# auditor\n" },
+	);
+	assert.throws(
+		() => resolveInstructions({ root: f.root, storeRoot: f.store }),
+		/claude-opus-5-5 is an alias of models\.example-model; use the canonical ID/,
+	);
+});

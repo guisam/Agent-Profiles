@@ -744,6 +744,7 @@ export function validateConfiguration({
 		config.has("assignments") ? config.get("assignments") : new Map(),
 		"assignments",
 	);
+	const adapterModels = new Set<string>();
 	for (const [id, value] of assignments) {
 		const entry = `assignments.${id}`;
 		identifier(id, entry);
@@ -762,6 +763,26 @@ export function validateConfiguration({
 			host: new Set(integrations.map((item) => item.id)),
 		};
 		for (const [key, value] of when) {
+			// #85: an adapter rule may select an exact, undeclared model ID for its own
+			// bindings. Routing stays the project's; only that exact stated ID matches.
+			if (
+				key === "model" &&
+				adapterSources[entry] === "adapter" &&
+				!models.has(value)
+			) {
+				if (
+					typeof value !== "string" ||
+					!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(value)
+				)
+					fail(`${entry}.when.model`, "expected an exact model ID");
+				if (aliases.has(value))
+					fail(
+						`${entry}.when.model`,
+						`${value} is an alias of models.${aliases.get(value)}; use the canonical ID`,
+					);
+				adapterModels.add(value);
+				continue;
+			}
 			if (!allowed[key].has(value))
 				fail(
 					`${entry}.when.${key}`,
@@ -812,6 +833,11 @@ export function validateConfiguration({
 			[null, defaultProfile],
 			...[...models].map(([id, value]) => [id, value.get("profile")]),
 			...[...families.values()].map((value) => [null, value.get("profile")]),
+			// An adapter-named model can route by default, prefix or supplied family.
+			...[...adapterModels].flatMap((id) => [
+				[id, defaultProfile],
+				...[...families.values()].map((value) => [id, value.get("profile")]),
+			]),
 		];
 		for (const [model, profile] of pairs) {
 			for (const role of roles.keys()) {
@@ -1040,6 +1066,7 @@ export function validateConfiguration({
 		config,
 		adapter,
 		adapterSources,
+		adapterModels,
 		preview,
 		bindings,
 		local,
@@ -1461,7 +1488,12 @@ function resolveCore(
 		return selected;
 	}
 	const selectedPackages = selectPackages({
-		model: canonical,
+		// Exact-model adapter rules see the stated ID; everything else, the canonical one.
+		model:
+			canonical ??
+			(model !== undefined && validated.adapterModels.has(model)
+				? model
+				: null),
 		profile,
 		role: selectedRole,
 		host: host ?? null,
