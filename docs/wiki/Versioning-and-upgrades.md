@@ -1,5 +1,13 @@
 # Versioning and upgrades
 
+## 0.19.8 — model-and-role skill tuning guide
+
+Adds [tuning guidance and copyable prompts](Tuning-skills-by-model-and-role),
+including retrospective evidence, evaluation, scoped adoption and rollback.
+Documentation only: no YAML, lock, store or bootstrap migration is needed.
+No existing pins change. The guide does not authorize model runs or adopt a
+candidate. This source version does not imply npm publication.
+
 ## 0.19.7 — Skill Compaction preset
 
 Adds the [Skill Compaction preset](https://github.com/guisam/Agent-Profiles/tree/main/examples/presets/skill-compaction)

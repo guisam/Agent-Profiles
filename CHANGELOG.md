@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.19.8 — 2026-11-09
+
+- Add a model-and-role skill tuning guide with preparation and retrospective
+  prompts, evaluation gates, versioned selection and rollback guidance.
+- Explain how Matt Pocock's retro feeds the next tuning cycle and distinguish
+  screening results from adoption. Documentation only; no configuration,
+  lock, bootstrap or runtime migration. No npm release is implied.
+
 ## 0.19.7 — 2026-11-08
 
 - Add the Skill Compaction preset (preset 1.0.5): a `skill-compactor` role and
