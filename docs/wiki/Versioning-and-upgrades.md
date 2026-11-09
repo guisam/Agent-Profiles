@@ -1,5 +1,12 @@
 # Versioning and upgrades
 
+## 0.19.9 — model-specific prompt audits
+
+The [skill-tuning guide](Tuning-skills-by-model-and-role) now includes Anthropic
+and OpenAI guidance, a scoped audit prompt and model-specific evidence limits.
+No runtime, YAML, lock, store or bootstrap migration is required. No active
+skill selections change, and this source version does not imply npm publication.
+
 ## 0.19.8 — model-and-role skill tuning guide
 
 Adds [tuning guidance and copyable prompts](Tuning-skills-by-model-and-role),
