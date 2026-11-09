@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.19.7 — 2026-11-08
+
+- Add the Skill Compaction preset (preset 1.0.5): a `skill-compactor` role and
+  a skill for preparing model-specific skill candidates that remove familiar
+  execution explanation while preserving the behavioral contract (triggers,
+  ordering, exceptions, approvals, verification). Editorial and
+  capability-dependent cuts are labeled separately; candidates stay
+  unvalidated until behavioral comparison.
+- Ship draft development cases (suite 0.2.1, unexecuted), a protocol and a
+  result template with the preset source. Worked application: the
+  agent-profiles-superpowers companion (TDD for Sonnet 5.5).
+- Documentation/example patch; no runtime, schema, lock or bootstrap migration.
+
 ## 0.19.6 — 2026-11-07
 
 - Add an experimental Superpowers role example, resource-preserving setup steps,
