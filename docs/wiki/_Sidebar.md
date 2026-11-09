@@ -12,6 +12,7 @@
 - [MCP service](https://github.com/guisam/Agent-Profiles/wiki/MCP-service)
 - [Skill library](https://github.com/guisam/Agent-Profiles/wiki/Skill-library)
 - [Ponytail role preset](https://github.com/guisam/Agent-Profiles/wiki/Ponytail-role-preset)
+- [Separate your skill workshop](Separate-your-skill-workshop)
 - [Use and share profiles](https://github.com/guisam/Agent-Profiles/wiki#use-and-share-profiles)
 - [Troubleshoot](https://github.com/guisam/Agent-Profiles/wiki#troubleshoot)
 - [Technical reference](https://github.com/guisam/Agent-Profiles/wiki#technical-reference)

@@ -1,5 +1,15 @@
 # Versioning and upgrades
 
+## 0.19.10 — npm package ships only named templates
+
+The package now lists each shipped `.agent-profiles/` template by name instead
+of the whole folder (#85). If you build packages from a checkout that holds
+local locks, approvals or extra roles, they no longer enter the tarball, or
+new projects through `init`. Edits to the shipped templates themselves still
+ship, so publish from CI or a clean checkout. No YAML, lock, store or bootstrap
+migration; existing projects are unaffected. New guide:
+[separate your skill workshop](Separate-your-skill-workshop).
+
 ## 0.19.9 — model-specific prompt audits
 
 The [skill-tuning guide](Tuning-skills-by-model-and-role) now includes Anthropic
