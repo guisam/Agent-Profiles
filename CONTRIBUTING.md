@@ -56,7 +56,10 @@ The CI matrix runs these checks on Windows, macOS, and Linux with Node 24.
 - `src/presets.ts`, `src/preset-wizard.ts`: local preset inspection, import/export
   plans, and prompts reusing the existing selector and role wizard.
 - `bin/agent-profiles.ts`: public CLI, including the agent-facing `resolve` command.
-- `.agent-profiles/`: complete, minimal example shipped with the package.
+- `.agent-profiles/`: complete, minimal example shipped with the package. Only the
+  files named in `package.json` `files` ship, and `init` copies them into new
+  projects. Add a new template there by name; keep local locks, approvals, host
+  settings and personal roles out of it (`test/package-files.test.js` checks this).
 - `examples/presets/`: small, inspectable preset examples; see [the format](docs/presets.md).
 - `test/`: Node's built-in test runner; `docs/`: contracts and user guides.
 

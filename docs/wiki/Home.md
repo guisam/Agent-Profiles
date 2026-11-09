@@ -54,6 +54,7 @@ selection do not establish equivalent quality across models.
 
 - [Share a configuration with presets](https://github.com/guisam/Agent-Profiles/blob/main/docs/presets.md).
 - [Pin packages and reconstruct managed snapshots](https://github.com/guisam/Agent-Profiles/blob/main/docs/versioned-packages.md).
+- [Keep your skill workshop in its own repository and share it with your team](Separate-your-skill-workshop).
 - Read the host-specific guidance for [Claude Code](https://github.com/guisam/Agent-Profiles/blob/main/docs/hosts/claude-code.md), [Codex bootstrap](https://github.com/guisam/Agent-Profiles/blob/main/docs/bootstrap.md), [OpenCode](https://github.com/guisam/Agent-Profiles/blob/main/docs/hosts/opencode.md), or [Hermes Agent](https://github.com/guisam/Agent-Profiles/blob/main/docs/hosts/hermes.md).
 
 Check the selected host's requirements before reusing a configuration. A model or role change can select different instructions; it does not guarantee equivalent behavior or tools across agent apps.

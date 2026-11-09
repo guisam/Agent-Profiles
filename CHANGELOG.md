@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.19.10 — 2026-11-09
+
+- Ship only the ten named `.agent-profiles/` templates in the npm package instead
+  of the whole directory (#85). Local locks, approvals, permissions, trust
+  policy, host settings and extra roles or skills beside the templates no
+  longer enter the tarball, or new projects through `init`.
+- Add a packaging test that places sentinel local data beside the templates and
+  checks the packed file list and contents.
+- Add a wiki guide on keeping a personal skill workshop in its own repository.
+  No configuration, lock or bootstrap migration.
+
 ## 0.19.9 — 2026-11-09
 
 - Add Anthropic and OpenAI model-specific prompt auditing to the skill-tuning
