@@ -39,6 +39,10 @@ summarizes the source and explicitly reports that those checks were not performe
 
 ## Inspect and import
 
+For a role-wide assessment, candidate evaluation and exact-model adoption
+workflow, see [Tune skills for an exact model and role](model-role-skill-tuning.md).
+It includes copyable preparation and post-build retrospective prompts.
+
 The [Skill Compaction preset](../examples/presets/skill-compaction/preset.yaml)
 provides a `skill-compactor` role and a model-specific skill-refactoring workflow.
 It shortens familiar execution explanations while preserving decision rules,

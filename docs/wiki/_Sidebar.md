@@ -3,6 +3,7 @@
 - [Start here](https://github.com/guisam/Agent-Profiles/wiki#start-here)
 - [Configure your agent](https://github.com/guisam/Agent-Profiles/wiki#configure-your-agent)
 - [Evaluate and improve](https://github.com/guisam/Agent-Profiles/wiki#evaluate-and-improve)
+- [Tune skills by model and role](Tuning-skills-by-model-and-role)
 - [Qualify an agent](https://github.com/guisam/Agent-Profiles/wiki/Agent-qualification)
 - [Guided skill evaluation](https://github.com/guisam/Agent-Profiles/wiki/Guided-skill-evaluation)
 - [Windows JobBench pilot](https://github.com/guisam/Agent-Profiles/wiki/Windows-JobBench-pilot)
