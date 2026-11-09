@@ -39,6 +39,33 @@ summarizes the source and explicitly reports that those checks were not performe
 
 ## Inspect and import
 
+The [Skill Compaction preset](../examples/presets/skill-compaction/preset.yaml)
+provides a `skill-compactor` role and a model-specific skill-refactoring workflow.
+It shortens familiar execution explanations while preserving decision rules,
+local contracts and verification. It has no model assignments or defaults;
+importing it does not select or adopt a compacted variant. Candidates still need
+behavioral evaluation. From a checkout, inspect it with:
+
+```sh
+node bin/agent-profiles.ts preset inspect examples/presets/skill-compaction --contents
+```
+
+Six [draft review cases and their protocol](../examples/presets/skill-compaction/evals/cases.md)
+cover discovery, nearby non-triggers, contract preservation, missing target
+identity and conflicting instructions. Tool-neutral JSON cases and a result
+template ship with the preset source for adaptation to an external evaluator;
+they are not a built-in evaluator format. Preset import copies only the role
+and skill instructions. Trial guidance stays inline in the skill because preset
+schema 1 does not import supporting resources. The cases have not been run.
+The suite evaluates standalone/available-skill discovery. Its non-activation
+results do not qualify the preset's `skill-compactor` role, where the skill is
+always required; that delivery mode needs its own behavioral evaluation.
+
+A worked application, including the compacted candidate, change map, isolation
+checks and screening results, is in the
+[agent-profiles-superpowers](https://github.com/guisam/agent-profiles-superpowers)
+companion. That screening evaluated one compacted skill, not this preset.
+
 For a self-contained role breakdown, see the
 [Ponytail preset](../examples/presets/ponytail/README.md). It includes four
 MIT-licensed skill adaptations and an equivalent standalone `agents.yaml`.

@@ -1,5 +1,16 @@
 # Versioning and upgrades
 
+## 0.19.7 — Skill Compaction preset
+
+Adds the [Skill Compaction preset](https://github.com/guisam/Agent-Profiles/tree/main/examples/presets/skill-compaction)
+(preset 1.0.5): a `skill-compactor` role that prepares model-specific skill
+candidates by removing familiar execution explanation while preserving the
+behavioral contract. Importing it selects or adopts nothing; candidates need
+behavioral evaluation. Its draft development cases are unexecuted. A worked
+application, with findings and evaluation method, is the
+[agent-profiles-superpowers](https://github.com/guisam/agent-profiles-superpowers)
+companion. No runtime, YAML schema, lock or bootstrap migration is required.
+
 ## 0.19.5 — portable Ponytail role preset
 
 Adds the [Ponytail role preset](Ponytail-role-preset) with four MIT-licensed
