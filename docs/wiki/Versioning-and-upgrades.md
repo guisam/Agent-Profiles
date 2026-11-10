@@ -1,5 +1,33 @@
 # Versioning and upgrades
 
+## 0.23.1 — subagent delivery observations (#82)
+
+Unreleased. Documentation, fixture and test changes only; the resolver, MCP
+server and configuration format are unchanged. No configuration, lock or store
+migration is needed and `init` does not need to be re-run.
+
+What changed for users:
+
+- **Subagents have been observed** in headless Claude Code CLI and in T3 Code, with
+  Opus 5.5 and one trial each. Custom agents, the built-in `general-purpose`
+  agent and T3 `delegate_task` children received the `CLAUDE.md` bootstrap and
+  resolved before any other work. They got their own role: the role their
+  definition or brief assigns, or `default_role` when none is assigned.
+- **No child took the parent's role.** A child whose `resolve` failed reported
+  incomplete setup and did no role work.
+- **The built-in `Explore` agent gets no bootstrap**, and it worked before it
+  resolved. Use a custom agent (`.claude/agents/*.md`) that states its role for
+  role work.
+
+Action, if you share one Agent Profiles MCP server between a parent and its
+subagents: bind it to the host only (`agent-profiles mcp --host claude`). A server
+bound with `--role` imposes that role on every caller and refuses a child's own
+assignment. Interactive CLI matched for the custom agent with an assigned role; its other
+rows, other models and repeated trials are still open in
+[#82](https://github.com/guisam/Agent-Profiles/issues/82).
+
+To repeat the observation, see `test/fixtures/issue-82/README.md`.
+
 ## 0.23.0 — update to a variant package (#89, #91)
 
 Unreleased. These notes describe the source on the feature branch. Use them once
@@ -196,9 +224,9 @@ entries. Keep the local resolver and project bootstrap even with MCP, because th
 server can connect after the first task begins. Start a fresh session and verify
 resolution before work, every required skill body, and the final context marker.
 On failure, stop role work until resolution succeeds. CLI checks alone do not
-verify host behavior; subagents and further failure scenarios remain tracked in
-[#82](https://github.com/guisam/Agent-Profiles/issues/82) and
-[#83](https://github.com/guisam/Agent-Profiles/issues/83).
+verify host behavior. Subagent delivery was observed in 0.23.1
+([#82](https://github.com/guisam/Agent-Profiles/issues/82)); further failure
+scenarios remain tracked in [#83](https://github.com/guisam/Agent-Profiles/issues/83).
 
 ## 0.19.3 — truncation-safe MCP startup instructions (#80)
 
@@ -242,8 +270,8 @@ From 0.19.3:
 
 No YAML, lock or store migration is needed. Lifecycle hooks for `/clear` and
 compaction are not installed; delivery after those events still depends on the
-agent following the bootstrap. Subagent delivery is not validated: a subagent
-must call `resolve` itself with an explicitly assigned role
+agent following the bootstrap. A subagent must call `resolve` itself, passing a
+role only when one is assigned to it; see the 0.23.1 notes
 ([#82](https://github.com/guisam/Agent-Profiles/issues/82)).
 
 ## Source patch: 0.19.2 — published-package and MCP onboarding

@@ -11,8 +11,8 @@ copies instructions; library updates are a separate, explicit adoption workflow.
 
 Live testing demonstrated one project adopting a new skill while another stayed
 pinned, followed by adoption of the same digest. Recovery tests led to #80;
-delivery is not proof of instruction adherence. Subagent and failure coverage
-remain tracked by #82 and #83. Model-specific optimization is a future evaluation
+delivery is not proof of instruction adherence. Subagent delivery was observed
+in #82 (0.23.1); further failure coverage remains tracked by #83. Model-specific optimization is a future evaluation
 goal, not a measured result of this preset.
 
 ## Upgrade
