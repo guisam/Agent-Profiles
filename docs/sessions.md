@@ -70,6 +70,13 @@ Each resolution holds:
 - **`stamp`:** the stamp digest of the configured selection. It's the same digest
   `agent-profiles stamp` would record with the same selectors. If it couldn't be
   computed, `stampError` gives the reason.
+- **`configuration`** (since 0.22.0, #98): `{mode: "committed"}`, or, with a
+  [project adapter](project-adapter.md#stamps-verify-diff-and-evidence),
+  `{mode: "composed", digest, adapter: {label, referenceDigest}}`. `digest` is the
+  composed configuration digest that the adapter lock covers (`null` if no stamp
+  could be computed). Treat results from different modes or different digests as
+  different configurations. Records written before 0.22.0 have no
+  `configuration` field.
 - **`packages`:** each selected package's skill, name, version, sha256 and
   revision digest.
 - **`withheld`:** skills the trust policy left out, with the reason.

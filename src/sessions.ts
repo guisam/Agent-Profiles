@@ -16,6 +16,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { readAdapter, referenceDigest } from "./adapter.ts";
 import { errorMessage } from "./files.ts";
 import { previewStamp } from "./stamps.ts";
 
@@ -44,11 +45,27 @@ export type SessionResolution = {
 	/** The stamp digest of the configured selection (`verify` reads it if retained). */
 	stamp: string | null;
 	stampError?: string;
+	/**
+	 * #98: whether an adapter composed, and which composed configuration ran. Results
+	 * from different modes or configuration digests are different configurations.
+	 * Absent from records written before 0.22.0.
+	 */
+	configuration?: SessionConfiguration;
 	packages: Package[];
 	withheld: { id: string; name: string; version: string; reason: string }[];
 	/** Requested skills (`--skill` / `skills`) loaded in this call. */
 	requested: string[];
 };
+
+export type SessionConfiguration =
+	| { mode: "committed" }
+	| {
+			mode: "composed";
+			/** The composed configuration digest (the adapter lock's configSha256); null without a stamp. */
+			digest: string | null;
+			/** The adapter by label and reference digest, never its machine path. */
+			adapter: { label: string | null; referenceDigest: string } | null;
+	  };
 
 export type SessionRecord = {
 	schema: 1;
@@ -97,6 +114,8 @@ type Resolution = {
 		package: { name: string; version: string };
 		reason: string;
 	}[];
+	/** Present when an adapter composed (#85). */
+	adapter?: unknown;
 };
 
 function packagesOf(resolution: Resolution): Package[] {
@@ -175,8 +194,9 @@ export function createSessionRecorder({
 				if (client) record.client = client;
 				let stamp: string | null = null;
 				let stampError: string | undefined;
+				let configuration: SessionConfiguration = { mode: "committed" };
 				try {
-					stamp = previewStamp({
+					const preview = previewStamp({
 						root: selected.root,
 						storeRoot: selected.storeRoot,
 						host: selected.host,
@@ -184,9 +204,30 @@ export function createSessionRecorder({
 						family: selected.family,
 						identitySource: selected.identitySource,
 						role: selected.role,
-					}).digest;
+					});
+					stamp = preview.digest;
+					const composed = preview.snapshot.configurationSources;
+					if (composed)
+						configuration = {
+							mode: "composed",
+							digest: composed.configuration.digest,
+							adapter: { ...composed.adapter },
+						};
 				} catch (error) {
 					stampError = errorMessage(error);
+				}
+				// Without a stamp, the resolution still says whether an adapter composed.
+				if (stamp === null && resolution.adapter) {
+					let adapter = null;
+					try {
+						const found = readAdapter(selected.root);
+						if (found)
+							adapter = {
+								label: found.label,
+								referenceDigest: referenceDigest(found.reference),
+							};
+					} catch {}
+					configuration = { mode: "composed", digest: null, adapter };
 				}
 				record.resolutions.push({
 					at: timestamp(now()),
@@ -198,6 +239,7 @@ export function createSessionRecorder({
 					profile: resolution.profile,
 					stamp,
 					...(stampError ? { stampError } : {}),
+					configuration,
 					packages: packagesOf(resolution),
 					withheld: (resolution.withheld ?? []).map((entry) => ({
 						id: entry.id,
@@ -283,6 +325,11 @@ export function formatSessions(result: ReturnType<typeof listSessions>) {
 		for (const entry of session.resolutions)
 			lines.push(
 				`  ${entry.at} ${entry.via}: ${entry.role} × ${entry.model ?? "no model"} × ${entry.host ?? "no host"} → ${entry.profile}; stamp ${entry.stamp ?? `unavailable (${entry.stampError})`}`,
+				...(entry.configuration?.mode === "composed"
+					? [
+							`    configuration: composed with adapter ${entry.configuration.adapter?.label ?? (entry.configuration.adapter ? `reference ${entry.configuration.adapter.referenceDigest.slice(0, 12)}` : "unknown")}; sha256 ${entry.configuration.digest ?? "unavailable"}`,
+						]
+					: []),
 				...entry.packages.map(
 					(pkg) => `    ${pkg.skill}: ${pkg.name}@${pkg.version}`,
 				),

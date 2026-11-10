@@ -329,16 +329,25 @@ function readLock(bytes: Buffer): Lock {
 	return lock;
 }
 
-function configDigest(configuration: YamlMap) {
+/**
+ * The record a lock's configSha256 hashes. #98: stamps capture it for a composed
+ * configuration, so the adapter lock can be checked against the stamp.
+ */
+export function configRecord(configuration: YamlMap) {
 	const config = plain(configuration);
 	for (const key of ["profiles", "skills", "assignments"])
 		if (!Object.hasOwn(config, key)) config[key] = {};
 	if (config.version === 3 && !Object.hasOwn(config, "workflow_links"))
 		config.workflow_links = {};
-	return hashRecord(
-		`agent-profiles/config/v${config.version === 3 ? 3 : 2}`,
-		config,
-	);
+	return {
+		domain: `agent-profiles/config/v${config.version === 3 ? 3 : 2}`,
+		value: config,
+	};
+}
+
+function configDigest(configuration: YamlMap) {
+	const { domain, value } = configRecord(configuration);
+	return hashRecord(domain, value);
 }
 
 function declared(
