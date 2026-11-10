@@ -95,3 +95,21 @@ complete five-section end marker. Thus completeness is separate from selection:
 check model identity, role, selected assignment and package version/digest too.
 No AP runtime change or global shim edit was needed. Future shim behavior should
 be checked with the probe instead of assuming these results apply universally.
+
+## Exact scope and upstream history
+
+This finding concerns a PowerShell script forwarding its automatic `@args`
+through the tested `npx.ps1` launcher. It does not establish that ordinary literal
+npx commands, all npm versions, or all PowerShell versions lose arguments.
+Windows PowerShell 5.1 remains unverified here.
+
+The reconstruction change was introduced by
+[npm PR #8278](https://github.com/npm/cli/pull/8278), merged May 12, 2025,
+[commit 2210d7a](https://github.com/npm/cli/commit/2210d7a), to address specific
+flag and quoting behavior. The
+[npm 10.9.0 launcher](https://github.com/npm/cli/blob/v10.9.0/bin/npx.ps1)
+uses direct argument forwarding rather than that reconstruction path. Do not
+infer an affected npm v7–v11 range from the presence of a PowerShell shim.
+No claim is made here that every current release is affected or that no upstream
+fix exists. Upstream historical research is optional follow-up, not a blocker
+for using the tested fixture workaround and continuing AP evaluation work.
