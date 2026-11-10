@@ -36,6 +36,14 @@ const digestPattern = /^[0-9a-f]{64}$/;
 
 export type Identity = { name: string; version: string };
 
+/** A package name: `@namespace/name`, lowercase. */
+export const PACKAGE_NAME = /^@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/;
+/** An exact release version whose parts are safe integers. */
+export const isExactVersion = (version: unknown): version is string =>
+	typeof version === "string" &&
+	/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(version) &&
+	version.split(".").every((n) => Number.isSafeInteger(Number(n)));
+
 /** Stats a tree was read under; any later difference means the tree changed. */
 type Snapshot = {
 	rootStat: BigIntStats;
@@ -408,16 +416,9 @@ function writeFlushed(target: string, bytes: Buffer | string) {
 }
 
 function identityPath(root: string, name: unknown, version: unknown) {
-	if (
-		typeof name !== "string" ||
-		!/^@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/.test(name)
-	)
+	if (typeof name !== "string" || !PACKAGE_NAME.test(name))
 		throw new Error("identity: expected @namespace/name");
-	if (
-		typeof version !== "string" ||
-		!/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(version) ||
-		version.split(".").some((n) => !Number.isSafeInteger(Number(n)))
-	)
+	if (!isExactVersion(version))
 		throw new Error("identity: expected exact safe release version");
 	const components = name.slice(1).split("/").map(encodeComponent);
 	// All supported local backends must accommodate these portable generated components.

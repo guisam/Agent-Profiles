@@ -1,5 +1,51 @@
 # Versioning and upgrades
 
+## 0.23.0 — update to a variant package (#89, #91)
+
+Unreleased. These notes describe the source on the feature branch. Use them once
+0.23.0 is merged and published to npm.
+
+New feature: in configuration v3, `update` and MCP `update_preview` can move one
+exact role × model × host tuple to a differently named package, such as a
+model-specific variant:
+
+```sh
+agent-profiles update skills.brainstorming @apsp/brainstorming-sonnet-5-5@0.1.0 --model claude-sonnet-5-5 --role brainstormer --host claude
+```
+
+The move uses the same guards as a version move:
+
+- a preview with a content diff and evidence;
+- a check that no other tuple's selection changes;
+- `previewDigest` and `--expect`;
+- a release label on the target;
+- trust checks and layer ownership with a project adapter.
+
+The preview names both package identities. `--json` adds `before.package` and
+`after.package`. Nothing is promoted or selected automatically.
+
+Fix (#91): the target is checked before lookup. A malformed or unsupported target
+is reported as written. Before, `@demo/tool@@demo/variant@1.0.0` was reported as
+"not in the library". Now the error says that `@demo/variant@1.0.0` is not an
+exact version.
+
+Fix: an edit that would stop any tuple from resolving is refused with the
+resolver's error. One case is a target whose package type doesn't match the
+binding. Before, such an edit was reported as "does not change the target
+selection".
+
+Meaning of a bare version: `update <binding> 0.2.0` targets a version of the
+package that the tuple selects now. If the tuple already selects a variant, that
+is the variant's package, not the binding's default. To return a tuple to the
+default package, use the package-qualified form.
+
+Upgrade: no YAML, lock, store or stamp migration. Existing commands and
+same-package previews keep their digests and text. Configuration v2 projects
+can't move to another package. `update` refuses with a pointer to the
+[v2 → v3 conversion guide](https://github.com/guisam/Agent-Profiles/blob/main/docs/migrations/config-v2-to-v3.md)
+and never converts the schema. See
+[variant packages](https://github.com/guisam/Agent-Profiles/blob/main/docs/versioned-packages.md#move-one-tuple-to-a-variant-package).
+
 ## 0.22.1 — unreleased — required skill package identity (#90)
 
 CLI and MCP text resolution now shows `Package <name>@<version> (sha256 <digest>)`

@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.23.0 — unreleased — update to a variant package (#89, #91)
+
+- `update` and MCP `update_preview` accept a package-qualified target
+  (`@namespace/name@version`). In configuration v3 it moves one exact
+  role × model × host tuple to a differently named package, such as a
+  model-specific variant. The tuple's rule binding (`package`, `version`,
+  `revision`) is replaced in place when a rule pins exactly that tuple; otherwise
+  one exact rule is added. A broader rule is never widened.
+- The move has the same guards as a version move: a release label, the native
+  package-type check, the other-tuple sweep, a content diff from the selected
+  package to the target, evidence and approval for the target,
+  `previewDigest`/`--expect`, live trust checks, and #97 layer ownership with
+  #98 stamps. Apply never signs or approves.
+- The preview names both identities. `--json` adds `before.package` and
+  `after.package`; `package` is the target package. The `applyCommand` repeats
+  the target as given.
+- A bare version still means a version of the package the tuple selects now,
+  which may already be a variant. Same-package previews keep their digests and
+  text.
+- Configuration v1/v2 refuse a target that names another package, with a pointer
+  to the v2 → v3 conversion guide. `update` never converts the schema.
+- Fix (#91): targets are parsed before any lookup. A malformed or unsupported
+  target (a range, a tag, a missing version, a malformed name or a doubled
+  identity) is reported as written, and no identity is synthesized from the
+  binding's package and the target.
+- Fix: an update that would stop any tuple from resolving (for example, a target
+  of the wrong package type) is refused with the resolver's error, instead of
+  "does not change the target selection".
+
 ## 0.22.1 — unreleased — required skill package identity (#90)
 
 - Text `resolve` now names the selected package, version and SHA-256 digest above
