@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.21.0 — 2026-11-09 — guarded updates with a project adapter (#97)
+
+- `update` and MCP `update_preview` support a project adapter. The layer that
+  declares a binding owns its updates. An adapter binding's update edits only the
+  adapter's `agents.yaml` and lock. A project binding's update edits only the
+  project's `agents.yaml` and lock, and the result must be valid alone and composed.
+  The adapter's lock then becomes stale. Update never writes another layer's lock;
+  `install` refreshes it as a separate step. Cross-layer edits are refused.
+- An adapter update for a model that the project does not declare writes an
+  exact-model rule. It adds no `models` entry and does not change routing.
+  `outdated` sweeps the exact model IDs that adapter rules name, and reports each
+  pin's `layer`.
+- `previewDigest` covers the project configuration and lock, the local reference,
+  the adapter configuration and lock, and the current and target store identities.
+  Previews name each edit's `layer` and `file`, and list the action for each lock.
+- Apply never signs; it refuses unapproved targets under `require_approval`. In
+  adapter mode, it records no stamp (#98).
+- Committed-only text output is unchanged. JSON gains `layer`, `adapter`, `locks`
+  and per-edit `layer`/`file`. Previews made before 0.21.0 must be redone.
+
 ## 0.20.0 — 2026-11-09 — project adapter (#85)
 
 - An ignored `.agent-profiles/agents.local.yaml` can name one external adapter

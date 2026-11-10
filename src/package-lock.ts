@@ -484,6 +484,8 @@ export type InstallOptions = {
 	sources?: { name: string; version: string; directory: string }[];
 	frozen?: boolean;
 	offline?: boolean;
+	/** #97: refresh the committed lock for the project configuration alone, ignoring an adapter. */
+	committed?: boolean;
 };
 
 function installDependenciesOperation({
@@ -492,6 +494,7 @@ function installDependenciesOperation({
 	sources = [],
 	frozen = false,
 	offline = false,
+	committed = false,
 }: InstallOptions) {
 	if (typeof frozen !== "boolean" || typeof offline !== "boolean")
 		fail("install", "frozen and offline must be booleans");
@@ -501,7 +504,7 @@ function installDependenciesOperation({
 	root = realpathSync(root);
 	// #85: with an adapter, install reads the composed configuration and writes only
 	// the adapter's lock. It never signs or writes approvals.
-	const adapter = readAdapter(root);
+	const adapter = committed ? null : readAdapter(root);
 	const lockRoot = adapter?.root ?? root;
 	const inputs: [string, string][] = [
 		[root, configurationFile],

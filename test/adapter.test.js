@@ -10,7 +10,6 @@ import { LOCAL_REFERENCE, readAdapter } from "../src/adapter.ts";
 import { approvalStatus, approvePackage } from "../src/approvals.ts";
 import { doctor } from "../src/install.ts";
 import { publishPackage } from "../src/library.ts";
-import { previewUpdate } from "../src/outdated.ts";
 import { installDependencies } from "../src/package-lock.ts";
 import { resolveInstructions } from "../src/resolve.ts";
 import { keygen, noKeygen } from "./helpers/trust-fixture.js";
@@ -387,27 +386,6 @@ test("two projects keep independent adapters and pins", (t) => {
 			.version;
 	assert.equal(pinned(f.root), "1.0.0");
 	assert.equal(pinned(other), "1.1.0");
-});
-
-test("update refuses while an adapter is configured", (t) => {
-	const f = fixture(t);
-	f.link();
-	installDependencies({ root: f.root, storeRoot: f.store });
-	assert.throws(
-		() =>
-			previewUpdate({
-				root: f.root,
-				storeRoot: f.store,
-				binding: "skills.shared-review",
-				version: "1.1.0",
-				assignment: {
-					role: "implementer",
-					model: "example-model",
-					host: "claude",
-				},
-			}),
-		/update: not supported while \.agent-profiles\/agents\.local\.yaml references an adapter/,
-	);
 });
 
 test("signing stays explicit: approve writes to the adapter, both locations verify", {

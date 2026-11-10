@@ -140,6 +140,8 @@ export type ResolveOptions = {
 	role?: string;
 	skills?: string[];
 	configuration?: YamlMap;
+	/** #97: with `configuration`, compose the referenced adapter using this overlay. */
+	adapterConfiguration?: YamlMap;
 	storeRoot?: string;
 	lockMode?: "required" | "validation";
 	newRoleFile?: { path: string; content: string };
@@ -436,6 +438,8 @@ export function localDeclaration(
 export type ValidateOptions = {
 	root?: string;
 	configuration?: YamlMap;
+	/** #97: with `configuration`, compose the referenced adapter using this overlay instead of its file. */
+	adapterConfiguration?: YamlMap;
 	newRoleFile?: { path: string; content: string };
 	preview?: Map<string, Buffer>;
 };
@@ -443,6 +447,7 @@ export type ValidateOptions = {
 export function validateConfiguration({
 	root = process.cwd(),
 	configuration = undefined,
+	adapterConfiguration = undefined,
 	newRoleFile = undefined,
 	preview = new Map(),
 }: ValidateOptions = {}) {
@@ -460,15 +465,26 @@ export function validateConfiguration({
 			`${errorMessage(error)}; run agent-profiles init for a new installation, or repair the existing configuration and run agent-profiles doctor`,
 		);
 	}
-	// #85: only the configuration read from disk composes; an explicit one is the caller's.
+	// #85: only the configuration read from disk composes; an explicit one is the caller's,
+	// unless the caller also supplies the adapter's (#97 update previews an edited layer).
 	let adapter: Adapter | null = null,
 		adapterSources: Sources = {};
-	if (configuration === undefined) {
+	if (configuration === undefined || adapterConfiguration !== undefined) {
 		adapter = readAdapter(repository);
+		if (!adapter && adapterConfiguration !== undefined)
+			fail("adapterConfiguration", "no adapter is referenced");
 		if (adapter) {
 			mapping(config, "agents.yaml");
+			// Composition mutates the project mapping; an explicit one is reused by callers.
+			if (configuration !== undefined) config = structuredClone(config);
 			preview = new Map(preview);
-			adapterSources = composeConfiguration(config, adapter, base, preview);
+			adapterSources = composeConfiguration(
+				config,
+				adapter,
+				base,
+				preview,
+				adapterConfiguration && structuredClone(adapterConfiguration),
+			);
 		}
 	}
 	if (newRoleFile !== undefined) {
@@ -1224,6 +1240,7 @@ function resolveCore(
 		role,
 		skills = [],
 		configuration,
+		adapterConfiguration,
 		storeRoot,
 		lockMode = "required",
 		newRoleFile,
@@ -1267,6 +1284,7 @@ function resolveCore(
 	const validated = validateConfiguration({
 		root,
 		configuration,
+		adapterConfiguration,
 		newRoleFile,
 		preview,
 	});

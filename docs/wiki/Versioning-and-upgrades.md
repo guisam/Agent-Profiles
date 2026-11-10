@@ -1,5 +1,29 @@
 # Versioning and upgrades
 
+## 0.21.0 — guarded updates with a project adapter (#97)
+
+New feature: `update` and MCP `update_preview` now work while
+`.agent-profiles/agents.local.yaml` references an adapter. 0.20.0 refused them.
+
+- An update of a binding the adapter declares edits only the adapter's
+  `agents.yaml` and lock. An update of a project binding edits only the project's
+  `agents.yaml` and lock. The adapter's lock then becomes stale. `update` never
+  writes another layer's lock; run `agent-profiles install` as a separate step.
+- An adapter rule can pin an exact model ID that the project does not declare. No
+  project `models` entry is added, and routing stays the project's.
+- Previews name each edit's layer and file. `previewDigest` also covers the local
+  reference, the adapter's configuration and lock, and the selected store
+  versions, so `--apply --expect` refuses if any of them changed.
+- Apply never signs. Unapproved targets are refused under `require_approval`.
+  Approve with `agent-profiles library approve` first.
+- In adapter mode, apply records no stamp; stamps are #98.
+
+Upgrade: no YAML, lock, store or bootstrap migration. Projects without an adapter
+behave as before. Their `update` JSON gains `layer`, `adapter: null` and `locks`, and
+each edit gains `layer` and `file`. `outdated` pins gain `layer`. Text output is
+unchanged. A preview made with an older version does not apply with 0.21.0: preview
+again. See [project adapter](https://github.com/guisam/Agent-Profiles/blob/main/docs/project-adapter.md#updates).
+
 ## 0.20.0 — project adapter (#85)
 
 New feature: an ignored `.agent-profiles/agents.local.yaml` can name one external
