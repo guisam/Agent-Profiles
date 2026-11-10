@@ -37,8 +37,9 @@ server or valid configuration alone does not establish complete instruction deli
   T3 `delegate_task` children resolved their own role before any other tool.
   None took the parent's role, and a child whose `resolve` failed stopped. The
   built-in `Explore` agent gets no bootstrap; don't use it for role work. Bind a
-  shared server to the host only. Interactive CLI, other models and repeated
-  trials are still open in [#82](https://github.com/guisam/Agent-Profiles/issues/82).
+  shared server to the host only. Interactive CLI matched for the custom agent
+  with an assigned role; its other rows, other models and repeated trials are
+  still open in [#82](https://github.com/guisam/Agent-Profiles/issues/82).
 - **Librarian tools (0.13.0):** `library_list`, `library_search`, `library_info`,
   `library_evidence`, `outdated` and `update_preview` let an agent browse the
   library, check evidence and preview an update without a shell. Package files

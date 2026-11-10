@@ -281,7 +281,11 @@ Hosts:
   `--setting-sources project,local --strict-mcp-config --mcp-config .mcp.json`,
   and with tools limited to `resolve`, `Agent`, `Read`, `Grep`, `Glob` and
   `ToolSearch`. No user-scope plugins or hooks appeared in the transcript.
-  Interactive CLI was not run.
+- **Claude Code CLI, interactive** (entry point `cli`), C1 only, run by the
+  operator in a fresh fixture copy with `claude --model claude-opus-5-5`.
+  Whether `--setting-sources project,local` was added was not recorded. The
+  transcript shows no graft or Trail server or hook, and no `graft/` directory
+  appeared; the claude.ai connectors and Claude in Chrome tools were offered.
 - **T3 Code**, Claude provider, `auto` runtime mode, in a disposable project.
   The user-scope graft MCP server and hook loaded, and graft added a `graft/`
   cache directory to the fixture. That cache held the parent's latest prompt,
@@ -290,7 +294,7 @@ Hosts:
 | Row | Child (surface) | Assignment | CLI (headless) | T3 Code |
 | --- | --- | --- | --- | --- |
 | Parent | none | user: `coordinator` | `ToolSearch` → `resolve(role=coordinator)`; `base, coordinator.` | same |
-| C1 | `fixture-reviewer` (native `Agent`, custom) | definition: `reviewer` | `ToolSearch` → `resolve(role=reviewer)` → review tools. Both `FIXTURE-FINAL` lines and the 4-section final line | same |
+| C1 | `fixture-reviewer` (native `Agent`, custom) | definition: `reviewer` | `ToolSearch` → `resolve(role=reviewer)` → review tools. Both `FIXTURE-FINAL` lines and the 4-section final line. Interactive CLI: the same | same |
 | C2 | `fixture-unassigned` (native, custom) | none | `resolve` without a role → `reviewer` by default; complete | same |
 | B1 | `general-purpose` (native, built-in) | none | Bootstrap present. `resolve` without a role, first → default `reviewer`; complete | same |
 | B2 | `Explore` (native, built-in) | none | **Bootstrap absent.** `Grep` and `Bash` ran first; the server instructions arrived mid-run; then `resolve` with a **self-chosen `role=reviewer`**; complete | **Bootstrap absent.** `Grep`, `Bash`, then it read `CLAUDE.md` itself; then `resolve` without a role → default; complete |
@@ -320,7 +324,7 @@ Findings:
 - **Model identity:** no child launch named a model. Every transcript shows
   `requestedModel` and `message.model` as `claude-opus-5-5`.
 
-Not covered: interactive Claude Code CLI, repeated trials, other models, a child
+Not covered: interactive CLI rows other than C1, repeated trials, other models, a child
 with a model different from the parent's, truncated `resolve` output in a child,
 and T3 `delegate_task` to non-Claude providers.
 

@@ -167,7 +167,7 @@ Observed on 2026-11-10 with Opus 5.5 (#82; details in
 
 - **Bootstrap received:** custom agents, the built-in `general-purpose` agent and
   T3 `delegate_task` children received the `CLAUDE.md` bootstrap, in Claude Code
-  CLI (headless) and in T3 Code. Each resolved before any other tool and got
+  CLI (headless; C1 also interactive) and in T3 Code. Each resolved before any other tool and got
   complete instructions.
 - **No inheritance:** no child received or requested the parent's role.
 - **Failure handling:** children whose `resolve` failed reported incomplete setup
@@ -176,7 +176,7 @@ Observed on 2026-11-10 with Opus 5.5 (#82; details in
   before it resolved. Delivery to it is not supported; use a custom agent for role
   work.
 
-Not yet observed: interactive Claude Code CLI, other models, and repeated trials.
+Not yet observed: interactive CLI rows other than C1, other models, and repeated trials.
 These remain open in [#82](https://github.com/guisam/Agent-Profiles/issues/82).
 
 The portable fixture in `test/fixtures/issue-80/` (two required skills sized
@@ -299,7 +299,8 @@ scope changes every project for that user; choose that explicitly.
 | Claude Code and T3 Code: no child takes the parent's role without assignment | verified (live, same runs, #82) |
 | Claude Code and T3 Code: a child whose `resolve` fails stops role work | verified (live, same runs, #82) |
 | Claude Code: built-in `Explore` subagent receives the bootstrap | **not supported**: no bootstrap; it worked before it resolved (#82) |
-| Claude Code interactive CLI: subagent delivery | unverified (#82) |
+| Claude Code interactive CLI: custom agent with an assigned role (C1) resolves its own role before work | verified (live, Opus 5.5, one trial, #82) |
+| Claude Code interactive CLI: other subagent rows | unverified (#82) |
 
 ## Limits
 

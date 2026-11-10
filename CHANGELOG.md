@@ -14,7 +14,9 @@
   (`prepare.mjs`), a transcript summarizer (`trace.mjs`) and the live protocol.
   `test/issue-82-fixture.test.js` covers role separation, host-only binding, a
   skill removed after a healthy server start, and the summarizer.
-- Not covered yet: interactive Claude Code CLI, other models and repeated trials.
+- Interactive Claude Code CLI: the custom agent with an assigned role (C1)
+  resolved `reviewer` first, with complete instructions, in one operator-run trial.
+- Not covered yet: other interactive CLI rows, other models and repeated trials.
   #82 stays open for them. No runtime change.
 
 ## 0.23.0 — unreleased — update to a variant package (#89, #91)

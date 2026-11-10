@@ -22,7 +22,8 @@ What changed for users:
 Action, if you share one Agent Profiles MCP server between a parent and its
 subagents: bind it to the host only (`agent-profiles mcp --host claude`). A server
 bound with `--role` imposes that role on every caller and refuses a child's own
-assignment. Interactive CLI, other models and repeated trials are still open in
+assignment. Interactive CLI matched for the custom agent with an assigned role; its other
+rows, other models and repeated trials are still open in
 [#82](https://github.com/guisam/Agent-Profiles/issues/82).
 
 To repeat the observation, see `test/fixtures/issue-82/README.md`.

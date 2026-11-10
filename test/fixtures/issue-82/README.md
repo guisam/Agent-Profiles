@@ -27,7 +27,7 @@ coordinator`, or show the `FIXTURE-ROLE coordinator` line.
 files. Its output gives the entry point, tool order, requested and host-reported
 model IDs, resolve arguments, resolved role and the markers in each resolve tool result.
 
-Results of the first run (2026-11-10): `docs/host-observations.md`, section
+Results of the first runs, including one interactive C1 replication (2026-11-10): `docs/host-observations.md`, section
 "Subagent delivery on Claude Code 2.1.322 and T3 Code".
 
 ## Setup (deterministic, no model calls)
