@@ -16,12 +16,16 @@ touches:
 - Tool traces are readable: Claude Code (CLI and T3 Claude sessions) writes ~/.claude/projects/<proj>/<session>.jsonl plus <session>/subagents/agent-*.jsonl and .meta.json (agentType, isBuiltIn, toolUseId). Assistant records carry requestedModel and message.model; entrypoint is cli, sdk-cli or t3-code. test/fixtures/issue-82/trace.mjs summarizes these.
 - Live runs need the user's explicit authorization in the thread; preparation and deterministic tests do not.
 
+- Live results (2026-11-10, Opus 5.5, one trial each, headless CLI + T3): custom agents, built-in general-purpose and T3 delegate_task children resolved first with complete markers; none took the parent role; failed children stopped. Built-in Explore got no bootstrap in both hosts and worked before resolving (in CLI it passed a self-chosen role=reviewer). Evidence retained under C:/workspace/ap-issue82-runs/evidence.
+
 ## Tried and ruled out
 - Binding the MCP server to a role: it imposes that role on every caller and refuses a child's own assignment. Bind host only.
 - Agent descriptions that mention "role" or Agent Profiles: they hint the child. Keep descriptions neutral.
 - On Windows, spawnSync with shell:true and an argument array triggers DEP0190; quoting the command name breaks npm.cmd. Quote only the arguments.
 
 ## Watch out
+- In T3, the user-scope graft server/hook loads into fixture sessions and caches the parent prompt inside the workspace; a child Grep returned it. Headless CLI with --setting-sources project,local had no such contamination.
+- The 17 failures in outdated/package-cli/package-resolution tests on this machine reproduce on clean origin/main.
 - The MCP server re-reads configuration per call, so renaming a skill in the fixture copy mid-session is a clean disposable child failure; renaming it back recovers.
 - T3 delegate_task `role` (review, implementation…) is T3 metadata, not an Agent Profiles role. Native Agent children and delegate_task children are different surfaces.
 - Headless `claude -p` is a different entry point from interactive CLI; record which was used. User-scope plugins/hooks load into fixture sessions unless excluded with --setting-sources.
