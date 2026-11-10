@@ -215,8 +215,9 @@ test("an adapter-owned update edits only the adapter's configuration and lock", 
 		expect: preview.previewDigest,
 	});
 	assert.equal(applied.status, "updated");
-	assert.equal(applied.stampDigest, null, "stamps stay guarded (#98)");
-	assert.match(formatUpdate(applied), /No stamp recorded/);
+	// #98: the refreshed adapter lock covers the composed configuration, so it stamps.
+	assert.match(applied.stampDigest, /^[0-9a-f]{64}$/);
+	assert.match(formatUpdate(applied), /Lock refreshed; stamp sha256 /);
 	assert.deepEqual(tree(f.root), projectBefore, "project files unchanged");
 	const adapterConfig = fs.readFileSync(path.join(f.config, CONFIG), "utf8");
 	assert.match(adapterConfig, /^# adapter configuration/, "comments kept");
@@ -318,10 +319,16 @@ test("a project-owned update edits only project files and leaves the adapter loc
 		formatUpdate(preview),
 		/Apply leaves the adapter lock \.\.\/project-config\/\.agent-profiles\/agent-profiles\.lock stale.*agent-profiles install as a separate step/,
 	);
-	applyUpdate({
+	const applied = applyUpdate({
 		...input(f, "skills.team-review", "1.1.0"),
 		expect: preview.previewDigest,
 	});
+	// #98: a stamp needs the adapter lock to cover the composed configuration.
+	assert.equal(applied.stampDigest, null);
+	assert.match(
+		formatUpdate(applied),
+		/No stamp recorded: the adapter lock is stale until agent-profiles install/,
+	);
 	assert.deepEqual(tree(f.config), adapterBefore, "adapter files unchanged");
 	assert.notEqual(
 		fs.readFileSync(path.join(f.root, LOCK), "utf8"),

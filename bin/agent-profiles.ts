@@ -29,6 +29,8 @@ import { configureRoles, display as displayText } from "../src/wizard.ts";
 // Commands that compose an adapter (#85): resolution, dependency install, checks,
 // the library (approve writes to the adapter) and stamp reads that use only the store.
 // #97: update edits only the layer that owns the binding, and its lock.
+// #98: stamps capture the composed configuration; inspect lists the adapter's files;
+// session records name the configuration they ran.
 const ADAPTER_COMMANDS = [
 	"resolve",
 	"install",
@@ -40,6 +42,9 @@ const ADAPTER_COMMANDS = [
 	"mcp",
 	"verify",
 	"diff",
+	"stamp",
+	"inspect",
+	"sessions",
 ];
 
 let detectAgents!: typeof import("../src/install.ts").detectAgents;
@@ -1189,7 +1194,11 @@ Examples:
 		} else if (command === "verify") {
 			const result = verifyStamp({ digest: positionals[1], storeRoot });
 			report(result, `Stamp ${positionals[1]}`);
-			if (!result.managedReproducible) process.exitCode = 1;
+			if (
+				!result.managedReproducible ||
+				result.configuration?.configurationReproducible === false
+			)
+				process.exitCode = 1;
 		} else if (command === "diff") {
 			const result = diffStamps({
 				before: positionals[1],

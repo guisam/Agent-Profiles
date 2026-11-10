@@ -279,7 +279,7 @@ export function serverInstructions(options: McpOptions): string {
  */
 function stampLine(selected: ResolveOptions): string {
 	try {
-		const { digest, retained } = previewStamp({
+		const { digest, retained, snapshot } = previewStamp({
 			root: selected.root,
 			storeRoot: selected.storeRoot,
 			host: selected.host,
@@ -288,9 +288,14 @@ function stampLine(selected: ResolveOptions): string {
 			identitySource: selected.identitySource,
 			role: selected.role,
 		});
+		// #98: a composed stamp names its adapter by label or reference digest, never a path.
+		const composed = snapshot.configurationSources;
+		const configuration = composed
+			? ` Configuration: composed with adapter ${composed.adapter.label ?? `reference ${composed.adapter.referenceDigest.slice(0, 12)}`}; configuration sha256 ${composed.configuration.digest}.`
+			: "";
 		return retained
-			? `Stamp: sha256 ${digest} (retained in the store; the \`verify\` tool reads it).`
-			: `Stamp: sha256 ${digest} (not retained; \`agent-profiles stamp\` with the same selectors records this digest).`;
+			? `Stamp: sha256 ${digest} (retained in the store; the \`verify\` tool reads it).${configuration}`
+			: `Stamp: sha256 ${digest} (not retained; \`agent-profiles stamp\` with the same selectors records this digest).${configuration}`;
 	} catch (error) {
 		return `Stamp: unavailable (${errorMessage(error)}).`;
 	}

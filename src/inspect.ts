@@ -9,8 +9,9 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { LOCAL_REFERENCE, readAdapter, referenceDigest } from "./adapter.ts";
 import { readConfiguration } from "./configure.ts";
-import { errorCode, safePath } from "./files.ts";
+import { errorCode, errorMessage, safePath } from "./files.ts";
 import { integrations, managedSpan } from "./integrations.ts";
 import type { Untyped } from "./packages.ts";
 import {
@@ -471,6 +472,78 @@ function configurationMetadata(root: string) {
 	}
 }
 
+/**
+ * #98: the adapter as a configuration source, with its files. Every read is bounded
+ * and stays inside the declared adapter root: a role file that would leave it, or a
+ * link, is reported unavailable without being read. Null without a local reference.
+ */
+function adapterMetadata(root: string) {
+	const reference = fileMetadata(root, LOCAL_REFERENCE, "adapter-reference");
+	if (reference.availability === "missing") return null;
+	let adapter: ReturnType<typeof readAdapter>;
+	try {
+		adapter = readAdapter(root);
+	} catch (error) {
+		return {
+			status: "invalid",
+			reference: null,
+			label: null,
+			referenceDigest: null,
+			root: null,
+			files: [reference],
+			entries: { skills: [], roles: [], assignments: [] },
+			problem: errorMessage(error),
+		};
+	}
+	if (!adapter) return null;
+	const adapterRoot = adapter.root;
+	const inAdapter = (file: string, source: string) => ({
+		...fileMetadata(adapterRoot, file, source),
+		scope: "adapter",
+	});
+	const files = [
+		reference,
+		inAdapter(".agent-profiles/agents.yaml", "adapter-configuration"),
+		inAdapter(".agent-profiles/agent-profiles.lock", "adapter-lock"),
+	];
+	const entries: Record<string, string[]> = {
+		skills: [],
+		roles: [],
+		assignments: [],
+	};
+	let problem: string | undefined;
+	try {
+		const overlay = parseYaml(
+			readBounded(adapterRoot, ".agent-profiles/agents.yaml").toString("utf8"),
+		);
+		for (const section of Object.keys(entries)) {
+			const table = overlay instanceof Map ? overlay.get(section) : undefined;
+			if (table instanceof Map)
+				entries[section] = [...table.keys()].map(String).sort(compare);
+		}
+		const roles = overlay instanceof Map ? overlay.get("roles") : undefined;
+		for (const [, role] of roles instanceof Map ? roles : [])
+			if (role instanceof Map && typeof role.get("file") === "string")
+				files.push(
+					inAdapter(`.agent-profiles/${role.get("file")}`, "adapter-role"),
+				);
+	} catch {
+		// Parser excerpts can contain arbitrary source text; doctor reports the detail.
+		problem =
+			"Invalid or unreadable adapter configuration; run doctor for details";
+	}
+	return {
+		status: problem ? "partial" : "valid",
+		reference: adapter.reference,
+		label: adapter.label,
+		referenceDigest: referenceDigest(adapter.reference),
+		root: adapterRoot,
+		files,
+		entries,
+		...(problem ? { problem } : {}),
+	};
+}
+
 const toolGroups: Record<string, string[]> = {
 	host: integrations.map((adapter) => adapter.id),
 	runtime: ["node", "python", "python3", "go", "rustc"],
@@ -713,6 +786,7 @@ export function inspectRepository({
 		throw new Error("Inspection root must be a directory");
 	const { metadata: configuration, configuration: parsed } =
 		configurationMetadata(root);
+	const adapterSource = adapterMetadata(root);
 	const instructionWarnings: string[] = [];
 	const cursorRules = recognizedChildren(
 		root,
@@ -777,6 +851,8 @@ export function inspectRepository({
 				),
 			},
 			configuration,
+			// #98: present only when a local reference names an adapter.
+			...(adapterSource ? { adapter: adapterSource } : {}),
 			instructions,
 			workflows: workflows.files,
 			package: packageMetadata(root),
@@ -809,5 +885,9 @@ export function inspectRepository({
 }
 
 export function formatInventory(result: Untyped) {
-	return `Read-only inventory\nRepository: ${result.repository.root}\nInstallation: ${result.repository.installation.status}\nConfiguration: ${result.repository.configuration.status}\n${JSON.stringify(result, null, 2)}\nMetadata does not verify host invocation or grant execution/install permission.`;
+	const adapter = result.repository.adapter;
+	const adapterLine = adapter
+		? `\nAdapter: ${adapter.reference ?? "invalid reference"} (${adapter.status})`
+		: "";
+	return `Read-only inventory\nRepository: ${result.repository.root}\nInstallation: ${result.repository.installation.status}\nConfiguration: ${result.repository.configuration.status}${adapterLine}\n${JSON.stringify(result, null, 2)}\nMetadata does not verify host invocation or grant execution/install permission.`;
 }

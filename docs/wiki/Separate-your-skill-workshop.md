@@ -3,7 +3,7 @@
 Keep the skills you write and tune in their own Git repository, a *workshop*.
 Your product repository then only pins the versions it uses. Teammates get the
 same skills by cloning the workshop and verifying the exact bytes your project's
-lock names. The project adapter section needs 0.20.0 (0.21.0 to `update` its pins); everything else works with 0.19.10.
+lock names. The project adapter section needs 0.20.0 (0.21.0 to `update` its pins; 0.22.0, once published, to stamp, verify, diff, inspect or record sessions with it); everything else works with 0.19.10.
 
 ## Three places, three owners
 

@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.22.0 — unreleased — stamps, verify/diff, evidence and inspect with a project adapter (#98)
+
+- `stamp` works with a project adapter. A composed stamp adds a
+  `configurationSources` field: the composed configuration digest (the
+  `configSha256` that the adapter lock covers) and a blob of its record; each
+  contributing input with its layer (project `agents.yaml`, local reference,
+  adapter `agents.yaml`, role files and lock); adapter approvals for the captured
+  packages; and the entries the adapter added. Committed-only stamps are
+  byte-identical to 0.20.0 (golden test).
+- No machine paths in stamps or evidence. File paths are relative to their layer.
+  The local reference is recorded only as a reference digest. An optional `label`
+  in `agents.local.yaml` names the adapter; it cannot hold a path.
+- `verify` reports each configuration input as `reproducible`, `missing`,
+  `mismatched` or `digest-only`, and checks that the adapter lock covers the
+  composed configuration. It exits 1 when they don't reproduce. `diff` labels each
+  change's layer (`project`, `adapter`, `local`, `composed`, `derived`), counts
+  changes per layer, and reports `sameMode: false` between a committed-only and a
+  composed stamp. Diffs of two committed-only stamps are unchanged.
+- Session records gain `configuration` (`committed`, or `composed` with digest and
+  adapter label/reference digest). The MCP stamp line names a composed
+  configuration. `sessions` works in adapter mode.
+- `inspect` lists the adapter as a configuration source, with its files, and
+  never reads outside the adapter root.
+- `update` records a stamp after an adapter-owned update. After a project-owned
+  update the adapter lock is stale, so it records none and says to run `install`,
+  then `stamp`.
+- `materialize`, `revision` and the `migrate` evaluation workflow still refuse in
+  adapter mode. No YAML, lock, store or bootstrap migration.
+
 ## 0.21.0 — 2026-11-09 — guarded updates with a project adapter (#97)
 
 - `update` and MCP `update_preview` support a project adapter. The layer that

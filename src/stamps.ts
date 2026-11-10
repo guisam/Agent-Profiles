@@ -4,12 +4,16 @@ import {
 	mkdirSync,
 	mkdtempSync,
 	readdirSync,
+	readFileSync,
 	renameSync,
 	rmSync,
 } from "node:fs";
 import path from "node:path";
+import { LOCAL_REFERENCE, readAdapter, referenceDigest } from "./adapter.ts";
+import { APPROVALS } from "./approvals.ts";
 import { errorCode, errorMessage } from "./files.ts";
 import { integrations } from "./integrations.ts";
+import { configRecord } from "./package-lock.ts";
 import {
 	inStoreSession,
 	publish,
@@ -37,6 +41,7 @@ import {
 	resolveCandidateCapture,
 	resolveCapture,
 	skillMetadata,
+	validateConfiguration,
 	validatePackageBindings,
 } from "./resolve.ts";
 import { readRevisionRecord } from "./revisions.ts";
@@ -315,7 +320,33 @@ function pin(p: Untyped, location: string) {
 	identity(p, location);
 	if (p.revisionDigest !== null) digest(p.revisionDigest, location);
 }
-function descriptor(p: Untyped, context: Untyped) {
+/**
+ * #85/#98: an adapter rule may select an exact model ID the project does not declare.
+ * The resolver then matches the stated ID (canonical is null), only in a composed
+ * snapshot and only for bindings the adapter owns.
+ */
+function statedModel(s: Untyped) {
+	const id = s.selection?.identity;
+	if (!s[SOURCES] || !id || id.canonical !== null || id.raw === null)
+		return null;
+	return { model: id.raw, owned: new Set(s[SOURCES].adapterEntries) };
+}
+function selectorValue(
+	context: Untyped,
+	name: string,
+	binding: Untyped,
+	stated: ReturnType<typeof statedModel>,
+) {
+	return name === "model" && stated?.owned.has(binding)
+		? stated.model
+		: context[name];
+}
+
+function descriptor(
+	p: Untyped,
+	context: Untyped,
+	stated: ReturnType<typeof statedModel> = null,
+) {
 	fields(p, "package", [
 		"binding",
 		"name",
@@ -334,7 +365,7 @@ function descriptor(p: Untyped, context: Untyped) {
 		if (
 			!Object.hasOwn(context, name) ||
 			value === null ||
-			context[name] !== value
+			selectorValue(context, name, p.binding, stated) !== value
 		)
 			fail("snapshot relation selector", name);
 	}
@@ -342,7 +373,126 @@ function descriptor(p: Untyped, context: Untyped) {
 		fail("selectors", "binding-default must have no selectors");
 }
 function validateSnapshot(s: Untyped) {
+	if (s && typeof s === "object" && Object.hasOwn(s, SOURCES))
+		validateConfigurationSources(s[SOURCES]);
 	return s?.stampVersion === 2 ? validateSnapshot2(s) : validateSnapshot1(s);
+}
+// #98: present only when an adapter composed; a committed-only snapshot never has it,
+// so its bytes and digest are unchanged.
+const SOURCES = "configurationSources";
+const optionalSources = (s: Untyped) =>
+	Object.hasOwn(s, SOURCES) ? [SOURCES] : [];
+const LAYERS: Record<string, string[]> = {
+	project: ["configuration"],
+	local: ["reference"],
+	adapter: ["configuration", "role", "lock"],
+};
+const COMPOSED_PATH = "agents.composed.json";
+
+function validateConfigurationSources(c: Untyped) {
+	fields(c, SOURCES, [
+		"mode",
+		"adapter",
+		"configuration",
+		"inputs",
+		"approvals",
+		"adapterEntries",
+	]);
+	if (c.mode !== "composed") fail(`${SOURCES}.mode`, "expected composed");
+	fields(c.adapter, `${SOURCES}.adapter`, ["label", "referenceDigest"]);
+	if (c.adapter.label !== null) text(c.adapter.label, `${SOURCES}.label`);
+	digest(c.adapter.referenceDigest, `${SOURCES}.adapter.referenceDigest`);
+	fields(c.configuration, `${SOURCES}.configuration`, [
+		"domain",
+		"digest",
+		"backing",
+	]);
+	if (!/^agent-profiles\/config\/v[23]$/.test(c.configuration.domain))
+		fail(`${SOURCES}.configuration.domain`, "unknown configuration domain");
+	digest(c.configuration.digest, `${SOURCES}.configuration.digest`);
+	backing(c.configuration.backing, `${SOURCES}.configuration`);
+	if (
+		c.configuration.backing.type !== "blob" ||
+		c.configuration.backing.path !== COMPOSED_PATH
+	)
+		fail(`${SOURCES}.configuration`, "expected the composed blob");
+	list(c.inputs, `${SOURCES}.inputs`);
+	const seen = new Set<string>();
+	c.inputs.forEach((row: Untyped, index: number) => {
+		const location = `${SOURCES}.inputs[${index}]`;
+		fields(row, location, ["layer", "kind", "path", "sha256", "backing"]);
+		if (
+			!Object.hasOwn(LAYERS, row.layer) ||
+			!LAYERS[row.layer].includes(row.kind)
+		)
+			fail(location, "unknown layer/kind");
+		portable(row.path);
+		digest(row.sha256, `${location}.sha256`);
+		const id = `${row.layer}:${row.path}`;
+		if (seen.has(id)) fail(location, "duplicate input");
+		seen.add(id);
+		// The local reference names a machine path: only its digest is exported.
+		if (row.layer === "local") {
+			if (row.path !== LOCAL_REFERENCE || row.backing !== null)
+				fail(location, "the local reference is recorded by digest only");
+			if (row.sha256 !== c.adapter.referenceDigest)
+				fail(location, "reference digest disagreement");
+			return;
+		}
+		backing(row.backing, location);
+		if (
+			row.backing.type !== "blob" ||
+			row.backing.path !== row.path ||
+			row.backing.sha256 !== row.sha256
+		)
+			fail(location, "expected a blob of the input");
+	});
+	for (const [layer, kind] of [
+		["project", "configuration"],
+		["local", "reference"],
+		["adapter", "configuration"],
+	])
+		if (!c.inputs.some((r: Untyped) => r.layer === layer && r.kind === kind))
+			fail(`${SOURCES}.inputs`, `missing ${layer} ${kind}`);
+	// Approval files are named by package and principal (which carry "@"), so they
+	// are recorded by identity rather than by path.
+	list(c.approvals, `${SOURCES}.approvals`);
+	const approved = new Set<string>();
+	c.approvals.forEach((row: Untyped, index: number) => {
+		const location = `${SOURCES}.approvals[${index}]`;
+		fields(row, location, [
+			"package",
+			"version",
+			"principal",
+			"payload",
+			"signature",
+		]);
+		identity({ ...row, name: row.package, sha256: "0".repeat(64) }, location);
+		text(row.principal, `${location}.principal`);
+		if (/[\\/]/.test(row.principal) || row.principal.startsWith("."))
+			fail(`${location}.principal`, "not a file name");
+		const id = `${row.package}@${row.version}:${row.principal}`;
+		if (approved.has(id)) fail(location, "duplicate approval");
+		approved.add(id);
+		backing(row.payload, `${location}.payload`);
+		if (row.payload.type !== "blob" || row.payload.path !== "approval.json")
+			fail(`${location}.payload`, "expected the approval payload blob");
+		if (row.signature !== null) {
+			backing(row.signature, `${location}.signature`);
+			if (
+				row.signature.type !== "blob" ||
+				row.signature.path !== "approval.json.sig"
+			)
+				fail(`${location}.signature`, "expected the signature blob");
+		}
+	});
+	list(c.adapterEntries, `${SOURCES}.adapterEntries`);
+	c.adapterEntries.forEach((entry: Untyped, index: number) => {
+		text(entry, `${SOURCES}.adapterEntries[${index}]`);
+	});
+	unique(c.adapterEntries, `${SOURCES}.adapterEntries`);
+	if (!equal([...c.adapterEntries].sort(compare), c.adapterEntries))
+		fail(`${SOURCES}.adapterEntries`, "expected sorted entries");
 }
 function validateSnapshot2(s: Untyped) {
 	fields(s, "snapshot", [
@@ -364,6 +514,7 @@ function validateSnapshot2(s: Untyped) {
 		"revisions",
 		"selectionBindings",
 		"workflowActors",
+		...optionalSources(s),
 	]);
 	if (
 		s.configurationVersion !== 3 ||
@@ -457,7 +608,7 @@ function validateSnapshot2(s: Untyped) {
 		else if (e.type !== "host" || e.package !== null)
 			fail(binding, "missing backing");
 		if (e.package !== null) {
-			descriptor(e.package, context);
+			descriptor(e.package, context, statedModel(s));
 			checkPin(e.package);
 			if (
 				e.package.binding !== binding ||
@@ -555,14 +706,18 @@ function validateSnapshot2(s: Untyped) {
 			`${e.kind === "profile" ? "profiles" : e.kind === "role" ? "roles" : "skills"}.${e.id}`;
 		entry(e, binding);
 	}
-	const bindings = (rows: Untyped, context: Untyped) => {
+	const bindings = (
+		rows: Untyped,
+		context: Untyped,
+		stated: ReturnType<typeof statedModel> = null,
+	) => {
 		unique(
 			rows.map((row: Untyped) => row.root?.binding),
 			"bindings",
 		);
 		for (const row of rows) {
 			fields(row, "binding evidence", ["root", "closure"]);
-			descriptor(row.root, context);
+			descriptor(row.root, context, stated);
 			checkPin(row.root);
 			list(row.closure, "closure");
 			for (const p of row.closure) {
@@ -580,7 +735,7 @@ function validateSnapshot2(s: Untyped) {
 				fail("snapshot relation closure", "root must be last");
 		}
 	};
-	bindings(s.selectionBindings, context);
+	bindings(s.selectionBindings, context, statedModel(s));
 	unique(
 		s.workflowActors.map((actor: Untyped) => actorKey(actor.assignment)),
 		"workflowActors",
@@ -659,6 +814,7 @@ function validateSnapshot1(s: Untyped) {
 		"hostReferences",
 		"inventory",
 		"coverage",
+		...optionalSources(s),
 	]);
 	if (
 		s.stampVersion !== 1 ||
@@ -757,7 +913,11 @@ function validateSnapshot1(s: Untyped) {
 				host: sel.host,
 			};
 			for (const [k, v] of Object.entries(p.selectors))
-				if (!Object.hasOwn(context, k) || v === null || v !== context[k])
+				if (
+					!Object.hasOwn(context, k) ||
+					v === null ||
+					v !== selectorValue(context, k, binding, statedModel(s))
+				)
 					fail(location, `selector ${k} disagrees with selection`);
 			if (p.selectedBy === "binding-default" && Object.keys(p.selectors).length)
 				fail(location, "binding-default selectors must be empty");
@@ -887,6 +1047,19 @@ function allBackings(s: Untyped) {
 			...(e.resources ?? []).map((r: Untyped) => r.backing),
 		])
 		.filter(Boolean);
+}
+
+/** #98: the configuration blobs of a composed snapshot; none for a committed-only one. */
+function sourceBackings(s: Untyped): Untyped[] {
+	const c = s[SOURCES];
+	if (!c) return [];
+	return [
+		c.configuration.backing,
+		...c.inputs.map((row: Untyped) => row.backing).filter(Boolean),
+		...c.approvals.flatMap((row: Untyped) =>
+			[row.payload, row.signature].filter(Boolean),
+		),
+	];
 }
 
 function readBacking(root: string, b: Untyped, packages: Untyped) {
@@ -1618,6 +1791,94 @@ function localContent(root: string, s: Untyped, packages: Untyped) {
 	}
 }
 
+/**
+ * #98: the composed configuration and each input that contributed to it, by layer.
+ * Every file is relative to its layer's root, and the local reference is recorded
+ * only by the digest of the reference it holds, so no machine path is exported.
+ * Adapter approvals for the captured packages are kept because they decide what a
+ * trust policy withholds; the policy itself is machine-local and checked live.
+ */
+function configurationSources(
+	adapter: NonNullable<ReturnType<typeof readAdapter>>,
+	composed: ReturnType<typeof validateConfiguration>,
+	packages: Untyped[],
+	capture: {
+		/** A blob backing for a file under `from` (the project or adapter root). */
+		file: (relative: string, from: string) => Untyped;
+		/** A blob backing for generated bytes. */
+		bytes: (content: Buffer, relative: string) => Untyped;
+		list: (from: string, relative: string) => string[];
+		/** A blob backing for an approval file under the adapter root. */
+		approval: (relative: string, label: string) => Untyped;
+		project: string;
+	},
+	locked: boolean,
+) {
+	const input = (
+		layer: string,
+		kind: string,
+		relative: string,
+		from = adapter.root,
+	) => {
+		const backing = capture.file(relative, from);
+		return { layer, kind, path: relative, sha256: backing.sha256, backing };
+	};
+	const { domain, value } = configRecord(composed.config);
+	const reference = referenceDigest(adapter.reference);
+	const roles = composed.config.get("roles");
+	const roleFiles = Object.keys(composed.adapterSources)
+		.filter((entry) => /^roles.[^.]+$/.test(entry))
+		.map((entry) => roles.get(entry.slice("roles.".length)))
+		.filter((role) => role instanceof Map && !role.has("package"))
+		.map((role) => path.posix.normalize(`.agent-profiles/${role.get("file")}`));
+	const versions = new Map<string, Untyped>(
+		packages.map((p) => [`${p.name}@${p.version}`, p]),
+	);
+	const approvals = [...versions.values()]
+		.sort((a, b) => compare(a.name, b.name) || compare(a.version, b.version))
+		.flatMap((p) => {
+			const directory = `${APPROVALS}/${p.name}/${p.version}`;
+			const files = capture.list(adapter.root, directory);
+			return files
+				.filter((file) => file.endsWith(".json"))
+				.map((file) => ({
+					package: p.name,
+					version: p.version,
+					principal: file.slice(0, -".json".length),
+					payload: capture.approval(`${directory}/${file}`, "approval.json"),
+					signature: files.includes(`${file}.sig`)
+						? capture.approval(`${directory}/${file}.sig`, "approval.json.sig")
+						: null,
+				}));
+		});
+	return {
+		mode: "composed",
+		adapter: { label: adapter.label, referenceDigest: reference },
+		configuration: {
+			domain,
+			digest: hashRecord(domain, value),
+			backing: capture.bytes(canonicalJSON(value), COMPOSED_PATH),
+		},
+		inputs: [
+			input("project", "configuration", CONFIG, capture.project),
+			{
+				layer: "local",
+				kind: "reference",
+				path: LOCAL_REFERENCE,
+				sha256: reference,
+				backing: null,
+			},
+			input("adapter", "configuration", CONFIG),
+			...[...new Set(roleFiles)]
+				.sort(compare)
+				.map((file) => input("adapter", "role", file)),
+			...(locked ? [input("adapter", "lock", LOCK)] : []),
+		],
+		approvals,
+		adapterEntries: Object.keys(composed.adapterSources).sort(compare),
+	};
+}
+
 export type StampInput = {
 	root?: string;
 	storeRoot?: string;
@@ -1652,27 +1913,68 @@ function computeStamp(
 		input.root === undefined ? process.cwd() : input.root,
 		"root",
 	);
+	// Each captured file, keyed by its base directory: the project, or an adapter (#98).
 	const inputs = new Map(),
 		blobs = new Map();
-	const capture = (relative: string) => {
+	const capture = (relative: string, from = root) => {
 		portable(relative);
-		if (!inputs.has(relative)) {
-			const bytes = readStoreFile(root, relative),
-				stat = lstatSync(safePath(root, relative), { bigint: true });
-			inputs.set(relative, { bytes, stat });
+		const id = from === root ? relative : `${from}|${relative}`;
+		if (!inputs.has(id)) {
+			const bytes = readStoreFile(from, relative),
+				stat = lstatSync(safePath(from, relative), { bigint: true });
+			inputs.set(id, { from, relative, bytes, stat });
 		}
-		return inputs.get(relative).bytes;
+		return inputs.get(id).bytes;
 	};
-	const configuration = parseYaml(capture(CONFIG).toString("utf8"));
-	const captureInput = { ...selectors, root, configuration };
+	// Approval files carry "@" in their names, outside the portable path alphabet.
+	const captureApproval = (relative: string, from: string) => {
+		const id = `${from}|${relative}`;
+		if (!inputs.has(id)) {
+			const target = safePath(from, relative),
+				stat = lstatSync(target, { bigint: true });
+			if (!stat.isFile() || stat.nlink !== 1n)
+				fail(relative, "expected a regular unlinked file");
+			inputs.set(id, {
+				from,
+				relative,
+				bytes: readFileSync(target),
+				stat,
+				approval: true,
+			});
+		}
+		return inputs.get(id).bytes;
+	};
+	const projectConfiguration = parseYaml(capture(CONFIG).toString("utf8"));
+	// #98: with an adapter, resolve the composition of exactly the captured layers.
+	const adapter = readAdapter(root);
+	let adapterConfiguration: Untyped;
+	if (adapter) {
+		capture(LOCAL_REFERENCE);
+		adapterConfiguration = parseYaml(
+			capture(CONFIG, adapter.root).toString("utf8"),
+		);
+	}
+	const configuration = projectConfiguration;
+	const captureInput = {
+		...selectors,
+		root,
+		configuration,
+		...(adapter ? { adapterConfiguration } : {}),
+	};
 	const { resolution: resolved, evidence } =
 		candidateDigest === null
 			? resolveCapture(captureInput)
 			: resolveCandidateCapture(captureInput, candidateDigest);
-	const v3 = configuration.get("version") === 3;
-	if (resolved.lockState === "valid") capture(LOCK);
-	const blob = (relative: string, instruction = false) => {
-		const bytes = capture(relative);
+	const composed = adapter
+		? validateConfiguration({ root, configuration, adapterConfiguration })
+		: null;
+	// The composed version: a v1 project composes as v2 with a v2 adapter.
+	const version = (composed?.config ?? configuration).get("version");
+	const v3 = version === 3;
+	if (resolved.lockState === "valid") capture(LOCK, adapter?.root ?? root);
+	const adapterOwned = new Set(adapter ? resolved.adapter?.entries : []);
+	const blob = (relative: string, instruction = false, from = root) => {
+		const bytes = capture(relative, from);
 		if (instruction)
 			new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
 		const sha256 = sha(bytes);
@@ -1683,7 +1985,14 @@ function computeStamp(
 		backing: e.package
 			? { ...e.backing }
 			: e.path
-				? blob(e.path, e.type !== "host")
+				? blob(
+						e.path,
+						e.type !== "host",
+						// An adapter role file is served at its project path from the adapter (#85).
+						adapter && e.kind === "role" && adapterOwned.has(`roles.${e.id}`)
+							? adapter.root
+							: root,
+					)
 				: null,
 		package: e.package ?? null,
 		resources: (e.resources ?? []).map((relative: string) => ({
@@ -1838,10 +2147,10 @@ function computeStamp(
 				};
 			}),
 	);
-	const snapshot = {
+	const snapshot: Untyped = {
 		stampVersion: v3 ? 2 : 1,
-		configurationVersion: configuration.get("version"),
-		resolverContract: `agent-profiles/resolver/v${configuration.get("version")}`,
+		configurationVersion: version,
+		resolverContract: `agent-profiles/resolver/v${version}`,
 		selection: Object.fromEntries(
 			(
 				[
@@ -1885,6 +2194,48 @@ function computeStamp(
 			selectionBindings: evidence.primary,
 			workflowActors: [...evidence.actors].sort((a, b) =>
 				compare(actorKey(a.assignment), actorKey(b.assignment)),
+			),
+		});
+	if (adapter && composed)
+		Object.assign(snapshot, {
+			[SOURCES]: configurationSources(
+				adapter,
+				composed,
+				snapshot.packages,
+				{
+					file: (relative: string, from: string) => blob(relative, false, from),
+					bytes: (content: Buffer, relative: string) => {
+						const sha256 = sha(content);
+						blobs.set(sha256, content);
+						return {
+							type: "blob",
+							path: relative,
+							sha256,
+							bytes: content.length,
+						};
+					},
+					list: (from: string, relative: string) => {
+						try {
+							return readdirSync(safePath(from, relative)).sort(compare);
+						} catch (error) {
+							if (errorCode(error) === "ENOENT") return [];
+							throw error;
+						}
+					},
+					approval: (relative: string, label: string) => {
+						const content = captureApproval(relative, adapter.root);
+						const sha256 = sha(content);
+						blobs.set(sha256, content);
+						return {
+							type: "blob",
+							path: label,
+							sha256,
+							bytes: content.length,
+						};
+					},
+					project: root,
+				},
+				resolved.lockState === "valid",
 			),
 		});
 	validateSnapshot(snapshot);
@@ -1937,16 +2288,20 @@ function captureStamp(
 		manifestRelations(snapshot, checked, store);
 		for (const b of allBackings(snapshot)) readBacking(store, b, checked);
 		localContent(store, snapshot, checked);
+		for (const b of sourceBackings(snapshot)) readBacking(store, b, checked);
 		const unchanged = () => {
-			for (const [relative, before] of inputs) {
+			for (const { from, relative, bytes, stat, approval } of inputs.values()) {
+				const now = approval
+					? readFileSync(safePath(from, relative))
+					: readStoreFile(from, relative);
 				if (
-					!readStoreFile(root, relative).equals(before.bytes) ||
-					!sameStat(
-						before.stat,
-						lstatSync(safePath(root, relative), { bigint: true }),
-					)
+					!now.equals(bytes) ||
+					!sameStat(stat, lstatSync(safePath(from, relative), { bigint: true }))
 				)
-					fail(relative, "stale-input: changed during capture");
+					fail(
+						from === root ? relative : `adapter ${relative}`,
+						"stale-input: changed during capture",
+					);
 			}
 		};
 		const final = safePath(store, `stamps/sha256/${stampDigest}`);
@@ -2031,6 +2386,10 @@ function inspect(input: { digest: string; storeRoot?: string }) {
 		declaredHostDependenciesSatisfied: false,
 		completeRuntimeReproducible: false,
 		findings: [] as string[],
+	} as {
+		[key: string]: Untyped;
+		managedReproducible: boolean;
+		findings: string[];
 	};
 	let root: string | undefined,
 		snapshot: Untyped,
@@ -2039,6 +2398,18 @@ function inspect(input: { digest: string; storeRoot?: string }) {
 		root = storeRoot(input.storeRoot);
 		snapshot = loadStamp(root, input.digest);
 		report.snapshotIntegrity = "verified";
+		// #98: which configuration inputs of a composed stamp the store reproduces.
+		if (snapshot[SOURCES]) {
+			const { problems, ...configuration } = configurationReport(
+				root,
+				snapshot[SOURCES],
+			);
+			report.configuration = configuration;
+			if (problems.length)
+				report.findings.push(
+					`Composed configuration is not reproducible: ${problems.join(", ")}`,
+				);
+		}
 	} catch (error) {
 		report.snapshotIntegrity =
 			errorCode(error) === "ENOENT" ? "missing" : "mismatched";
@@ -2080,6 +2451,90 @@ function inspect(input: { digest: string; storeRoot?: string }) {
 	return { report, root, snapshot, packages };
 }
 
+/**
+ * #98: verify a composed stamp's configuration: each layer input against its blob
+ * (the local reference is digest-only by design), the composed record against its
+ * digest, and the adapter lock against the composed configuration it must cover.
+ */
+function configurationReport(root: string, c: Untyped) {
+	const status = (b: Untyped) => {
+		try {
+			readBacking(root, b, new Map());
+			return "reproducible";
+		} catch (error) {
+			return errorCode(error) === "ENOENT" ? "missing" : "mismatched";
+		}
+	};
+	const inputs = c.inputs.map((row: Untyped) => ({
+		layer: row.layer,
+		kind: row.kind,
+		path: row.path,
+		sha256: row.sha256,
+		status: row.backing ? status(row.backing) : "digest-only",
+	}));
+	const approvals = c.approvals.map((row: Untyped) => ({
+		layer: "adapter",
+		package: row.package,
+		version: row.version,
+		principal: row.principal,
+		status: [row.payload, row.signature]
+			.filter(Boolean)
+			.map(status)
+			.reduce(
+				(worst: string, next: string) =>
+					worst === "reproducible" ? next : worst,
+				"reproducible",
+			),
+	}));
+	let composed = status(c.configuration.backing);
+	if (
+		composed === "reproducible" &&
+		hashRecord(
+			c.configuration.domain,
+			parseRecord(readBacking(root, c.configuration.backing, new Map())),
+		) !== c.configuration.digest
+	)
+		composed = "mismatched";
+	let lockCoversConfiguration: boolean | null = null;
+	const lock = c.inputs.find((row: Untyped) => row.kind === "lock");
+	if (lock && status(lock.backing) === "reproducible")
+		try {
+			lockCoversConfiguration =
+				parseRecord(readBacking(root, lock.backing, new Map())).configSha256 ===
+				c.configuration.digest;
+		} catch {
+			lockCoversConfiguration = false;
+		}
+	const problems = [
+		...inputs
+			.filter(
+				(row: Untyped) => !["reproducible", "digest-only"].includes(row.status),
+			)
+			.map((row: Untyped) => `${row.layer} ${row.path} ${row.status}`),
+		...approvals
+			.filter((row: Untyped) => row.status !== "reproducible")
+			.map(
+				(row: Untyped) =>
+					`adapter approval ${row.package}@${row.version} by ${row.principal} ${row.status}`,
+			),
+		...(composed === "reproducible" ? [] : [`composed ${composed}`]),
+		...(lockCoversConfiguration === false
+			? ["adapter lock does not cover the composed configuration"]
+			: []),
+	];
+	return {
+		mode: "composed",
+		configurationDigest: c.configuration.digest,
+		adapter: { ...c.adapter },
+		composed,
+		lockCoversConfiguration,
+		inputs,
+		approvals,
+		configurationReproducible: problems.length === 0,
+		problems,
+	};
+}
+
 /** @param {{digest: string, storeRoot?: string}} input */
 function verifyStampOperation(input: Untyped) {
 	options(input, ["digest", "storeRoot"]);
@@ -2095,7 +2550,9 @@ function diffStampsOperation(input: Untyped) {
 	const after = inspect({ digest: input.after, storeRoot: input.storeRoot });
 	const complete =
 		before.report.managedReproducible === true &&
-		after.report.managedReproducible === true;
+		after.report.managedReproducible === true &&
+		before.report.configuration?.configurationReproducible !== false &&
+		after.report.configuration?.configurationReproducible !== false;
 	const changes: Untyped[] = [];
 	function walk(a: Untyped, b: Untyped, location: string) {
 		if (a === b) return;
@@ -2134,12 +2591,86 @@ function diffStampsOperation(input: Untyped) {
 			changes.push({ path: location, kind: "changed", before: a, after: b });
 	}
 	if (complete) walk(before.snapshot, after.snapshot, "");
+	// #98: with an adapter on either side, each change names the layer it came from,
+	// and a committed-only stamp is never reported as the same configuration.
+	if (!before.snapshot?.[SOURCES] && !after.snapshot?.[SOURCES])
+		return {
+			complete,
+			beforeVerification: before.report,
+			afterVerification: after.report,
+			changes,
+		};
+	const side = (s: Untyped) =>
+		s
+			? {
+					mode: s[SOURCES] ? "composed" : "committed",
+					configurationDigest: s[SOURCES]?.configuration.digest ?? null,
+					adapter: s[SOURCES] ? { ...s[SOURCES].adapter } : null,
+				}
+			: null;
+	const layered = changes.map((change) => ({
+		...change,
+		layer: changeLayer(change.path, before.snapshot, after.snapshot),
+	}));
+	const layers: Record<string, number> = {
+		project: 0,
+		adapter: 0,
+		local: 0,
+		composed: 0,
+		derived: 0,
+	};
+	for (const change of layered) layers[change.layer]++;
+	const [b, a] = [side(before.snapshot), side(after.snapshot)];
 	return {
 		complete,
 		beforeVerification: before.report,
 		afterVerification: after.report,
-		changes,
+		configuration: {
+			before: b,
+			after: a,
+			sameMode: b !== null && a !== null && b.mode === a.mode,
+		},
+		layers,
+		changes: layered,
 	};
+}
+
+/**
+ * #98: the layer a diff change belongs to. Inputs are ordered project, local, then
+ * adapter files; resolved entries follow the provenance their own snapshot records.
+ */
+function changeLayer(pointer: string, before: Untyped, after: Untyped) {
+	const [top, index, row] = pointer
+		.split("/")
+		.slice(1)
+		.map((part) => part.replace(/~1/g, "/").replace(/~0/g, "~"));
+	const entry = (s: Untyped) => {
+		const value = s?.[top]?.[Number(index)];
+		return value ? { value, owned: new Set(s[SOURCES]?.adapterEntries) } : null;
+	};
+	switch (top) {
+		case SOURCES:
+			if (index === "inputs" && row !== undefined)
+				return row === "0" ? "project" : row === "1" ? "local" : "adapter";
+			if (index === "adapter") return "local";
+			if (index === "configuration" || index === "mode") return "composed";
+			return "adapter";
+		case "composition":
+		case "required":
+		case "available": {
+			const found = entry(after) ?? entry(before);
+			if (!found) return "derived";
+			const { value, owned } = found;
+			if (value.kind === "profile") return "project";
+			const key =
+				value.kind === "role" ? `roles.${value.id}` : `skills.${value.id}`;
+			return owned.has(key) ? "adapter" : "project";
+		}
+		case "shared":
+			return "project";
+		default:
+			return "derived";
+	}
 }
 
 /** @param {{digest: string, storeRoot?: string, nativeReady?: boolean}} input */

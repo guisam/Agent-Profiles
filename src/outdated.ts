@@ -2,8 +2,9 @@
 // versions in the library, with evidence for the tuples each pin serves; and an
 // explicit, previewed move of one exact tuple's pin. Reads never write; apply edits
 // only the owning layer's agents.yaml (guarded, comments kept), then refreshes that
-// layer's lock and, without an adapter, stamps. #97: an adapter's bindings update in
-// the adapter; the project's in the project; neither writes the other.
+// layer's lock and stamps. #97: an adapter's bindings update in the adapter; the
+// project's in the project; neither writes the other. #98: a project edit with an
+// adapter leaves the adapter lock stale, so it records no stamp.
 import { createHash } from "node:crypto";
 import { LOCAL_REFERENCE, type Sources } from "./adapter.ts";
 import {
@@ -814,15 +815,18 @@ function applyUpdateOperation(input: UpdateInput) {
 		storeRoot: input.storeRoot,
 		...(plan.adapter && plan.layer === "project" ? { committed: true } : {}),
 	});
-	// shortcut: stamps do not compose an adapter yet, so adapter mode records none; revisit with #98.
-	const stamp = plan.adapter
-		? null
-		: createStamp({
-				root,
-				storeRoot: input.storeRoot,
-				...input.assignment,
-				identitySource: "user",
-			});
+	// #98: a stamp captures the composed configuration, which the adapter lock must
+	// cover. An adapter edit just refreshed that lock; a project edit left it stale
+	// (see `locks`), so no stamp until a separate install refreshes it.
+	const stamp =
+		plan.adapter && plan.layer === "project"
+			? null
+			: createStamp({
+					root,
+					storeRoot: input.storeRoot,
+					...input.assignment,
+					identitySource: "user",
+				});
 	return {
 		...publicPlan(plan),
 		status: "updated" as const,
@@ -930,7 +934,7 @@ export function formatUpdate(
 		lines.push(
 			result.stampDigest
 				? `  Lock refreshed; stamp sha256 ${result.stampDigest}`
-				: "  No stamp recorded: stamps do not compose an adapter yet (#98)",
+				: "  No stamp recorded: the adapter lock is stale until agent-profiles install refreshes it; then run agent-profiles stamp",
 		);
 	else
 		lines.push(

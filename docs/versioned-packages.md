@@ -161,6 +161,9 @@ immutable backing, not today's configuration/sources. BOMs, CRLF, trailing blank
 and binary resources survive. Decoded live [proof measurements](proof.md) are a
 separate view. Diff compares structural fields/order/provenance, not quality or
 semantic equivalence; both inputs and all backing verify even at equal digests.
+With a [project adapter](project-adapter.md#stamps-verify-diff-and-evidence), the
+stamp also records the composed configuration and its inputs by layer; `verify`
+reports which are reproducible, and `diff` labels each change's layer.
 
 Default shared capture observes root `AGENTS.md` best-effort: captured, absent or
 unobserved. API `sharedFiles` **replaces** the default: `[]` captures none; an
@@ -477,7 +480,9 @@ agent-profiles update skills.security-review 2.0.0 --model fictional-small --rol
   3. edits `agents.yaml` through the YAML document, so comments are kept;
   4. validates the result;
   5. refreshes the lock through `install`;
-  6. captures a stamp and prints its digest.
+  6. captures a stamp and prints its digest. With a project adapter, a
+     project-owned update leaves the adapter lock stale and records no stamp until
+     `install` refreshes it.
 - **`--require-evidence`** refuses unless the version has a `promoted` evidence
   row for that exact tuple. Without it, evidence is shown but never required.
 - **Already pinned:** if the tuple already selects that version (for example,

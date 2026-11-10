@@ -1,5 +1,36 @@
 # Versioning and upgrades
 
+## 0.22.0 — stamps, verify/diff, evidence and inspect with a project adapter (#98)
+
+Unreleased. These notes describe the merged source. Use them once 0.22.0 is
+published to npm.
+
+New feature: `stamp`, `inspect` and `sessions` now work while
+`.agent-profiles/agents.local.yaml` references an adapter. 0.21.0 refused them.
+
+- A composed stamp records the composed configuration digest, each contributing
+  input by layer, adapter approvals, and the entries the adapter added, in a new
+  `configurationSources` field. It names the adapter by an optional `label` and a
+  reference digest, never by machine path.
+- `verify` reports which configuration inputs reproduce and whether the adapter
+  lock covers the composed configuration. `diff` labels each change's layer and
+  flags a committed-only versus composed comparison (`sameMode: false`).
+- Session records and the MCP stamp line state the configuration mode and, for a
+  composed run, its digest and adapter.
+- `inspect` lists the adapter and its files, reading only inside the adapter root.
+- After an adapter-owned `update`, apply records a stamp. After a project-owned
+  update the adapter lock is stale: run `agent-profiles install`, then
+  `agent-profiles stamp`.
+
+Upgrade: no YAML, lock, store or bootstrap migration. Committed-only stamps keep
+the same bytes and digests. Optional: add `label: <name>` to
+`agents.local.yaml` to choose how stamps and evidence name the adapter. A label
+is 1–64 letters, digits, spaces, dots, hyphens or underscores. Earlier versions
+reject the `label` key, so add it only after every tool that reads this project
+runs 0.22.0. Earlier versions cannot read composed stamps. Session records
+written before 0.22.0 have no `configuration` field. See
+[project adapter](https://github.com/guisam/Agent-Profiles/blob/main/docs/project-adapter.md#stamps-verify-diff-and-evidence).
+
 ## 0.21.0 — guarded updates with a project adapter (#97)
 
 New feature: `update` and MCP `update_preview` now work while

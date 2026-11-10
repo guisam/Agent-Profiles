@@ -2,6 +2,7 @@
 
 Issue: [#85](https://github.com/guisam/Agent-Profiles/issues/85). Since 0.20.0 (first slice).
 Guarded updates: [#97](https://github.com/guisam/Agent-Profiles/issues/97), since 0.21.0.
+Stamps, verify/diff, evidence and inspect: [#98](https://github.com/guisam/Agent-Profiles/issues/98), since 0.22.0.
 
 A contributor can use private, pinned skills in a project without changing the
 project's committed configuration, lock or npm package. One ignored file names one
@@ -23,11 +24,15 @@ repository the packages were built in.
 
 ## Connection
 
-`.agent-profiles/agents.local.yaml` contains exactly one key:
+`.agent-profiles/agents.local.yaml` contains one required key and one optional key:
 
 ```yaml
 adapter: ../project-config   # relative to the project root, or absolute
+label: team-workshop         # optional (0.22.0): names the adapter in stamps and evidence
 ```
+
+A `label` is 1–64 letters, digits, spaces, dots, hyphens or underscores. It
+cannot contain a slash, backslash or colon, so it cannot carry a path.
 
 - No local file: the committed configuration alone applies.
 - The reference must resolve to an existing directory outside the project that
@@ -102,12 +107,14 @@ Trust is unchanged: the machine policy narrowed by the project's `trust.yaml`.
 
 Commands that compose the adapter: `resolve`, `install`, `doctor`, `notice`,
 `library`, `outdated` (read-only), `update` (see [Updates](#updates)), `mcp`
-(including `update_preview`), and the store-only stamp reads `verify` and `diff`.
+(including `update_preview`), and, since 0.22.0, `stamp`, `verify`, `diff`,
+`inspect` and `sessions` (see
+[Stamps, verify, diff and evidence](#stamps-verify-diff-and-evidence)).
 
 Every other command refuses while an adapter is configured. This includes
-`configure`, `init`, `uninstall`, `preset`, `migrate`, `stamp` and `inspect`. Each
-names the local file to move aside to run on the committed configuration. They do
-not act on one layer silently.
+`configure`, `init`, `uninstall`, `preset`, `migrate`, `materialize` and
+`revision`. Each names the local file to move aside to run on the committed
+configuration. They do not act on one layer silently.
 
 Provenance: `resolve --json` and MCP `explain` include an `adapter` field (its
 reference, root and the entries it added) only when an adapter composes. `doctor`
@@ -146,10 +153,68 @@ layer that declares a binding owns its updates:
 - **Trust.** Apply never signs or writes approvals. Under `require_approval`, apply
   refuses an unapproved target. Approve it with `agent-profiles library approve` as a
   separate step. Approvals from the project and the adapter both count.
-- **Stamps.** Apply does not record a stamp in adapter mode (`stampDigest: null`),
-  because stamps do not compose an adapter yet (#98).
+- **Stamps.** After an adapter-owned update, apply records a composed stamp
+  (0.22.0). After a project-owned update the adapter lock is stale, so apply
+  records none (`stampDigest: null`) and says so. Run `agent-profiles install`,
+  then `agent-profiles stamp`.
 - `outdated` lists each pin's `layer`. Its tuples include the exact model IDs that
   adapter rules name.
+
+## Stamps, verify, diff and evidence
+
+Since 0.22.0 (#98), `stamp` works with an adapter. A composed stamp has an extra
+`configurationSources` field. A committed-only stamp never has it, so its bytes
+and digest are the same as in 0.20.0.
+
+`configurationSources` holds:
+
+| Field | Content |
+| --- | --- |
+| `mode` | `composed` |
+| `adapter` | `label` (from the local file, or `null`) and `referenceDigest` |
+| `configuration` | the composed configuration: its `digest` (the `configSha256` the adapter lock covers) and a blob of its canonical record |
+| `inputs` | each contributing file by `layer` and `kind`: the project's `agents.yaml`; the local reference (digest only); the adapter's `agents.yaml`, role files and lock |
+| `approvals` | adapter approvals for the captured package versions, by package, version and principal, with the payload and signature bytes |
+| `adapterEntries` | the declarations the adapter added, as in `resolve --json` |
+
+- **No machine paths.** Every file path is relative to its layer's root. The
+  local reference is recorded only as `referenceDigest`: a SHA-256 of the
+  reference text as written. Approval rows carry no path. Set `label` to choose
+  the name shown in stamps, session records and the MCP stamp line. A short
+  reference has few possible values, so its digest identifies it but does not
+  hide it; a label shows a chosen name instead.
+- **Capture.** The stamp resolves exactly the captured layer bytes. It refuses
+  with `stale-lock` when the adapter lock does not cover the composed
+  configuration. Role files the adapter adds are captured from the adapter, at
+  their project path.
+- **Approvals and trust.** The stamp keeps approval bytes, not verdicts. Trust
+  policy is machine-local and still checked live when resolving.
+- **`verify`** adds a `configuration` report: the status of each input
+  (`reproducible`, `missing`, `mismatched`, or `digest-only` for the local
+  reference), each approval's status, whether the composed record matches its
+  digest, and whether the captured adapter lock covers it
+  (`lockCoversConfiguration`). `configurationReproducible` is true when all of
+  these hold. Otherwise a finding names what failed and `verify` exits 1.
+- **`diff`** gives each change a `layer`: `project`, `adapter`, `local` (the
+  label or reference), `composed` (the composed record), or `derived` (selection
+  and package results). Profiles, shared files and project roles and skills are
+  `project`; roles and skills the adapter added, and its inputs and approvals, are
+  `adapter`. `layers` counts the changes per layer. `configuration` gives each
+  side's `mode`, `configurationDigest` and `adapter`. `sameMode` is false when one
+  stamp is committed-only and the other composed. Two committed-only stamps diff
+  exactly as before.
+- **Evidence.** Session records (`resolve --record-session`, `mcp
+  --record-sessions`) state the `configuration` mode, and for a composed run its
+  digest and adapter (see [session records](sessions.md)). The MCP stamp line names
+  the adapter and configuration digest. A composed stamp and a committed-only one
+  always have different digests. Do not pool results from the two modes, or
+  from different configuration digests, as one configuration.
+- **`inspect`** lists the adapter under `repository.adapter`: its reference, label,
+  reference digest, status, the entries it declares, and its files (the local
+  reference, `agents.yaml`, lock and role files) with size and availability. Every
+  read is bounded and stays inside the adapter root. A role file whose path
+  leaves the root, or a link, is reported `unavailable` and is not read. Local
+  inventory output still shows the local paths, as it does for the project.
 
 ## Migration and rollback
 
@@ -169,7 +234,8 @@ The workshop repository provides a snapshot-backed tool:
 
 ## Not in this slice
 
-The configure, preset and migration writers do not target an adapter yet. Stamps,
-evidence and inspect are #98. Adapters cannot declare or route models;
+The configure, preset and migration writers do not target an adapter yet.
+`materialize`, `revision` and the `migrate` evaluation workflow still refuse in
+adapter mode. Adapters cannot declare or route models;
 exact-model selection above does not change routing. Adapter roles cannot declare
 `resources`.

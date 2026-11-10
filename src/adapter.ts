@@ -1,5 +1,6 @@
 // #85: an ignored local reference composes one external adapter over the committed
 // configuration. The adapter adds; it never overrides project policy or trust.
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
 import { errorCode, errorMessage } from "./files.ts";
@@ -23,7 +24,20 @@ export type Adapter = {
 	/** Canonical adapter directory; its `.agent-profiles/` mirrors a project's. */
 	root: string;
 	base: string;
+	/** #98: an optional user-chosen name for exported records; never a path. */
+	label: string | null;
 };
+
+/**
+ * #98: how exported stamps and evidence name an adapter: a digest of the reference
+ * as written, never the machine path it resolves to.
+ */
+export const referenceDigest = (reference: string) =>
+	createHash("sha256")
+		.update(`agent-profiles/adapter-reference/v1\0${reference}`)
+		.digest("hex");
+// A label is a name, not a location: no separators, drive colons or control characters.
+const LABEL = /^[A-Za-z0-9][A-Za-z0-9._ -]{0,63}$/;
 
 /** Where each composed declaration came from; absent entries are the project's. */
 export type Sources = Record<string, "adapter">;
@@ -52,7 +66,7 @@ export function readAdapter(repository: string): Adapter | null {
 	}
 	let value: unknown;
 	try {
-		value = mapping(parseYaml(text), LOCAL_REFERENCE, ["adapter"]);
+		value = mapping(parseYaml(text), LOCAL_REFERENCE, ["adapter"], ["label"]);
 	} catch (error) {
 		return fail(LOCAL_REFERENCE, `${errorMessage(error)}; ${REMEDY}`);
 	}
@@ -60,6 +74,12 @@ export function readAdapter(repository: string): Adapter | null {
 	const entry = `${LOCAL_REFERENCE}.adapter`;
 	if (typeof reference !== "string" || !reference.trim())
 		fail(entry, `expected a directory path; ${REMEDY}`);
+	const label = (value as YamlMap).get("label") ?? null;
+	if (label !== null && (typeof label !== "string" || !LABEL.test(label)))
+		fail(
+			`${LOCAL_REFERENCE}.label`,
+			"expected a name of 1-64 letters, digits, spaces, dots, hyphens or underscores (it appears in exported records, so it may not be a path)",
+		);
 	let root = "";
 	try {
 		root = realpathSync(path.resolve(repository, reference));
@@ -85,7 +105,7 @@ export function readAdapter(repository: string): Adapter | null {
 				entry,
 				`${reference} contains .agent-profiles/${file}; an adapter cannot chain to another adapter or change trust policy`,
 			);
-	return { reference, root, base: realpathSync(base) };
+	return { reference, root, base: realpathSync(base), label };
 }
 
 /**
