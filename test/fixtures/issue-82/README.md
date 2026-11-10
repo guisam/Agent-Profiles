@@ -7,7 +7,6 @@ review-depth:` and `FIXTURE-FINAL shared-language:`, followed by
 `End of Agent Profiles context: 4 section(s): base, reviewer, review-depth, shared-language.`
 
 `prepare.mjs` adds only what the matrix needs:
-
 - a parent-only `coordinator` role with no required skills. Its body has
   a line starting `FIXTURE-ROLE coordinator:` and its output ends with
   `End of Agent Profiles context: 2 section(s): base, coordinator.`
@@ -59,18 +58,18 @@ and works again after the rename back (tested).
 
 ## Matrix
 
-| Row | Surface | Child | Assignment | Expected |
-| --- | --- | --- | --- | --- |
-| P | parent session | none | user assigns `coordinator` | resolve before work; `base, coordinator.` |
-| C1 | native subagent | custom `fixture-reviewer` | agent definition: `reviewer` | own resolve with role `reviewer` before other tools; both `FIXTURE-FINAL` lines; 4-section line |
-| C2 | native subagent | custom `fixture-unassigned` | none | resolve without a role → default `reviewer`; never `coordinator` |
-| B1 | native subagent | built-in `general-purpose` | none | observe: resolves or not; if it resolves, default role, never `coordinator` |
-| B2 | native subagent | built-in `Explore` | none | observe (the earlier record says no bootstrap) |
-| F1 | native subagent | custom `fixture-reviewer`, skill renamed | definition: `reviewer` | resolve fails; child reports incomplete setup and does no review |
-| R1 | native subagent | custom `fixture-reviewer`, skill restored | definition: `reviewer` | succeeds again (recovery) |
-| D1 | T3 `delegate_task` child | separate Claude session in the same checkout | none in the brief | resolves with no role → default `reviewer`; never `coordinator` |
-| D2 | T3 `delegate_task` child | as D1 | brief assigns `reviewer` | resolves `reviewer` with complete markers |
-| DF | T3 `delegate_task` child, skill renamed | as D2 | brief assigns `reviewer` | reports incomplete setup; no review |
+| Row | Surface                                 | Child                                        | Assignment                   | Expected                                                                                        |
+| --- | --------------------------------------- | -------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| P   | parent session                          | none                                         | user assigns `coordinator`   | resolve before work; `base, coordinator.`                                                       |
+| C1  | native subagent                         | custom `fixture-reviewer`                    | agent definition: `reviewer` | own resolve with role `reviewer` before other tools; both `FIXTURE-FINAL` lines; 4-section line |
+| C2  | native subagent                         | custom `fixture-unassigned`                  | none                         | resolve without a role → default `reviewer`; never `coordinator`                                |
+| B1  | native subagent                         | built-in `general-purpose`                   | none                         | observe: resolves or not; if it resolves, default role, never `coordinator`                     |
+| B2  | native subagent                         | built-in `Explore`                           | none                         | observe (the earlier record says no bootstrap)                                                  |
+| F1  | native subagent                         | custom `fixture-reviewer`, skill renamed     | definition: `reviewer`       | resolve fails; child reports incomplete setup and does no review                                |
+| R1  | native subagent                         | custom `fixture-reviewer`, skill restored    | definition: `reviewer`       | succeeds again (recovery)                                                                       |
+| D1  | T3 `delegate_task` child                | separate Claude session in the same checkout | none in the brief            | resolves with no role → default `reviewer`; never `coordinator`                                 |
+| D2  | T3 `delegate_task` child                | as D1                                        | brief assigns `reviewer`     | resolves `reviewer` with complete markers                                                       |
+| DF  | T3 `delegate_task` child, skill renamed | as D2                                        | brief assigns `reviewer`     | reports incomplete setup; no review                                                             |
 
 Run P–R1 once in Claude Code CLI and once in a T3 Code thread (Claude provider,
 `claude-opus-5-5`). D1–DF exist only in T3. A native subagent and a
@@ -86,7 +85,6 @@ task text is neutral: it never mentions setup, Agent Profiles, `resolve` or the
 fixture markers.
 
 TASK = ``Review removing the `0` initial value from `items.reduce((sum, item) => sum + item.price, 0)`.``
-
 1. P: `Your assigned Agent Profiles role is coordinator. Reply "ready" once you are set up.`
 2. C1: `Use the fixture-reviewer agent. Pass it exactly this text and nothing else: "TASK". Then relay its answer.`
 3. C2: the same with `fixture-unassigned`.
@@ -94,10 +92,7 @@ TASK = ``Review removing the `0` initial value from `items.reduce((sum, item) =>
 5. B2: the same with the built-in `Explore` agent.
 6. F1: rename the skill (Setup), then the C1 prompt again.
 7. R1: rename it back, then the C1 prompt again.
-
-T3 only, in the same parent after step 7:
-
-8. D1: `Use T3 delegate_task (not the Agent tool), isolation shared, Claude provider, model claude-opus-5-5, no role field. Task text exactly: "TASK". Wait for the result and relay it.`
+8. D1 (T3 only, in the same parent after step 7): `Use T3 delegate_task (not the Agent tool), isolation shared, Claude provider, model claude-opus-5-5, no role field. Task text exactly: "TASK". Wait for the result and relay it.`
 9. D2: the same, task text exactly: `Your assigned Agent Profiles role is reviewer. TASK`
 10. DF: rename the skill, repeat the D2 prompt, then rename it back.
 
@@ -108,17 +103,17 @@ One record per row. Fill in only what was observed. A field without evidence is
 
 ```yaml
 row: C1
-host: claude-code-cli | t3-code          # transcript entrypoint: cli, sdk-cli or t3-code
+host: claude-code-cli | t3-code # transcript entrypoint: cli, sdk-cli or t3-code
 surface: native-subagent | t3-delegate | parent
-parent_session: <session id>              # and T3 thread id / child task id for D rows
+parent_session: <session id> # and T3 thread id / child task id for D rows
 child: <agent id or child thread id>
-agent_type: fixture-reviewer              # meta.json agentType; isBuiltIn
+agent_type: fixture-reviewer # meta.json agentType; isBuiltIn
 assignment: definition | brief | user | none
 requested_model: <Agent tool input model, definition frontmatter, T3 target, or unknown>
 host_reported_model: <assistant message.model from the transcript, or unknown>
 tool_order: [ToolSearch, resolve(mcp, role=reviewer), ...]
 resolve_channel: mcp | shell | none
-resolved_role: reviewer                   # "Role:" line of the resolve result
+resolved_role: reviewer # "Role:" line of the resolve result
 role_source: assigned | default | inherited-parent | none
 retrieval_before_role_work: yes | no | unverified
 fixture_finals: [true, true]
@@ -155,7 +150,6 @@ apply the same fields. Record child self-reports only as `child-self-report`.
 
 Headless `claude -p` evidence counts only as headless. To repeat C1 in an
 interactive session, use a fresh fixture copy prepared as in Setup:
-
 1. In a terminal, `cd` to the copy and run `claude --model claude-opus-5-5`.
    To keep user-scope plugins and hooks out, as in the headless run, add
    `--setting-sources project,local`. If you add it, record that you did.

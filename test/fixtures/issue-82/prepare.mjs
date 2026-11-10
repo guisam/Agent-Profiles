@@ -124,7 +124,7 @@ export function prepare(destination, { packagePath, git = true } = {}) {
 			process.platform === "win32"
 				? spawnSync(
 						// The bare command name: a quoted one breaks npm.cmd's own path lookup.
-					[command, ...args.map((arg) => JSON.stringify(arg))].join(" "),
+						[command, ...args.map((arg) => JSON.stringify(arg))].join(" "),
 						{ cwd: dest, stdio: "inherit", shell: true },
 					)
 				: spawnSync(command, args, { cwd: dest, stdio: "inherit" });
