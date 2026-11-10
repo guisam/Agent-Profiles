@@ -616,3 +616,14 @@ AGENT_PROFILES_STORE_CACHE=off agent-profiles resolve --root /path/to/project
 
 `off` makes every command re-check every path and re-read every object, like the
 audit commands. Accepted values are `on` (default) and `off`; anything else is refused.
+
+## Package identity in resolved skill text
+
+From 0.22.1, required and explicitly requested packaged skill sections in CLI and
+MCP `resolve` text name the selected package, version and SHA-256 digest. Use that
+identity with `library read <name>@<version> <path>` (or MCP `library_read`) to
+retrieve supporting package files. The library verifies those files; do not read
+the store directly. Available packaged skills already show their identity.
+
+The skill body and selection rules do not change. This rendering is not blinded:
+evaluations that conceal package identity must account for the added metadata.
