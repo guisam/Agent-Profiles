@@ -1,5 +1,12 @@
 # Versioning and upgrades
 
+## 0.23.2 — mixed-model reviewer case study (#105)
+
+Documentation only, not an npm release announcement. The
+[mixed-model case study](Mixed-model-reviewer-case-study) records source 0.23.1
+trials. No configuration, lock, store or bootstrap migration is needed; no pins
+change. Selection and delivery were observed, not quality or token savings.
+
 ## 0.23.1 — subagent delivery observations (#82)
 
 Unreleased. Documentation, fixture and test changes only; the resolver, MCP
@@ -23,8 +30,8 @@ Action, if you share one Agent Profiles MCP server between a parent and its
 subagents: bind it to the host only (`agent-profiles mcp --host claude`). A server
 bound with `--role` imposes that role on every caller and refuses a child's own
 assignment. Interactive CLI matched for the custom agent with an assigned role; its other
-rows, other models and repeated trials are still open in
-[#82](https://github.com/guisam/Agent-Profiles/issues/82).
+rows, other models and repeated trials are tracked in
+[#105](https://github.com/guisam/Agent-Profiles/issues/105).
 
 To repeat the observation, see `test/fixtures/issue-82/README.md`.
 

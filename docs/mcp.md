@@ -176,8 +176,10 @@ Observed on 2026-11-10 with Opus 5.5 (#82; details in
   before it resolved. Delivery to it is not supported; use a custom agent for role
   work.
 
-Not yet observed: interactive CLI rows other than C1, other models, and repeated trials.
-These remain open in [#82](https://github.com/guisam/Agent-Profiles/issues/82).
+That matrix did not cover interactive CLI rows other than C1, other models, or
+repeated trials. Later mixed-model observations and remaining coverage are in
+[#105](https://github.com/guisam/Agent-Profiles/issues/105) and the
+[case study](case-studies/mixed-model-reviewers.md).
 
 The portable fixture in `test/fixtures/issue-80/` (two required skills sized
 like the #80 report, each ending with a `FIXTURE-FINAL` line) backs the automated
@@ -300,7 +302,7 @@ scope changes every project for that user; choose that explicitly.
 | Claude Code and T3 Code: a child whose `resolve` fails stops role work | verified (live, same runs, #82) |
 | Claude Code: built-in `Explore` subagent receives the bootstrap | **not supported**: no bootstrap; it worked before it resolved (#82) |
 | Claude Code interactive CLI: custom agent with an assigned role (C1) resolves its own role before work | verified (live, Opus 5.5, one trial, #82) |
-| Claude Code interactive CLI: other subagent rows | unverified (#82) |
+| Claude Code interactive CLI: other subagent rows | unverified (#105) |
 
 ## Limits
 
@@ -318,3 +320,12 @@ scope changes every project for that user; choose that explicitly.
   and `diff` can read that stamp only after `agent-profiles stamp` records it.
 - The server selects instructions; it does not hide native host skills,
   disable plugins or isolate files.
+
+## Mixed-model reviewer delivery (#105)
+
+The [case study](case-studies/mixed-model-reviewers.md) records one Sonnet 5.5
+and one Opus 5.5 T3 child receiving different pinned versions for the same
+reviewer role before work. Native CLI observations are recorded separately.
+It preserves the fixture-only shell adaptation, effort differences and Graft
+cache contamination limits. This is not a quality or token-efficiency result.
+Remaining coverage is tracked in [#105](https://github.com/guisam/Agent-Profiles/issues/105).

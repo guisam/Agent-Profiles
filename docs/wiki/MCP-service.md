@@ -39,7 +39,7 @@ server or valid configuration alone does not establish complete instruction deli
   built-in `Explore` agent gets no bootstrap; don't use it for role work. Bind a
   shared server to the host only. Interactive CLI matched for the custom agent
   with an assigned role; its other rows, other models and repeated trials are
-  still open in [#82](https://github.com/guisam/Agent-Profiles/issues/82).
+  tracked in [#105](https://github.com/guisam/Agent-Profiles/issues/105).
 - **Librarian tools (0.13.0):** `library_list`, `library_search`, `library_info`,
   `library_evidence`, `outdated` and `update_preview` let an agent browse the
   library, check evidence and preview an update without a shell. Package files
@@ -62,3 +62,6 @@ This is phase 1 of the [skill librarian](https://github.com/guisam/Agent-Profile
 see [#39](https://github.com/guisam/Agent-Profiles/issues/39).
 
 [Return to the documentation home](https://github.com/guisam/Agent-Profiles/wiki).
+
+See the [mixed-model reviewer case study](Mixed-model-reviewer-case-study) for
+the later, bounded Sonnet/Opus selection and delivery observations.
