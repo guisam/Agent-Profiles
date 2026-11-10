@@ -1,5 +1,14 @@
 # Versioning and upgrades
 
+## 0.22.1 — unreleased — required skill package identity (#90)
+
+CLI and MCP text resolution now shows `Package <name>@<version> (sha256 <digest>)`
+above required and explicitly requested packaged skill bodies. This identifies
+the package whose supporting files can be read through the library. No store
+path is exposed. Local skills, JSON output and selection rules are unchanged.
+No YAML, lock, store or bootstrap migration is needed. Blinded evaluations must
+account for the newly visible identity; no identity-hiding option is added.
+
 ## 0.22.0 — stamps, verify/diff, evidence and inspect with a project adapter (#98)
 
 Unreleased. These notes describe the merged source. Use them once 0.22.0 is

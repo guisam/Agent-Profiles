@@ -349,9 +349,11 @@ export function formatContext(
 				.map((entry: Untyped) => entry.id)
 		).flatMap((id: string) => ["--skill", id]),
 	);
+	const packageIdentity = (entry: Untyped) =>
+		`${clean(entry.package.name)}@${clean(entry.package.version)} (sha256 ${clean(entry.package.sha256)})`;
 	const skill = (entry: Untyped) => {
 		if (entry.package) {
-			const identity = `${clean(entry.package.name)}@${clean(entry.package.version)} (sha256 ${clean(entry.package.sha256)})`;
+			const identity = packageIdentity(entry);
 			if (entry.type === "host")
 				return `Native package ${identity}; supported hosts: ${entry.supportedHosts.map(clean).join(", ")}. Host-visible address unavailable; invocation unverified.`;
 			if (invocation === "mcp")
@@ -418,6 +420,9 @@ export function formatContext(
 			"",
 			`## ${titles[entry.kind]}: ${entry.id}`,
 			"",
+			...(entry.package && entry.kind.endsWith("-skill")
+				? [`Package ${packageIdentity(entry)}.`, ""]
+				: []),
 			result.workflow ? entry.content : entry.content.trim(),
 		);
 		if (entry.resources?.length)
