@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.23.2 — unreleased — mixed-model reviewer case study (#105)
+
+- Document the bounded native CLI and T3 model-specific variant delivery results,
+  including effort differences, cache contamination and fixture-only fallback.
+- Track reported PowerShell selector loss separately in #106. No runtime,
+  configuration, lock, store or bootstrap migration; no skill pins change.
+
 ## 0.23.1 — unreleased — subagent delivery observations (#82)
 
 - Docs: `docs/mcp.md`, `docs/host-observations.md` and the wiki record live
@@ -17,7 +24,7 @@
 - Interactive Claude Code CLI: the custom agent with an assigned role (C1)
   resolved `reviewer` first, with complete instructions, in one operator-run trial.
 - Not covered yet: other interactive CLI rows, other models and repeated trials.
-  #82 stays open for them. No runtime change.
+  #105 tracks them after #82 closed. No runtime change.
 
 ## 0.23.0 — unreleased — update to a variant package (#89, #91)
 

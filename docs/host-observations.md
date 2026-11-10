@@ -347,3 +347,12 @@ and T3 `delegate_task` to non-Claude providers.
    later observed the bootstrap in the built-in general-purpose agent too.)
 6. `AGENTS.md` must stay in the bootstrap for Claude Code, since the host does
    not load it.
+
+## Mixed-model reviewer delivery (#105)
+
+The [case study](case-studies/mixed-model-reviewers.md) records one Sonnet 5.5
+and one Opus 5.5 T3 child receiving different pinned versions for the same
+reviewer role before work. Native CLI observations are recorded separately.
+It preserves the fixture-only shell adaptation, effort differences and Graft
+cache contamination limits. This is not a quality or token-efficiency result.
+Remaining coverage is tracked in [#105](https://github.com/guisam/Agent-Profiles/issues/105).
