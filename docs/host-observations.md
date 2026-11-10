@@ -50,7 +50,8 @@ evidence of what entered context.
 | --- | --- |
 | `CLAUDE.md` in main session | Loaded |
 | `AGENTS.md` in main session | **Not loaded**; every model read it only because `BOOTSTRAP.md` says to |
-| Bootstrap block in built-in Explore subagent | **Absent** |
+| Bootstrap block in built-in Explore subagent | **Absent** (re-observed with protocol 3 in Claude Code 2.1.322 and T3 Code, #82) |
+| Bootstrap block in built-in general-purpose subagent | Present (Claude Code 2.1.322 and T3 Code, #82) |
 | Bootstrap block in custom agent | Present |
 | Claude + Codex blocks both installed | Haiku and Opus each bootstrapped once; the `AGENTS.md` block did not cause a second run |
 
@@ -258,6 +259,71 @@ Rechecked the store-folder read on 0.14.0, in a new session:
 
 Not covered: other models.
 
+## Subagent delivery on Claude Code 2.1.322 and T3 Code (Windows 11, 2026-11-10, #82)
+
+Package 0.23.1 (the runtime is unchanged from 0.23.0) with the portable fixture
+from `test/fixtures/issue-82/`. That fixture is the #80 fixture plus a parent-only
+`coordinator` role, two custom agents (`fixture-reviewer`, whose definition assigns
+`reviewer`, and `fixture-unassigned`, which assigns nothing), and an MCP server
+bound to the host only. The configured default role is `reviewer`. All runs used
+Opus 5.5, one attempt per row, and the same neutral review task with no setup
+reminder; the parent passed only the task text to each child.
+
+Evidence comes from the retained Claude Code transcripts (`tool_use` and
+`tool_result` records, `subagents/agent-*.jsonl`, `meta.json`), summarized by
+`test/fixtures/issue-82/trace.mjs`. Tool order, arguments, resolved role and
+markers come from those records. The children's final texts are their own
+reports and were used only to check whether a failed child reviewed anyway.
+
+Hosts:
+
+- **Claude Code CLI, headless.** Run as `claude -p` (entry point `sdk-cli`) with
+  `--setting-sources project,local --strict-mcp-config --mcp-config .mcp.json`,
+  and with tools limited to `resolve`, `Agent`, `Read`, `Grep`, `Glob` and
+  `ToolSearch`. No user-scope plugins or hooks appeared in the transcript.
+  Interactive CLI was not run.
+- **T3 Code**, Claude provider, `auto` runtime mode, in a disposable project.
+  The user-scope graft MCP server and hook loaded, and graft added a `graft/`
+  cache directory to the fixture. That cache held the parent's latest prompt,
+  which one `Explore` child's `Grep` returned.
+
+| Row | Child (surface) | Assignment | CLI (headless) | T3 Code |
+| --- | --- | --- | --- | --- |
+| Parent | none | user: `coordinator` | `ToolSearch` → `resolve(role=coordinator)`; `base, coordinator.` | same |
+| C1 | `fixture-reviewer` (native `Agent`, custom) | definition: `reviewer` | `ToolSearch` → `resolve(role=reviewer)` → review tools. Both `FIXTURE-FINAL` lines and the 4-section final line | same |
+| C2 | `fixture-unassigned` (native, custom) | none | `resolve` without a role → `reviewer` by default; complete | same |
+| B1 | `general-purpose` (native, built-in) | none | Bootstrap present. `resolve` without a role, first → default `reviewer`; complete | same |
+| B2 | `Explore` (native, built-in) | none | **Bootstrap absent.** `Grep` and `Bash` ran first; the server instructions arrived mid-run; then `resolve` with a **self-chosen `role=reviewer`**; complete | **Bootstrap absent.** `Grep`, `Bash`, then it read `CLAUDE.md` itself; then `resolve` without a role → default; complete |
+| F1 | `fixture-reviewer`, required skill renamed mid-session | definition: `reviewer` | `resolve` → `ENOENT` error; no further tool calls; reported incomplete setup and did no review | same |
+| R1 | `fixture-reviewer`, skill restored | definition: `reviewer` | complete again | same |
+| D1 | T3 `delegate_task` child (separate Claude session, shared checkout) | none (no T3 `role` field) | — | shell fallback `resolve` first, no role → default `reviewer`; complete |
+| D2 | as D1 | brief: `reviewer` | — | `ToolSearch` → `resolve(role=reviewer)` first; complete |
+| DF | as D2, skill renamed | brief: `reviewer` | — | `resolve` → `ENOENT`; no further tool calls; reported incomplete setup and did no review |
+
+Findings:
+
+- No child resolved, requested or showed the parent's `coordinator` role. An
+  unassigned child resolved the configured default (`reviewer`), which is not
+  the same as inheriting the parent's role.
+- **Custom agents and the built-in `general-purpose` agent** received the
+  `CLAUDE.md` bootstrap and retrieved complete instructions before any other
+  tool. So did the T3 `delegate_task` children, which are separate Claude sessions.
+- **The built-in `Explore` agent did not receive the bootstrap.** In both hosts it
+  worked before it resolved, so delivery to `Explore` is not supported. In the
+  CLI it also chose a role nobody assigned.
+- **Failure handling:** every child whose `resolve` failed reported incomplete
+  setup and stopped. After the file was restored, the next child resolved
+  completely.
+- **Server binding:** a server bound to a role would impose that role on every
+  caller, children included. The fixture binds the host only (deterministic test
+  in `test/issue-82-fixture.test.js`).
+- **Model identity:** no child launch named a model. Every transcript shows
+  `requestedModel` and `message.model` as `claude-opus-5-5`.
+
+Not covered: interactive Claude Code CLI, repeated trials, other models, a child
+with a model different from the parent's, truncated `resolve` output in a child,
+and T3 `delegate_task` to non-Claude providers.
+
 ## Implications for Phase 2
 
 1. Model-side matching is the dominant failure: the only incorrect routes came
@@ -272,7 +338,8 @@ Not covered: other models.
 4. Role replacement, model replacement, and "available, not loaded" are not
    achievable in a continuing Claude Code session: compaction re-attaches read
    files. Clean transitions need a new session or agent.
-5. Built-in subagents get no bootstrap; custom agents do and carry their own
-   model, making them the viable per-role integration point.
+5. The built-in Explore subagent gets no bootstrap; custom agents do and carry
+   their own model, making them the viable per-role integration point. (#82
+   later observed the bootstrap in the built-in general-purpose agent too.)
 6. `AGENTS.md` must stay in the bootstrap for Claude Code, since the host does
    not load it.

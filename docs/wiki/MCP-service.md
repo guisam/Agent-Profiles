@@ -31,8 +31,14 @@ server or valid configuration alone does not establish complete instruction deli
   instructions, so they became a short bootstrap. Every `resolve` output ends
   with an `End of Agent Profiles context:` line that the agent checks; bound
   servers refuse conflicting selectors; the managed block is protocol 3, so run
-  `init` after upgrading. Subagent delivery is not validated and must not be
-  assumed ([#82](https://github.com/guisam/Agent-Profiles/issues/82)).
+  `init` after upgrading.
+- **Subagent delivery observed (0.23.1, #82):** in headless Claude Code CLI and in
+  T3 Code with Opus 5.5, custom agents, the built-in `general-purpose` agent and
+  T3 `delegate_task` children resolved their own role before any other tool.
+  None took the parent's role, and a child whose `resolve` failed stopped. The
+  built-in `Explore` agent gets no bootstrap; don't use it for role work. Bind a
+  shared server to the host only. Interactive CLI, other models and repeated
+  trials are still open in [#82](https://github.com/guisam/Agent-Profiles/issues/82).
 - **Librarian tools (0.13.0):** `library_list`, `library_search`, `library_info`,
   `library_evidence`, `outdated` and `update_preview` let an agent browse the
   library, check evidence and preview an update without a shell. Package files

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.23.1 — unreleased — subagent delivery observations (#82)
+
+- Docs: `docs/mcp.md`, `docs/host-observations.md` and the wiki record live
+  subagent observations in headless Claude Code CLI 2.1.322 and in T3 Code with
+  Opus 5.5. Custom agents, built-in `general-purpose` and T3 `delegate_task`
+  children resolved their own role before work, with complete instructions. No
+  child took the parent's role. Children whose `resolve` failed stopped role work.
+  The built-in `Explore` agent receives no bootstrap; its delivery is not supported.
+- Docs: bind a server shared with subagents to the host only. A role-bound server
+  imposes its role on every caller.
+- Test: `test/fixtures/issue-82/` adds a disposable fixture generator
+  (`prepare.mjs`), a transcript summarizer (`trace.mjs`) and the live protocol.
+  `test/issue-82-fixture.test.js` covers role separation, host-only binding, a
+  skill removed after a healthy server start, and the summarizer.
+- Not covered yet: interactive Claude Code CLI, other models and repeated trials.
+  #82 stays open for them. No runtime change.
+
 ## 0.23.0 — unreleased — update to a variant package (#89, #91)
 
 - `update` and MCP `update_preview` accept a package-qualified target
