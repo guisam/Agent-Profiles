@@ -240,9 +240,13 @@ pretending a file edit produced a versioned pin.
 
 Use the installed AP version's supported update or configuration workflow.
 For a supported library update, show `update_preview`, **every edit** it returns,
-and its exact `applyCommand`. The operator runs host-denied commands. If a
-cross-package change is unsupported, report that limit and prepare an explicit
-reviewable configuration proposal; do not silently substitute commands.
+and its exact `applyCommand`. The operator runs host-denied commands. Since
+0.23.0, a configuration v3 project can adopt a differently named variant for one
+exact tuple through `update`, with a package-qualified target such as
+`update skills.testing @example/testing-sonnet@1.1.0 --model claude-sonnet-5-5
+--role implementer --host claude`. Configuration v2, and AP versions before
+0.23.0, can't do this. In those cases, report that limit and prepare an explicit,
+reviewable configuration proposal. Do not silently substitute other commands.
 Preserve trust policy and obtain any required package approvals normally.
 
 After authorized adoption, refresh the lock through the supported install

@@ -346,6 +346,7 @@ Commands:
   library     Browse, search, inspect and publish packages in the local store (list, search, info, evidence, publish)
   outdated    Pins with newer library versions, and their evidence for the tuples each pin serves (read-only)
   update      Preview, then with --apply write, a move of one exact role × model × host pin
+              to another version, or (configuration v3) to @namespace/name@version
   notice      The once-a-day update notice; --hook claude for the SessionStart hook
   migrate     Develop isolated migration workspaces and review evidence-linked proposals
   revision    Adopt metadata for an existing immutable legacy release
@@ -540,7 +541,7 @@ Examples:
 		if (positionals.length !== (update ? 3 : 1))
 			throw new Error(
 				update
-					? "Usage: agent-profiles update <binding> <version> --model <id> --role <id> --host <id> [--apply [--expect <previewDigest>]] [--require-evidence] [--root <directory>] [--store <directory>] [--json]"
+					? "Usage: agent-profiles update <binding> <version|@namespace/name@version> --model <id> --role <id> --host <id> [--apply [--expect <previewDigest>]] [--require-evidence] [--root <directory>] [--store <directory>] [--json]"
 					: "Usage: agent-profiles outdated [--check] [--model <id>] [--role <id>] [--host <id>] [--root <directory>] [--store <directory>] [--json]",
 			);
 		const allowed = [

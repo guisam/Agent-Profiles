@@ -20,7 +20,12 @@ import { applyChanges, errorMessage, readLocal } from "./files.ts";
 import { libraryEvidence, libraryInfo } from "./library.ts";
 import { formatLint, lintPackage, newFindings } from "./lint.ts";
 import { installDependencies, readLockState } from "./package-lock.ts";
-import { inStoreSession, lookupPackage } from "./package-store.ts";
+import {
+	inStoreSession,
+	isExactVersion,
+	lookupPackage,
+	PACKAGE_NAME,
+} from "./package-store.ts";
 import { parseManifest } from "./packages.ts";
 import {
 	packageReferences,
@@ -336,6 +341,7 @@ type UpdateInput = {
 	root: string;
 	storeRoot?: string;
 	binding: string;
+	/** The target: an exact version of the selected package, or `@namespace/name@version` (#89). */
 	version: string;
 	assignment: { role: string; model: string; host: string };
 	requireEvidence?: boolean;
@@ -399,13 +405,54 @@ const previewDigest = (
 		)
 		.digest("hex");
 
+/**
+ * #89/#91: an update target, parsed before any lookup. A bare exact version names a
+ * version of the package the tuple selects now (which may already be a variant);
+ * `@namespace/name@version` names the package too. Nothing else is accepted, and a
+ * rejected target is reported as written, never combined with another identity.
+ */
+export function parseUpdateTarget(target: unknown): {
+	name: string | null;
+	version: string;
+} {
+	const refuse = (problem: string) =>
+		new Error(
+			`update: target ${JSON.stringify(target)}: ${problem}; expected an exact version (such as 1.2.0) or a package-qualified @namespace/name@version; nothing was written`,
+		);
+	if (typeof target !== "string" || !target) throw refuse("empty");
+	if (!target.startsWith("@")) {
+		if (target.includes("@"))
+			throw refuse("a package name must start with @namespace/");
+		if (!isExactVersion(target))
+			throw refuse("not an exact safe release version");
+		return { name: null, version: target };
+	}
+	const split = target.indexOf("@", 1);
+	if (split < 0)
+		throw refuse(
+			`a package-qualified target needs an exact version (${target}@<version>)`,
+		);
+	const name = target.slice(0, split);
+	const version = target.slice(split + 1);
+	if (!PACKAGE_NAME.test(name))
+		throw refuse(`${name} is not a package name (@namespace/name, lowercase)`);
+	if (!isExactVersion(version))
+		throw refuse(
+			`${version ? JSON.stringify(version) : "the version"} is not an exact safe release version`,
+		);
+	return { name, version };
+}
+
 function planUpdate(input: UpdateInput) {
-	const { storeRoot, binding, version, assignment } = input;
+	const { storeRoot, binding, assignment } = input;
 	for (const key of ["role", "model", "host"] as const)
 		if (typeof assignment[key] !== "string" || !assignment[key])
 			throw new Error(
 				`update: --${key} is required (update targets one exact tuple)`,
 			);
+	// #91: validate the target before any configuration or library read.
+	const parsedTarget = parseUpdateTarget(input.version);
+	const version = parsedTarget.version;
 	const validated = validateConfiguration({ root: input.root });
 	const root = validated.repository;
 	const v3 = validated.config.get("version") === 3;
@@ -456,7 +503,14 @@ function planUpdate(input: UpdateInput) {
 		...assignment,
 		model: canonicalModel ?? assignment.model,
 	};
-	const name = current.name;
+	// #89: the target package; a bare version stays within the selected package.
+	const name = parsedTarget.name ?? current.name;
+	const crossPackage = name !== current.name;
+	const configurationVersion = validated.config.get("version") as number;
+	if (crossPackage && !v3)
+		throw new Error(
+			`update: ${binding} for ${assignment.role} × ${assignment.model} × ${assignment.host} selects ${current.name}; moving it to ${name} needs configuration v3, whose assignment bindings name a package (configuration v${configurationVersion} rules pin versions of the binding's package only). Convert the project first (docs/migrations/config-v2-to-v3.md); update does not rewrite the schema; nothing was written`,
+		);
 	const [found] = libraryInfo({ storeRoot, name, version }).versions;
 	if ("error" in found)
 		throw new Error(
@@ -478,19 +532,25 @@ function planUpdate(input: UpdateInput) {
 		resultId: row.resultId,
 	}));
 	// What the move would inject (#55): every file that differs, as a unified diff.
-	const contentDiff: FileDiff[] =
-		current.version === version
-			? []
-			: packageDiff(
-					versionFiles(
-						storeRoot,
-						name,
-						current.version,
-						current.revisionDigest,
-					),
-					versionFiles(storeRoot, name, version, found.revisionDigest),
-					{ fromLabel: current.version, toLabel: version },
-				);
+	// #89: across packages the diff compares the selected package with the target one.
+	const samePackageVersion = !crossPackage && current.version === version;
+	const contentDiff: FileDiff[] = samePackageVersion
+		? []
+		: packageDiff(
+				versionFiles(
+					storeRoot,
+					current.name,
+					current.version,
+					current.revisionDigest,
+				),
+				versionFiles(storeRoot, name, version, found.revisionDigest),
+				crossPackage
+					? {
+							fromLabel: `${current.name}@${current.version}`,
+							toLabel: `${name}@${version}`,
+						}
+					: { fromLabel: current.version, toLabel: version },
+			);
 	// #55 step 3: heuristic warnings on the target's text, marked new or carried over.
 	const lint = (() => {
 		const targetFiles = versionFiles(
@@ -504,11 +564,10 @@ function planUpdate(input: UpdateInput) {
 				Buffer.from(""),
 		).behavior.effects;
 		const after = lintPackage(targetFiles, effects);
-		if (current.version === version)
-			return after.map((f) => ({ ...f, new: false }));
+		if (samePackageVersion) return after.map((f) => ({ ...f, new: false }));
 		const currentFiles = versionFiles(
 			storeRoot,
-			name,
+			current.name,
 			current.version,
 			current.revisionDigest,
 		);
@@ -527,8 +586,16 @@ function planUpdate(input: UpdateInput) {
 		adapter?.root ?? null,
 		{
 			store: storeRoot ?? null,
-			current: [name, current.version, current.revisionDigest, current.sha256],
-			target: [version, found.revisionDigest, found.sha256],
+			current: [
+				current.name,
+				current.version,
+				current.revisionDigest,
+				current.sha256,
+			],
+			// #89: a cross-package target adds its name; same-package digests are unchanged.
+			target: crossPackage
+				? [name, version, found.revisionDigest, found.sha256]
+				: [version, found.revisionDigest, found.sha256],
 		},
 		input,
 	);
@@ -571,20 +638,26 @@ function planUpdate(input: UpdateInput) {
 			storeRoot,
 			packages: [{ name, version }],
 		}),
-		configurationVersion: validated.config.get("version") as number,
+		configurationVersion,
 		binding,
+		/** The target package: the selected one, or (#89) the package the target names. */
 		package: name,
 		assignment,
 		before: {
+			package: current.name,
 			version: current.version,
 			revision: current.revisionDigest,
 			selectedBy: current.selectedBy,
 		},
-		after: { version, revision: v3 ? found.revisionDigest : null },
+		after: {
+			package: name,
+			version,
+			revision: v3 ? found.revisionDigest : null,
+		},
 		evidence,
 	};
 	if (
-		current.version === version &&
+		samePackageVersion &&
 		(!v3 || current.revisionDigest === found.revisionDigest)
 	)
 		return {
@@ -687,7 +760,21 @@ function planUpdate(input: UpdateInput) {
 			list.findIndex((other) => tupleKey(other) === tupleKey(tuple)) === index,
 	);
 	const before = sweep(root, storeRoot, all, problems);
-	const after = sweep(root, storeRoot, all, problems, composition);
+	const failedAfter: string[] = [];
+	const after = sweep(root, storeRoot, all, failedAfter, composition);
+	// A tuple that resolved before the edit and fails after it is a refusal, not a
+	// skipped tuple: native package validation (type, delivery, entrypoint, revision
+	// closure) runs during resolution, and its message is the actual problem.
+	// sweep reports failures in tuple order, so failedAfter[i] belongs to failed[i].
+	const failed = all.filter((tuple) => !after.has(tupleKey(tuple)));
+	const broken = failed.flatMap((tuple, index) =>
+		before.has(tupleKey(tuple)) ? [failedAfter[index]] : [],
+	);
+	if (broken.length)
+		throw new Error(
+			`update: the edited configuration does not resolve; nothing was written; ${broken.join("; ")}`,
+		);
+	problems.push(...failedAfter);
 	const changed: { tuple: Tuple; binding: string; from: string; to: string }[] =
 		[];
 	for (const [key, { tuple, selected }] of before) {
@@ -890,14 +977,15 @@ export function formatUpdate(
 		return `${result.binding} for ${who} already selects ${result.package}@${result.after.version}; nothing to do.`;
 	const lines = [
 		`${result.status === "updated" ? "Updated" : "Preview (nothing written)"}: ${result.binding} for ${who}`,
-		`  ${result.package}@${result.before.version} → ${result.after.version}${result.after.revision ? ` (revision ${result.after.revision})` : ""}`,
+		// #89: a move to another package names both identities in full.
+		`  ${result.before.package}@${result.before.version} → ${result.before.package === result.after.package ? "" : `${result.after.package}@`}${result.after.version}${result.after.revision ? ` (revision ${result.after.revision})` : ""}`,
 		// #97: with an adapter, name the layer and the file every edit goes to.
 		`  ${result.status === "updated" ? "Edited" : "Edits to"} ${result.adapter ? `the ${result.layer} layer, ${result.edits[0]?.file}` : "agents.yaml"} (${result.edits.length}):`,
 		...result.edits.map((edit) => `    - ${edit.description}`),
 		`  Selections changed: ${result.changed.map((row) => `${describeTuple(row.tuple)} ${row.binding} ${row.from} → ${row.to}`).join("; ")}`,
 		...(result.approval
 			? [
-					`  Approval of ${result.after.version}: ${describeApproval(result.approval)}`,
+					`  Approval of ${result.before.package === result.after.package ? "" : `${result.after.package}@`}${result.after.version}: ${describeApproval(result.approval)}`,
 				]
 			: []),
 		...(result.trustBlockers.length && result.status === "preview"
