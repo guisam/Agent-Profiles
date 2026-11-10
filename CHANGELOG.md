@@ -1,6 +1,15 @@
 # Changelog
 
-## 0.22.0 — unreleased — stamps, verify/diff, evidence and inspect with a project adapter (#98)
+## 0.22.1 — unreleased — required skill package identity (#90)
+
+- Text `resolve` now names the selected package, version and SHA-256 digest above
+  each required or explicitly requested packaged skill body, in CLI and MCP
+  output. Available skills already included this identity. Local skill bodies,
+  JSON resolution and skill selection are unchanged; no store path is exposed.
+- Package identity is visible to the receiving agent. Blinded evaluations must
+  account for that rendering change; this fix adds no identity-hiding option.
+
+## 0.22.0 — stamps, verify/diff, evidence and inspect with a project adapter (#98)
 
 - `stamp` works with a project adapter. A composed stamp adds a
   `configurationSources` field: the composed configuration digest (the

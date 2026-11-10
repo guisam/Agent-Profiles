@@ -1396,6 +1396,51 @@ function commandArgs(section, shell) {
 	}
 	return args;
 }
+test("#90 required and requested skill text identifies the selected package without store paths", (t) => {
+	const f = fixture(t);
+	for (const index of [0, 1]) {
+		const result = resolveInstructions(f.select(index));
+		const pkg = f.packages[index];
+		const identity = `Package ${NAME}@${pkg.version} (sha256 ${pkg.digest}).`;
+		for (const invocation of ["cli", "mcp"]) {
+			const text = formatContext(result, { invocation });
+			assert.ok(
+				text.includes(`## Required skill: security-review\n\n${identity}\n\n`),
+			);
+			assert.ok(
+				text.includes(
+					pkg.members
+						.find((m) => m.path === "SKILL.md")
+						.bytes.toString("utf8")
+						.trim(),
+				),
+			);
+			assert.ok(!text.includes(f.storeRoot));
+			assert.match(text, /End of Agent Profiles context: .*security-review\.$/);
+		}
+		const cli = child(f, ["resolve", ...f.args(index)]);
+		assert.equal(cli.status, 0, cli.stderr);
+		assert.ok(cli.stdout.includes(identity));
+	}
+	f.config.roles.reviewer.skills = {
+		required: [],
+		available: ["security-review"],
+	};
+	f.save();
+	installDependencies({ root: f.root, storeRoot: f.storeRoot });
+	const result = resolveInstructions({
+		...f.select(1),
+		skills: ["security-review"],
+	});
+	const text = formatContext(result);
+	assert.ok(
+		text.includes(
+			`## Requested skill: security-review\n\nPackage ${NAME}@2.0.0 (sha256 ${f.packages[1].digest}).`,
+		),
+	);
+	assert.equal(text.split(`Package ${NAME}@2.0.0`).length - 1, 1);
+});
+
 test("P9-06 real generated load/rerun replay retains ordered first and second requests plus operational context", (t) => {
 	const f = fixture(t);
 	for (const id of ["first", "second"])
