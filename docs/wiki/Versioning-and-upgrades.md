@@ -11,8 +11,8 @@ account for the newly visible identity; no identity-hiding option is added.
 
 ## 0.22.0 — stamps, verify/diff, evidence and inspect with a project adapter (#98)
 
-Unreleased. These notes describe the merged source. Use them once 0.22.0 is
-published to npm.
+Published to npm on 2026-11-10. The downloaded archive matches the CI and
+registry checksum.
 
 New feature: `stamp`, `inspect` and `sessions` now work while
 `.agent-profiles/agents.local.yaml` references an adapter. 0.21.0 refused them.
