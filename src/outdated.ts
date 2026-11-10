@@ -1,10 +1,11 @@
 // Outdated and update (#48, phase 4 of #38): which pinned versions have newer
 // versions in the library, with evidence for the tuples each pin serves; and an
 // explicit, previewed move of one exact tuple's pin. Reads never write; apply edits
-// only agents.yaml (guarded, comments kept), then refreshes the lock and stamps.
+// only the owning layer's agents.yaml (guarded, comments kept), then refreshes that
+// layer's lock and, without an adapter, stamps. #97: an adapter's bindings update in
+// the adapter; the project's in the project; neither writes the other.
 import { createHash } from "node:crypto";
-import { realpathSync } from "node:fs";
-import { refuseWithAdapter } from "./adapter.ts";
+import { LOCAL_REFERENCE, type Sources } from "./adapter.ts";
 import {
 	type ApprovalStatus,
 	approvalStatus,
@@ -68,16 +69,27 @@ type Selection = {
 	name: string;
 	version: string;
 	revisionDigest: string | null;
+	sha256: string | null;
 	selectedBy: string;
 	selectors: Record<string, unknown>;
 };
+
+/** #97: an explicit configuration and, with an adapter, its overlay, composed by validation. */
+type Composition = { configuration: unknown; adapterConfiguration?: unknown };
+
+export type Layer = "project" | "adapter";
+/** The layer that declares a pin: its rule's, or the binding's for the default. */
+const layerOf = (sources: Sources, binding: string, rule?: string | null) =>
+	sources[rule ? `assignments.${rule}` : binding] === "adapter"
+		? ("adapter" as const)
+		: ("project" as const);
 
 /** Every package binding one tuple's resolution selects, by binding. */
 function selections(
 	root: string,
 	storeRoot: string | undefined,
 	tuple: Tuple,
-	configuration?: unknown,
+	composition?: Composition,
 ): Map<string, Selection> {
 	const result = resolveConfigured({
 		root,
@@ -85,9 +97,7 @@ function selections(
 		model: tuple.model,
 		role: tuple.role,
 		...(tuple.host === null ? {} : { host: tuple.host }),
-		...(configuration === undefined
-			? {}
-			: { configuration: configuration as never }),
+		...((composition ?? {}) as object),
 		lockMode: "validation",
 	}) as unknown as Record<string, unknown>;
 	const found = new Map<string, Selection>();
@@ -98,6 +108,7 @@ function selections(
 		name: `profile ${String(result.profile)}`,
 		version: "",
 		revisionDigest: null,
+		sha256: null,
 		selectedBy: "",
 		selectors: {},
 	});
@@ -109,6 +120,7 @@ function selections(
 					name: entry.package.name,
 					version: entry.package.version,
 					revisionDigest: entry.package.revisionDigest ?? null,
+					sha256: entry.package.sha256 ?? null,
 					selectedBy: entry.package.selectedBy,
 					selectors: { ...entry.package.selectors },
 				});
@@ -118,7 +130,8 @@ function selections(
 /**
  * The tuples to sweep: every configured canonical model × role, once without a host
  * and once per host any assignment rule names (a rule naming a host can only be
- * selected when that host is supplied).
+ * selected when that host is supplied). #97: exact model IDs that adapter rules name
+ * are swept too; only those stated IDs select their rules.
  */
 function tuples(validated: ReturnType<typeof validateConfiguration>): Tuple[] {
 	const hosts = new Set<string>();
@@ -128,7 +141,9 @@ function tuples(validated: ReturnType<typeof validateConfiguration>): Tuple[] {
 			if (typeof host === "string") hosts.add(host);
 		}
 	const out: Tuple[] = [];
-	for (const model of [...validated.models.keys()].sort())
+	for (const model of [
+		...new Set([...validated.models.keys(), ...validated.adapterModels]),
+	].sort())
 		for (const role of [...validated.roles.keys()].sort())
 			for (const host of [null, ...[...hosts].sort()])
 				out.push({ role, model, host });
@@ -141,7 +156,7 @@ function sweep(
 	storeRoot: string | undefined,
 	all: Tuple[],
 	problems: string[],
-	configuration?: unknown,
+	composition?: Composition,
 ) {
 	const swept = new Map<
 		string,
@@ -151,7 +166,7 @@ function sweep(
 		try {
 			swept.set(tupleKey(tuple), {
 				tuple,
-				selected: selections(root, storeRoot, tuple, configuration),
+				selected: selections(root, storeRoot, tuple, composition),
 			});
 		} catch (error) {
 			problems.push(
@@ -291,6 +306,8 @@ function outdatedPinsOperation({
 			}
 			pins.push({
 				binding,
+				/** #97: the layer whose agents.yaml declares this pin. */
+				layer: layerOf(validated.adapterSources, binding, rule),
 				rule,
 				entry,
 				package: name,
@@ -356,18 +373,24 @@ function applyCommand(input: UpdateInput, root: string, digest: string) {
 	].join(" ");
 }
 
-// What a preview saw: configuration and lock bytes, the target and the version. Apply with
-// the same digest proves nothing moved between the two commands.
+const sha256 = (bytes: Buffer | null) =>
+	bytes ? createHash("sha256").update(bytes).digest("hex") : null;
+
+// What a preview saw: every contributing input (#97: project configuration and lock, the
+// local reference, the adapter's configuration and lock) and the store identities of the
+// current and target versions. Apply with the same digest proves nothing moved between them.
 const previewDigest = (
-	configBytes: Buffer,
-	lockBytes: Buffer | null,
+	inputs: (Buffer | null)[],
+	adapterRoot: string | null,
+	store: unknown,
 	input: UpdateInput,
 ) =>
 	createHash("sha256")
 		.update(
 			JSON.stringify([
-				createHash("sha256").update(configBytes).digest("hex"),
-				lockBytes ? createHash("sha256").update(lockBytes).digest("hex") : null,
+				...inputs.map(sha256),
+				adapterRoot,
+				store,
 				input.binding,
 				input.version,
 				input.assignment,
@@ -377,8 +400,6 @@ const previewDigest = (
 
 function planUpdate(input: UpdateInput) {
 	const { storeRoot, binding, version, assignment } = input;
-	// #85: update edits agents.yaml and the lock; it does not yet target an adapter's.
-	refuseWithAdapter(realpathSync(input.root), "update");
 	for (const key of ["role", "model", "host"] as const)
 		if (typeof assignment[key] !== "string" || !assignment[key])
 			throw new Error(
@@ -387,9 +408,16 @@ function planUpdate(input: UpdateInput) {
 	const validated = validateConfiguration({ root: input.root });
 	const root = validated.repository;
 	const v3 = validated.config.get("version") === 3;
+	const adapter = validated.adapter;
+	// Every contributing input, in digest order; the adapter's are null without one.
 	const configBytes = readLocal(root, CONFIG);
 	const lockBytes = readLocal(root, LOCK);
+	const localBytes = adapter ? readLocal(root, LOCAL_REFERENCE) : null;
+	const adapterConfigBytes = adapter ? readLocal(adapter.root, CONFIG) : null;
+	const adapterLockBytes = adapter ? readLocal(adapter.root, LOCK) : null;
 	if (!configBytes) throw new Error(`${CONFIG}: missing`);
+	if (adapter && !adapterConfigBytes)
+		throw new Error(`${adapter.reference}/${CONFIG}: missing`);
 	const target: Tuple = { ...assignment };
 	const targetSelections = selections(root, storeRoot, target);
 	const current = targetSelections.get(binding);
@@ -403,9 +431,15 @@ function planUpdate(input: UpdateInput) {
 			`update: ${binding} is not selected for ${assignment.role} × ${assignment.model} × ${assignment.host}${suggestion ? `; did you mean ${suggestion}?` : ""}`,
 		);
 	}
+	// #97: the binding's layer owns the edit; the other layer's files are never written.
+	const layer = layerOf(validated.adapterSources, binding);
+	const layerFile = (file: string) =>
+		layer === "adapter" ? `${adapter?.reference}/${file}` : file;
 	// Rules name canonical models. An alias is written as its model; an undeclared
 	// model (reached through a family prefix or default_profile) is declared with the
-	// profile it resolves to now, so its routing is unchanged (checked below).
+	// profile it resolves to now, so its routing is unchanged (checked below). An
+	// adapter rule names an undeclared model as an exact ID instead: models are project
+	// policy, and routing stays the project's.
 	const aliases = validated.aliases as Map<string, string>;
 	const canonicalModel = validated.models.has(assignment.model)
 		? assignment.model
@@ -414,7 +448,7 @@ function planUpdate(input: UpdateInput) {
 		targetSelections.get(PROFILE_KEY)?.name ?? ""
 	).replace(/^profile /, "");
 	const declaredModel =
-		canonicalModel === null
+		canonicalModel === null && layer === "project"
 			? { model: assignment.model, profile: currentProfile }
 			: null;
 	const ruleAssignment = {
@@ -487,9 +521,39 @@ function planUpdate(input: UpdateInput) {
 		const fresh = new Set(newFindings(before, after));
 		return after.map((f) => ({ ...f, new: fresh.has(f) }));
 	})();
-	const digest = previewDigest(configBytes, lockBytes, input);
+	const digest = previewDigest(
+		[configBytes, lockBytes, localBytes, adapterConfigBytes, adapterLockBytes],
+		adapter?.root ?? null,
+		{
+			store: storeRoot ?? null,
+			current: [name, current.version, current.revisionDigest, current.sha256],
+			target: [version, found.revisionDigest, found.sha256],
+		},
+		input,
+	);
+	// The locks the apply refreshes, and (#97) the one it leaves stale rather than write
+	// across layers: the adapter's lock covers the composed configuration.
+	const locks = [
+		{ layer, file: layerFile(LOCK), action: "refresh" as const },
+		...(adapter && layer === "project"
+			? [
+					{
+						layer: "adapter" as const,
+						file: `${adapter.reference}/${LOCK}`,
+						action: "stale" as const,
+					},
+				]
+			: []),
+	];
 	const base = {
 		root,
+		/** #97: the layer that owns the binding and receives every edit. */
+		layer,
+		/** #97: the adapter composed with the project; null without one. */
+		adapter: adapter
+			? { reference: adapter.reference, root: adapter.root }
+			: null,
+		locks,
 		previewDigest: digest,
 		/** The full apply command for a person to run; every argument filled in. */
 		applyCommand: applyCommand(input, root, digest),
@@ -528,9 +592,8 @@ function planUpdate(input: UpdateInput) {
 			rule: null,
 			edits: [],
 			changed: [],
-			configBytes,
-			lockBytes,
-			nextConfig: configBytes,
+			inputs: [] as Snapshot[],
+			nextConfig: null,
 		};
 	if (
 		input.requireEvidence &&
@@ -547,7 +610,16 @@ function planUpdate(input: UpdateInput) {
 		throw new Error(
 			`update: assignments.${rule.id} already exists for another selector; nothing was written`,
 		);
-	const document = parseYamlDocument(configBytes.toString("utf8"));
+	// Composition keeps assignments with their binding's layer; refuse anything else.
+	const ruleLayer = layerOf(validated.adapterSources, binding, rule.id);
+	if (rule.action === "replace" && ruleLayer !== layer)
+		throw new Error(
+			`update: ${binding} belongs to the ${layer} but assignments.${rule.id} belongs to the ${ruleLayer}; an update edits one layer only; nothing was written`,
+		);
+	const editBytes = (
+		layer === "adapter" ? adapterConfigBytes : configBytes
+	) as Buffer;
+	const document = parseYamlDocument(editBytes.toString("utf8"));
 	if (declaredModel)
 		document.setIn(
 			["models", declaredModel.model],
@@ -582,8 +654,25 @@ function planUpdate(input: UpdateInput) {
 		);
 	const nextConfig = Buffer.from(document.toString());
 	const parsed = parseYaml(nextConfig.toString("utf8"));
+	// With an adapter, the edited layer composes with the other layer's current file.
+	const composition: Composition = !adapter
+		? { configuration: parsed }
+		: layer === "adapter"
+			? {
+					configuration: parseYaml(configBytes.toString("utf8")),
+					adapterConfiguration: parsed,
+				}
+			: {
+					configuration: parsed,
+					adapterConfiguration: parseYaml(
+						(adapterConfigBytes as Buffer).toString("utf8"),
+					),
+				};
 	try {
-		validateConfiguration({ root, configuration: parsed });
+		// A project edit must also stand alone: the committed configuration works without the adapter.
+		if (adapter && layer === "project")
+			validateConfiguration({ root, configuration: parsed });
+		validateConfiguration({ root, ...(composition as object) });
 	} catch (error) {
 		throw new Error(
 			`update: the edited configuration is not valid and unambiguous; nothing was written; ${errorMessage(error)}`,
@@ -597,7 +686,7 @@ function planUpdate(input: UpdateInput) {
 			list.findIndex((other) => tupleKey(other) === tupleKey(tuple)) === index,
 	);
 	const before = sweep(root, storeRoot, all, problems);
-	const after = sweep(root, storeRoot, all, problems, parsed);
+	const after = sweep(root, storeRoot, all, problems, composition);
 	const changed: { tuple: Tuple; binding: string; from: string; to: string }[] =
 		[];
 	for (const [key, { tuple, selected }] of before) {
@@ -632,9 +721,13 @@ function planUpdate(input: UpdateInput) {
 			"update: the edit does not change the target selection; nothing was written",
 		);
 	// Every agents.yaml edit in one list, in the JSON as in the text, so a reader of
-	// either can't report the rule and miss the model declaration.
+	// either can't report the rule and miss the model declaration. #97: each names its
+	// layer and file (relative to the project root).
+	const file = layerFile(CONFIG);
 	const edits = [
 		{
+			layer,
+			file,
 			path: `assignments.${rule.id}`,
 			action:
 				rule.action === "replace"
@@ -645,6 +738,8 @@ function planUpdate(input: UpdateInput) {
 		...(declaredModel
 			? [
 					{
+						layer,
+						file,
 						path: `models.${declaredModel.model}`,
 						action: "declare-model" as const,
 						description: `declare models.${declaredModel.model} with profile ${declaredModel.profile}, the profile it resolves to now (routing unchanged)`,
@@ -658,16 +753,31 @@ function planUpdate(input: UpdateInput) {
 		rule,
 		edits,
 		changed,
-		configBytes,
-		lockBytes,
-		nextConfig,
+		inputs: [
+			[root, CONFIG, configBytes],
+			[root, LOCK, lockBytes],
+			...(adapter
+				? ([
+						[root, LOCAL_REFERENCE, localBytes],
+						[adapter.root, CONFIG, adapterConfigBytes],
+						[adapter.root, LOCK, adapterLockBytes],
+					] as Snapshot[])
+				: []),
+		] as Snapshot[],
+		nextConfig: {
+			root: layer === "adapter" ? (adapter?.root as string) : root,
+			before: editBytes,
+			after: nextConfig,
+		},
 		problems,
 	};
 }
 
+/** A contributing file as the preview read it: base directory, relative path, bytes. */
+type Snapshot = [string, string, Buffer | null];
+
 const publicPlan = ({
-	configBytes: _c,
-	lockBytes: _l,
+	inputs: _i,
 	nextConfig: _n,
 	...plan
 }: ReturnType<typeof planUpdate>) => plan;
@@ -680,31 +790,43 @@ function applyUpdateOperation(input: UpdateInput) {
 	const plan = planUpdate(input);
 	if (input.expect !== undefined && input.expect !== plan.previewDigest)
 		throw new Error(
-			"update: the configuration, lock or target changed since the preview (previewDigest differs); preview again; nothing was written",
+			"update: the configuration, lock, adapter, store or target changed since the preview (previewDigest differs); preview again; nothing was written",
 		);
 	if (plan.status === "already-pinned") return publicPlan(plan);
+	// Apply never signs or approves: an untrusted target is refused (#71, #97).
 	refuseUntrusted(plan.trustBlockers, "update");
-	const { root, configBytes, lockBytes, nextConfig } = plan;
-	if (
-		!(readLocal(root, LOCK) ?? Buffer.alloc(0)).equals(
-			lockBytes ?? Buffer.alloc(0),
+	const { root, inputs, nextConfig } = plan;
+	for (const [base, file, before] of inputs)
+		if (
+			!(readLocal(base, file) ?? Buffer.alloc(0)).equals(
+				before ?? Buffer.alloc(0),
+			)
 		)
-	)
-		throw new Error(`${LOCK}: changed during the operation; retry`);
-	applyChanges(root, [
-		{ file: CONFIG, before: configBytes, after: nextConfig },
+			throw new Error(`${file}: changed during the operation; retry`);
+	if (!nextConfig) throw new Error("update: nothing to write");
+	applyChanges(nextConfig.root, [
+		{ file: CONFIG, before: nextConfig.before, after: nextConfig.after },
 	]);
-	installDependencies({ root, storeRoot: input.storeRoot });
-	const stamp = createStamp({
+	// With an adapter, install writes only the adapter's lock (#85); a project edit
+	// refreshes the committed lock alone and leaves the adapter's stale (see `locks`).
+	installDependencies({
 		root,
 		storeRoot: input.storeRoot,
-		...input.assignment,
-		identitySource: "user",
+		...(plan.adapter && plan.layer === "project" ? { committed: true } : {}),
 	});
+	// shortcut: stamps do not compose an adapter yet, so adapter mode records none; revisit with #98.
+	const stamp = plan.adapter
+		? null
+		: createStamp({
+				root,
+				storeRoot: input.storeRoot,
+				...input.assignment,
+				identitySource: "user",
+			});
 	return {
 		...publicPlan(plan),
 		status: "updated" as const,
-		stampDigest: stamp.digest,
+		stampDigest: stamp?.digest ?? null,
 	};
 }
 
@@ -765,7 +887,8 @@ export function formatUpdate(
 	const lines = [
 		`${result.status === "updated" ? "Updated" : "Preview (nothing written)"}: ${result.binding} for ${who}`,
 		`  ${result.package}@${result.before.version} → ${result.after.version}${result.after.revision ? ` (revision ${result.after.revision})` : ""}`,
-		`  ${result.status === "updated" ? "Edited" : "Edits to"} agents.yaml (${result.edits.length}):`,
+		// #97: with an adapter, name the layer and the file every edit goes to.
+		`  ${result.status === "updated" ? "Edited" : "Edits to"} ${result.adapter ? `the ${result.layer} layer, ${result.edits[0]?.file}` : "agents.yaml"} (${result.edits.length}):`,
 		...result.edits.map((edit) => `    - ${edit.description}`),
 		`  Selections changed: ${result.changed.map((row) => `${describeTuple(row.tuple)} ${row.binding} ${row.from} → ${row.to}`).join("; ")}`,
 		...(result.approval
@@ -796,8 +919,19 @@ export function formatUpdate(
 		}
 		lines.push(...formatLint(result.lint));
 	}
+	if (result.adapter)
+		for (const lock of result.locks)
+			lines.push(
+				lock.action === "refresh"
+					? `  ${result.status === "updated" ? "Refreshed" : "Apply refreshes"} the ${lock.layer} lock ${lock.file}`
+					: `  ${result.status === "updated" ? "Left" : "Apply leaves"} the ${lock.layer} lock ${lock.file} stale: it covers the composed configuration, and update never writes another layer. Refresh it with agent-profiles install as a separate step`,
+			);
 	if (result.status === "updated")
-		lines.push(`  Lock refreshed; stamp sha256 ${result.stampDigest}`);
+		lines.push(
+			result.stampDigest
+				? `  Lock refreshed; stamp sha256 ${result.stampDigest}`
+				: "  No stamp recorded: stamps do not compose an adapter yet (#98)",
+		);
 	else
 		lines.push(
 			"  To apply, a person runs this in a terminal (agents can't):",

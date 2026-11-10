@@ -28,6 +28,7 @@ import { configureRoles, display as displayText } from "../src/wizard.ts";
 // per-session `resolve` bootstrap and the notice hook start without them.
 // Commands that compose an adapter (#85): resolution, dependency install, checks,
 // the library (approve writes to the adapter) and stamp reads that use only the store.
+// #97: update edits only the layer that owns the binding, and its lock.
 const ADAPTER_COMMANDS = [
 	"resolve",
 	"install",
@@ -35,6 +36,7 @@ const ADAPTER_COMMANDS = [
 	"notice",
 	"library",
 	"outdated",
+	"update",
 	"mcp",
 	"verify",
 	"diff",

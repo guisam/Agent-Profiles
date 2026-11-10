@@ -102,15 +102,17 @@ export function composeConfiguration(
 	adapter: Adapter,
 	projectBase: string,
 	preview: Map<string, Buffer>,
+	/** #97: an edited overlay to compose instead of the adapter's agents.yaml. */
+	edited?: YamlMap,
 ): Sources {
 	const label = `${adapter.reference}/.agent-profiles/agents.yaml`;
 	const refuse = (entry: string, message: string): never =>
 		fail(`${label}: ${entry}`, message);
 	let overlay: YamlMap;
 	try {
-		overlay = parseYaml(
-			readFileSync(path.join(adapter.base, "agents.yaml"), "utf8"),
-		);
+		overlay =
+			edited ??
+			parseYaml(readFileSync(path.join(adapter.base, "agents.yaml"), "utf8"));
 	} catch (error) {
 		return fail(label, `${errorMessage(error)}; ${REMEDY}`);
 	}

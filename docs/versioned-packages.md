@@ -471,7 +471,9 @@ agent-profiles update skills.security-review 2.0.0 --model fictional-small --rol
 - **Apply:**
   1. repeats those checks;
   2. with `--expect <previewDigest>`, refuses if the configuration, lock, target
-     or version changed since the preview;
+     or version changed since the preview (with a project adapter, also the local
+     reference and the adapter's configuration and lock; see
+     [project adapter](project-adapter.md#updates));
   3. edits `agents.yaml` through the YAML document, so comments are kept;
   4. validates the result;
   5. refreshes the lock through `install`;

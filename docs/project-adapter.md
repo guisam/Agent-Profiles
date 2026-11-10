@@ -1,6 +1,7 @@
 # Project adapter: a local layer over committed configuration
 
 Issue: [#85](https://github.com/guisam/Agent-Profiles/issues/85). Since 0.20.0 (first slice).
+Guarded updates: [#97](https://github.com/guisam/Agent-Profiles/issues/97), since 0.21.0.
 
 A contributor can use private, pinned skills in a project without changing the
 project's committed configuration, lock or npm package. One ignored file names one
@@ -85,9 +86,11 @@ Trust is unchanged: the machine policy narrowed by the project's `trust.yaml`.
 ## Locks, approvals and signing
 
 - With an adapter, the lock lives in the adapter and covers the whole composed
-  configuration. `install` writes only that lock. The project's lock is neither
-  read nor written. Any change to the project configuration, the reference or the
-  adapter configuration makes the lock stale.
+  configuration. `install` writes only that lock. The project's lock is not read
+  in adapter mode, and `install` does not write it. Any change to the project
+  configuration, the reference or the adapter configuration makes the adapter's
+  lock stale. A project-owned `update` (below) refreshes the project's lock and
+  leaves the adapter's stale.
 - Approval checks read the project's `approvals/` and the adapter's.
   Approval files name the package, version and digest, not a path, so moving them
   between the two does not invalidate a signature.
@@ -98,10 +101,10 @@ Trust is unchanged: the machine policy narrowed by the project's `trust.yaml`.
 ## Commands
 
 Commands that compose the adapter: `resolve`, `install`, `doctor`, `notice`,
-`library`, `outdated` (read-only), `mcp` (except `update_preview`), and the
-store-only stamp reads `verify` and `diff`.
+`library`, `outdated` (read-only), `update` (see [Updates](#updates)), `mcp`
+(including `update_preview`), and the store-only stamp reads `verify` and `diff`.
 
-Every other command refuses while an adapter is configured. This includes `update`,
+Every other command refuses while an adapter is configured. This includes
 `configure`, `init`, `uninstall`, `preset`, `migrate`, `stamp` and `inspect`. Each
 names the local file to move aside to run on the committed configuration. They do
 not act on one layer silently.
@@ -109,6 +112,44 @@ not act on one layer silently.
 Provenance: `resolve --json` and MCP `explain` include an `adapter` field (its
 reference, root and the entries it added) only when an adapter composes. `doctor`
 reports the same. Committed-only output is unchanged.
+
+## Updates
+
+Since 0.21.0 (#97), `update` and MCP `update_preview` work with an adapter. The
+layer that declares a binding owns its updates:
+
+| Binding declared by | Apply writes | Apply does not write |
+| --- | --- | --- |
+| the adapter (`skills.<id>` or `roles.<id>` in the adapter) | the adapter's `agents.yaml`, then the adapter's lock | any project file |
+| the project | the project's `agents.yaml`, then the project's lock | any adapter file |
+
+- **Preview** lists each edit with its `layer` and `file` (relative to the project
+  root), and a `locks` list with the action for each lock. JSON output also
+  carries `layer` and `adapter` (reference and root).
+- **Adapter-owned updates.** The rule is added to the adapter, or the adapter's
+  rule for the exact tuple is replaced. For a model that the project does not
+  declare, the rule names the exact model ID. No `models` entry is added, because
+  models are project policy. Routing, profiles and the baseline pin for every
+  other model stay unchanged.
+- **Project-owned updates.** The edited project configuration must be valid on its
+  own and composed with the adapter. Apply refreshes the project's lock for the
+  committed configuration alone. The adapter's lock covers the composed
+  configuration, so it becomes stale. `update` does not write it. Run
+  `agent-profiles install` as a separate step; it writes only the adapter's lock.
+  Until then, resolution in adapter mode reports `stale-lock`.
+- **Cross-layer edits are refused.** An example is a project assignment that
+  selects an adapter binding for the exact tuple. Nothing is written.
+- **Stale previews.** `previewDigest` covers the project's `agents.yaml` and lock,
+  `agents.local.yaml`, the adapter's `agents.yaml` and lock, the adapter root, the
+  store, and the current and target package identities. With `--expect`, apply
+  refuses a change to any of them, and nothing is written.
+- **Trust.** Apply never signs or writes approvals. Under `require_approval`, apply
+  refuses an unapproved target. Approve it with `agent-profiles library approve` as a
+  separate step. Approvals from the project and the adapter both count.
+- **Stamps.** Apply does not record a stamp in adapter mode (`stampDigest: null`),
+  because stamps do not compose an adapter yet (#98).
+- `outdated` lists each pin's `layer`. Its tuples include the exact model IDs that
+  adapter rules name.
 
 ## Migration and rollback
 
@@ -128,7 +169,7 @@ The workshop repository provides a snapshot-backed tool:
 
 ## Not in this slice
 
-`update` and the configure, preset and migration writers do not target an
-adapter yet (#97 guarded updates; #98 stamps, evidence and inspect). Adapters cannot declare or route models;
+The configure, preset and migration writers do not target an adapter yet. Stamps,
+evidence and inspect are #98. Adapters cannot declare or route models;
 exact-model selection above does not change routing. Adapter roles cannot declare
 `resources`.
