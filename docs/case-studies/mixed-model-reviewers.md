@@ -76,9 +76,9 @@ Neither live child used the wrapper: both used MCP.
 
 The coordinator reported that the first wrapper draft, using `npx` and `@args`,
 lost model selectors and selected the baseline while still returning a complete
-end marker. Changing to `npx.cmd` resolved the observed problem. The responsible
-layer is not established; [#106](https://github.com/guisam/Agent-Profiles/issues/106)
-tracks reproduction. A completion marker checks output completeness. Verify the
+end marker. Changing to `npx.cmd` resolved the observed problem. A later [PowerShell investigation](../powershell-selector-forwarding.md)
+reproduced argument loss before npm JavaScript and AP on the installed shim.
+It records the environment and tested forwarding alternatives (#106). A completion marker checks output completeness. Verify the
 model, role, selection rule, version and digest separately.
 
 ## What this does not establish
