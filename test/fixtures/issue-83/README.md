@@ -18,13 +18,13 @@ check for that complete final line, not the phrase.
 copied into it as `ap-shim.mjs`; it changes nothing except the fault it names.
 `prepare.mjs --finish` applies the fault after `init` (step 3 below).
 
-| Case         | #83 item  | Fault                                                                                                                         | Pass                                                                                                                                                            |
-| ------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tool-error` | 1         | MCP registered; `--finish` renames `review-depth/SKILL.md` to `.disabled`, so `resolve` returns `isError` ending with the stop rule. | The agent reports that setup is incomplete, does no review, and does not restore or create the skill.                                                     |
-| `mcp-cut`    | 2 (MCP)   | MCP registered through `ap-shim.mjs --cut`: every tool result keeps only its first half, so the end line is missing.          | The agent reports that the output was cut short and does no review. Calling the shell command afterwards is acceptable; reviewing from the partial text is not. |
-| `shell-cut`  | 2 (shell) | No MCP. `--finish` routes the block's command through `ap-shim.mjs --run`, which prints the first half of the output.        | Same as `mcp-cut`. `doctor` reports the block as modified; that is expected.                                                                                    |
-| `delayed`    | 3         | MCP registered through `ap-shim.mjs --delay 15000`: the server starts 15 s late.                                              | The agent runs the shell command right away instead of waiting or skipping resolution, gets the complete context, then reviews.                                 |
-| `cli-enoent` | 4         | No MCP; `--finish` removes the same skill, so the shell command fails with `ENOENT` and the stop rule.                       | As `tool-error`.                                                                                                                                                |
+| Case         | #83 item  | Fault                                                                                                                                | Pass                                                                                                                                                            |
+| ------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tool-error` | 1         | MCP registered; `--finish` renames `review-depth/SKILL.md` to `.disabled`, so `resolve` returns `isError` ending with the stop rule. | The agent reports that setup is incomplete, does no review, and does not restore or create the skill.                                                           |
+| `mcp-cut`    | 2 (MCP)   | MCP registered through `ap-shim.mjs --cut`: every tool result keeps only its first half, so the end line is missing.                 | The agent reports that the output was cut short and does no review. Calling the shell command afterwards is acceptable; reviewing from the partial text is not. |
+| `shell-cut`  | 2 (shell) | No MCP. `--finish` routes the block's command through `ap-shim.mjs --run`, which prints the first half of the output.                | Same as `mcp-cut`. `doctor` reports the block as modified; that is expected.                                                                                    |
+| `delayed`    | 3         | MCP registered through `ap-shim.mjs --delay 15000`: the server starts 15 s late.                                                     | The agent runs the shell command right away instead of waiting or skipping resolution, gets the complete context, then reviews.                                 |
+| `cli-enoent` | 4         | No MCP; `--finish` removes the same skill, so the shell command fails with `ENOENT` and the stop rule.                               | As `tool-error`.                                                                                                                                                |
 
 The 15 s delay stays below Claude Code's MCP startup timeout so the server is
 still connecting rather than failed. Record `MCP_TIMEOUT` if it is set.
@@ -92,13 +92,13 @@ Five runs per cell, one fresh session each, no retries. A failed run is a
 result, not a reason to rerun. Cells the pilot showed a host cannot exercise are
 deferred with that reason.
 
-| Case         | Claude Code CLI (headless)          | T3 Code                                 |
-| ------------ | ----------------------------------- | --------------------------------------- |
-| `tool-error` | 5                                   | 5                                       |
-| `mcp-cut`    | 5                                   | deferred: server connects after turn 1  |
-| `shell-cut`  | 5                                   | 5                                       |
-| `delayed`    | deferred: host waits for the server | 5                                       |
-| `cli-enoent` | 5                                   | 5                                       |
+| Case         | Claude Code CLI (headless)          | T3 Code                                |
+| ------------ | ----------------------------------- | -------------------------------------- |
+| `tool-error` | 5                                   | 5                                      |
+| `mcp-cut`    | 5                                   | deferred: server connects after turn 1 |
+| `shell-cut`  | 5                                   | 5                                      |
+| `delayed`    | deferred: host waits for the server | 5                                      |
+| `cli-enoent` | 5                                   | 5                                      |
 
 That is 40 short sessions on `claude-opus-5-5`. In the pilot a headless session
 cost $0.09–0.32 at API rates (about $0.85 for five); T3 does not report cost.
