@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.23.6 — unreleased — failure-case fixtures for live #80 checks (#83)
+
+- New `test/fixtures/issue-83/`: `prepare.mjs --case <tool-error|mcp-cut|shell-cut|delayed|cli-enoent>`
+  builds a disposable project from the #80 fixture with one controlled fault, and
+  `shim.mjs` cuts tool output in half or delays the MCP server without changing
+  anything else. The README gives pass criteria and a 5-run trial matrix.
+- `test/issue-83-fixture.test.js` checks each fault without a host. Nothing was run
+  live; live runs wait for an approved budget. No runtime or configuration change.
+- `test/fixtures/issue-82/prepare.mjs` exports its Git guard and command runner
+  for reuse; behavior is unchanged.
+
 ## 0.23.5 — unreleased — proposed TDD completion protocol (#33)
 
 - Docs: `docs/examples/tdd-completion-protocol.md` proposes, without accepting

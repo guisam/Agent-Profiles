@@ -75,11 +75,26 @@ export const MCP_CONFIG = {
 	},
 };
 
-function insideGit(directory) {
+export function insideGit(directory) {
 	for (let dir = directory; ; dir = path.dirname(dir)) {
 		if (existsSync(path.join(dir, ".git"))) return dir;
 		if (path.dirname(dir) === dir) return undefined;
 	}
+}
+
+export function run(dest, command, args) {
+	// Windows runs npm through its .cmd shim, which needs a shell; pass one
+	// quoted command line rather than an argument array to the shell.
+	const result =
+		process.platform === "win32"
+			? spawnSync(
+					// The bare command name: a quoted one breaks npm.cmd's own path lookup.
+					[command, ...args.map((arg) => JSON.stringify(arg))].join(" "),
+					{ cwd: dest, stdio: "inherit", shell: true },
+				)
+			: spawnSync(command, args, { cwd: dest, stdio: "inherit" });
+	if (result.status !== 0)
+		throw new Error(`${command} ${args.join(" ")} failed in ${dest}`);
 }
 
 export function prepare(destination, { packagePath, git = true } = {}) {
@@ -117,20 +132,7 @@ export function prepare(destination, { packagePath, git = true } = {}) {
 				path.resolve(packagePath),
 			],
 		]);
-	for (const [command, args] of steps) {
-		// Windows runs npm through its .cmd shim, which needs a shell; pass one
-		// quoted command line rather than an argument array to the shell.
-		const result =
-			process.platform === "win32"
-				? spawnSync(
-						// The bare command name: a quoted one breaks npm.cmd's own path lookup.
-						[command, ...args.map((arg) => JSON.stringify(arg))].join(" "),
-						{ cwd: dest, stdio: "inherit", shell: true },
-					)
-				: spawnSync(command, args, { cwd: dest, stdio: "inherit" });
-		if (result.status !== 0)
-			throw new Error(`${command} ${args.join(" ")} failed in ${dest}`);
-	}
+	for (const [command, args] of steps) run(dest, command, args);
 	return dest;
 }
 
