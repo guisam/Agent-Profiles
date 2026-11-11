@@ -169,6 +169,10 @@ the intervening edits. Restore only the affected files from the saved before
 copies, then run `doctor`, resolve the original tuple, and compare its pins and
 managed context with the recorded baseline. Keep published packages and evidence.
 Demonstrate restoration in the isolated example before relying on it in real work.
+`test/guided-replay.test.js` replays this sequence with fixture evidence:
+selection, a compatibility refusal, a refused untested tuple, report, preview,
+adoption, the other models' unchanged pins, a refused stale restore, and a
+restore to the baseline stamp. It checks mechanics only, not model quality.
 
 ## 6. Repeat for the second model
 

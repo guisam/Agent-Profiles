@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.22.1 — unreleased — guided journey replay test (#33)
+
+- New `test/guided-replay.test.js` connects the guided evaluation steps in one
+  test through existing interfaces: per-model selection, an unknown-host
+  refusal, retained report readback, a refused decision for an unevaluated model,
+  read-only preview, explicit fixture adoption, unchanged pins for the other
+  models and unchanged unrelated instructions/settings, a guarded restore that
+  refuses an intervening edit, then restoration to the baseline stamp with the
+  promotion history retained. Evidence is labeled fixture-only. No source or
+  configuration format changes.
+
 ## 0.22.0 — unreleased — stamps, verify/diff, evidence and inspect with a project adapter (#98)
 
 - `stamp` works with a project adapter. A composed stamp adds a
