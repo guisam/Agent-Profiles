@@ -1,5 +1,13 @@
 # Versioning and upgrades
 
+## 0.23.3 — PowerShell wrapper investigation (#106)
+
+Documentation only; no npm publication implied. The
+[selector-forwarding investigation](https://github.com/guisam/Agent-Profiles/blob/docs/106-powershell-forwarding/docs/powershell-selector-forwarding.md)
+reproduces selector loss before AP on the tested npm PowerShell shim.
+`npx.cmd` preserved forwarding. No runtime, YAML, lock, store or bootstrap
+migration is needed; no global shim, execution policy or live pins change.
+
 ## 0.23.2 — mixed-model reviewer case study (#105)
 
 Documentation only, not an npm release announcement. The

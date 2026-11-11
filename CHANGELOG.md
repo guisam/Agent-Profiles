@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.23.3 — unreleased — PowerShell selector forwarding (#106)
+
+- Document a reproduced `npx.ps1`/wrapper argument-loss interaction before AP
+  runs, its minimal probe, and tested `npx.cmd` forwarding.
+- No runtime or YAML change. No lock, store, bootstrap migration or live pin change.
+
 ## 0.23.2 — unreleased — mixed-model reviewer case study (#105)
 
 - Document the bounded native CLI and T3 model-specific variant delivery results,
