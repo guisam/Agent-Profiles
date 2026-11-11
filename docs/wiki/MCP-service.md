@@ -34,7 +34,7 @@ server or valid configuration alone does not establish complete instruction deli
   `init` after upgrading.
 - **Subagent delivery observed (0.23.1, #82):** in headless Claude Code CLI and in
   T3 Code with Opus 5.5, custom agents, the built-in `general-purpose` agent and
-  T3 `delegate_task` children resolved their own role before any other tool.
+  T3 `delegate_task` children resolved their own role before role work (ToolSearch may precede resolution).
   None took the parent's role, and a child whose `resolve` failed stopped. The
   built-in `Explore` agent gets no bootstrap; don't use it for role work. Bind a
   shared server to the host only. Interactive CLI matched for the custom agent
@@ -63,5 +63,9 @@ see [#39](https://github.com/guisam/Agent-Profiles/issues/39).
 
 [Return to the documentation home](https://github.com/guisam/Agent-Profiles/wiki).
 
+For current T3 setup and the bounded live child-role observations, see
+[Using Agent Profiles with T3 Code](Using-Agent-Profiles-with-T3-Code). These
+observations do not establish support for every model or delegation path.
+
 See the [mixed-model reviewer case study](Mixed-model-reviewer-case-study) for
-the later, bounded Sonnet/Opus selection and delivery observations.
+the later bounded Sonnet/Opus observations, with fixture and contamination limits.

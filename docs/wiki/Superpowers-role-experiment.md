@@ -19,3 +19,11 @@ private material before submitting an issue.
 This is a repository example, not a Markdown preset or a published library
 package. Supporting scripts/templates must remain alongside the upstream skills.
 Version 0.19.6 adds documentation only; existing configurations need no migration.
+
+## Follow-up: companion project
+
+The per-model variant work continued in the public
+[agent-profiles-superpowers](https://github.com/guisam/agent-profiles-superpowers)
+companion: a plugin-free workflow for selecting, delivering and evaluating
+model-specific skill variants, with a closed TDD compaction screening for Sonnet 5.5
+(no observed regression in the screening suite; not adopted).

@@ -1,5 +1,12 @@
 # Versioning and upgrades
 
+## 0.23.10 — wiki source reconciled
+
+The repository copy under `docs/wiki/` and this wiki now match. Documentation
+only: no runtime, YAML, lock, store or bootstrap migration, and no npm release.
+Older "unpublished working source" compaction notes were removed; the 0.19.7
+entry below covers the merged Skill Compaction preset.
+
 ## 0.23.9 — npm release of 0.22.1–0.23.8
 
 0.23.9 publishes the changes from 0.22.1 to 0.23.8 to npm; the previous
@@ -28,7 +35,7 @@ folder is trusted.
 ## 0.23.5 — proposed TDD completion protocol (#33)
 
 Documentation only; no npm publication implied. The
-[proposed completion protocol](https://github.com/guisam/Agent-Profiles/blob/docs/33-tdd-completion-protocol/docs/examples/tdd-completion-protocol.md)
+[proposed completion protocol](https://github.com/guisam/Agent-Profiles/blob/main/docs/examples/tdd-completion-protocol.md)
 prepares the remaining live #33 demonstration with Opus 5.5 and Sonnet 5.5 as
 implementers on Claude Code. It is a proposed revision of the planned Luna/Sol
 example, not an accepted or executed experiment, and it authorizes no model
@@ -48,7 +55,7 @@ No configuration, lock, store or bootstrap migration is needed.
 ## 0.23.3 — PowerShell wrapper investigation (#106)
 
 Documentation only; no npm publication implied. The
-[selector-forwarding investigation](https://github.com/guisam/Agent-Profiles/blob/docs/106-powershell-forwarding/docs/powershell-selector-forwarding.md)
+[selector-forwarding investigation](https://github.com/guisam/Agent-Profiles/blob/main/docs/powershell-selector-forwarding.md)
 reproduces selector loss before AP on the tested npm PowerShell shim.
 `npx.cmd` preserved forwarding. No runtime, YAML, lock, store or bootstrap
 migration is needed; no global shim, execution policy or live pins change.
@@ -71,8 +78,9 @@ What changed for users:
 - **Subagents have been observed** in headless Claude Code CLI and in T3 Code, with
   Opus 5.5 and one trial each. Custom agents, the built-in `general-purpose`
   agent and T3 `delegate_task` children received the `CLAUDE.md` bootstrap and
-  resolved before any other work. They got their own role: the role their
-  definition or brief assigns, or `default_role` when none is assigned.
+  resolved before role work (ToolSearch may precede resolution). They got their
+  own role: the role their definition or brief assigns, or `default_role` when
+  none is assigned.
 - **No child took the parent's role.** A child whose `resolve` failed reported
   incomplete setup and did no role work.
 - **The built-in `Explore` agent gets no bootstrap**, and it worked before it
@@ -91,7 +99,7 @@ To repeat the observation, see `test/fixtures/issue-82/README.md`.
 ## 0.23.0 — update to a variant package (#89, #91)
 
 Unreleased. These notes describe the source on the feature branch. Use them once
-0.23.0 is merged and published to npm.
+0.23.0 is merged; it was first published to npm in 0.23.9.
 
 New feature: in configuration v3, `update` and MCP `update_preview` can move one
 exact role × model × host tuple to a differently named package, such as a
