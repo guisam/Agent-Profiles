@@ -1,5 +1,20 @@
 # Versioning and upgrades
 
+## 0.23.6–0.23.8 — failure-case fixtures and live results (#83)
+
+Test fixtures and documentation only; no npm publication implied, and no
+runtime, YAML, lock, store or bootstrap migration. `test/fixtures/issue-83/`
+prepares disposable projects that force each #80 failure path: an MCP tool error,
+cut MCP or shell output, a slow MCP server, and a failing shell command. In 0.23.7,
+`prepare.mjs` stopped running `init` and gained `--finish`, which applies the
+fault after `init`. Live results on Claude Code 2.1.322 (headless) and T3 Code
+with Opus 5.5: a one-run pilot, then five runs per cell, 40 of 40 passing. Two
+cells are deferred for host reasons: headless Claude Code waits for MCP servers
+before the first turn, and T3 starts it before a slow project server connects.
+See [host observations](https://github.com/guisam/Agent-Profiles/blob/main/docs/host-observations.md).
+In a new folder, headless Claude Code ignores project allow rules until the
+folder is trusted.
+
 ## 0.23.5 — proposed TDD completion protocol (#33)
 
 Documentation only; no npm publication implied. The
@@ -260,8 +275,8 @@ server can connect after the first task begins. Start a fresh session and verify
 resolution before work, every required skill body, and the final context marker.
 On failure, stop role work until resolution succeeds. CLI checks alone do not
 verify host behavior. Subagent delivery was observed in 0.23.1
-([#82](https://github.com/guisam/Agent-Profiles/issues/82)); further failure
-scenarios remain tracked in [#83](https://github.com/guisam/Agent-Profiles/issues/83).
+([#82](https://github.com/guisam/Agent-Profiles/issues/82)); failure scenarios
+were live-tested in 0.23.8 ([#83](https://github.com/guisam/Agent-Profiles/issues/83)).
 
 ## 0.19.3 — truncation-safe MCP startup instructions (#80)
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.23.8 — unreleased — #83 repeated failure-case trials (#83)
+
+- `docs/host-observations.md` records #83 item 5: five runs per cell on Claude
+  Code 2.1.322 (headless) and T3 Code with Opus 5.5, 40 sessions, 40 pass. Two
+  cells are deferred for host reasons. Headless cost was $1.86 at API rates.
+- The headless permission cause is confirmed from Claude Code's stderr: it ignores
+  a new folder's project allow rules until the folder is trusted.
+- `docs/setup.md` and the wiki copy now point to the recorded results. The wiki
+  copy gains the missing 0.23.6–0.23.8 entry. No runtime or configuration change.
+
 ## 0.23.7 — unreleased — #83 pilot results and fixture order fix (#83)
 
 - `docs/host-observations.md` records a one-run pilot of the five #83 failure
