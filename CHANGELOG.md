@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.23.4 — unreleased — guided journey replay test (#33)
+
+- New `test/guided-replay.test.js` connects the guided evaluation steps in one
+  test through existing interfaces: per-model selection, an unknown-host
+  refusal, retained report readback, a refused decision for an unevaluated model,
+  read-only preview, explicit fixture adoption, unchanged pins for the other
+  models and unchanged unrelated instructions/settings, a guarded restore that
+  refuses an intervening edit, then restoration to the baseline stamp with the
+  promotion history retained. Evidence is labeled fixture-only. No source or
+  configuration format changes.
+
 ## 0.23.3 — unreleased — PowerShell selector forwarding (#106)
 
 - Document a reproduced `npx.ps1`/wrapper argument-loss interaction before AP
