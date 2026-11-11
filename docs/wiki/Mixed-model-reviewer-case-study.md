@@ -5,7 +5,7 @@ Agent Profiles delivered different pinned versions of the same skill to Sonnet
 model and assigned reviewer role before work. Sonnet received 2.0.0; Opus received
 3.0.0. The parent was explicitly assigned coordinator.
 
-Read the [case study](https://github.com/guisam/Agent-Profiles/blob/docs/105-mixed-model-case-study/docs/case-studies/mixed-model-reviewers.md)
+Read the [case study](https://github.com/guisam/Agent-Profiles/blob/main/docs/case-studies/mixed-model-reviewers.md)
 for the setup, evidence and limits. Repository documentation is proposed as
 0.23.2; the experiment ran source 0.23.1. No npm publication is implied.
 
@@ -20,3 +20,6 @@ No live skill pins change. Remaining coverage is in
 [#105](https://github.com/guisam/Agent-Profiles/issues/105); reported PowerShell
 argument loss is investigated separately in
 [#106](https://github.com/guisam/Agent-Profiles/issues/106).
+
+Follow-up: [PowerShell selector forwarding](PowerShell-selector-forwarding)
+reproduces the wrapper argument loss before AP on the tested npm shim.

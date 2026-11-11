@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.23.10 — unreleased — reconcile the wiki source with the live wiki
+
+- `docs/wiki/` now holds every live wiki page. Nine pages that existed only on
+  the live wiki are copied in, including "Using Agent Profiles with T3 Code" and
+  "PowerShell selector forwarding". The sidebar takes the live order.
+- Edits made only on the live wiki are merged into the shared pages: the T3
+  guide links, the companion-project follow-up and the PowerShell follow-up.
+  "Resolved before any other tool" becomes "before role work (ToolSearch may
+  precede resolution)", which matches the #82 and #83 transcripts.
+- Content added only in the repository is kept: the 0.23.0 variant-package notes
+  in Skill library and the tuning guide, and "bound selection and stamp" in MCP
+  service, which matches `src/mcp.ts`.
+- Fixes: links to deleted feature branches now point to `main`; the npm version
+  in the T3 guide moves from 0.19.4 to 0.23.9; the 0.23.0 note no longer claims
+  a 0.23.0 npm release.
+- Not carried over: the live wiki's dated publication notes and its
+  "unpublished working source" 0.19.6–0.19.11 compaction notes. The live wiki
+  itself marks them as superseded by the merged 0.19.7 preset; they remain in
+  the wiki history. No runtime or configuration change.
+
 ## 0.23.9 — 2026-11-11 — npm release of 0.22.1–0.23.8
 
 - Publishes the unreleased 0.22.1–0.23.8 changes to npm. The last published

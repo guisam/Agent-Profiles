@@ -8,9 +8,11 @@ Repository guides are the source of truth. This wiki provides navigation and mai
 
 New to Agent Profiles? Start with [agent-assisted setup](https://github.com/guisam/Agent-Profiles/blob/main/docs/setup.md). It explains how your coding agent can inspect a project, propose a configuration, and apply changes after your approval.
 
-For manual setup, follow the [quick start](https://github.com/guisam/Agent-Profiles/blob/main/README.md#quick-start). The project requires Node 24 and is not yet published to npm; use the preparation instructions in the guide.
+For manual setup, follow the [quick start](https://github.com/guisam/Agent-Profiles/blob/main/README.md#quick-start). The project requires Node 24. Version 0.23.9 is published on npm (verified 2026-11-11); source-only additions may have later version numbers.
 
 Your first goal is a working configuration for one model and one role. Inspect the resulting context before expanding to more roles or models.
+
+For T3 users, see [Using Agent Profiles with T3 Code](Using-Agent-Profiles-with-T3-Code).
 
 ## Configure your agent
 
