@@ -1,6 +1,16 @@
 # Changelog
 
-## 0.23.8 — unreleased — #83 repeated failure-case trials (#83)
+## 0.23.9 — 2026-11-11 — npm release of 0.22.1–0.23.8
+
+- Publishes the unreleased 0.22.1–0.23.8 changes to npm. The last published
+  version was 0.22.0. Each change keeps its own entry below.
+- Changes that affect users of the package: `resolve` text names the package
+  identity of each packaged skill (0.22.1), and `update` can move a tuple to a
+  variant package (0.23.0). The other versions add documentation and tests.
+- The README and `docs/setup.md` now use 0.23.9 in their examples instead of 0.19.4.
+- No YAML, lock, store or bootstrap migration. The bootstrap stays at protocol 3.
+
+## 0.23.8 — included in 0.23.9 — #83 repeated failure-case trials (#83)
 
 - `docs/host-observations.md` records #83 item 5: five runs per cell on Claude
   Code 2.1.322 (headless) and T3 Code with Opus 5.5, 40 sessions, 40 pass. Two
@@ -10,7 +20,7 @@
 - `docs/setup.md` and the wiki copy now point to the recorded results. The wiki
   copy gains the missing 0.23.6–0.23.8 entry. No runtime or configuration change.
 
-## 0.23.7 — unreleased — #83 pilot results and fixture order fix (#83)
+## 0.23.7 — included in 0.23.9 — #83 pilot results and fixture order fix (#83)
 
 - `docs/host-observations.md` records a one-run pilot of the five #83 failure
   cases on Claude Code 2.1.322 (headless) and T3 Code, Opus 5.5: 7 pass, 2 not
@@ -24,7 +34,7 @@
 - The README lists the host limits the pilot found and a 40-session matrix with
   the infeasible cells deferred. No runtime or configuration change.
 
-## 0.23.6 — unreleased — failure-case fixtures for live #80 checks (#83)
+## 0.23.6 — included in 0.23.9 — failure-case fixtures for live #80 checks (#83)
 
 - New `test/fixtures/issue-83/`: `prepare.mjs --case <tool-error|mcp-cut|shell-cut|delayed|cli-enoent>`
   builds a disposable project from the #80 fixture with one controlled fault, and
@@ -35,7 +45,7 @@
 - `test/fixtures/issue-82/prepare.mjs` exports its Git guard and command runner
   for reuse; behavior is unchanged.
 
-## 0.23.5 — unreleased — proposed TDD completion protocol (#33)
+## 0.23.5 — included in 0.23.9 — proposed TDD completion protocol (#33)
 
 - Docs: `docs/examples/tdd-completion-protocol.md` proposes, without accepting
   or running it, an Opus 5.5 / Sonnet 5.5 implementer protocol for the
@@ -53,7 +63,7 @@
 - Docs: `docs/guided-evaluation.md` links the proposal.
 - No runtime, configuration, lock, store or bootstrap change. No model calls.
 
-## 0.23.4 — unreleased — guided journey replay test (#33)
+## 0.23.4 — included in 0.23.9 — guided journey replay test (#33)
 
 - New `test/guided-replay.test.js` connects the guided evaluation steps in one
   test through existing interfaces: per-model selection, an unknown-host
@@ -64,20 +74,20 @@
   promotion history retained. Evidence is labeled fixture-only. No source or
   configuration format changes.
 
-## 0.23.3 — unreleased — PowerShell selector forwarding (#106)
+## 0.23.3 — included in 0.23.9 — PowerShell selector forwarding (#106)
 
 - Document a reproduced `npx.ps1`/wrapper argument-loss interaction before AP
   runs, its minimal probe, and tested `npx.cmd` forwarding.
 - No runtime or YAML change. No lock, store, bootstrap migration or live pin change.
 
-## 0.23.2 — unreleased — mixed-model reviewer case study (#105)
+## 0.23.2 — included in 0.23.9 — mixed-model reviewer case study (#105)
 
 - Document the bounded native CLI and T3 model-specific variant delivery results,
   including effort differences, cache contamination and fixture-only fallback.
 - Track reported PowerShell selector loss separately in #106. No runtime,
   configuration, lock, store or bootstrap migration; no skill pins change.
 
-## 0.23.1 — unreleased — subagent delivery observations (#82)
+## 0.23.1 — included in 0.23.9 — subagent delivery observations (#82)
 
 - Docs: `docs/mcp.md`, `docs/host-observations.md` and the wiki record live
   subagent observations in headless Claude Code CLI 2.1.322 and in T3 Code with
@@ -96,7 +106,7 @@
 - Not covered yet: other interactive CLI rows, other models and repeated trials.
   #105 tracks them after #82 closed. No runtime change.
 
-## 0.23.0 — unreleased — update to a variant package (#89, #91)
+## 0.23.0 — included in 0.23.9 — update to a variant package (#89, #91)
 
 - `update` and MCP `update_preview` accept a package-qualified target
   (`@namespace/name@version`). In configuration v3 it moves one exact
@@ -125,7 +135,7 @@
   of the wrong package type) is refused with the resolver's error, instead of
   "does not change the target selection".
 
-## 0.22.1 — unreleased — required skill package identity (#90)
+## 0.22.1 — included in 0.23.9 — required skill package identity (#90)
 
 - Text `resolve` now names the selected package, version and SHA-256 digest above
   each required or explicitly requested packaged skill body, in CLI and MCP
@@ -134,7 +144,7 @@
 - Package identity is visible to the receiving agent. Blinded evaluations must
   account for that rendering change; this fix adds no identity-hiding option.
 
-## 0.22.0 — stamps, verify/diff, evidence and inspect with a project adapter (#98)
+## 0.22.0 — 2026-11-10 — stamps, verify/diff, evidence and inspect with a project adapter (#98)
 
 - `stamp` works with a project adapter. A composed stamp adds a
   `configurationSources` field: the composed configuration digest (the

@@ -11,11 +11,11 @@ not a new Agent Profiles host adapter.
 
 Requires Node.js 24 or newer. For the published-package route, first approve the
 exact package version, registry access and execution. This example uses the
-release `0.19.4`; confirm it is published, then use the same reviewed version for
+release `0.23.9`; confirm it is published, then use the same reviewed version for
 inspection and installation:
 
 ```sh
-npx --yes @guisam/agent-profiles@0.19.4 inspect --root /path/to/project --json
+npx --yes @guisam/agent-profiles@0.23.9 inspect --root /path/to/project --json
 ```
 
 `npx` may download the package and install it into npm's cache. `--yes` suppresses
@@ -40,7 +40,7 @@ node /path/to/Agent-Profiles/bin/agent-profiles.ts inspect --root /path/to/proje
 In a fresh checkout, `npm ci` obtains its dependencies: that is a separate,
 permission-requiring preparation step, not an effect of inspection. If you received
 a trusted packed artifact, install it into a separate scratch project with
-`npm install --ignore-scripts /absolute/path/guisam-agent-profiles-0.19.4.tgz`, then run
+`npm install --ignore-scripts /absolute/path/guisam-agent-profiles-0.23.9.tgz`, then run
 `node /scratch/project/node_modules/@guisam/agent-profiles/dist/bin/agent-profiles.js inspect
 --root /path/to/project --json`. This prepares the tool outside the target; review
 and approve dependency/registry access first. Do not run an unverified package name
@@ -264,11 +264,11 @@ malicious instruction. Preserve the distinction in the final setup report.
 ## 3. Apply only the approved changes
 
 Use existing `init`, the role wizard or its programmatic planner/applier, resolver
-and adapters. From the target project, after approval of version `0.19.4` and
+and adapters. From the target project, after approval of version `0.23.9` and
 Claude Code setup:
 
 ```sh
-npm install --save-dev --save-exact @guisam/agent-profiles@0.19.4
+npm install --save-dev --save-exact @guisam/agent-profiles@0.23.9
 npx --no agent-profiles init --agent claude --mcp
 # Separate approved registration; init only prints this setup command:
 claude mcp add --scope project agent-profiles -- npx --no agent-profiles mcp --host claude
