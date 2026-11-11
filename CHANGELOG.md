@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.23.5 — unreleased — proposed TDD completion protocol (#33)
+
+- Docs: `docs/examples/tdd-completion-protocol.md` proposes, without accepting
+  or running it, an Opus 5.5 / Sonnet 5.5 implementer protocol for the
+  remaining #33 criteria (1, 4, 7) as a revision of the planned Luna/Sol
+  example. It records #33's state after the #109 fixture replay (criterion 9
+  mechanics), frozen identities, independently authored held-out and
+  regression cases, deterministic grading, how companion evidence maps to the
+  native candidate/plan/results/promotion contracts (`apsp-results/1` is not
+  native evidence), stop conditions, the novice adoption/rejection, model-switch
+  and guarded-restoration demonstration, and an approval-ready budget.
+- It separates meaning-preserving compaction from clarifying shared
+  configuration and competing-instruction failures, lists the policy decisions
+  needed first, and hands off proposed corrections for inconsistent companion
+  status records. Neither candidate is adopted or held-out confirmed.
+- Docs: `docs/guided-evaluation.md` links the proposal.
+- No runtime, configuration, lock, store or bootstrap change. No model calls.
+
 ## 0.23.4 — unreleased — guided journey replay test (#33)
 
 - New `test/guided-replay.test.js` connects the guided evaluation steps in one

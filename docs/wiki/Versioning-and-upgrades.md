@@ -1,5 +1,25 @@
 # Versioning and upgrades
 
+## 0.23.5 — proposed TDD completion protocol (#33)
+
+Documentation only; no npm publication implied. The
+[proposed completion protocol](https://github.com/guisam/Agent-Profiles/blob/docs/33-tdd-completion-protocol/docs/examples/tdd-completion-protocol.md)
+prepares the remaining live #33 demonstration with Opus 5.5 and Sonnet 5.5 as
+implementers on Claude Code. It is a proposed revision of the planned Luna/Sol
+example, not an accepted or executed experiment, and it authorizes no model
+runs, spending or adoption. No runtime, YAML, lock, store or bootstrap
+migration is needed; no pins change.
+
+## 0.23.4 — guided journey replay test (#33)
+
+Test and documentation only. `test/guided-replay.test.js` replays the
+[guided workflow](Guided-skill-evaluation) with fixture evidence: selection, a
+compatibility refusal, a refused untested model, report, preview, explicit
+adoption, unchanged pins for other models, a refused stale restore and a
+guarded restore to the baseline. It checks mechanics, not model quality.
+Restoration remains the guide's manual procedure; there is no restore command.
+No configuration, lock, store or bootstrap migration is needed.
+
 ## 0.23.3 — PowerShell wrapper investigation (#106)
 
 Documentation only; no npm publication implied. The
