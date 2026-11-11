@@ -155,17 +155,37 @@ so a cut-off tool result is visible to the agent rather than silently partial.
 Agent Profiles cannot check what the host actually put in the model's context;
 the final line makes truncation detectable, not impossible.
 
-**Subagents are not covered.** Delivery to subagents has not been validated.
-Don't assume a subagent inherits the parent's resolved context, or that it should
-take the parent's role. A subagent gets Agent Profiles instructions only if it
-calls `resolve` itself, with a role explicitly assigned to it. Earlier
-observations: custom Claude Code agents receive the `CLAUDE.md` bootstrap, and
-the built-in Explore agent does not. Validation is tracked in
-[#82](https://github.com/guisam/Agent-Profiles/issues/82).
+**Subagents.** A subagent doesn't inherit the parent's resolved context, and it
+must not take the parent's role. It gets Agent Profiles instructions only by calling
+`resolve` itself. It passes a role only when its agent definition or brief assigns
+one; otherwise it gets the configured `default_role`. Bind a shared server to the
+host only. A server bound to a role imposes that role on every caller, children
+included, and refuses a child's own assignment.
+
+Observed on 2026-11-10 with Opus 5.5 (#82; details in
+[host observations](host-observations.md)):
+
+- **Bootstrap received:** custom agents, the built-in `general-purpose` agent and
+  T3 `delegate_task` children received the `CLAUDE.md` bootstrap, in Claude Code
+  CLI (headless; C1 also interactive) and in T3 Code. Each resolved before any other tool and got
+  complete instructions.
+- **No inheritance:** no child received or requested the parent's role.
+- **Failure handling:** children whose `resolve` failed reported incomplete setup
+  and did no review.
+- **Built-in `Explore`:** it did **not** receive the bootstrap, and it worked
+  before it resolved. Delivery to it is not supported; use a custom agent for role
+  work.
+
+That matrix did not cover interactive CLI rows other than C1, other models, or
+repeated trials. Later mixed-model observations and remaining coverage are in
+[#105](https://github.com/guisam/Agent-Profiles/issues/105) and the
+[case study](case-studies/mixed-model-reviewers.md).
 
 The portable fixture in `test/fixtures/issue-80/` (two required skills sized
 like the #80 report, each ending with a `FIXTURE-FINAL` line) backs the automated
-check and documents the live test steps.
+check and documents the live test steps. `test/fixtures/issue-82/` extends it
+for subagents: a parent-only role, assigned and unassigned custom agents, a
+host-only server binding, a disposable failure step and a transcript summarizer.
 
 Whether a host keeps server instructions in context after compaction, `/clear`
 or a new conversation is host behavior. It is recorded per host as it is
@@ -277,6 +297,12 @@ scope changes every project for that user; choose that explicitly.
 | Claude Code: the agent reads package files through resources rather than the store folder | not guaranteed: in one check (0.13.1) it read the store file directly. verified (live, Opus, 0.14.0): the agent used `library_read` |
 | Claude Code: offers workspace roots | verified (live) |
 | Codex: offers workspace roots | unverified |
+| Claude Code and T3 Code: custom and built-in `general-purpose` subagents, and T3 `delegate_task` children, resolve their own role before work | verified (live, Opus 5.5, headless CLI and T3, one trial each, #82) |
+| Claude Code and T3 Code: no child takes the parent's role without assignment | verified (live, same runs, #82) |
+| Claude Code and T3 Code: a child whose `resolve` fails stops role work | verified (live, same runs, #82) |
+| Claude Code: built-in `Explore` subagent receives the bootstrap | **not supported**: no bootstrap; it worked before it resolved (#82) |
+| Claude Code interactive CLI: custom agent with an assigned role (C1) resolves its own role before work | verified (live, Opus 5.5, one trial, #82) |
+| Claude Code interactive CLI: other subagent rows | unverified (#105) |
 
 ## Limits
 
@@ -294,3 +320,12 @@ scope changes every project for that user; choose that explicitly.
   and `diff` can read that stamp only after `agent-profiles stamp` records it.
 - The server selects instructions; it does not hide native host skills,
   disable plugins or isolate files.
+
+## Mixed-model reviewer delivery (#105)
+
+The [case study](case-studies/mixed-model-reviewers.md) records one Sonnet 5.5
+and one Opus 5.5 T3 child receiving different pinned versions for the same
+reviewer role before work. Native CLI observations are recorded separately.
+It preserves the fixture-only shell adaptation, effort differences and Graft
+cache contamination limits. This is not a quality or token-efficiency result.
+Remaining coverage is tracked in [#105](https://github.com/guisam/Agent-Profiles/issues/105).

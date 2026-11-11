@@ -35,6 +35,9 @@ agent-profiles library evidence @example/security-review --model claude-haiku-4-
   Since 0.13.1, a model that `agents.yaml` doesn't declare (it reaches a profile
   through `default_profile` or a family) is declared with its current profile in
   the same edit, so its routing doesn't change.
+  Since 0.23.0, in configuration v3 the target can also be a differently named
+  package (`@namespace/name@version`), such as a model-specific variant, for that
+  one tuple.
 
 - **Update notice (0.11.0):** for Claude Code, `init` adds a startup-only hook
   that tells you, not the agent, when the library has newer versions for your

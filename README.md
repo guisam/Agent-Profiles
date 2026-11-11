@@ -466,6 +466,7 @@ and token accounting remain future work.
 - [Local context visualizer](docs/visualize.md)
 - [Architecture and schema](docs/architecture.md)
 - [Bootstrap protocol, host setup, and resolver API](docs/bootstrap.md)
+- [Mixed-model reviewer case study](docs/case-studies/mixed-model-reviewers.md)
 - [Live-host observations](docs/host-observations.md)
 - [Contributing and development checks](CONTRIBUTING.md)
 - [Release checklist and verification limits](docs/release.md)

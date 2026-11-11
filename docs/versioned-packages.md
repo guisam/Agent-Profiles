@@ -499,9 +499,56 @@ agent-profiles update skills.security-review 2.0.0 --model fictional-small --rol
   (`declaredModel` in `--json`). An alias targets its canonical model.
 - **Binding IDs:** the first argument is a binding ID such as
   `skills.security-review`. A bare skill ID gets a "did you mean" suggestion.
+- **Target:** the second argument is either an exact version (`2.0.0`) or a
+  package-qualified identity (`@namespace/name@2.0.0`). It is checked before
+  anything is looked up: a range, a tag such as `latest`, a missing version or a
+  malformed name is refused with the actual problem, and nothing is written.
+  - A **bare version** is a version of the package the tuple selects *now*. If a
+    rule already moved the tuple to a differently named package (a variant),
+    `update <binding> 0.2.0` moves within that variant, not the binding's default
+    package. To return to the default package, name it:
+    `@namespace/name@version`.
+  - A **package-qualified** target naming the selected package is the same move as
+    the bare version. Naming another package moves the tuple to it; see
+    [variant packages](#move-one-tuple-to-a-variant-package).
 
 `update` moves one tuple per command. There are no version ranges, "latest" tags
 or automatic updates.
+
+### Move one tuple to a variant package
+
+In configuration v3, `update` can move one exact role × model × host to a
+differently named package, such as a model-specific variant of a skill:
+
+```sh
+agent-profiles update skills.brainstorming @apsp/brainstorming-sonnet-5-5@0.1.0 --model claude-sonnet-5-5 --role brainstormer --host claude
+```
+
+- The tuple's rule binding is replaced as a whole: `package`, `version` and
+  `revision`. Targeting is the same as for a version move. A rule that pins exactly
+  this tuple is edited in place. Otherwise one exact rule is added. A broader rule
+  that selects a variant (for example, every role of one model) is never widened
+  or edited; the other tuples it serves keep it.
+- The same guards apply. The target needs a release label (`revision record`), and
+  its package type must match the binding (a skill binding takes a skill package).
+  The sweep refuses if any other tuple's selection would change, or if any tuple
+  would stop resolving. Apply refuses a stale `--expect`, and it refuses a target
+  the trust policy blocks. Apply never signs or approves.
+- The preview names both identities (`@ns/base@1.0.0 → @ns/variant@0.1.0`). The
+  content diff compares the selected package with the target package. Evidence
+  and approval are those of the target package. `--json` adds `before.package` and
+  `after.package`. The `applyCommand` repeats the package-qualified target.
+- With a [project adapter](project-adapter.md#updates), the layer that declares the
+  binding owns the edit, as for version moves.
+- Nothing is promoted or selected automatically. `outdated` keeps listing newer
+  versions of each pin's own package only.
+
+Configuration v1 and v2 can't express this: v2 rules carry a version of the
+binding's package (`versions.<binding>: 1.2.0`), not a package. A
+package-qualified target that names another package is refused with a pointer
+to the [v2 → v3 conversion guide](migrations/config-v2-to-v3.md). `update`
+never converts the schema. A v2 target that names the selected package still
+works.
 
 ## Update notice
 
@@ -569,3 +616,14 @@ AGENT_PROFILES_STORE_CACHE=off agent-profiles resolve --root /path/to/project
 
 `off` makes every command re-check every path and re-read every object, like the
 audit commands. Accepted values are `on` (default) and `off`; anything else is refused.
+
+## Package identity in resolved skill text
+
+From 0.22.1, required and explicitly requested packaged skill sections in CLI and
+MCP `resolve` text name the selected package, version and SHA-256 digest. Use that
+identity with `library read <name>@<version> <path>` (or MCP `library_read`) to
+retrieve supporting package files. The library verifies those files; do not read
+the store directly. Available packaged skills already show their identity.
+
+The skill body and selection rules do not change. This rendering is not blinded:
+evaluations that conceal package identity must account for the added metadata.

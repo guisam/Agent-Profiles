@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.22.1 — unreleased — guided journey replay test (#33)
+## 0.23.4 — unreleased — guided journey replay test (#33)
 
 - New `test/guided-replay.test.js` connects the guided evaluation steps in one
   test through existing interfaces: per-model selection, an unknown-host
@@ -11,7 +11,77 @@
   promotion history retained. Evidence is labeled fixture-only. No source or
   configuration format changes.
 
-## 0.22.0 — unreleased — stamps, verify/diff, evidence and inspect with a project adapter (#98)
+## 0.23.3 — unreleased — PowerShell selector forwarding (#106)
+
+- Document a reproduced `npx.ps1`/wrapper argument-loss interaction before AP
+  runs, its minimal probe, and tested `npx.cmd` forwarding.
+- No runtime or YAML change. No lock, store, bootstrap migration or live pin change.
+
+## 0.23.2 — unreleased — mixed-model reviewer case study (#105)
+
+- Document the bounded native CLI and T3 model-specific variant delivery results,
+  including effort differences, cache contamination and fixture-only fallback.
+- Track reported PowerShell selector loss separately in #106. No runtime,
+  configuration, lock, store or bootstrap migration; no skill pins change.
+
+## 0.23.1 — unreleased — subagent delivery observations (#82)
+
+- Docs: `docs/mcp.md`, `docs/host-observations.md` and the wiki record live
+  subagent observations in headless Claude Code CLI 2.1.322 and in T3 Code with
+  Opus 5.5. Custom agents, built-in `general-purpose` and T3 `delegate_task`
+  children resolved their own role before work, with complete instructions. No
+  child took the parent's role. Children whose `resolve` failed stopped role work.
+  The built-in `Explore` agent receives no bootstrap; its delivery is not supported.
+- Docs: bind a server shared with subagents to the host only. A role-bound server
+  imposes its role on every caller.
+- Test: `test/fixtures/issue-82/` adds a disposable fixture generator
+  (`prepare.mjs`), a transcript summarizer (`trace.mjs`) and the live protocol.
+  `test/issue-82-fixture.test.js` covers role separation, host-only binding, a
+  skill removed after a healthy server start, and the summarizer.
+- Interactive Claude Code CLI: the custom agent with an assigned role (C1)
+  resolved `reviewer` first, with complete instructions, in one operator-run trial.
+- Not covered yet: other interactive CLI rows, other models and repeated trials.
+  #105 tracks them after #82 closed. No runtime change.
+
+## 0.23.0 — unreleased — update to a variant package (#89, #91)
+
+- `update` and MCP `update_preview` accept a package-qualified target
+  (`@namespace/name@version`). In configuration v3 it moves one exact
+  role × model × host tuple to a differently named package, such as a
+  model-specific variant. The tuple's rule binding (`package`, `version`,
+  `revision`) is replaced in place when a rule pins exactly that tuple; otherwise
+  one exact rule is added. A broader rule is never widened.
+- The move has the same guards as a version move: a release label, the native
+  package-type check, the other-tuple sweep, a content diff from the selected
+  package to the target, evidence and approval for the target,
+  `previewDigest`/`--expect`, live trust checks, and #97 layer ownership with
+  #98 stamps. Apply never signs or approves.
+- The preview names both identities. `--json` adds `before.package` and
+  `after.package`; `package` is the target package. The `applyCommand` repeats
+  the target as given.
+- A bare version still means a version of the package the tuple selects now,
+  which may already be a variant. Same-package previews keep their digests and
+  text.
+- Configuration v1/v2 refuse a target that names another package, with a pointer
+  to the v2 → v3 conversion guide. `update` never converts the schema.
+- Fix (#91): targets are parsed before any lookup. A malformed or unsupported
+  target (a range, a tag, a missing version, a malformed name or a doubled
+  identity) is reported as written, and no identity is synthesized from the
+  binding's package and the target.
+- Fix: an update that would stop any tuple from resolving (for example, a target
+  of the wrong package type) is refused with the resolver's error, instead of
+  "does not change the target selection".
+
+## 0.22.1 — unreleased — required skill package identity (#90)
+
+- Text `resolve` now names the selected package, version and SHA-256 digest above
+  each required or explicitly requested packaged skill body, in CLI and MCP
+  output. Available skills already included this identity. Local skill bodies,
+  JSON resolution and skill selection are unchanged; no store path is exposed.
+- Package identity is visible to the receiving agent. Blinded evaluations must
+  account for that rendering change; this fix adds no identity-hiding option.
+
+## 0.22.0 — stamps, verify/diff, evidence and inspect with a project adapter (#98)
 
 - `stamp` works with a project adapter. A composed stamp adds a
   `configurationSources` field: the composed configuration digest (the

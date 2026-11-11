@@ -645,13 +645,18 @@ export function createServer(options: McpOptions = {}): McpServer {
 		{
 			title: "Preview an update",
 			description:
-				"Preview moving one exact role × model × host pin to another library version: the rule that changes, the selections that change, the evidence, and a unified diff of the text it would inject. Never applies. When you summarize it, report every entry in `edits` (there can be more than the rule: a model declaration is also an edit) and give the user its `applyCommand` exactly as returned; only the user can run it, in a terminal. Read-only.",
+				"Preview moving one exact role × model × host pin to another library version, or (configuration v3) to a differently named package such as a model variant: the rule that changes, the selections that change, the evidence, and a unified diff of the text it would inject. Never applies. When you summarize it, report every entry in `edits` (there can be more than the rule: a model declaration is also an edit) and give the user its `applyCommand` exactly as returned; only the user can run it, in a terminal. Read-only.",
 			inputSchema: z.object({
 				binding: z
 					.string()
 					.min(1)
 					.describe("Binding ID, such as skills.review."),
-				version: z.string().min(1),
+				version: z
+					.string()
+					.min(1)
+					.describe(
+						"An exact version of the package the tuple selects now (such as 1.2.0), or @namespace/name@version to move to that package.",
+					),
 				model: z.string().min(1),
 				role: z.string().min(1),
 				host: z.string().min(1),

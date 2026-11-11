@@ -1,9 +1,107 @@
 # Versioning and upgrades
 
+## 0.23.3 — PowerShell wrapper investigation (#106)
+
+Documentation only; no npm publication implied. The
+[selector-forwarding investigation](https://github.com/guisam/Agent-Profiles/blob/docs/106-powershell-forwarding/docs/powershell-selector-forwarding.md)
+reproduces selector loss before AP on the tested npm PowerShell shim.
+`npx.cmd` preserved forwarding. No runtime, YAML, lock, store or bootstrap
+migration is needed; no global shim, execution policy or live pins change.
+
+## 0.23.2 — mixed-model reviewer case study (#105)
+
+Documentation only, not an npm release announcement. The
+[mixed-model case study](Mixed-model-reviewer-case-study) records source 0.23.1
+trials. No configuration, lock, store or bootstrap migration is needed; no pins
+change. Selection and delivery were observed, not quality or token savings.
+
+## 0.23.1 — subagent delivery observations (#82)
+
+Unreleased. Documentation, fixture and test changes only; the resolver, MCP
+server and configuration format are unchanged. No configuration, lock or store
+migration is needed and `init` does not need to be re-run.
+
+What changed for users:
+
+- **Subagents have been observed** in headless Claude Code CLI and in T3 Code, with
+  Opus 5.5 and one trial each. Custom agents, the built-in `general-purpose`
+  agent and T3 `delegate_task` children received the `CLAUDE.md` bootstrap and
+  resolved before any other work. They got their own role: the role their
+  definition or brief assigns, or `default_role` when none is assigned.
+- **No child took the parent's role.** A child whose `resolve` failed reported
+  incomplete setup and did no role work.
+- **The built-in `Explore` agent gets no bootstrap**, and it worked before it
+  resolved. Use a custom agent (`.claude/agents/*.md`) that states its role for
+  role work.
+
+Action, if you share one Agent Profiles MCP server between a parent and its
+subagents: bind it to the host only (`agent-profiles mcp --host claude`). A server
+bound with `--role` imposes that role on every caller and refuses a child's own
+assignment. Interactive CLI matched for the custom agent with an assigned role; its other
+rows, other models and repeated trials are tracked in
+[#105](https://github.com/guisam/Agent-Profiles/issues/105).
+
+To repeat the observation, see `test/fixtures/issue-82/README.md`.
+
+## 0.23.0 — update to a variant package (#89, #91)
+
+Unreleased. These notes describe the source on the feature branch. Use them once
+0.23.0 is merged and published to npm.
+
+New feature: in configuration v3, `update` and MCP `update_preview` can move one
+exact role × model × host tuple to a differently named package, such as a
+model-specific variant:
+
+```sh
+agent-profiles update skills.brainstorming @apsp/brainstorming-sonnet-5-5@0.1.0 --model claude-sonnet-5-5 --role brainstormer --host claude
+```
+
+The move uses the same guards as a version move:
+
+- a preview with a content diff and evidence;
+- a check that no other tuple's selection changes;
+- `previewDigest` and `--expect`;
+- a release label on the target;
+- trust checks and layer ownership with a project adapter.
+
+The preview names both package identities. `--json` adds `before.package` and
+`after.package`. Nothing is promoted or selected automatically.
+
+Fix (#91): the target is checked before lookup. A malformed or unsupported target
+is reported as written. Before, `@demo/tool@@demo/variant@1.0.0` was reported as
+"not in the library". Now the error says that `@demo/variant@1.0.0` is not an
+exact version.
+
+Fix: an edit that would stop any tuple from resolving is refused with the
+resolver's error. One case is a target whose package type doesn't match the
+binding. Before, such an edit was reported as "does not change the target
+selection".
+
+Meaning of a bare version: `update <binding> 0.2.0` targets a version of the
+package that the tuple selects now. If the tuple already selects a variant, that
+is the variant's package, not the binding's default. To return a tuple to the
+default package, use the package-qualified form.
+
+Upgrade: no YAML, lock, store or stamp migration. Existing commands and
+same-package previews keep their digests and text. Configuration v2 projects
+can't move to another package. `update` refuses with a pointer to the
+[v2 → v3 conversion guide](https://github.com/guisam/Agent-Profiles/blob/main/docs/migrations/config-v2-to-v3.md)
+and never converts the schema. See
+[variant packages](https://github.com/guisam/Agent-Profiles/blob/main/docs/versioned-packages.md#move-one-tuple-to-a-variant-package).
+
+## 0.22.1 — unreleased — required skill package identity (#90)
+
+CLI and MCP text resolution now shows `Package <name>@<version> (sha256 <digest>)`
+above required and explicitly requested packaged skill bodies. This identifies
+the package whose supporting files can be read through the library. No store
+path is exposed. Local skills, JSON output and selection rules are unchanged.
+No YAML, lock, store or bootstrap migration is needed. Blinded evaluations must
+account for the newly visible identity; no identity-hiding option is added.
+
 ## 0.22.0 — stamps, verify/diff, evidence and inspect with a project adapter (#98)
 
-Unreleased. These notes describe the merged source. Use them once 0.22.0 is
-published to npm.
+Published to npm on 2026-11-10. The downloaded archive matches the CI and
+registry checksum.
 
 New feature: `stamp`, `inspect` and `sessions` now work while
 `.agent-profiles/agents.local.yaml` references an adapter. 0.21.0 refused them.
@@ -141,9 +239,9 @@ entries. Keep the local resolver and project bootstrap even with MCP, because th
 server can connect after the first task begins. Start a fresh session and verify
 resolution before work, every required skill body, and the final context marker.
 On failure, stop role work until resolution succeeds. CLI checks alone do not
-verify host behavior; subagents and further failure scenarios remain tracked in
-[#82](https://github.com/guisam/Agent-Profiles/issues/82) and
-[#83](https://github.com/guisam/Agent-Profiles/issues/83).
+verify host behavior. Subagent delivery was observed in 0.23.1
+([#82](https://github.com/guisam/Agent-Profiles/issues/82)); further failure
+scenarios remain tracked in [#83](https://github.com/guisam/Agent-Profiles/issues/83).
 
 ## 0.19.3 — truncation-safe MCP startup instructions (#80)
 
@@ -187,8 +285,8 @@ From 0.19.3:
 
 No YAML, lock or store migration is needed. Lifecycle hooks for `/clear` and
 compaction are not installed; delivery after those events still depends on the
-agent following the bootstrap. Subagent delivery is not validated: a subagent
-must call `resolve` itself with an explicitly assigned role
+agent following the bootstrap. A subagent must call `resolve` itself, passing a
+role only when one is assigned to it; see the 0.23.1 notes
 ([#82](https://github.com/guisam/Agent-Profiles/issues/82)).
 
 ## Source patch: 0.19.2 — published-package and MCP onboarding
