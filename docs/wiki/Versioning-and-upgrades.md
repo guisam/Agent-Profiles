@@ -1,5 +1,15 @@
 # Versioning and upgrades
 
+## 0.23.9 — npm release of 0.22.1–0.23.8
+
+0.23.9 publishes the changes from 0.22.1 to 0.23.8 to npm; the previous
+published version was 0.22.0. Two of them change what users of the package see:
+`resolve` text names the package identity of each packaged skill (0.22.1), and
+`update` can move a tuple to a variant package (0.23.0). The rest add
+documentation and tests. Upgrading from 0.19.4 or later needs no YAML, lock,
+store or bootstrap migration; the bootstrap stays at protocol 3. In
+PowerShell, run `npx.cmd` instead of `npx` (#106).
+
 ## 0.23.6–0.23.8 — failure-case fixtures and live results (#83)
 
 Test fixtures and documentation only; no npm publication implied, and no
@@ -124,7 +134,7 @@ can't move to another package. `update` refuses with a pointer to the
 and never converts the schema. See
 [variant packages](https://github.com/guisam/Agent-Profiles/blob/main/docs/versioned-packages.md#move-one-tuple-to-a-variant-package).
 
-## 0.22.1 — unreleased — required skill package identity (#90)
+## 0.22.1 — required skill package identity (#90)
 
 CLI and MCP text resolution now shows `Package <name>@<version> (sha256 <digest>)`
 above required and explicitly requested packaged skill bodies. This identifies

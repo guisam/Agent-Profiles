@@ -8,7 +8,7 @@ skills. Agent Profiles resolves only the additional context each agent needs.
 Copy this into your existing coding agent (including one used through a coding bench):
 
 > Set up Agent Profiles for this repository using Node 24 or newer. Propose an
-> exact published version of `@guisam/agent-profiles` (0.19.4 for this guide).
+> exact published version of `@guisam/agent-profiles` (0.23.9 for this guide).
 > Obtain approval for any registry download and execution, then run
 > `npx --yes @guisam/agent-profiles@<approved-version> inspect --json` from this
 > repository (or pass `--root <project>`). This prepares the tool in npm's cache
@@ -89,7 +89,7 @@ For Claude Code, run these from your Git repository after reviewing the setup
 changes (for a non-Git project, pass `--root /path/to/project` to AP commands):
 
 ```sh
-npm install --save-dev --save-exact @guisam/agent-profiles@0.19.4
+npm install --save-dev --save-exact @guisam/agent-profiles@0.23.9
 npx --no agent-profiles init --agent claude --mcp
 claude mcp add --scope project agent-profiles -- npx --no agent-profiles mcp --host claude
 npx --no agent-profiles configure
@@ -107,12 +107,12 @@ bootstrap uses the installed shell resolver; retain both paths.
 For other hosts, use their [setup instructions](docs/mcp.md#host-setup).
 For existing installations, update the dependency and re-run
 `npx --no agent-profiles init --agent claude --mcp` to refresh the bootstrap;
-prepare host-denied commands for the user to run. Version 0.19.4 keeps protocol 3
+prepare host-denied commands for the user to run. Version 0.23.9 keeps protocol 3
 and needs no YAML, lock or store migration. Review [security choices](docs/setup.md#security-choices-before-adopting-shared-skills)
 before adopting shared packages.
 
 From a trusted source checkout, run `npm ci` and `npm pack`, then
-`node bin/agent-profiles.ts init --root /path/to/project --agent claude --mcp --package ./guisam-agent-profiles-0.19.4.tgz`.
+`node bin/agent-profiles.ts init --root /path/to/project --agent claude --mcp --package ./guisam-agent-profiles-0.23.9.tgz`.
 Use the separate registration and verification steps above from the target project.
 
 The npm package is `@guisam/agent-profiles`; the command remains `agent-profiles`.
