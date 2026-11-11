@@ -265,3 +265,10 @@ Track this workflow in [issue #33](https://github.com/guisam/Agent-Profiles/issu
 The guide provides the operator instructions; fixture checks and an integration
 smoke do not establish that two real models improve at the selected role. Retain that
 live qualification separately, with explicit models, tasks, settings and outcomes.
+
+The [proposed TDD completion protocol](examples/tdd-completion-protocol.md)
+prepares the remaining live demonstration: Opus 5.5 and Sonnet 5.5 as
+implementers on Claude Code, frozen identities, held-out cases, how companion
+evidence maps to the native plan/results/promotion contracts, stop conditions,
+a novice demonstration and an approval-ready budget. It is a proposed revision
+of the planned Luna/Sol example, not an accepted or executed experiment.
