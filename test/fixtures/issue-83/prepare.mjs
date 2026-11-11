@@ -17,6 +17,7 @@ import {
 	cpSync,
 	existsSync,
 	readFileSync,
+	realpathSync,
 	renameSync,
 	writeFileSync,
 } from "node:fs";
@@ -107,7 +108,8 @@ export function prepare(destination, kase, { packagePath, git = true } = {}) {
 if (
 	!process.env.NODE_TEST_CONTEXT &&
 	process.argv[1] &&
-	path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+	// Real paths: argv[1] may go through a symlink that Node has resolved (macOS /var).
+	realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
 ) {
 	const args = process.argv.slice(2),
 		take = (flag) => {

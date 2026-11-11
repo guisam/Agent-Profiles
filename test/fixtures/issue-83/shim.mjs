@@ -11,6 +11,7 @@
 // --cut-output runs a shell command and prints the first half of its stdout.
 // Nothing else is changed: requests, other responses and exit codes pass through.
 import { spawn } from "node:child_process";
+import { realpathSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
@@ -90,7 +91,9 @@ function cutOutput(options) {
 if (
 	!process.env.NODE_TEST_CONTEXT &&
 	process.argv[1] &&
-	path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+	// Real paths: macOS temp directories are symlinks (/var -> /private/var), and
+	// Node reports this module by its real path but argv[1] as it was spelled.
+	realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
 ) {
 	const options = parseArgs(process.argv.slice(2));
 	if (options.cutOutput) cutOutput(options);
