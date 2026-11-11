@@ -407,7 +407,7 @@ starts work without successful resolution, report the integration as incomplete.
 
 Observed CLI and T3 results and their limits are in the
 [host observations](host-observations.md). They are not universal guarantees.
-Additional failure/delay/repeatability checks remain tracked in
+Failure, delay and repeated-trial checks are recorded there from
 [#83](https://github.com/guisam/Agent-Profiles/issues/83); subagent delivery is
 unverified in [#82](https://github.com/guisam/Agent-Profiles/issues/82).
 

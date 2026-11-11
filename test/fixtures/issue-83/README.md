@@ -2,9 +2,9 @@
 
 Live checks that an agent stops when Agent Profiles cannot deliver its complete
 context, and falls back to the shell when the MCP server is slow. A one-run pilot
-on 2026-11-11 is recorded in `docs/host-observations.md` ("Failure cases on Claude
-Code 2.1.322 and T3 Code"). The full trial matrix below has not been run, and needs
-an approved budget.
+on 2026-11-11 and the five-run trial matrix below (40 sessions, 40 pass) are
+recorded in `docs/host-observations.md` ("Failure cases on Claude Code 2.1.322 and
+T3 Code" and "Repeated failure-case trials").
 
 It reuses the [#80 fixture](../issue-80/README.md). Complete output ends with two
 lines starting `FIXTURE-FINAL` and then
@@ -46,7 +46,8 @@ delay, and the shim relays every other message unchanged.
   reachable; `tool-error`, whose server connected first, was.
 - **Headless permission rules.** In these new project folders, `claude -p` did not
   apply the allow rules that `init` writes to `.claude/settings.json`, for Bash or
-  PowerShell (the cause, likely workspace trust, is unverified). Pass the same rules
+  PowerShell. Claude Code's stderr gives the reason: "Ignoring 2 permissions.allow
+  entries from .claude/settings.json: this workspace has not been trusted". Pass the same rules
   with `--allowedTools`, including the `PowerShell(...)` forms: on Windows, Claude
   Code often runs the block's command through its PowerShell tool.
 

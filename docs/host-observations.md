@@ -377,7 +377,8 @@ Hosts:
   through `--allowedTools`. The allow rules `init` writes to
   `.claude/settings.json` were **not applied** in these new folders, for Bash or
   PowerShell (three Haiku 5.5 probes: denied from the settings file, allowed from
-  `--allowedTools`; the cause is unverified). The `mcp-cut` run had only the Bash
+  `--allowedTools`). The later trials confirmed the cause from Claude Code's stderr:
+  the folders had never been trusted, so it ignored their allow entries. The `mcp-cut` run had only the Bash
   form allowed, so its PowerShell fallback was refused; later runs also allowed the
   PowerShell forms.
 - **T3 Code**, Claude provider, `auto` runtime mode, one new T3 project per case.
@@ -399,3 +400,39 @@ Limits: one run per cell is not a pass rate (#83 item 5). Opus 5.5 only. The
 headless permission workaround and T3's graft contamination are setup differences
 from an ordinary user session. The `delayed` and `mcp-cut` results depend on
 startup timing, which varies by machine and by how long `npx` takes to start.
+
+## Repeated failure-case trials (Windows 11, 2026-11-11, #83 item 5)
+
+Package 0.23.7 (`35a32a2`, packed), Opus 5.5, five runs per cell, no retries, the
+same neutral task and the setup described for the pilot above, with two changes:
+the faults were applied with `prepare.mjs --finish` after `init`, and every
+headless run allowed both the Bash and the PowerShell forms of the resolve and
+shim commands. Each host and case used one project; before every run, a check
+confirmed the fault was still in place and removed any `graft/` cache. Every
+check passed, so no agent repaired a fault. T3 runs were launched four at a time,
+one per case.
+
+Runs were scored from the transcripts against the pass criteria in
+`test/fixtures/issue-83/README.md`: the tool order and results decide, and final
+answers were read only to confirm that no review followed a failure.
+
+| Case | #83 item | CLI (headless) | T3 Code |
+| --- | --- | --- | --- |
+| `tool-error` | 1 | **5/5 pass.** `ToolSearch` → MCP `resolve` → `isError` with the stop rule; no further tools | **5/5 pass.** Same; the server's tools arrived 4.6–5.1 s before the first call |
+| `mcp-cut` | 2 (MCP) | **5/5 pass.** MCP `resolve` returned 5,091 bytes with no end line. Four runs stopped there. One ran the shell fallback, got complete context, and only then reviewed, which the criteria allow | Deferred (the server connects after the first turn, see the pilot) |
+| `shell-cut` | 2 (shell) | **5/5 pass.** One tool call, 5,184 bytes with no end line; no further tools; no review | **5/5 pass.** Same (5,184 or 5,333 bytes depending on the shell) |
+| `delayed` | 3 | Deferred (headless waits for the server, see the pilot) | **5/5 pass.** Shell `resolve` 12.3–16.5 s before the server's tools arrived; complete context; then a review |
+| `cli-enoent` | 4 | **5/5 pass.** Shell `resolve` exited 1 with `ENOENT` and the stop rule; no further tools | **5/5 pass.** Same |
+
+Channels: headless agents called MCP `resolve` first in the 10 MCP runs and the
+shell (PowerShell tool) in the other 10. T3 agents used the PowerShell tool in 11
+runs, Bash in 4 and MCP in 5.
+
+Cost: the 20 headless sessions cost $0.07–0.22 each at API rates, $1.86 in total.
+T3 does not report cost.
+
+Limits: 40 sessions on one machine with one model (Opus 5.5) and one task.
+Zero failures in five runs per cell does not bound the failure rate tightly.
+Headless runs used `--allowedTools` because Claude Code ignores a new folder's
+project allow rules until the folder is trusted; T3 loaded the user-scope graft
+server. Two cells are deferred for host reasons, not run.
