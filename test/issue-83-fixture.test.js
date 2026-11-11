@@ -21,8 +21,9 @@ import { RESOLVE_INCOMPLETE } from "../src/integrations.ts";
 import {
 	CASES,
 	DELAY_MS,
+	finish,
+	initCommand,
 	MISSING_SKILL,
-	patchShellCommand,
 	prepare,
 } from "./fixtures/issue-83/prepare.mjs";
 import { cutMessage, parseArgs } from "./fixtures/issue-83/shim.mjs";
@@ -56,10 +57,21 @@ function fixture(t, kase) {
 	// The runner's marker would make the spawned shim skip its CLI entry point.
 	delete env.NODE_TEST_CONTEXT;
 	// No Git: os.tmpdir() may sit inside a user's repository on some machines.
-	const root =
-		kase === "shell-cut"
-			? path.join(base, "project")
-			: prepare(path.join(base, "project"), kase, { git: false });
+	const root = prepare(path.join(base, "project"), kase, { git: false });
+	// The documented order: prepare, init, then --finish applies the fault. init
+	// exits 1 in the copy only because the package is not installed there.
+	const mcp = initCommand(kase).endsWith(" --mcp") ? ["--mcp"] : [];
+	const init = node({ root, env }, [
+		cli,
+		"init",
+		"--root",
+		root,
+		"--agent",
+		"claude",
+		...mcp,
+	]);
+	assert.match(init.stdout, /Updated CLAUDE\.md/, init.stderr);
+	finish(root, kase);
 	return { root, env, clients };
 }
 
@@ -93,14 +105,20 @@ const callResolve = (client) =>
 	});
 
 test("#83 prepare: each case gets only its own fault; bad requests are refused", (t) => {
-	for (const kase of CASES.filter((c) => c !== "shell-cut")) {
+	for (const kase of CASES) {
 		const f = fixture(t, kase);
 		assert.ok(existsSync(path.join(f.root, "ap-shim.mjs")), kase);
 		const mcp = path.join(f.root, ".mcp.json");
 		const missing = !existsSync(path.join(f.root, MISSING_SKILL));
 		assert.equal(missing, ["tool-error", "cli-enoent"].includes(kase), kase);
-		if (kase === "cli-enoent") {
-			assert.equal(existsSync(mcp), false);
+		const block = readFileSync(path.join(f.root, "CLAUDE.md"), "utf8");
+		assert.equal(
+			block.includes("ap-shim.mjs --run --"),
+			kase === "shell-cut",
+			kase,
+		);
+		if (kase === "cli-enoent" || kase === "shell-cut") {
+			assert.equal(existsSync(mcp), false, kase);
 			continue;
 		}
 		const { command, args } = JSON.parse(readFileSync(mcp, "utf8")).mcpServers[
@@ -116,7 +134,10 @@ test("#83 prepare: each case gets only its own fault; bad requests are refused",
 		);
 	}
 	assert.throws(() => prepare("unused", "nope"), /--case expects/);
-	assert.throws(() => prepare("unused", "shell-cut"), /needs --package/);
+	assert.throws(
+		() => finish(t.name, "tool-error"),
+		/no CLAUDE\.md; run npx --no agent-profiles init --agent claude --mcp first/,
+	);
 });
 
 test("#83 tool-error and cli-enoent: resolve fails with the stop rule and no end line", async (t) => {
@@ -186,25 +207,15 @@ test("#83 delayed: the server answers only after the delay", async (t) => {
 
 test("#83 shell-cut: the block's command is routed through the shim, which drops the end line", (t) => {
 	const f = fixture(t, "shell-cut");
-	// Same steps as `prepare --case shell-cut`, with the CLI under test instead of a package:
-	// the mcp-cut copy minus its MCP registration, then init and the block patch.
-	prepare(f.root, "mcp-cut", { git: false });
-	rmSync(path.join(f.root, ".mcp.json"));
-	// init exits 1 here only because the package is not installed in the copy.
-	assert.match(
-		node(f, [cli, "init", "--root", f.root, "--agent", "claude"]).stdout,
-		/Updated CLAUDE\.md/,
-	);
-	patchShellCommand(f.root);
 	assert.match(
 		readFileSync(path.join(f.root, "CLAUDE.md"), "utf8"),
-		/node ap-shim\.mjs --cut-output -- npx --no agent-profiles resolve/,
+		/node ap-shim\.mjs --run -- npx --no agent-profiles resolve/,
 	);
 	const full = resolve(f).stdout;
 	assert.ok(full.trimEnd().endsWith(END));
 	const cut = node(f, [
 		path.join(f.root, "ap-shim.mjs"),
-		"--cut-output",
+		"--run",
 		"--",
 		process.execPath,
 		cli,
@@ -216,7 +227,7 @@ test("#83 shell-cut: the block's command is routed through the shim, which drops
 	assert.equal(cut.status, 0);
 	assert.equal(cut.stdout, full.slice(0, Math.floor(full.length / 2)));
 	assert.throws(
-		() => parseArgs(["--cut-output", "--delay", "5", "--", "x"]),
+		() => parseArgs(["--run", "--delay", "5", "--", "x"]),
 		/no MCP flags/,
 	);
 	assert.throws(() => parseArgs(["--cut"]), /usage/);

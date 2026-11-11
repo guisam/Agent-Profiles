@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.23.7 — unreleased — #83 pilot results and fixture order fix (#83)
+
+- `docs/host-observations.md` records a one-run pilot of the five #83 failure
+  cases on Claude Code 2.1.322 (headless) and T3 Code, Opus 5.5: 7 pass, 2 not
+  exercised (`delayed` in headless CLI, `mcp-cut` in T3), none failed. Repeated
+  trials (item 5) are not run.
+- `test/fixtures/issue-83/prepare.mjs` no longer breaks the skill before `init`,
+  which refused that configuration, and never runs `init` itself. A new
+  `--finish <dir> --case <case>` step applies the fault after `init`.
+- The shim's `--cut-output` flag is now `--run`: in the pilot an agent read the
+  old name as the cause of the cut.
+- The README lists the host limits the pilot found and a 40-session matrix with
+  the infeasible cells deferred. No runtime or configuration change.
+
 ## 0.23.6 — unreleased — failure-case fixtures for live #80 checks (#83)
 
 - New `test/fixtures/issue-83/`: `prepare.mjs --case <tool-error|mcp-cut|shell-cut|delayed|cli-enoent>`
