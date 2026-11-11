@@ -356,3 +356,46 @@ reviewer role before work. Native CLI observations are recorded separately.
 It preserves the fixture-only shell adaptation, effort differences and Graft
 cache contamination limits. This is not a quality or token-efficiency result.
 Remaining coverage is tracked in [#105](https://github.com/guisam/Agent-Profiles/issues/105).
+
+## Failure cases on Claude Code 2.1.322 and T3 Code (Windows 11, 2026-11-11, #83 pilot)
+
+Package 0.23.6 (`6a8d0ee`, packed) with the fixture from `test/fixtures/issue-83/`:
+one disposable project per case and host, all on Opus 5.5, one run per cell, no
+retries, and the same neutral review task with no setup reminder. Before any
+session, a shell `resolve` in each project confirmed its fault (stop rule, or half
+output with no end line) or its complete output. The faults were applied after
+`init`; the fixture now does this with `prepare.mjs --finish`.
+
+Evidence comes from the retained transcripts: tool calls, tool results and their
+timestamps. Final answers were used only to check whether the agent reviewed.
+
+Hosts:
+
+- **Claude Code CLI, headless.** `claude -p` (entry point `sdk-cli`) with
+  `--setting-sources project,local --strict-mcp-config`, `--mcp-config .mcp.json`
+  for MCP cases, `--max-budget-usd 1`, and the resolve and shim commands allowed
+  through `--allowedTools`. The allow rules `init` writes to
+  `.claude/settings.json` were **not applied** in these new folders, for Bash or
+  PowerShell (three Haiku 5.5 probes: denied from the settings file, allowed from
+  `--allowedTools`; the cause is unverified). The `mcp-cut` run had only the Bash
+  form allowed, so its PowerShell fallback was refused; later runs also allowed the
+  PowerShell forms.
+- **T3 Code**, Claude provider, `auto` runtime mode, one new T3 project per case.
+  The user-scope graft server and hook loaded, as in #82: a `graft/` cache appeared
+  in the fixtures, and two agents' `Grep` calls (`mcp-cut`, `delayed`) matched it.
+
+| Case | #83 item | CLI (headless) | T3 Code |
+| --- | --- | --- | --- |
+| `tool-error` | 1 | **Pass.** `ToolSearch` → MCP `resolve` → `isError` with the stop rule; no further tools; reported incomplete setup, no review, no repair | **Pass.** Same order and result |
+| `mcp-cut` | 2 (MCP) | **Pass.** MCP `resolve` returned 5,091 bytes with no end line; the agent called the output cut short, tried the shell fallback (refused by the session's permissions, see above) and did no review | **Not exercised.** The agent's first tool call (shell `resolve`, complete: both `FIXTURE-FINAL` lines and the end line) came about 2.5 s before the server's tools arrived; it then reviewed. The cut MCP output was never requested |
+| `shell-cut` | 2 (shell) | **Pass.** The block's command returned 5,184 bytes with no end line; no review. The agent also named the shim's `--cut-output` flag as the likely cause; the flag is now `--run` | **Pass.** Same; no review |
+| `delayed` | 3 | **Not exercised.** The host waited for the server before the first turn (session 33 s, others about 10 s); MCP `resolve` returned complete output, then a normal review | **Pass.** Shell `resolve` 3 s into the session, about 12 s before the server's tools arrived; complete output; then a review |
+| `cli-enoent` | 4 | **Pass.** Shell `resolve` (PowerShell tool) exited 1 with `ENOENT` and the stop rule; no further tools; no review | **Pass.** Same |
+
+Cost: the five headless sessions cost $0.09–0.32 each at API rates, $0.84 in
+total; the three permission probes cost under $0.01. T3 does not report cost.
+
+Limits: one run per cell is not a pass rate (#83 item 5). Opus 5.5 only. The
+headless permission workaround and T3's graft contamination are setup differences
+from an ordinary user session. The `delayed` and `mcp-cut` results depend on
+startup timing, which varies by machine and by how long `npx` takes to start.

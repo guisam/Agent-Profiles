@@ -2,13 +2,13 @@
 // #83: controlled faults in front of an unchanged Agent Profiles command.
 //
 //   node shim.mjs [--delay <ms>] [--cut] -- <mcp server command...>
-//   node shim.mjs --cut-output -- <resolve command...>
+//   node shim.mjs --run -- <resolve command...>
 //
 // MCP mode relays newline-delimited JSON-RPC between the host and the server.
 // --delay waits before starting the server, so the host sees a slow connection.
 // --cut halves the text of every tool result, which drops the final
 // `End of Agent Profiles context:` line the way a truncating host would.
-// --cut-output runs a shell command and prints the first half of its stdout.
+// --run runs a shell command and prints the first half of its stdout.
 // Nothing else is changed: requests, other responses and exit codes pass through.
 import { spawn } from "node:child_process";
 import { realpathSync } from "node:fs";
@@ -38,14 +38,14 @@ export function parseArgs(argv) {
 	const at = argv.indexOf("--");
 	if (at < 0 || at === argv.length - 1)
 		throw new Error(
-			"usage: shim.mjs [--delay <ms>] [--cut | --cut-output] -- <command...>",
+			"usage: shim.mjs [--delay <ms>] [--cut | --run] -- <command...>",
 		);
 	const flags = argv.slice(0, at),
 		command = argv.slice(at + 1);
 	const options = { delay: 0, cut: false, cutOutput: false, command };
 	for (let i = 0; i < flags.length; i++) {
 		if (flags[i] === "--cut") options.cut = true;
-		else if (flags[i] === "--cut-output") options.cutOutput = true;
+		else if (flags[i] === "--run") options.cutOutput = true;
 		else if (flags[i] === "--delay") {
 			options.delay = Number(flags[++i]);
 			if (!Number.isSafeInteger(options.delay) || options.delay < 0)
@@ -53,7 +53,7 @@ export function parseArgs(argv) {
 		} else throw new Error(`unknown flag ${flags[i]}`);
 	}
 	if (options.cutOutput && (options.cut || options.delay))
-		throw new Error("--cut-output runs a command; it takes no MCP flags");
+		throw new Error("--run runs a command; it takes no MCP flags");
 	return options;
 }
 
