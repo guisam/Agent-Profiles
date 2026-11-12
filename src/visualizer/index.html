@@ -8,17 +8,29 @@
   <script type="module" src="app.js"></script>
 </head>
 <body>
-  <header><span class="brand">AP / AGENT PROFILES</span><span class="badge">LOCAL · READ ONLY</span></header>
+  <header><span class="brand">AP / AGENT PROFILES</span><span class="badge" id="mode-badge">LOCAL · READ ONLY</span></header>
   <main>
     <div class="intro"><p class="eyebrow">CONTEXT EXPLORER</p><h1>A clear view of every layer.</h1>
       <p>Explore what your agent receives. Model profiles and roles compose independently; skills load when needed.</p></div>
     <form id="selectors" class="selectors" aria-label="Resolution selection">
-      <label>Host<select id="host" name="host"></select></label>
-      <label>Model<select id="model" name="model"></select></label>
-      <label>Family fallback<select id="family" name="family"></select></label>
-      <label>Role<select id="role" name="role"></select></label>
+      <label title="The agent application that will load these instructions, such as Claude Code or Codex. Assignments can target a host, so changing it can change which skill versions are selected. Hosts are built into Agent Profiles, not configured.">Host<select id="host" name="host"></select></label>
+      <label title="The exact model ID the agent runs as. An exact entry under models: (or an alias) picks the model profile. A model with no exact entry falls back to Family fallback, then a configured family prefix, then the default profile.">Model<select id="model" name="model"></select></label>
+      <label title="Only used when the model has no exact entry or alias under models:. Names a family from families: (such as claude-opus) whose profile then applies. When left empty, the longest family prefix of the model ID is tried, then the default profile. It never overrides an exact model match.">Family fallback<select id="family" name="family"></select></label>
+      <label title="The job the agent is doing, such as implementer or reviewer. The role adds its own instructions and decides which skills are required (always loaded) and which are available on demand.">Role<select id="role" name="role"></select></label>
       <button type="button" id="refresh">Refresh files</button>
     </form>
+    <details id="edit-panel" class="edit-panel" hidden>
+      <summary>Add to configuration</summary>
+      <div id="add-help" class="add-help" aria-live="polite"></div>
+      <form id="add-form" class="selectors" aria-label="Add a model, family or role">
+        <label title="What to add. Hosts are built into Agent Profiles and cannot be added.">Kind<select id="add-kind"><option value="model">Model</option><option value="family">Family</option><option value="role">Role</option></select></label>
+        <label>ID<input id="add-id" type="text" autocomplete="off" spellcheck="false" aria-describedby="add-help"></label>
+        <label id="add-profile-label" title="The model profile this model or family uses.">Profile<select id="add-profile"></select></label>
+        <label id="add-prefixes-label" title="Optional. Comma-separated model ID prefixes this family matches, such as claude-opus-.">Prefixes<input id="add-prefixes" type="text" autocomplete="off" spellcheck="false" placeholder="claude-opus-, claude-opus" aria-describedby="add-help"></label>
+        <label id="add-description-label" title="Optional. Starter text for the new role instruction file.">Description<input id="add-description" type="text" autocomplete="off" placeholder="Reviews pull requests for security issues" aria-describedby="add-help"></label>
+        <button type="button" id="add-run">Add</button>
+      </form>
+    </details>
     <p id="status" role="status" aria-live="polite">Loading configuration…</p>
     <p id="notice" role="status" aria-live="polite" hidden></p>
     <div id="error" role="alert" hidden></div>
@@ -48,6 +60,30 @@
       </div>
       <section id="comparison" hidden><div class="section-heading"><h2>Compare resolutions</h2><button type="button" id="clear">Clear comparison</button></div><p id="comparison-label" class="muted"></p><div class="table-scroll"><table><thead><tr><th>Layer</th><th>Pinned</th><th>Current</th><th>Change</th></tr></thead><tbody id="comparison-rows"></tbody></table></div><p class="muted">The pinned resolution is a snapshot from this browser session.</p></section>
     </div>
+    <section id="library" class="library" aria-labelledby="library-title">
+      <div class="section-heading"><h2 id="library-title">Skill library</h2><button type="button" id="library-load">Load skill library</button></div>
+      <p class="muted">Library skill packages and project-local skills. Browsing, comparison and preview never change configuration, pins or skill files.</p>
+      <p id="library-status" role="status" aria-live="polite"></p>
+      <div id="library-error" role="alert" hidden></div>
+      <div id="library-view" hidden>
+        <form id="library-filters" class="selectors" aria-label="Skill library filters">
+          <label>Search<input id="library-search" type="search" autocomplete="off"></label>
+          <label>Show<select id="library-filter"><option value="">All skills</option><option value="package">Library packages</option><option value="local">Project-local skills</option><option value="used">Used by a role</option></select></label>
+        </form>
+        <table class="library-table"><thead><tr><th>Skill</th><th>Version / source</th><th>Digest</th><th>Used by</th><th>Evidence</th><th>Compare</th><th id="add-column" hidden>Add to role</th></tr></thead><tbody id="library-rows"></tbody></table>
+        <form id="compare-form" class="selectors" aria-label="Skill comparison">
+          <label>Left<select id="compare-left"></select></label>
+          <label>Right<select id="compare-right"></select></label>
+          <label>View<select id="compare-view"><option value="unified">Unified changes</option><option value="side">Side by side, full files</option></select></label>
+          <button type="button" id="compare-run">Compare skills</button>
+        </form>
+        <div id="skill-diff" hidden>
+          <div class="sides"><section id="side-left" aria-label="Left skill"></section><section id="side-right" aria-label="Right skill"></section></div>
+          <h3>Files</h3>
+          <div id="diff-files"></div>
+        </div>
+      </div>
+    </section>
     <footer>Exact UTF-8 bytes · Unicode code points · Tokens not calculated<br>Excludes bootstrap instructions, inventory rendering, and output formatting. No telemetry, uploads, or configuration writes.</footer>
   </main>
 </body>

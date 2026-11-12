@@ -23,12 +23,10 @@ export function text(bytes: Buffer): string | null {
 const split = (value: string) =>
 	value.length ? value.replace(/\r\n/g, "\n").split("\n") : [];
 
-/** Longest-common-subsequence line diff, as unified hunks with `context` lines around changes. */
-export function unifiedDiff(
-	before: string,
-	after: string,
-	{ from = "a", to = "b", context = 3 } = {},
-): string {
+type Op = { kind: " " | "-" | "+"; line: string; ai: number; bi: number };
+
+/** Longest-common-subsequence line edits from `before` to `after`, every line included. */
+function lineOps(before: string, after: string): Op[] {
 	const a = split(before);
 	const b = split(after);
 	// Trim the shared prefix and suffix so the LCS table covers only the changed middle.
@@ -51,7 +49,6 @@ export function unifiedDiff(
 				midA[i] === midB[j]
 					? table[i + 1][j + 1] + 1
 					: Math.max(table[i + 1][j], table[i][j + 1]);
-	type Op = { kind: " " | "-" | "+"; line: string; ai: number; bi: number };
 	const ops: Op[] = [];
 	for (let i = 0; i < start; i++)
 		ops.push({ kind: " ", line: a[i], ai: i, bi: i });
@@ -81,6 +78,16 @@ export function unifiedDiff(
 			ai: endA + k,
 			bi: endB + k,
 		});
+	return ops;
+}
+
+/** Unified hunks with `context` lines around changes. */
+export function unifiedDiff(
+	before: string,
+	after: string,
+	{ from = "a", to = "b", context = 3 } = {},
+): string {
+	const ops = lineOps(before, after);
 	const changed = ops
 		.map((op, index) => (op.kind === " " ? -1 : index))
 		.filter((index) => index >= 0);
@@ -138,4 +145,44 @@ export function packageDiff(
 		});
 	}
 	return diffs;
+}
+
+export type AlignedRow = {
+	kind: "same" | "changed" | "removed" | "added";
+	/** [1-based line number, text] on each side; null where that side has no line. */
+	left: [number, string] | null;
+	right: [number, string] | null;
+};
+
+/** Every line of both texts, aligned as a two-column diff view shows them. */
+export function sideBySide(before: string, after: string): AlignedRow[] {
+	const rows: AlignedRow[] = [];
+	const ops = lineOps(before, after);
+	for (let index = 0; index < ops.length; ) {
+		const op = ops[index];
+		if (op.kind === " ") {
+			rows.push({
+				kind: "same",
+				left: [op.ai + 1, op.line],
+				right: [op.bi + 1, op.line],
+			});
+			index++;
+			continue;
+		}
+		// A run of removals followed by additions pairs up line by line.
+		const removed: Op[] = [];
+		const added: Op[] = [];
+		while (ops[index]?.kind === "-") removed.push(ops[index++]);
+		while (ops[index]?.kind === "+") added.push(ops[index++]);
+		for (let k = 0; k < Math.max(removed.length, added.length); k++) {
+			const a = removed[k];
+			const b = added[k];
+			rows.push({
+				kind: a && b ? "changed" : a ? "removed" : "added",
+				left: a ? [a.ai + 1, a.line] : null,
+				right: b ? [b.bi + 1, b.line] : null,
+			});
+		}
+	}
+	return rows;
 }

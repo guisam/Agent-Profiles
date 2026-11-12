@@ -32,9 +32,25 @@ show the reason. Repair files through the normal separate workflows, then click
 If the connection fails, Refresh files retries when that
 same session URL is still available. A newly launched process prints a new URL.
 
-The visualizer stays read-only: it never installs, signs, regenerates locks or
-changes active selections. Existing agents still need to resolve Agent Profiles
+Without `--edit` the visualizer stays read-only: it never installs, signs,
+regenerates locks or changes active selections. With `--edit` (from 0.29.0) you can
+add and remove role skills and add models, families and roles from the page. Each
+edit goes to the layer that owns it and refreshes locks; see the visualizer guide. Existing agents still need to resolve Agent Profiles
 again. A pinned comparison is explicitly a browser-session snapshot.
+
+## Skill library
+
+From 0.27.0 (unreleased), select **Load skill library** to browse library skill
+packages and project-local skills. Search and filter them, then compare any two
+entries file by file. That includes two versions, differently named packages or
+a local skill. Binary files are named, not shown. Missing versions, digests and
+evidence appear as unknown or untested. **Preview** switches the resolution view
+to a role that uses the skill, with the current configuration. It does not swap
+versions or write files.
+
+From 0.28.0, **Set as left** and **Set as right** on each row fill the comparison.
+**View → Side by side, full files** shows every file of both skills, unchanged
+lines and files included, aligned line by line like a two-pane diff tool.
 
 For the API, accounting boundaries and detailed instructions, see the
 [visualizer guide](https://github.com/guisam/Agent-Profiles/blob/main/docs/visualize.md).

@@ -11,7 +11,8 @@ The installed CLI exposes the same command as `agent-profiles visualize`.
 Open the printed URL in a browser on the same machine. The server binds only to
 `127.0.0.1` and chooses an available port. Use `--port 8080` for a specific port;
 an occupied port produces an error. **Ctrl+C** stops the server. It does not
-automatically open a browser, install software, or modify your configuration.
+automatically open a browser or install software. It changes your configuration
+only when started with `--edit` (see [Edit the configuration](#edit-the-configuration)).
 Root discovery matches the other CLI commands: nearest Git root, or `--root`.
 
 ## Explore a resolution
@@ -64,7 +65,76 @@ approval failures hide the previous result and show an error. This includes the
 resolver's `withheld` skills: the browser does not present partial instructions as
 a successful current result. After repair, click **Refresh files** again to recover at the same URL.
 The server also validates before starting; a startup error must be fixed before
-launch. It never installs packages, signs approvals or regenerates locks.
+launch. In the default read-only mode it never installs packages, signs approvals
+or regenerates locks.
+
+## Browse and compare skills
+
+The **Skill library** panel loads only after you select **Load skill library**.
+It lists every library skill package version and every discovered project-local
+skill. Each entry shows its version (or "unknown version (local, unversioned)"),
+source, abbreviated SHA-256 (marked with `…`), the roles that list it, and its
+evidence status. No evidence is shown as `untested`, not as a recommendation.
+
+- **Search** matches the name and description. **Show** filters to library
+  packages, project-local skills or skills used by a role.
+- **Set as left** and **Set as right** on a row fill the comparison sides, so
+  you can pick from the filtered table instead of the selection lists.
+- **Compare skills** takes any two entries. These can be two versions of one
+  package, differently named packages, or a local skill. Each side shows its
+  identity, full digest, source, usage, evidence and files.
+- **View** chooses how files are shown. **Unified changes** lists changed files
+  only, as unified diffs with three lines of context. **Side by side, full files**
+  lists every file, unchanged ones included, with every line of both sides
+  aligned and numbered. Changed, removed and added lines are highlighted, and
+  unchanged files start collapsed. Binary files are named without their contents.
+- **Preview** on a role's usage switches the resolution view to that role and
+  requests the skill when the role offers it as available. The preview uses the
+  current configuration, so it shows the pinned version for that role. It does
+  not swap in a different version, and it writes nothing.
+
+## Edit the configuration
+
+Start the visualizer with `--edit` to change the configuration from the page:
+
+```sh
+node bin/agent-profiles.ts visualize --root /path/to/project --edit
+```
+
+The header then shows **LOCAL · EDITS ON**. Without `--edit` the page and the
+server stay read-only.
+
+- **Add to role** buttons in the skill library add a skill to the role selected at
+  the top, as required (always loaded) or available (on demand). Adding a skill
+  that the role already lists in the other list moves it. A library package can be
+  added once the project binds it; binding a new package version comes next.
+- **Move to on demand** on a required skill card, and **Move to required** on an
+  on-demand card, move the skill between the role's two lists.
+- **Remove** on a skill card removes that skill from the role. A confirmation
+  dialog names the skill and role first; cancelling changes nothing.
+- **Add to configuration** adds a model (with its profile), a family (with its
+  profile and optional prefixes) or a role (with a starter instruction file under
+  `.agent-profiles/roles/`). Hosts are built into Agent Profiles and cannot be added.
+  When the panel is open, it explains the selected kind and each of its fields.
+
+Each edit is written to the layer that owns it. Without an adapter, that is the
+project's `agents.yaml`. With an adapter:
+
+- Models, families and new roles go to the project's `agents.yaml`, because an
+  adapter may not declare them.
+- A skill change on an adapter role goes to the adapter's `agents.yaml`.
+- An adapter skill added to a project role is appended by the adapter, because the
+  project must still work without the adapter.
+- A skill listed through one layer must be removed there before it can move to the
+  other list through the other layer.
+
+Every edit is checked before anything is written. The project must validate alone
+and composed with its adapter. Comments and unrelated YAML are kept. The edit is
+written atomically and rolled back if the follow-up lock refresh fails. Lock
+refresh covers the project lock and, with an adapter, the adapter lock. It reads
+packages from the local store only. It never signs approvals or downloads
+anything. If the files changed since the page loaded, the edit is refused with a
+request to use **Refresh files**.
 
 ## Open a project with an external adapter
 
@@ -119,7 +189,10 @@ System instructions, built-in tools/skills, and other host context remain
 unobserved. Unknown is never displayed as zero or added to managed totals.
 
 There are no accounts, remote assets, telemetry, uploads, or external services.
-The server serves only three bundled UI assets and two read-only JSON endpoints.
+The server serves only three bundled UI assets and read-only JSON endpoints. With
+`--edit` it also accepts `POST api/edit`, which requires the session URL, a
+same-origin `Origin` header, a JSON body, an `X-Agent-Profiles-Edit: 1` header and
+the configuration revision from `api/config`.
 It uses a random session URL, rejects foreign Host/Origin and cross-site requests,
 and sends no-store and restrictive content-security headers. Instruction text is
 inserted as text, never executable HTML or rendered Markdown. Treat the session
@@ -149,7 +222,7 @@ Under the printed session URL:
 | `api/config` | Composed `hosts`, `models`, `families`, `roles`, per-role `optionalSkills`, `defaultRole` and initial selection; required lock preflight |
 | `api/resolve?host=codex&model=example-model&role=reviewer&skill=testing` | Existing resolver result, including loaded contents and diagnostics |
 | `api/skills` | Skill catalog: library skill packages per version (source, SHA-256, revision digest, description, project pin bindings, roles listing the bound skill as required or available, evidence row count) and discovered project-local skills (`version: null`) with role usage |
-| `api/compare?left=package:@example/review@1.0.0&right=local:.agent-profiles/skills/testing/SKILL.md` | Side-by-side comparison of two skills: identity, digest, metadata, usage, evidence (`untested` when no rows exist), each file's size, SHA-256 and binary flag, and a unified diff per changed text file (`diff: null` for binary files) |
+| `api/compare?left=package:@example/review@1.0.0&right=local:.agent-profiles/skills/testing/SKILL.md` | Side-by-side comparison of two skills: identity, digest, metadata, usage, evidence (`untested` when no rows exist), each file's size, SHA-256 and binary flag, a unified diff per changed text file (`diff: null` for binary files), and `aligned`: every file of both sides with its status (`same`, `changed`, `added`, `removed`) and side-by-side `rows` of `{kind, left: [line, text] | null, right: [line, text] | null}` (`rows: null` for binary files) |
 
 Selectors are `package:<name>@<version>` for a verified library version and
 `local:<repository path>` for a discovered project-local skill. A local selector

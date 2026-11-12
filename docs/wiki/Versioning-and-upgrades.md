@@ -1,5 +1,39 @@
 # Versioning and upgrades
 
+## 0.29.0 — configuration edits from the visualizer (unreleased)
+
+Start the visualizer with `--edit` to add or remove role skills and add models,
+families and roles from the page. Without `--edit` it stays read-only, as before.
+Edits are written to the layer that owns them: the project `agents.yaml`, or the
+adapter `agents.yaml` for adapter roles and adapter skills. Locks are refreshed
+from the local store after each edit. Nothing is signed or downloaded.
+
+No YAML, lock-format, store or bootstrap migration is needed. Upgrade the runtime
+that launches the visualizer and restart it with `--edit` when you want to edit.
+Commit or review the written `agents.yaml` and lock files as you would any other
+configuration change.
+
+## 0.28.0 — side-by-side skill comparison (unreleased)
+
+Each skill library row has **Set as left** and **Set as right** buttons for the
+comparison. **View → Side by side, full files** shows every file of both skills,
+unchanged files and lines included, aligned line by line. `api/compare` adds an
+`aligned` field. Existing fields are unchanged.
+
+No YAML, lock-format, store or bootstrap migration is needed. Restart the
+visualizer from the upgraded runtime and reload the page.
+
+## 0.27.0 — skill library panel (unreleased)
+
+The visualizer page adds a **Skill library** panel. It loads on request, lists
+library and project-local skills with search and filters, compares any two of
+them file by file, and previews a role that uses a skill. Missing versions,
+digests and evidence are shown as unknown or untested. Nothing is written.
+
+No YAML, lock-format, store or bootstrap migration is needed. Upgrade the runtime
+that launches the visualizer, restart it and reload the page. See
+[Live visualizer](Live-visualizer).
+
 ## 0.26.0 — skill catalog and comparison API (unreleased)
 
 The visualizer serves two new read-only endpoints under its session URL:

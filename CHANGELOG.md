@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.29.2 — unreleased — instructions in the Add to configuration panel (#119)
+
+- The open panel explains what the selected kind (model, family or role) adds and
+  what each of its fields means, with example placeholders. No migration.
+
+## 0.29.1 — unreleased — confirm removals, move role skills (#119)
+
+- In edit mode, **Remove** asks for confirmation, naming the skill and role, and
+  cancelling changes nothing.
+- Required skill cards add **Move to on demand**; on-demand cards add **Move to
+  required**. No YAML, lock or bootstrap migration.
+
+## 0.29.0 — unreleased — edit the configuration from the visualizer (#119)
+
+- `visualize --edit` lets the page add a skill to the selected role (required or
+  available, chosen per click), remove role skills, and add models, families and
+  roles. Without `--edit` the visualizer stays read-only.
+- Each edit goes to the layer that owns it: the project `agents.yaml` or, for
+  adapter roles and adapter skills, the adapter `agents.yaml`. Edits are validated
+  alone and composed, keep YAML comments, refresh locks and roll back on failure.
+- `POST api/edit` requires the session URL, same-origin `Origin`, a JSON body,
+  `X-Agent-Profiles-Edit: 1` and the current configuration revision.
+- Tooltips explain Host, Model, Family fallback and Role. The library table wraps
+  to the panel width.
+- Binding a new library package version and the replace prompt for skills with the
+  same SKILL.md name come in a follow-up. No YAML, lock or bootstrap migration.
+
+## 0.28.0 — unreleased — side-by-side skill comparison (#119)
+
+- Skill library rows add **Set as left** and **Set as right** buttons that fill
+  the comparison sides from the filtered table.
+- **View → Side by side, full files** lists every file of both skills, unchanged
+  files and lines included, aligned and numbered like a two-pane diff tool.
+  Changed, removed and added lines are highlighted. Binary files are named only.
+- `api/compare` adds an `aligned` field with side-by-side rows per file. Existing
+  fields are unchanged. No YAML, lock or bootstrap migration.
+
+## 0.27.0 — unreleased — skill library panel in the visualizer (#119)
+
+- The visualizer page adds a **Skill library** panel that loads on request. It
+  lists library and project-local skills with version, source, abbreviated digest,
+  role usage and evidence status, with search and filters.
+- **Compare skills** shows both sides (identity, full digest, usage, evidence and
+  files) and every changed file: text as a unified diff, binary by name only.
+- **Preview** switches the resolution view to a role that uses the skill, with the
+  current configuration. No configuration, pin or skill file is changed.
+- No YAML, lock or bootstrap migration. See `docs/visualize.md`.
+
 ## 0.26.0 — unreleased — skill catalog and comparison API (#119)
 
 - The visualizer adds read-only `api/skills` and `api/compare` endpoints. The

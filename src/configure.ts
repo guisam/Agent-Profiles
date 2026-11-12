@@ -54,6 +54,19 @@ export function readConfiguration(
 	return { root, before, document, configuration };
 }
 
+/** Keep comments and unrelated YAML nodes; retain the original newline style and BOM. */
+export function yamlText(
+	document: ReturnType<typeof parseYamlDocument>,
+	before: Buffer,
+) {
+	let text = document.toString({ lineWidth: 0 });
+	if (before.includes(Buffer.from("\r\n"))) text = text.replace(/\n/g, "\r\n");
+	if (before.toString("utf8").startsWith("﻿")) text = `﻿${text}`;
+	if (!before.toString("utf8").endsWith("\n"))
+		text = text.replace(/\r?\n$/, "");
+	return text;
+}
+
 export type PackageSelection = {
 	name: string;
 	version: string;
@@ -311,12 +324,7 @@ export function planRoleChange({
 		}
 	}
 
-	// Keep comments and unrelated YAML nodes; retain the original newline style and BOM.
-	let text = document.toString({ lineWidth: 0 });
-	if (before.includes(Buffer.from("\r\n"))) text = text.replace(/\n/g, "\r\n");
-	if (before.toString("utf8").startsWith("\uFEFF")) text = `\uFEFF${text}`;
-	if (!before.toString("utf8").endsWith("\n"))
-		text = text.replace(/\r?\n$/, "");
+	const text = yamlText(document, before);
 	const proposed = parseYaml(text);
 	const role = action === "delete" ? undefined : id;
 	const resolution = resolveInstructions({

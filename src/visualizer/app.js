@@ -10,6 +10,9 @@ const host = /** @type {HTMLSelectElement} */ (byId("host"));
 const family = /** @type {HTMLSelectElement} */ (byId("family"));
 const role = /** @type {HTMLSelectElement} */ (byId("role"));
 const pin = /** @type {HTMLButtonElement} */ (byId("pin"));
+const addKind = /** @type {HTMLSelectElement} */ (byId("add-kind"));
+const addProfile = /** @type {HTMLSelectElement} */ (byId("add-profile"));
+const addId = /** @type {HTMLInputElement} */ (byId("add-id"));
 // Resolution JSON from the local server (src/visualize.ts); its shape is the resolver's output.
 /** @type {any} */
 let current;
@@ -19,6 +22,8 @@ let requestNumber = 0;
 /** @type {Set<string>} */
 let requested = new Set();
 let initialized = false;
+/** @type {string[]} Role IDs from the last configuration load, for library previews. */
+let roles = [];
 // Explicit launch values may deliberately exercise fallback routing.
 /** @type {Record<string, string>} */
 const launchFallbacks = {};
@@ -145,6 +150,87 @@ function compare() {
 	}
 }
 
+/** Settings from api/config when the server allows edits; null when read-only. */
+/** @type {{revision: string, profiles: string[]} | null} */
+let editing = null;
+
+/**
+ * Move and remove buttons for a skill card of the selected role.
+ * @param {HTMLElement} card @param {string} id @param {"required" | "available"} list
+ */
+function appendEditButtons(card, id, list) {
+	if (!editing || !current) return;
+	const roleId = current.role;
+	const target = list === "required" ? "available" : "required";
+	const move = element(
+		"button",
+		target === "available" ? "Move to on demand" : "Move to required",
+	);
+	/** @type {HTMLButtonElement} */ (move).type = "button";
+	// Adding a skill to the other list moves it there.
+	move.addEventListener("click", () =>
+		editConfig(
+			{ action: "add-skill", role: roleId, skill: id, list: target },
+			`${id} moved to ${target === "available" ? "on demand" : "required"} for ${roleId}`,
+		),
+	);
+	const remove = element("button", `Remove ${id} from ${roleId}`);
+	/** @type {HTMLButtonElement} */ (remove).type = "button";
+	remove.addEventListener("click", () => {
+		if (
+			!confirm(
+				`Remove ${id} from role ${roleId}?
+
+This edits your configuration now and refreshes locks. The skill stays in the library and can be added again.`,
+			)
+		) {
+			byId("status").textContent =
+				`Kept ${id} in ${roleId}; nothing was changed.`;
+			return;
+		}
+		return editConfig(
+			{ action: "remove-skill", role: roleId, skill: id },
+			`${id} removed from ${roleId}`,
+		);
+	});
+	card.append(move, remove);
+}
+
+/**
+ * Send one edit, then reload configuration and the library so the page shows what was written.
+ * @param {any} edit @param {string} done @param {() => void} [after]
+ */
+async function editConfig(edit, done, after) {
+	if (!editing) return;
+	byId("error").hidden = true;
+	byId("status").textContent = "Saving…";
+	try {
+		const response = await fetch("api/edit", {
+			method: "POST",
+			cache: "no-store",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Agent-Profiles-Edit": "1",
+			},
+			body: JSON.stringify({ revision: editing.revision, edit }),
+		});
+		const data = await response.json();
+		if (!response.ok)
+			throw new Error(data.error ?? `Edit failed (${response.status})`);
+		await initialize();
+		after?.();
+		if (catalog.length) await loadLibrary();
+		byId("notice").textContent =
+			`${done}. Written to ${data.file} (${data.layer} configuration); locks refreshed.`;
+		byId("notice").hidden = false;
+	} catch (error) {
+		byId("error").textContent =
+			error instanceof Error ? error.message : String(error);
+		byId("error").hidden = false;
+		byId("status").textContent = "The edit was not saved.";
+	}
+}
+
 /** @param {any} result */
 function render(result) {
 	current = result;
@@ -200,6 +286,7 @@ function render(result) {
 	)) {
 		const card = element("div", "", "entry");
 		card.append(inspect(entry, `Required by role: ${result.role}`));
+		appendEditButtons(card, entry.id, "required");
 		required.append(card);
 	}
 	for (const entry of result.required.filter(
@@ -212,6 +299,7 @@ function render(result) {
 				`Required by role ${result.role}; ${entry.package ? "invocation unverified" : "invoked through the host"}`,
 			),
 		);
+		appendEditButtons(card, entry.id, "required");
 		required.append(card);
 	}
 	if (!result.required.length)
@@ -229,6 +317,7 @@ function render(result) {
 					`Available to role ${result.role}; ${entry.package ? "invocation unverified" : "invoked through the host"}, never injected`,
 				),
 			);
+			appendEditButtons(card, entry.id, "available");
 			available.append(card);
 			continue;
 		}
@@ -275,6 +364,7 @@ function render(result) {
 				`${injected ? "Requested for" : "Available to"} role: ${result.role}${shared ? "; shares already injected backing" : ""}`,
 			),
 		);
+		appendEditButtons(card, entry.id, "available");
 		available.append(card);
 	}
 	if (!result.available.length)
@@ -400,6 +490,20 @@ async function initialize(first = false) {
 		options(family, data.families, "No family fallback", selection.family);
 		options(role, data.roles, null, selection.role);
 		requested = nextRequested;
+		roles = data.roles;
+		editing = data.editing ?? null;
+		byId("mode-badge").textContent = editing
+			? "LOCAL · EDITS ON"
+			: "LOCAL · READ ONLY";
+		byId("edit-panel").hidden = !editing;
+		byId("add-column").hidden = !editing;
+		if (editing)
+			options(
+				addProfile,
+				editing.profiles,
+				null,
+				addProfile.value || editing.profiles[0],
+			);
 		byId("notice").textContent = notices.join(" ");
 		byId("notice").hidden = !notices.length;
 		render(result);
@@ -417,12 +521,476 @@ async function initialize(first = false) {
 	}
 }
 
+// Skill library (#119): loaded on request, read-only; previews reuse api/resolve.
+/** @type {any[]} */
+let catalog = [];
+const search = /** @type {HTMLInputElement} */ (byId("library-search"));
+const filter = /** @type {HTMLSelectElement} */ (byId("library-filter"));
+const left = /** @type {HTMLSelectElement} */ (byId("compare-left"));
+const right = /** @type {HTMLSelectElement} */ (byId("compare-right"));
+// Abbreviated digests carry an explicit marker; the full value stays in the side view.
+/** @param {string | null} digest */
+const shortDigest = (digest) =>
+	digest ? `sha256:${digest.slice(0, 12)}…` : "unavailable";
+
+/** @param {any} use */
+const usageText = (use) =>
+	`${use.role} (${use.list === "required" ? "required" : "available, not loaded"})`;
+
+/** One catalog row per verified or unverified package version and per local skill. */
+/** @param {any} data */
+function catalogEntries(data) {
+	return [
+		...data.packages.flatMap((/** @type {any} */ item) =>
+			item.versions.map((/** @type {any} */ version) => ({
+				kind: "package",
+				selector: `package:${item.name}@${version.version}`,
+				name: item.name,
+				version: version.version,
+				source: version.error
+					? `unverified: ${version.error}`
+					: `library ${version.source}`,
+				description: version.description ?? "",
+				digest: version.sha256 ?? null,
+				uses: (version.usage?.roles ?? []).map((/** @type {any} */ use) => ({
+					...use,
+					id: use.skill,
+				})),
+				evidence: version.evidence
+					? `${version.evidence} evidence row(s)`
+					: "untested",
+				selectable: !version.error,
+				// The configured skill ID a role can list; null until the version is bound.
+				skillId:
+					(version.usage?.bindings ?? [])
+						.map(
+							(/** @type {string} */ entry) =>
+								/(?:^|\.)skills\.([^.]+)$/.exec(entry)?.[1],
+						)
+						.find(Boolean) ?? null,
+			})),
+		),
+		...data.local.map((/** @type {any} */ skill) => ({
+			kind: "local",
+			selector: `local:${skill.path}`,
+			name: skill.id,
+			version: null,
+			source: `project-local · ${skill.path}`,
+			description: skill.description ?? "",
+			digest: null,
+			uses: skill.usage.roles.map((/** @type {any} */ use) => ({
+				...use,
+				id: skill.id,
+			})),
+			evidence: "untested",
+			selectable: true,
+			// Host-native project skills need a host reference, not a plain ID.
+			skillId: skill.host ? null : skill.id,
+		})),
+	];
+}
+
+/** @param {any} entry */
+const entryLabel = (entry) =>
+	`${entry.name}@${entry.version ?? "unversioned"} (${entry.kind === "local" ? "project-local" : "library"})`;
+
+/** Switch the resolution view to a role that lists the skill; nothing is written. */
+/** @param {any} use */
+function preview(use) {
+	if (!roles.includes(use.role)) {
+		byId("library-status").textContent =
+			`Role ${use.role} is not in the current configuration; use Refresh files.`;
+		return;
+	}
+	role.value = use.role;
+	requested = new Set(use.list === "available" ? [use.id] : []);
+	update();
+	byId("library-status").textContent =
+		`Previewing role ${use.role} with the current configuration. Pins and files are unchanged.`;
+}
+
+/** Add-to-role buttons for the role selected at the top; required or available is chosen per click. */
+/** @param {any} entry */
+function addCell(entry) {
+	const cell = element("td");
+	if (!entry.skillId) {
+		cell.textContent =
+			entry.kind === "package"
+				? "Not bound in this project yet"
+				: "Host skill: add through configure";
+		return cell;
+	}
+	for (const list of ["required", "available"]) {
+		const button = element("button", `Add to ${role.value} as ${list}`);
+		/** @type {HTMLButtonElement} */ (button).type = "button";
+		button.addEventListener("click", () =>
+			editConfig(
+				{ action: "add-skill", role: role.value, skill: entry.skillId, list },
+				`${entry.skillId} added to ${role.value} as ${list}`,
+			),
+		);
+		cell.append(button);
+	}
+	return cell;
+}
+
+function renderCatalog() {
+	const needle = search.value.trim().toLowerCase();
+	const rows = byId("library-rows");
+	rows.replaceChildren();
+	const shown = catalog.filter(
+		(entry) =>
+			(!filter.value ||
+				(filter.value === "used"
+					? entry.uses.length
+					: entry.kind === filter.value)) &&
+			(!needle ||
+				`${entry.name} ${entry.description}`.toLowerCase().includes(needle)),
+	);
+	for (const entry of shown) {
+		const row = element("tr");
+		const name = element("th", entry.name);
+		if (entry.description)
+			name.append(element("small", ` ${entry.description}`, "muted"));
+		const used = element("td", entry.uses.length ? "" : "Not used by a role");
+		for (const use of entry.uses) {
+			const button = element("button", `Preview ${usageText(use)}`);
+			/** @type {HTMLButtonElement} */ (button).type = "button";
+			button.addEventListener("click", () => preview(use));
+			used.append(button);
+		}
+		row.append(
+			name,
+			element(
+				"td",
+				`${entry.version ?? "unknown version (local, unversioned)"} · ${entry.source}`,
+			),
+			element("td", shortDigest(entry.digest)),
+			used,
+			element("td", entry.evidence),
+		);
+		const pick = element("td", entry.selectable ? "" : "Unverified");
+		if (entry.selectable)
+			for (const [select, side] of [
+				[left, "left"],
+				[right, "right"],
+			]) {
+				const button = element("button", `Set as ${side}`);
+				/** @type {HTMLButtonElement} */ (button).type = "button";
+				button.addEventListener("click", () => {
+					/** @type {HTMLSelectElement} */ (select).value = entry.selector;
+					byId("library-status").textContent =
+						`Compare ${side}: ${entryLabel(entry)}. Select Compare skills when both sides are set.`;
+				});
+				pick.append(button);
+			}
+		row.append(pick);
+		if (editing) row.append(addCell(entry));
+		rows.append(row);
+	}
+	if (!shown.length)
+		rows.append(element("tr", "No skills match this search.", "muted"));
+	byId("library-status").textContent =
+		`Showing ${shown.length} of ${catalog.length} skill entries.`;
+}
+
+async function loadLibrary() {
+	const load = /** @type {HTMLButtonElement} */ (byId("library-load"));
+	load.disabled = true;
+	byId("library-error").hidden = true;
+	byId("library-status").textContent = "Loading skill library…";
+	try {
+		const data = await get("api/skills");
+		catalog = catalogEntries(data);
+		const choices = catalog.filter((entry) => entry.selectable);
+		// Keep a still-valid selection; otherwise default to the first two entries.
+		const keep = (/** @type {string} */ value, /** @type {number} */ index) =>
+			choices.some((entry) => entry.selector === value)
+				? value
+				: (choices[index] ?? choices[0])?.selector;
+		/** @type {[HTMLSelectElement, string | undefined][]} */
+		const selects = [
+			[left, keep(left.value, 0)],
+			[right, keep(right.value, 1)],
+		];
+		for (const [select, value] of selects) {
+			select.replaceChildren();
+			for (const entry of choices)
+				select.add(new Option(entryLabel(entry), entry.selector));
+			select.value = value ?? "";
+		}
+		byId("library-view").hidden = false;
+		renderCatalog();
+		if (data.problems.length)
+			byId("library-status").textContent +=
+				` Problems: ${data.problems.join("; ")}`;
+		load.textContent = "Reload skill library";
+	} catch (error) {
+		byId("library-error").textContent =
+			error instanceof Error ? error.message : String(error);
+		byId("library-error").hidden = false;
+		byId("library-status").textContent = "";
+	} finally {
+		load.disabled = false;
+	}
+}
+
+/** @param {string} id @param {any} side */
+function renderSide(id, side) {
+	const box = byId(id);
+	box.replaceChildren(
+		element("h3", `${side.name}@${side.version ?? "unversioned"}`),
+	);
+	const facts = [
+		["Kind", side.kind === "local" ? "Project-local skill" : "Library package"],
+		[
+			"Version",
+			side.version ?? "Unknown: local skills have no package version",
+		],
+		["SHA-256", side.sha256 ?? "Unavailable for local skills"],
+		["Revision", side.revisionDigest ?? "None"],
+		["Source", side.path ?? side.source ?? "Unknown"],
+		["Description", side.metadata.description ?? "None declared"],
+		[
+			"Used by",
+			side.usage.roles.length
+				? side.usage.roles.map(usageText).join(", ")
+				: "Not used by a role",
+		],
+		[
+			"Evidence",
+			side.evidence.status === "untested"
+				? "Untested: no evaluation evidence is recorded (not a compatibility claim)"
+				: side.evidence.rows
+						.map(
+							(/** @type {any} */ row) =>
+								`${row.assignment.role} × ${row.assignment.model} × ${row.assignment.host}: ${row.outcome}`,
+						)
+						.join("; "),
+		],
+	];
+	const list = element("dl");
+	for (const [term, value] of facts)
+		list.append(element("dt", term), element("dd", value));
+	const files = element("ul");
+	for (const file of side.files)
+		files.append(
+			element(
+				"li",
+				`${file.path} · ${bytes(file.bytes)} · ${file.binary ? "binary" : "text"} · ${shortDigest(file.sha256)}`,
+			),
+		);
+	box.append(list, element("p", "Files", "eyebrow"), files);
+}
+
+/** @type {any} The last comparison, re-rendered when the view mode changes. */
+let compared;
+const view = /** @type {HTMLSelectElement} */ (byId("compare-view"));
+
+/** @param {[number, string] | null} cell @param {string} kind */
+function sideCells(cell, kind) {
+	return cell
+		? [
+				element("td", String(cell[0]), "line-number"),
+				element("td", cell[1], kind),
+			]
+		: [element("td", "", "line-number"), element("td", "", "empty")];
+}
+
+function renderDiff() {
+	const diffs = byId("diff-files");
+	diffs.replaceChildren();
+	if (!compared) return;
+	if (view.value !== "side") {
+		if (compared.identical)
+			diffs.append(element("p", "No file differences.", "muted"));
+		for (const file of compared.files) {
+			const details = document.createElement("details");
+			details.append(
+				element("summary", `${file.status} · ${file.path}`),
+				file.diff === null
+					? element("p", "Binary file: contents not shown.", "muted")
+					: element("pre", file.diff),
+			);
+			diffs.append(details);
+		}
+		return;
+	}
+	// Side by side: every file and every line of both sides, unchanged files included.
+	for (const file of compared.aligned) {
+		const details = /** @type {HTMLDetailsElement} */ (
+			document.createElement("details")
+		);
+		details.open = file.status !== "same";
+		details.append(element("summary", `${file.status} · ${file.path}`));
+		if (file.rows === null)
+			details.append(element("p", "Binary file: contents not shown.", "muted"));
+		else {
+			const table = element("table", "", "side-by-side");
+			const body = element("tbody");
+			for (const row of file.rows) {
+				const line = element("tr", "", row.kind);
+				line.append(
+					...sideCells(row.left, row.kind === "same" ? "" : "before"),
+					...sideCells(row.right, row.kind === "same" ? "" : "after"),
+				);
+				body.append(line);
+			}
+			table.append(body);
+			const scroll = element("div", "", "table-scroll");
+			scroll.append(table);
+			details.append(scroll);
+		}
+		diffs.append(details);
+	}
+}
+
+async function compareSkills() {
+	const button = /** @type {HTMLButtonElement} */ (byId("compare-run"));
+	button.disabled = true;
+	byId("library-error").hidden = true;
+	try {
+		const query = new URLSearchParams({ left: left.value, right: right.value });
+		const result = await get(`api/compare?${query}`);
+		renderSide("side-left", result.left);
+		renderSide("side-right", result.right);
+		compared = result;
+		renderDiff();
+		byId("skill-diff").hidden = false;
+	} catch (error) {
+		byId("library-error").textContent =
+			error instanceof Error ? error.message : String(error);
+		byId("library-error").hidden = false;
+	} finally {
+		button.disabled = false;
+	}
+}
+
+// Add a model, family or role, then select it so its resolution is shown.
+// What each kind adds, and what each of its fields means.
+const addHelp = {
+	model: {
+		intro:
+			"A model entry gives one exact model ID its own profile. When an agent resolves with this ID, it gets that profile's instructions, before any family fallback is tried.",
+		placeholder: "claude-opus-5-5",
+		fields: [
+			[
+				"ID",
+				"The exact model ID your host reports, such as claude-opus-5-5 or gpt-6.1-sol. It must match exactly and cannot contain spaces.",
+			],
+			[
+				"Profile",
+				"The model profile this model uses: the per-model instruction layer listed under profiles.",
+			],
+		],
+	},
+	family: {
+		intro:
+			"A family gives a group of related models one profile. It applies only to models without their own exact entry: when the family is chosen as Family fallback, or when a model ID starts with one of its prefixes.",
+		placeholder: "claude-opus",
+		fields: [
+			[
+				"ID",
+				"A short name for the family: lowercase letters, digits and hyphens, such as claude-opus.",
+			],
+			["Profile", "The model profile every model in this family uses."],
+			[
+				"Prefixes",
+				"Optional. Comma-separated starts of model IDs that belong to the family, such as claude-opus-. A model whose ID starts with one is routed here automatically; the longest matching prefix wins. Leave it empty to use the family only when it is chosen explicitly.",
+			],
+		],
+	},
+	role: {
+		intro:
+			"A role is the job an agent does, such as implementer or reviewer. It adds its own instructions and decides which skills are required (always loaded) and which are on demand. A new role starts with no skills; add them from the skill library.",
+		placeholder: "security-reviewer",
+		fields: [
+			[
+				"ID",
+				"The role name agents and the Role selector use: lowercase letters, digits and hyphens.",
+			],
+			[
+				"Description",
+				"Optional. The first text of the new instruction file, .agent-profiles/roles/<ID>.md. Edit that file afterwards to write the full role instructions.",
+			],
+		],
+	},
+};
+
+function showAddFields() {
+	const kind = /** @type {"model" | "family" | "role"} */ (
+		addKind.value in addHelp ? addKind.value : "model"
+	);
+	byId("add-profile-label").hidden = kind === "role";
+	byId("add-prefixes-label").hidden = kind !== "family";
+	byId("add-description-label").hidden = kind !== "role";
+	addId.placeholder = addHelp[kind].placeholder;
+	const list = element("dl");
+	for (const [field, text] of addHelp[kind].fields)
+		list.append(element("dt", field), element("dd", text));
+	byId("add-help").replaceChildren(
+		element("p", addHelp[kind].intro),
+		list,
+		element(
+			"p",
+			"Select Add to write it. Models and families go to the project agents.yaml, and locks are refreshed. Hosts are built into Agent Profiles and cannot be added.",
+			"muted",
+		),
+	);
+}
+addKind.addEventListener("change", showAddFields);
+showAddFields();
+byId("add-form").addEventListener("submit", (event) => event.preventDefault());
+byId("add-run").addEventListener("click", () => {
+	const kind = addKind.value;
+	const id = addId.value.trim();
+	if (!id) {
+		byId("status").textContent = "Enter an ID to add.";
+		return;
+	}
+	const prefixes = /** @type {HTMLInputElement} */ (byId("add-prefixes")).value
+		.split(",")
+		.map((prefix) => prefix.trim())
+		.filter(Boolean);
+	const description = /** @type {HTMLInputElement} */ (
+		byId("add-description")
+	).value.trim();
+	const select = kind === "model" ? model : kind === "family" ? family : role;
+	editConfig(
+		kind === "role"
+			? { action: "add-role", id, ...(description ? { description } : {}) }
+			: {
+					action: `add-${kind}`,
+					id,
+					profile: addProfile.value,
+					...(kind === "family" && prefixes.length ? { prefixes } : {}),
+				},
+		`${kind} ${id} added`,
+		() => {
+			select.value = id;
+			if (kind === "role") requested.clear();
+			addId.value = "";
+			update();
+		},
+	);
+});
+
+byId("library-load").addEventListener("click", () => loadLibrary());
+byId("library-filters").addEventListener("submit", (event) =>
+	event.preventDefault(),
+);
+search.addEventListener("input", () => renderCatalog());
+filter.addEventListener("change", () => renderCatalog());
+byId("compare-run").addEventListener("click", () => compareSkills());
+view.addEventListener("change", () => renderDiff());
 byId("selectors").addEventListener("submit", (event) => event.preventDefault());
 model.addEventListener("change", () => update());
 host.addEventListener("change", () => update());
 family.addEventListener("change", () => update());
 role.addEventListener("change", () => {
 	requested.clear();
+	// Add-to-role buttons name the selected role.
+	if (editing && catalog.length) renderCatalog();
 	update();
 });
 byId("refresh").addEventListener("click", () => initialize());

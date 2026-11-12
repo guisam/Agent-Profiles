@@ -1,6 +1,12 @@
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
+import {
+	applyConfigEdit,
+	configRevision,
+	EditConflict,
+	profileChoices,
+} from "./config-edit.ts";
 import { resolutionOutput } from "./diagnostics.ts";
 import { errorMessage } from "./files.ts";
 import { integrations } from "./integrations.ts";
@@ -27,6 +33,8 @@ export type VisualizerOptions = {
 	role?: string;
 	skills?: string[];
 	storeRoot?: string;
+	/** Accept POST api/edit configuration edits; off unless explicitly enabled. */
+	allowEdits?: boolean;
 };
 
 export async function startVisualizer({
@@ -38,6 +46,7 @@ export async function startVisualizer({
 	role,
 	skills = [],
 	storeRoot,
+	allowEdits = false,
 }: VisualizerOptions = {}) {
 	if (!Number.isInteger(port) || port < 0 || port > 65535)
 		throw new Error("port must be an integer from 0 to 65535");
@@ -73,13 +82,49 @@ export async function startVisualizer({
 			request.headers["sec-fetch-site"] === "cross-site"
 		)
 			return send(403, { error: "Local same-origin access only" });
+		const url = new URL(request.url ?? "", origin);
+		const route = url.pathname.startsWith(prefix)
+			? url.pathname.slice(prefix.length)
+			: null;
+		if (route === "api/edit" && request.method === "POST" && allowEdits) {
+			// Writes need the session token, an explicit same-origin Origin, a JSON body
+			// (cross-origin pages cannot send it without a CORS preflight we never answer)
+			// and a custom header.
+			if (
+				request.headers.origin !== origin ||
+				!request.headers["content-type"]?.startsWith("application/json") ||
+				request.headers["x-agent-profiles-edit"] !== "1"
+			)
+				return send(403, { error: "Edits require a same-origin page request" });
+			const chunks: Buffer[] = [];
+			let size = 0;
+			request.on("data", (chunk: Buffer) => {
+				size += chunk.length;
+				if (size > 65536) request.destroy();
+				else chunks.push(chunk);
+			});
+			request.on("end", () => {
+				try {
+					const { revision, edit } = JSON.parse(
+						Buffer.concat(chunks).toString("utf8"),
+					);
+					send(200, applyConfigEdit({ root, storeRoot, revision, edit }));
+				} catch (error) {
+					send(error instanceof EditConflict ? 409 : 400, {
+						error: errorMessage(error),
+					});
+				}
+			});
+			return;
+		}
 		if (request.method !== "GET")
-			return send(405, { error: "Read-only: GET required" });
+			return send(405, {
+				error: allowEdits
+					? "GET required, or POST to api/edit"
+					: "Read-only: GET required",
+			});
 		try {
-			const url = new URL(request.url ?? "", origin);
-			if (!url.pathname.startsWith(prefix))
-				return send(404, { error: "Not found" });
-			const route = url.pathname.slice(prefix.length);
+			if (route === null) return send(404, { error: "Not found" });
 			const asset = assets.get(route);
 			if (asset) {
 				const [file, type] = asset;
@@ -91,9 +136,14 @@ export async function startVisualizer({
 			} else if (route === "api/config") {
 				// Read from disk in both APIs: explicit configuration bypasses composition.
 				// The resolver preflight enforces the composed lock and trust policy.
+				// The revision is read first: a write after it is then a conflict, never missed.
+				const revision = allowEdits ? configRevision(root) : null;
 				resolveInstructions({ root, storeRoot });
 				const configuration = validateConfiguration({ root });
 				send(200, {
+					editing: allowEdits
+						? { revision, profiles: profileChoices(root) }
+						: null,
 					hosts: integrations.map((integration) => integration.id),
 					models: [
 						...new Set([
