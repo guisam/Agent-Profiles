@@ -7,8 +7,11 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { LOCAL_REFERENCE, readAdapter } from "./adapter.ts";
+import { refuseUntrusted, trustBlockers } from "./approvals.ts";
 import { planRoleChange, type RoleChangePlan, yamlText } from "./configure.ts";
 import { applyChanges, readLocal } from "./files.ts";
+import { libraryInfo } from "./library.ts";
+import { applyUpdate, previewUpdate } from "./outdated.ts";
 import { installDependencies } from "./package-lock.ts";
 import {
 	identifier,
@@ -18,6 +21,7 @@ import {
 	validateConfiguration,
 	type YamlMap,
 } from "./resolve.ts";
+import { packageSkillName } from "./skill-catalog.ts";
 
 const CONFIG = ".agent-profiles/agents.yaml";
 const LOCK = ".agent-profiles/agent-profiles.lock";
@@ -33,7 +37,29 @@ export type ConfigEdit =
 			profile: string;
 			prefixes?: string[];
 	  }
-	| { action: "add-role"; id: string; description?: string };
+	| { action: "add-role"; id: string; description?: string }
+	| {
+			/** Bind a library package version as a new skill and list it in a role. */
+			action: "bind-skill";
+			role: string;
+			list: SkillList;
+			package: string;
+			version: string;
+			/** Optional: the skill ID to use; defaults to the SKILL.md name. */
+			id?: string;
+			/** Optional: a same-name skill in the role that the new binding replaces. */
+			replace?: string;
+	  }
+	| {
+			/** Choose another package version for one binding, for one host × model × role (as update does). */
+			action: "preview-replace" | "apply-replace";
+			binding: string;
+			/** `@namespace/name@version` */
+			target: string;
+			assignment: { role: string; model: string; host: string };
+			/** apply-replace: the previewDigest the preview returned. */
+			expect?: string;
+	  };
 
 /** The page's view is older than the files on disk; the caller should reload. */
 export class EditConflict extends Error {}
@@ -164,7 +190,7 @@ function writeLayer(
 function editRoleSkills(
 	repository: string,
 	storeRoot: string | undefined,
-	edit: Extract<ConfigEdit, { role: string }>,
+	edit: Extract<ConfigEdit, { action: "add-skill" | "remove-skill" }>,
 ) {
 	const validated = validateConfiguration({ root: repository });
 	const sources = validated.adapterSources;
@@ -251,6 +277,125 @@ function editRoleSkills(
 	);
 }
 
+/** Bind a library package version as a skill in the role's layer and list it in the role. */
+function bindSkill(
+	repository: string,
+	storeRoot: string | undefined,
+	edit: Extract<ConfigEdit, { action: "bind-skill" }>,
+) {
+	if (edit.list !== "required" && edit.list !== "available")
+		throw new Error("Choose required or available");
+	const validated = validateConfiguration({ root: repository });
+	if (!validated.roleSkills.has(edit.role))
+		throw new Error(`Role ${edit.role} does not exist`);
+	const info = libraryInfo({
+		storeRoot,
+		name: edit.package,
+		version: edit.version,
+		root: repository,
+	});
+	const entry = info.versions[0];
+	if ("error" in entry)
+		throw new Error(
+			`${edit.package}@${edit.version}: unverified: ${entry.error}`,
+		);
+	if (entry.type !== "skill")
+		throw new Error(`${edit.package}@${edit.version} is not a skill package`);
+	const v3 = validated.config.get("version") === 3;
+	if (v3 && !entry.revisionDigest)
+		throw new Error(
+			`${edit.package}@${edit.version} has no release label; configuration v3 pins a revision. Adopt it with agent-profiles revision record first`,
+		);
+	// Apply never signs or approves: an untrusted package is refused, as update does.
+	refuseUntrusted(
+		trustBlockers({
+			root: repository,
+			storeRoot,
+			packages: [{ name: edit.package, version: edit.version }],
+		}),
+		"bind",
+	);
+	const sources = validated.adapterSources;
+	const layer =
+		sources[`roles.${edit.role}`] === "adapter" ? "adapter" : "project";
+	const taken = (id: string) =>
+		validated.bindings.has(`skills.${id}`) ||
+		validated.config.get("skills")?.has(id) ||
+		existsSync(
+			path.join(validated.repository, `.agent-profiles/skills/${id}/SKILL.md`),
+		);
+	let id = edit.id;
+	if (id !== undefined) {
+		identifier(id, "skill");
+		if (taken(id)) throw new Error(`Skill ID ${id} is already used`);
+	} else {
+		// Default to the SKILL.md name, so variants of one skill share a recognizable ID.
+		const name = packageSkillName(
+			storeRoot,
+			{
+				name: edit.package,
+				version: edit.version,
+				revisionDigest: entry.revisionDigest,
+			},
+			entry.entrypoint,
+		);
+		const base =
+			name && /^[a-z0-9][a-z0-9-]*$/.test(name)
+				? name
+				: (edit.package.split("/").pop() as string);
+		id = base;
+		for (let suffix = 2; taken(id); suffix++) id = `${base}-${suffix}`;
+	}
+	const lists = validated.roleSkills.get(edit.role) as {
+		required: { id: string }[];
+		available: { id: string }[];
+	};
+	let replaced: SkillList | null = null;
+	if (edit.replace !== undefined) {
+		replaced =
+			(["required", "available"] as const).find((list) =>
+				lists[list].some((skill) => skill.id === edit.replace),
+			) ?? null;
+		if (!replaced)
+			throw new Error(`${edit.replace} is not listed by role ${edit.role}`);
+		const owner =
+			layer === "adapter" ||
+			sources[`roles.${edit.role}.skills.${replaced}.${edit.replace}`] ===
+				"adapter"
+				? "adapter"
+				: "project";
+		if (owner !== layer)
+			throw new Error(
+				`${edit.replace} is listed through the ${owner} configuration; remove it there first`,
+			);
+	}
+	const written = writeLayer(
+		repository,
+		layer,
+		(document) => {
+			const current = document.toJS({ mapAsMap: true }) as YamlMap;
+			document.setIn(
+				["skills", id],
+				document.createNode({
+					package: edit.package,
+					version: edit.version,
+					...(v3 ? { revision: entry.revisionDigest } : {}),
+				}),
+			);
+			for (const list of ["required", "available"] as const) {
+				let items = listOf(current, edit.role, list);
+				if (list === replaced)
+					items = items.filter((skill) => skill !== edit.replace);
+				if (list === edit.list) items = [...items, id];
+				if (list === replaced || list === edit.list)
+					document.setIn(["roles", edit.role, "skills", list], items);
+			}
+		},
+		storeRoot,
+	);
+	return { ...written, id };
+}
+
 /** Apply one edit if the configuration still matches `revision`; returns the written layer. */
 export function applyConfigEdit({
 	root,
@@ -269,6 +414,26 @@ export function applyConfigEdit({
 			"The configuration changed since this page loaded; select Refresh files and try again. Nothing was written.",
 		);
 	switch (edit?.action) {
+		case "preview-replace":
+		case "apply-replace": {
+			const input = {
+				root: repository,
+				storeRoot,
+				binding: edit.binding,
+				version: edit.target,
+				assignment: edit.assignment,
+			};
+			if (edit.action === "preview-replace") return previewUpdate(input);
+			if (typeof edit.expect !== "string")
+				throw new Error("Preview the replacement before applying it");
+			const result = applyUpdate({ ...input, expect: edit.expect });
+			// update refreshes only the edited layer's lock; the composed view needs the adapter lock too.
+			if (readAdapter(repository) && result.layer === "project")
+				installDependencies({ root: repository, storeRoot });
+			return result;
+		}
+		case "bind-skill":
+			return bindSkill(repository, storeRoot, edit);
 		case "add-skill":
 		case "remove-skill":
 			return editRoleSkills(repository, storeRoot, edit);

@@ -106,8 +106,22 @@ server stay read-only.
 
 - **Add to role** buttons in the skill library add a skill to the role selected at
   the top, as required (always loaded) or available (on demand). Adding a skill
-  that the role already lists in the other list moves it. A library package can be
-  added once the project binds it; binding a new package version comes next.
+  that the role already lists in the other list moves it.
+- **Bind and add** appears on a library version that the project does not bind yet.
+  It adds a `skills.<id>` binding in the role's layer and lists it in the role. The
+  ID is the package's SKILL.md `name` (numbered, such as `brainstorming-2`, when that
+  ID is taken), or the package name without its namespace. Configuration v3 pins the
+  release revision; a version without a release label is refused. A trust policy that
+  refuses the package refuses the edit.
+- Skills that share a SKILL.md `name` are variants of one skill.
+  - When the role lists a package skill with the same name, the row offers **Use for
+    *role* instead of *skill*…**. It replaces the selection for the Host × Model ×
+    Role selected at the top, as `agent-profiles update` does. The page previews the
+    change first and shows the current and new package, every edit and its file, and
+    the evidence status, then asks before writing. Other host × model × role
+    selections stay unchanged. Select a Host and a Model first.
+  - When the role lists a same-name local skill, adding the library version asks
+    whether to replace it.
 - **Move to on demand** on a required skill card, and **Move to required** on an
   on-demand card, move the skill between the role's two lists.
 - **Remove** on a skill card removes that skill from the role. A confirmation

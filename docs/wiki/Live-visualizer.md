@@ -52,5 +52,11 @@ From 0.28.0, **Set as left** and **Set as right** on each row fill the compariso
 **View → Side by side, full files** shows every file of both skills, unchanged
 lines and files included, aligned line by line like a two-pane diff tool.
 
+From 0.30.0, with `--edit`, **Bind and add** binds a library version the project
+does not bind yet and lists it in the selected role. Skills sharing a SKILL.md
+`name` are variants: **Use for *role* instead of *skill*…** previews replacing a
+package skill for the selected host × model × role, as `agent-profiles update`
+does, and applies it after you confirm.
+
 For the API, accounting boundaries and detailed instructions, see the
 [visualizer guide](https://github.com/guisam/Agent-Profiles/blob/main/docs/visualize.md).
