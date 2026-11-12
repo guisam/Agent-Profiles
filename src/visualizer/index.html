@@ -48,6 +48,29 @@
       </div>
       <section id="comparison" hidden><div class="section-heading"><h2>Compare resolutions</h2><button type="button" id="clear">Clear comparison</button></div><p id="comparison-label" class="muted"></p><div class="table-scroll"><table><thead><tr><th>Layer</th><th>Pinned</th><th>Current</th><th>Change</th></tr></thead><tbody id="comparison-rows"></tbody></table></div><p class="muted">The pinned resolution is a snapshot from this browser session.</p></section>
     </div>
+    <section id="library" class="library" aria-labelledby="library-title">
+      <div class="section-heading"><h2 id="library-title">Skill library</h2><button type="button" id="library-load">Load skill library</button></div>
+      <p class="muted">Library skill packages and project-local skills. Browsing, comparison and preview never change configuration, pins or skill files.</p>
+      <p id="library-status" role="status" aria-live="polite"></p>
+      <div id="library-error" role="alert" hidden></div>
+      <div id="library-view" hidden>
+        <form id="library-filters" class="selectors" aria-label="Skill library filters">
+          <label>Search<input id="library-search" type="search" autocomplete="off"></label>
+          <label>Show<select id="library-filter"><option value="">All skills</option><option value="package">Library packages</option><option value="local">Project-local skills</option><option value="used">Used by a role</option></select></label>
+        </form>
+        <div class="table-scroll"><table><thead><tr><th>Skill</th><th>Version / source</th><th>Digest</th><th>Used by</th><th>Evidence</th></tr></thead><tbody id="library-rows"></tbody></table></div>
+        <form id="compare-form" class="selectors" aria-label="Skill comparison">
+          <label>Left<select id="compare-left"></select></label>
+          <label>Right<select id="compare-right"></select></label>
+          <button type="button" id="compare-run">Compare skills</button>
+        </form>
+        <div id="skill-diff" hidden>
+          <div class="sides"><section id="side-left" aria-label="Left skill"></section><section id="side-right" aria-label="Right skill"></section></div>
+          <h3>File differences</h3>
+          <div id="diff-files"></div>
+        </div>
+      </div>
+    </section>
     <footer>Exact UTF-8 bytes · Unicode code points · Tokens not calculated<br>Excludes bootstrap instructions, inventory rendering, and output formatting. No telemetry, uploads, or configuration writes.</footer>
   </main>
 </body>

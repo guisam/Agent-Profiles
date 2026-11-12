@@ -5,6 +5,7 @@ import { request } from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import vm from "node:vm";
 import { stringify } from "yaml";
 import { publishPackage } from "../src/library.ts";
 import { installDependencies } from "../src/package-lock.ts";
@@ -302,4 +303,123 @@ test("the visualizer serves the catalog and comparisons read-only", async (t) =>
 		assert.equal(response.status, 400);
 		assert.match(response.body.error, message);
 	}
+});
+
+// Only the DOM operations app.js uses; text is always set through textContent.
+async function browser(url) {
+	class Node {
+		children = [];
+		textContent = "";
+		value = "";
+		hidden = false;
+		disabled = false;
+		listeners = {};
+		append(...nodes) {
+			this.children.push(...nodes);
+		}
+		replaceChildren(...nodes) {
+			this.children = nodes;
+		}
+		add(node) {
+			this.children.push(node);
+		}
+		addEventListener(name, fn) {
+			this.listeners[name] = fn;
+		}
+		setAttribute() {}
+		removeAttribute() {}
+		focus() {}
+		set innerHTML(_) {
+			throw new Error("innerHTML is not allowed");
+		}
+	}
+	class Option extends Node {
+		constructor(text, value) {
+			super();
+			this.textContent = text;
+			this.value = value;
+		}
+	}
+	const nodes = new Map();
+	const document = {
+		getElementById(id) {
+			if (!nodes.has(id)) nodes.set(id, new Node());
+			return nodes.get(id);
+		},
+		createElement: () => new Node(),
+		createTextNode: (text) => Object.assign(new Node(), { textContent: text }),
+	};
+	vm.runInContext(
+		fs.readFileSync(
+			new URL("../src/visualizer/app.js", import.meta.url),
+			"utf8",
+		),
+		vm.createContext({
+			document,
+			Option,
+			URLSearchParams,
+			fetch: (endpoint, init) => fetch(new URL(endpoint, url), init),
+		}),
+	);
+	const texts = (node) =>
+		[node.textContent, ...node.children.flatMap(texts)].join("\n");
+	const text = (id) => texts(document.getElementById(id));
+	const until = async (check) => {
+		for (let i = 0; i < 300 && !check(); i++)
+			await new Promise((resolve) => setTimeout(resolve, 10));
+		assert.ok(check(), "timed out waiting for the page");
+	};
+	await until(() => /^(Resolved|Unable)/.test(text("status")));
+	return { node: (id) => document.getElementById(id), text, texts, until };
+}
+
+test("the library panel browses, compares and previews without writing files", async (t) => {
+	const f = fixture(t);
+	const before = digestTree(f.dir);
+	const app = await startVisualizer({ root: f.root, storeRoot: f.store });
+	t.after(() => new Promise((resolve) => app.server.close(resolve)));
+	const page = await browser(app.url);
+	// Nothing loads until the user asks for the library.
+	assert.equal(page.text("library-rows"), "");
+	await page.node("library-load").listeners.click();
+	assert.equal(page.node("library-view").hidden, false);
+	assert.match(page.text("library-status"), /Showing 4 of 4 skill entries/);
+	const rows = page.text("library-rows");
+	assert.match(rows, /unknown version \(local, unversioned\)/);
+	assert.match(rows, /sha256:[0-9a-f]{12}…/);
+	assert.match(rows, /Preview reviewer \(required\)/);
+	assert.match(rows, /untested/);
+
+	page.node("library-search").value = "careful-review";
+	page.node("library-search").listeners.input();
+	assert.match(page.text("library-status"), /Showing 1 of 4/);
+	page.node("library-search").value = "";
+	page.node("library-filter").value = "local";
+	page.node("library-filter").listeners.change();
+	assert.match(page.text("library-rows"), /testing/);
+	assert.doesNotMatch(page.text("library-rows"), /security-review/);
+
+	page.node("compare-left").value = `package:${REVIEW}@1.0.0`;
+	page.node("compare-right").value = `package:${REVIEW}@2.0.0`;
+	await page.node("compare-run").listeners.click();
+	assert.equal(page.node("skill-diff").hidden, false);
+	assert.match(page.text("side-left"), /Untested: no evaluation evidence/);
+	assert.match(page.text("side-right"), /support\/icon\.bin · 4 B · binary/);
+	assert.match(page.text("diff-files"), /added · support\/icon\.bin/);
+	assert.match(page.text("diff-files"), /Binary file: contents not shown/);
+	assert.match(page.text("diff-files"), /-note 1\.0\.0\n\+note 2\.0\.0/);
+
+	// Preview an available skill: the resolution view requests it for that role.
+	page.node("library-filter").value = "local";
+	page.node("library-filter").listeners.change();
+	const preview = page
+		.node("library-rows")
+		.children[0].children[3].children.find((node) =>
+			/^Preview reviewer/.test(node.textContent),
+		);
+	preview.listeners.click();
+	await page.until(() => /Requested, injected/.test(page.text("available")));
+	assert.equal(page.node("role").value, "reviewer");
+	assert.match(page.text("library-status"), /Pins and files are unchanged/);
+	assert.deepEqual(digestTree(f.dir), before);
 });

@@ -36,5 +36,15 @@ The visualizer stays read-only: it never installs, signs, regenerates locks or
 changes active selections. Existing agents still need to resolve Agent Profiles
 again. A pinned comparison is explicitly a browser-session snapshot.
 
+## Skill library
+
+From 0.26.0 (unreleased), select **Load skill library** to browse library skill
+packages and project-local skills. Search and filter them, then compare any two
+entries file by file. That includes two versions, differently named packages or
+a local skill. Binary files are named, not shown. Missing versions, digests and
+evidence appear as unknown or untested. **Preview** switches the resolution view
+to a role that uses the skill, with the current configuration. It does not swap
+versions or write files.
+
 For the API, accounting boundaries and detailed instructions, see the
 [visualizer guide](https://github.com/guisam/Agent-Profiles/blob/main/docs/visualize.md).

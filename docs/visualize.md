@@ -66,6 +66,26 @@ a successful current result. After repair, click **Refresh files** again to reco
 The server also validates before starting; a startup error must be fixed before
 launch. It never installs packages, signs approvals or regenerates locks.
 
+## Browse and compare skills
+
+The **Skill library** panel loads only after you select **Load skill library**.
+It lists every library skill package version and every discovered project-local
+skill. Each entry shows its version (or "unknown version (local, unversioned)"),
+source, abbreviated SHA-256 (marked with `…`), the roles that list it, and its
+evidence status. No evidence is shown as `untested`, not as a recommendation.
+
+- **Search** matches the name and description. **Show** filters to library
+  packages, project-local skills or skills used by a role.
+- **Compare skills** takes any two entries. These can be two versions of one
+  package, differently named packages, or a local skill. Each side shows its
+  identity, full digest, source, usage, evidence and files. Every changed file is
+  listed: text files show a unified diff, and binary files are named without
+  their contents.
+- **Preview** on a role's usage switches the resolution view to that role and
+  requests the skill when the role offers it as available. The preview uses the
+  current configuration, so it shows the pinned version for that role. It does
+  not swap in a different version, and it writes nothing.
+
 ## Open a project with an external adapter
 
 Since 0.24.0, point `--root` at the real project containing

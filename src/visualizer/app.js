@@ -19,6 +19,8 @@ let requestNumber = 0;
 /** @type {Set<string>} */
 let requested = new Set();
 let initialized = false;
+/** @type {string[]} Role IDs from the last configuration load, for library previews. */
+let roles = [];
 // Explicit launch values may deliberately exercise fallback routing.
 /** @type {Record<string, string>} */
 const launchFallbacks = {};
@@ -400,6 +402,7 @@ async function initialize(first = false) {
 		options(family, data.families, "No family fallback", selection.family);
 		options(role, data.roles, null, selection.role);
 		requested = nextRequested;
+		roles = data.roles;
 		byId("notice").textContent = notices.join(" ");
 		byId("notice").hidden = !notices.length;
 		render(result);
@@ -417,6 +420,256 @@ async function initialize(first = false) {
 	}
 }
 
+// Skill library (#119): loaded on request, read-only; previews reuse api/resolve.
+/** @type {any[]} */
+let catalog = [];
+const search = /** @type {HTMLInputElement} */ (byId("library-search"));
+const filter = /** @type {HTMLSelectElement} */ (byId("library-filter"));
+const left = /** @type {HTMLSelectElement} */ (byId("compare-left"));
+const right = /** @type {HTMLSelectElement} */ (byId("compare-right"));
+// Abbreviated digests carry an explicit marker; the full value stays in the side view.
+/** @param {string | null} digest */
+const shortDigest = (digest) =>
+	digest ? `sha256:${digest.slice(0, 12)}…` : "unavailable";
+
+/** @param {any} use */
+const usageText = (use) =>
+	`${use.role} (${use.list === "required" ? "required" : "available, not loaded"})`;
+
+/** One catalog row per verified or unverified package version and per local skill. */
+/** @param {any} data */
+function catalogEntries(data) {
+	return [
+		...data.packages.flatMap((/** @type {any} */ item) =>
+			item.versions.map((/** @type {any} */ version) => ({
+				kind: "package",
+				selector: `package:${item.name}@${version.version}`,
+				name: item.name,
+				version: version.version,
+				source: version.error
+					? `unverified: ${version.error}`
+					: `library ${version.source}`,
+				description: version.description ?? "",
+				digest: version.sha256 ?? null,
+				uses: (version.usage?.roles ?? []).map((/** @type {any} */ use) => ({
+					...use,
+					id: use.skill,
+				})),
+				evidence: version.evidence
+					? `${version.evidence} evidence row(s)`
+					: "untested",
+				selectable: !version.error,
+			})),
+		),
+		...data.local.map((/** @type {any} */ skill) => ({
+			kind: "local",
+			selector: `local:${skill.path}`,
+			name: skill.id,
+			version: null,
+			source: `project-local · ${skill.path}`,
+			description: skill.description ?? "",
+			digest: null,
+			uses: skill.usage.roles.map((/** @type {any} */ use) => ({
+				...use,
+				id: skill.id,
+			})),
+			evidence: "untested",
+			selectable: true,
+		})),
+	];
+}
+
+/** @param {any} entry */
+const entryLabel = (entry) =>
+	`${entry.name}@${entry.version ?? "unversioned"} (${entry.kind === "local" ? "project-local" : "library"})`;
+
+/** Switch the resolution view to a role that lists the skill; nothing is written. */
+/** @param {any} use */
+function preview(use) {
+	if (!roles.includes(use.role)) {
+		byId("library-status").textContent =
+			`Role ${use.role} is not in the current configuration; use Refresh files.`;
+		return;
+	}
+	role.value = use.role;
+	requested = new Set(use.list === "available" ? [use.id] : []);
+	update();
+	byId("library-status").textContent =
+		`Previewing role ${use.role} with the current configuration. Pins and files are unchanged.`;
+}
+
+function renderCatalog() {
+	const needle = search.value.trim().toLowerCase();
+	const rows = byId("library-rows");
+	rows.replaceChildren();
+	const shown = catalog.filter(
+		(entry) =>
+			(!filter.value ||
+				(filter.value === "used"
+					? entry.uses.length
+					: entry.kind === filter.value)) &&
+			(!needle ||
+				`${entry.name} ${entry.description}`.toLowerCase().includes(needle)),
+	);
+	for (const entry of shown) {
+		const row = element("tr");
+		const name = element("th", entry.name);
+		if (entry.description)
+			name.append(element("small", ` ${entry.description}`, "muted"));
+		const used = element("td", entry.uses.length ? "" : "Not used by a role");
+		for (const use of entry.uses) {
+			const button = element("button", `Preview ${usageText(use)}`);
+			/** @type {HTMLButtonElement} */ (button).type = "button";
+			button.addEventListener("click", () => preview(use));
+			used.append(button);
+		}
+		row.append(
+			name,
+			element(
+				"td",
+				`${entry.version ?? "unknown version (local, unversioned)"} · ${entry.source}`,
+			),
+			element("td", shortDigest(entry.digest)),
+			used,
+			element("td", entry.evidence),
+		);
+		rows.append(row);
+	}
+	if (!shown.length)
+		rows.append(element("tr", "No skills match this search.", "muted"));
+	byId("library-status").textContent =
+		`Showing ${shown.length} of ${catalog.length} skill entries.`;
+}
+
+async function loadLibrary() {
+	const load = /** @type {HTMLButtonElement} */ (byId("library-load"));
+	load.disabled = true;
+	byId("library-error").hidden = true;
+	byId("library-status").textContent = "Loading skill library…";
+	try {
+		const data = await get("api/skills");
+		catalog = catalogEntries(data);
+		const choices = catalog.filter((entry) => entry.selectable);
+		// Keep a still-valid selection; otherwise default to the first two entries.
+		const keep = (/** @type {string} */ value, /** @type {number} */ index) =>
+			choices.some((entry) => entry.selector === value)
+				? value
+				: (choices[index] ?? choices[0])?.selector;
+		/** @type {[HTMLSelectElement, string | undefined][]} */
+		const selects = [
+			[left, keep(left.value, 0)],
+			[right, keep(right.value, 1)],
+		];
+		for (const [select, value] of selects) {
+			select.replaceChildren();
+			for (const entry of choices)
+				select.add(new Option(entryLabel(entry), entry.selector));
+			select.value = value ?? "";
+		}
+		byId("library-view").hidden = false;
+		renderCatalog();
+		if (data.problems.length)
+			byId("library-status").textContent +=
+				` Problems: ${data.problems.join("; ")}`;
+		load.textContent = "Reload skill library";
+	} catch (error) {
+		byId("library-error").textContent =
+			error instanceof Error ? error.message : String(error);
+		byId("library-error").hidden = false;
+		byId("library-status").textContent = "";
+	} finally {
+		load.disabled = false;
+	}
+}
+
+/** @param {string} id @param {any} side */
+function renderSide(id, side) {
+	const box = byId(id);
+	box.replaceChildren(
+		element("h3", `${side.name}@${side.version ?? "unversioned"}`),
+	);
+	const facts = [
+		["Kind", side.kind === "local" ? "Project-local skill" : "Library package"],
+		[
+			"Version",
+			side.version ?? "Unknown: local skills have no package version",
+		],
+		["SHA-256", side.sha256 ?? "Unavailable for local skills"],
+		["Revision", side.revisionDigest ?? "None"],
+		["Source", side.path ?? side.source ?? "Unknown"],
+		["Description", side.metadata.description ?? "None declared"],
+		[
+			"Used by",
+			side.usage.roles.length
+				? side.usage.roles.map(usageText).join(", ")
+				: "Not used by a role",
+		],
+		[
+			"Evidence",
+			side.evidence.status === "untested"
+				? "Untested: no evaluation evidence is recorded (not a compatibility claim)"
+				: side.evidence.rows
+						.map(
+							(/** @type {any} */ row) =>
+								`${row.assignment.role} × ${row.assignment.model} × ${row.assignment.host}: ${row.outcome}`,
+						)
+						.join("; "),
+		],
+	];
+	const list = element("dl");
+	for (const [term, value] of facts)
+		list.append(element("dt", term), element("dd", value));
+	const files = element("ul");
+	for (const file of side.files)
+		files.append(
+			element(
+				"li",
+				`${file.path} · ${bytes(file.bytes)} · ${file.binary ? "binary" : "text"} · ${shortDigest(file.sha256)}`,
+			),
+		);
+	box.append(list, element("p", "Files", "eyebrow"), files);
+}
+
+async function compareSkills() {
+	const button = /** @type {HTMLButtonElement} */ (byId("compare-run"));
+	button.disabled = true;
+	byId("library-error").hidden = true;
+	try {
+		const query = new URLSearchParams({ left: left.value, right: right.value });
+		const result = await get(`api/compare?${query}`);
+		renderSide("side-left", result.left);
+		renderSide("side-right", result.right);
+		const diffs = byId("diff-files");
+		diffs.replaceChildren();
+		if (result.identical)
+			diffs.append(element("p", "No file differences.", "muted"));
+		for (const file of result.files) {
+			const details = document.createElement("details");
+			details.append(
+				element("summary", `${file.status} · ${file.path}`),
+				file.diff === null
+					? element("p", "Binary file: contents not shown.", "muted")
+					: element("pre", file.diff),
+			);
+			diffs.append(details);
+		}
+		byId("skill-diff").hidden = false;
+	} catch (error) {
+		byId("library-error").textContent =
+			error instanceof Error ? error.message : String(error);
+		byId("library-error").hidden = false;
+	} finally {
+		button.disabled = false;
+	}
+}
+
+byId("library-load").addEventListener("click", () => loadLibrary());
+byId("library-filters").addEventListener("submit", (event) =>
+	event.preventDefault(),
+);
+search.addEventListener("input", () => renderCatalog());
+filter.addEventListener("change", () => renderCatalog());
+byId("compare-run").addEventListener("click", () => compareSkills());
 byId("selectors").addEventListener("submit", (event) => event.preventDefault());
 model.addEventListener("change", () => update());
 host.addEventListener("change", () => update());

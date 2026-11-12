@@ -1,5 +1,16 @@
 # Versioning and upgrades
 
+## 0.26.0 — skill library panel (unreleased)
+
+The visualizer page adds a **Skill library** panel. It loads on request, lists
+library and project-local skills with search and filters, compares any two of
+them file by file, and previews a role that uses a skill. Missing versions,
+digests and evidence are shown as unknown or untested. Nothing is written.
+
+No YAML, lock-format, store or bootstrap migration is needed. Upgrade the runtime
+that launches the visualizer, restart it and reload the page. See
+[Live visualizer](Live-visualizer).
+
 ## 0.25.0 — skill catalog and comparison API (unreleased)
 
 The visualizer serves two new read-only endpoints under its session URL:

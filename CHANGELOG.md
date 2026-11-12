@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.26.0 — unreleased — skill library panel in the visualizer (#119)
+
+- The visualizer page adds a **Skill library** panel that loads on request. It
+  lists library and project-local skills with version, source, abbreviated digest,
+  role usage and evidence status, with search and filters.
+- **Compare skills** shows both sides (identity, full digest, usage, evidence and
+  files) and every changed file: text as a unified diff, binary by name only.
+- **Preview** switches the resolution view to a role that uses the skill, with the
+  current configuration. No configuration, pin or skill file is changed.
+- No YAML, lock or bootstrap migration. See `docs/visualize.md`.
+
 ## 0.25.0 — unreleased — skill catalog and comparison API (#119)
 
 - The visualizer adds read-only `api/skills` and `api/compare` endpoints. The
