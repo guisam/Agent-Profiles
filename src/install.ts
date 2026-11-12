@@ -40,6 +40,7 @@ import {
 	resolveInstructions,
 	validateConfiguration,
 } from "./resolve.ts";
+import { statusSkillChanges } from "./status-skill.ts";
 import { loadTrustPolicy, trustReport } from "./trust.ts";
 
 // Sources run from src/; the published build runs from dist/src/.
@@ -772,6 +773,13 @@ export function install({
 	const permissionAgents = [...selected, ...installed].filter(
 		(agent) => adapterFor(agent.id).permissions,
 	);
+	changes.push(
+		...statusSkillChanges(
+			root,
+			packageRoot,
+			[...selected, ...installed].map((agent) => agent.id),
+		),
+	);
 	if (permissionAgents.length) {
 		const ownership = permissionOwnership(root);
 		for (const agent of permissionAgents) {
@@ -877,6 +885,7 @@ export function uninstall({
 		if (realpathSync(config) !== path.join(root, ".agent-profiles"))
 			throw new Error("Unsafe configuration deletion target");
 	}
+	changes.push(...statusSkillChanges(root, packageRoot, null));
 	// Remove only the exact permission rules init added; other settings are untouched.
 	const ownership = permissionOwnership(root);
 	for (const adapter of integrations.filter(

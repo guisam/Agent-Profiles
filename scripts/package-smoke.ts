@@ -181,6 +181,9 @@ try {
 		"src/files.js",
 		"src/integrations.js",
 		"src/install.js",
+		"src/status-skill.js",
+		"skills/ap-status/SKILL.md",
+		"skills/ap-status/agents/openai.yaml",
 		"src/resolve.js",
 		"src/skills.js",
 		"src/discovery-diagnostics.js",
@@ -216,7 +219,7 @@ try {
 		assert.ok(files.has(file), `Missing package file: ${file}`);
 	for (const file of files) {
 		assert.ok(
-			/^(dist\/|docs\/|examples\/presets\/|\.agent-profiles\/|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(
+			/^(dist\/|docs\/|skills\/ap-status\/|examples\/presets\/|\.agent-profiles\/|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(
 				file,
 			),
 			`Unexpected package file: ${file}`,
@@ -483,6 +486,13 @@ try {
 			"hermes",
 		);
 		const afterApproval = snapshot(root);
+		for (const directory of [".agents", ".claude"])
+			assert.deepEqual(
+				fs.readFileSync(
+					path.join(root, directory, "skills/ap-status/SKILL.md"),
+				),
+				fs.readFileSync(path.join(installed, "skills/ap-status/SKILL.md")),
+			);
 		assert.equal(
 			fs
 				.readFileSync(path.join(root, "AGENTS.md"), "utf8")
@@ -644,8 +654,10 @@ try {
 			"release-reviewer",
 			"Review releases.",
 			"",
+			"/code-review",
 			"1",
 			"",
+			"/testing",
 			"1",
 			"",
 			"y",
@@ -693,7 +705,9 @@ try {
 		cli("uninstall", "--root", root);
 		assert.deepEqual(
 			snapshot(path.join(root, ".agent-profiles")),
-			customized.filter(([file]) => file !== "permissions.json"),
+			customized.filter(
+				([file]) => file !== "permissions.json" && file !== "status-skill.json",
+			),
 		);
 		for (const [file, content] of Object.entries(originals))
 			assert.deepEqual(fs.readFileSync(path.join(root, file)), content);
@@ -783,7 +797,7 @@ try {
 					`${visualizer.url}api/resolve?role=preset-reviewer&skill=testing`,
 				)
 			).json();
-			assert.deepEqual(visual, requested);
+			assert.deepEqual(visual, { ...requested, withheld: [] });
 		} finally {
 			await new Promise((resolve) => {
 				visualizer.server.close(resolve);

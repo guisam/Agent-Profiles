@@ -1,5 +1,19 @@
 # Versioning and upgrades
 
+## 0.25.0 - bundled ap-status (unreleased)
+
+The implementation on `feat/bundled-ap-status` adds a native status skill for
+Codex and Claude Code. It reports the session's last successful resolution,
+required package versions and optional skills on the bench. It is not a live
+execution monitor and does not silently refresh the role.
+
+After upgrading the runtime to 0.25.0, rerun `init --agent codex` or
+`init --agent claude`. Preserve your MCP configuration. No YAML migration is
+needed. Before publication, use a built checkout or packed artifact rather than
+assuming 0.25.0 exists on npm. Unchanged managed skill files are upgraded;
+pre-existing or edited targets must be moved aside first. Uninstall retains edits.
+See [Session skill status](Session-skill-status) for paths and invocation.
+
 ## 0.24.0 — live adapter visualizer (unreleased)
 
 The visualizer opens the real project through `agents.local.yaml`, with composed
