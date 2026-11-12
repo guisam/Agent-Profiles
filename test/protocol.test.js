@@ -563,7 +563,12 @@ test("init replaces an outdated managed block in place and stays idempotent acro
 	const result = install({ root: repo.root, agents: ["claude", "codex"] });
 	assert.deepEqual(result.modified.sort(), [
 		".agent-profiles/permissions.json",
+		".agent-profiles/status-skill.json",
+		".agents/skills/ap-status/SKILL.md",
+		".agents/skills/ap-status/agents/openai.yaml",
 		".claude/settings.json",
+		".claude/skills/ap-status/SKILL.md",
+		".claude/skills/ap-status/agents/openai.yaml",
 		"AGENTS.md",
 		"CLAUDE.md",
 	]);

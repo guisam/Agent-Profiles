@@ -107,7 +107,7 @@ test("fresh multi-agent installation validates, detects the root, and is idempot
 	);
 	assert.equal(result.profile, "constrained");
 	assert.equal(result.role, "implementer");
-	assert.equal(result.modified.length, 14);
+	assert.equal(result.modified.length, 19);
 	assert.ok(result.modified.includes(".claude/settings.json"));
 	assert.deepEqual(
 		result.agents.filter((agent) => agent.installed).map((agent) => agent.id),
@@ -176,7 +176,9 @@ test("user-edited configuration and profiles survive reinstallation and integrat
 			"\n# User-owned addition\n",
 		);
 	}
-	const before = snapshot(path.join(root, ".agent-profiles"));
+	const before = snapshot(path.join(root, ".agent-profiles")).filter(
+		([file]) => file !== "status-skill.json",
+	);
 	// BOOTSTRAP.md is a managed protocol reference, not user configuration: init restores it.
 	const protocol = path.join(root, ".agent-profiles/BOOTSTRAP.md");
 	const packaged = fs.readFileSync(protocol);
@@ -185,7 +187,7 @@ test("user-edited configuration and profiles survive reinstallation and integrat
 	assert.deepEqual(fs.readFileSync(protocol), packaged);
 	assert.deepEqual(
 		snapshot(path.join(root, ".agent-profiles")).filter(
-			([file]) => file !== "permissions.json",
+			([file]) => file !== "permissions.json" && file !== "status-skill.json",
 		),
 		before,
 	);

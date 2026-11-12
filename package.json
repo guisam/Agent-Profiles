@@ -1,6 +1,6 @@
 {
 	"name": "@guisam/agent-profiles",
-	"version": "0.24.1",
+	"version": "0.25.2",
 	"description": "Repository-local instruction routing for coding agents",
 	"license": "Apache-2.0",
 	"repository": {
@@ -22,6 +22,7 @@
 	},
 	"files": [
 		"dist/",
+		"skills/ap-status/",
 		".agent-profiles/BOOTSTRAP.md",
 		".agent-profiles/agents.yaml",
 		".agent-profiles/profiles/autonomous.md",
