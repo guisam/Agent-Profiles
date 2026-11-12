@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.25.1 - unreleased - status guidance near the top of the README
+
+- Explain how to invoke ap-status in each agent session, including loaded
+  versions, optional skills on the bench and host/evidence limits.
+- Documentation only; no runtime or configuration migration.
+
 ## 0.25.0 - unreleased - bundled ap-status skill
 
 - Ship a native ap-status skill and Codex UI metadata. Init installs it for

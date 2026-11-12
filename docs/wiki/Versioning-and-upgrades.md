@@ -1,5 +1,13 @@
 # Versioning and upgrades
 
+## 0.25.1 - prominent status instructions (unreleased)
+
+The README now introduces `ap-status` immediately after the project summary,
+with host-specific invocation and guidance to run it in the agent session being
+inspected. This documentation patch does not change runtime behavior or require
+a migration. Follow the 0.25.0 installation steps below using the newer runtime
+when published; neither version is implied to be available on npm yet.
+
 ## 0.25.0 - bundled ap-status (unreleased)
 
 The implementation on `feat/bundled-ap-status` adds a native status skill for
