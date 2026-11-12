@@ -22,6 +22,12 @@ for (const key of Object.keys(environment))
 	if (/^npm_config_/i.test(key)) delete environment[key];
 delete environment.NODE_OPTIONS;
 delete environment.AGENT_PROFILES_SKILL_SOURCES;
+// Both direct imports and subprocesses must ignore the operator's machine policy.
+const previousTrust = process.env.AGENT_PROFILES_TRUST;
+process.env.AGENT_PROFILES_TRUST = environment.AGENT_PROFILES_TRUST = path.join(
+	temporary,
+	"isolated-trust.yaml",
+);
 
 function run(command: Untyped, args: Untyped, cwd: Untyped, env = environment) {
 	const result = spawnSync(command, args, {
@@ -797,7 +803,7 @@ try {
 					`${visualizer.url}api/resolve?role=preset-reviewer&skill=testing`,
 				)
 			).json();
-			assert.deepEqual(visual, { ...requested, withheld: [] });
+			assert.deepEqual(visual, requested);
 		} finally {
 			await new Promise((resolve) => {
 				visualizer.server.close(resolve);
@@ -2908,6 +2914,8 @@ try {
 		`Verified ${artifact.name}@${artifact.version}: ${files.size} package files, ${artifact.size} bytes compressed.`,
 	);
 } finally {
+	if (previousTrust === undefined) delete process.env.AGENT_PROFILES_TRUST;
+	else process.env.AGENT_PROFILES_TRUST = previousTrust;
 	// Only remove the exact temporary directory created by this script.
 	assert.equal(path.dirname(temporary), path.resolve(os.tmpdir()));
 	assert.ok(path.basename(temporary).startsWith("agent-profiles-package-"));

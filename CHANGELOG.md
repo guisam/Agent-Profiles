@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.25.2 - unreleased - status-skill CI fixes
+
+- Update the protocol fixture for the installed status-skill files.
+- Isolate machine trust for both direct imports and subprocesses in package
+  smoke tests; restore exact visualizer/CLI comparison. No runtime migration.
+
 ## 0.25.1 - unreleased - status guidance near the top of the README
 
 - Explain how to invoke ap-status in each agent session, including loaded

@@ -1,5 +1,13 @@
 # Versioning and upgrades
 
+## 0.25.2 - status-skill CI fixes (unreleased)
+
+Update the protocol installation fixture for the bundled skill files and isolate
+machine trust consistently in the package smoke test's CLI and in-process paths.
+This fixes test expectations and test isolation; runtime behavior is unchanged.
+No additional migration is needed. Use the newest runtime when published and
+follow the 0.25.0 status-skill installation instructions below.
+
 ## 0.25.1 - prominent status instructions (unreleased)
 
 The README now introduces `ap-status` immediately after the project summary,
