@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.28.0 — unreleased — edit the configuration from the visualizer (#119)
+
+- `visualize --edit` lets the page add a skill to the selected role (required or
+  available, chosen per click), remove role skills, and add models, families and
+  roles. Without `--edit` the visualizer stays read-only.
+- Each edit goes to the layer that owns it: the project `agents.yaml` or, for
+  adapter roles and adapter skills, the adapter `agents.yaml`. Edits are validated
+  alone and composed, keep YAML comments, refresh locks and roll back on failure.
+- `POST api/edit` requires the session URL, same-origin `Origin`, a JSON body,
+  `X-Agent-Profiles-Edit: 1` and the current configuration revision.
+- Tooltips explain Host, Model, Family fallback and Role. The library table wraps
+  to the panel width.
+- Binding a new library package version and the replace prompt for skills with the
+  same SKILL.md name come in a follow-up. No YAML, lock or bootstrap migration.
+
+## 0.27.0 — unreleased — side-by-side skill comparison (#119)
+
+- Skill library rows add **Set as left** and **Set as right** buttons that fill
+  the comparison sides from the filtered table.
+- **View → Side by side, full files** lists every file of both skills, unchanged
+  files and lines included, aligned and numbered like a two-pane diff tool.
+  Changed, removed and added lines are highlighted. Binary files are named only.
+- `api/compare` adds an `aligned` field with side-by-side rows per file. Existing
+  fields are unchanged. No YAML, lock or bootstrap migration.
+
 ## 0.26.0 — unreleased — skill library panel in the visualizer (#119)
 
 - The visualizer page adds a **Skill library** panel that loads on request. It

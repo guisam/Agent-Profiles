@@ -3,7 +3,12 @@
 // bindings. Nothing here writes configuration, pins, locks, or skill files.
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { type FileDiff, packageDiff, text } from "./content-diff.ts";
+import {
+	type FileDiff,
+	packageDiff,
+	sideBySide,
+	text,
+} from "./content-diff.ts";
 import { readLocal } from "./files.ts";
 import {
 	type EvidenceRow,
@@ -232,11 +237,36 @@ function compareOperation({
 		fromLabel: label(left),
 		toLabel: label(right),
 	});
+	// Every file of both sides, unchanged ones included, so the whole body is visible.
+	const before = new Map(a.files.map((file) => [file.path, file.bytes]));
+	const after = new Map(b.files.map((file) => [file.path, file.bytes]));
+	const aligned = [...new Set([...before.keys(), ...after.keys()])]
+		.sort((x, y) => Buffer.compare(Buffer.from(x), Buffer.from(y)))
+		.map((path) => {
+			const old = before.get(path);
+			const next = after.get(path);
+			const oldText = old ? text(old) : "";
+			const nextText = next ? text(next) : "";
+			const binary = oldText === null || nextText === null;
+			return {
+				path,
+				status: !old
+					? ("added" as const)
+					: !next
+						? ("removed" as const)
+						: old.equals(next)
+							? ("same" as const)
+							: ("changed" as const),
+				binary,
+				rows: binary ? null : sideBySide(oldText as string, nextText as string),
+			};
+		});
 	return {
 		left: { ...a.side, files: a.files.map(describeFile) },
 		right: { ...b.side, files: b.files.map(describeFile) },
 		identical: files.length === 0,
 		files,
+		aligned,
 	};
 }
 

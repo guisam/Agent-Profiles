@@ -225,6 +225,7 @@ try {
 			skill: { type: "string", multiple: true },
 			json: { type: "boolean", default: false },
 			port: { type: "string" },
+			edit: { type: "boolean", default: false },
 			external: { type: "boolean", default: false },
 			sources: { type: "string" },
 			store: { type: "string" },
@@ -419,6 +420,7 @@ Setup inventory (works before init, including an empty/non-Git --root):
 Visualizer:
   visualize [--host <id>] [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...]
             [--port <0-65535>]  (default: an available local port)
+            [--edit]  (allow role, model, family and role-skill edits from the page)
 
 Presets:
   preset inspect <directory> [--contents] [--role <id> ...]
@@ -975,6 +977,8 @@ Examples:
 					? undefined
 					: { sourcesFile: values.sources },
 		};
+		if (values.edit && command !== "visualize")
+			throw new Error("--edit is only supported by visualize");
 		if (
 			values.port !== undefined &&
 			(command !== "visualize" || !/^\d+$/.test(values.port))
@@ -1255,9 +1259,10 @@ Examples:
 				family: values.family,
 				role: values.role?.[0],
 				skills: values.skill,
+				allowEdits: values.edit,
 			});
 			console.log(
-				`Context explorer: ${url}\nOpen this local URL in your browser. Read-only; press Ctrl+C to stop.`,
+				`Context explorer: ${url}\nOpen this local URL in your browser. ${values.edit ? "Edits from the page write your configuration and refresh locks" : "Read-only"}; press Ctrl+C to stop.`,
 			);
 			const stop = () => {
 				server.close();

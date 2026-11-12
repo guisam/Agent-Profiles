@@ -10,6 +10,9 @@ const host = /** @type {HTMLSelectElement} */ (byId("host"));
 const family = /** @type {HTMLSelectElement} */ (byId("family"));
 const role = /** @type {HTMLSelectElement} */ (byId("role"));
 const pin = /** @type {HTMLButtonElement} */ (byId("pin"));
+const addKind = /** @type {HTMLSelectElement} */ (byId("add-kind"));
+const addProfile = /** @type {HTMLSelectElement} */ (byId("add-profile"));
+const addId = /** @type {HTMLInputElement} */ (byId("add-id"));
 // Resolution JSON from the local server (src/visualize.ts); its shape is the resolver's output.
 /** @type {any} */
 let current;
@@ -147,6 +150,60 @@ function compare() {
 	}
 }
 
+/** Settings from api/config when the server allows edits; null when read-only. */
+/** @type {{revision: string, profiles: string[]} | null} */
+let editing = null;
+
+/** @param {HTMLElement} card @param {string} id */
+function appendRemove(card, id) {
+	if (!editing || !current) return;
+	const button = element("button", `Remove ${id} from ${current.role}`);
+	/** @type {HTMLButtonElement} */ (button).type = "button";
+	const roleId = current.role;
+	button.addEventListener("click", () =>
+		editConfig(
+			{ action: "remove-skill", role: roleId, skill: id },
+			`${id} removed from ${roleId}`,
+		),
+	);
+	card.append(button);
+}
+
+/**
+ * Send one edit, then reload configuration and the library so the page shows what was written.
+ * @param {any} edit @param {string} done @param {() => void} [after]
+ */
+async function editConfig(edit, done, after) {
+	if (!editing) return;
+	byId("error").hidden = true;
+	byId("status").textContent = "Saving…";
+	try {
+		const response = await fetch("api/edit", {
+			method: "POST",
+			cache: "no-store",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Agent-Profiles-Edit": "1",
+			},
+			body: JSON.stringify({ revision: editing.revision, edit }),
+		});
+		const data = await response.json();
+		if (!response.ok)
+			throw new Error(data.error ?? `Edit failed (${response.status})`);
+		await initialize();
+		after?.();
+		if (catalog.length) await loadLibrary();
+		byId("notice").textContent =
+			`${done}. Written to ${data.file} (${data.layer} configuration); locks refreshed.`;
+		byId("notice").hidden = false;
+	} catch (error) {
+		byId("error").textContent =
+			error instanceof Error ? error.message : String(error);
+		byId("error").hidden = false;
+		byId("status").textContent = "The edit was not saved.";
+	}
+}
+
 /** @param {any} result */
 function render(result) {
 	current = result;
@@ -202,6 +259,7 @@ function render(result) {
 	)) {
 		const card = element("div", "", "entry");
 		card.append(inspect(entry, `Required by role: ${result.role}`));
+		appendRemove(card, entry.id);
 		required.append(card);
 	}
 	for (const entry of result.required.filter(
@@ -214,6 +272,7 @@ function render(result) {
 				`Required by role ${result.role}; ${entry.package ? "invocation unverified" : "invoked through the host"}`,
 			),
 		);
+		appendRemove(card, entry.id);
 		required.append(card);
 	}
 	if (!result.required.length)
@@ -231,6 +290,7 @@ function render(result) {
 					`Available to role ${result.role}; ${entry.package ? "invocation unverified" : "invoked through the host"}, never injected`,
 				),
 			);
+			appendRemove(card, entry.id);
 			available.append(card);
 			continue;
 		}
@@ -277,6 +337,7 @@ function render(result) {
 				`${injected ? "Requested for" : "Available to"} role: ${result.role}${shared ? "; shares already injected backing" : ""}`,
 			),
 		);
+		appendRemove(card, entry.id);
 		available.append(card);
 	}
 	if (!result.available.length)
@@ -403,6 +464,19 @@ async function initialize(first = false) {
 		options(role, data.roles, null, selection.role);
 		requested = nextRequested;
 		roles = data.roles;
+		editing = data.editing ?? null;
+		byId("mode-badge").textContent = editing
+			? "LOCAL · EDITS ON"
+			: "LOCAL · READ ONLY";
+		byId("edit-panel").hidden = !editing;
+		byId("add-column").hidden = !editing;
+		if (editing)
+			options(
+				addProfile,
+				editing.profiles,
+				null,
+				addProfile.value || editing.profiles[0],
+			);
 		byId("notice").textContent = notices.join(" ");
 		byId("notice").hidden = !notices.length;
 		render(result);
@@ -459,6 +533,14 @@ function catalogEntries(data) {
 					? `${version.evidence} evidence row(s)`
 					: "untested",
 				selectable: !version.error,
+				// The configured skill ID a role can list; null until the version is bound.
+				skillId:
+					(version.usage?.bindings ?? [])
+						.map(
+							(/** @type {string} */ entry) =>
+								/(?:^|\.)skills\.([^.]+)$/.exec(entry)?.[1],
+						)
+						.find(Boolean) ?? null,
 			})),
 		),
 		...data.local.map((/** @type {any} */ skill) => ({
@@ -475,6 +557,8 @@ function catalogEntries(data) {
 			})),
 			evidence: "untested",
 			selectable: true,
+			// Host-native project skills need a host reference, not a plain ID.
+			skillId: skill.host ? null : skill.id,
 		})),
 	];
 }
@@ -496,6 +580,31 @@ function preview(use) {
 	update();
 	byId("library-status").textContent =
 		`Previewing role ${use.role} with the current configuration. Pins and files are unchanged.`;
+}
+
+/** Add-to-role buttons for the role selected at the top; required or available is chosen per click. */
+/** @param {any} entry */
+function addCell(entry) {
+	const cell = element("td");
+	if (!entry.skillId) {
+		cell.textContent =
+			entry.kind === "package"
+				? "Not bound in this project yet"
+				: "Host skill: add through configure";
+		return cell;
+	}
+	for (const list of ["required", "available"]) {
+		const button = element("button", `Add to ${role.value} as ${list}`);
+		/** @type {HTMLButtonElement} */ (button).type = "button";
+		button.addEventListener("click", () =>
+			editConfig(
+				{ action: "add-skill", role: role.value, skill: entry.skillId, list },
+				`${entry.skillId} added to ${role.value} as ${list}`,
+			),
+		);
+		cell.append(button);
+	}
+	return cell;
 }
 
 function renderCatalog() {
@@ -533,6 +642,23 @@ function renderCatalog() {
 			used,
 			element("td", entry.evidence),
 		);
+		const pick = element("td", entry.selectable ? "" : "Unverified");
+		if (entry.selectable)
+			for (const [select, side] of [
+				[left, "left"],
+				[right, "right"],
+			]) {
+				const button = element("button", `Set as ${side}`);
+				/** @type {HTMLButtonElement} */ (button).type = "button";
+				button.addEventListener("click", () => {
+					/** @type {HTMLSelectElement} */ (select).value = entry.selector;
+					byId("library-status").textContent =
+						`Compare ${side}: ${entryLabel(entry)}. Select Compare skills when both sides are set.`;
+				});
+				pick.append(button);
+			}
+		row.append(pick);
+		if (editing) row.append(addCell(entry));
 		rows.append(row);
 	}
 	if (!shown.length)
@@ -630,20 +756,28 @@ function renderSide(id, side) {
 	box.append(list, element("p", "Files", "eyebrow"), files);
 }
 
-async function compareSkills() {
-	const button = /** @type {HTMLButtonElement} */ (byId("compare-run"));
-	button.disabled = true;
-	byId("library-error").hidden = true;
-	try {
-		const query = new URLSearchParams({ left: left.value, right: right.value });
-		const result = await get(`api/compare?${query}`);
-		renderSide("side-left", result.left);
-		renderSide("side-right", result.right);
-		const diffs = byId("diff-files");
-		diffs.replaceChildren();
-		if (result.identical)
+/** @type {any} The last comparison, re-rendered when the view mode changes. */
+let compared;
+const view = /** @type {HTMLSelectElement} */ (byId("compare-view"));
+
+/** @param {[number, string] | null} cell @param {string} kind */
+function sideCells(cell, kind) {
+	return cell
+		? [
+				element("td", String(cell[0]), "line-number"),
+				element("td", cell[1], kind),
+			]
+		: [element("td", "", "line-number"), element("td", "", "empty")];
+}
+
+function renderDiff() {
+	const diffs = byId("diff-files");
+	diffs.replaceChildren();
+	if (!compared) return;
+	if (view.value !== "side") {
+		if (compared.identical)
 			diffs.append(element("p", "No file differences.", "muted"));
-		for (const file of result.files) {
+		for (const file of compared.files) {
 			const details = document.createElement("details");
 			details.append(
 				element("summary", `${file.status} · ${file.path}`),
@@ -653,6 +787,48 @@ async function compareSkills() {
 			);
 			diffs.append(details);
 		}
+		return;
+	}
+	// Side by side: every file and every line of both sides, unchanged files included.
+	for (const file of compared.aligned) {
+		const details = /** @type {HTMLDetailsElement} */ (
+			document.createElement("details")
+		);
+		details.open = file.status !== "same";
+		details.append(element("summary", `${file.status} · ${file.path}`));
+		if (file.rows === null)
+			details.append(element("p", "Binary file: contents not shown.", "muted"));
+		else {
+			const table = element("table", "", "side-by-side");
+			const body = element("tbody");
+			for (const row of file.rows) {
+				const line = element("tr", "", row.kind);
+				line.append(
+					...sideCells(row.left, row.kind === "same" ? "" : "before"),
+					...sideCells(row.right, row.kind === "same" ? "" : "after"),
+				);
+				body.append(line);
+			}
+			table.append(body);
+			const scroll = element("div", "", "table-scroll");
+			scroll.append(table);
+			details.append(scroll);
+		}
+		diffs.append(details);
+	}
+}
+
+async function compareSkills() {
+	const button = /** @type {HTMLButtonElement} */ (byId("compare-run"));
+	button.disabled = true;
+	byId("library-error").hidden = true;
+	try {
+		const query = new URLSearchParams({ left: left.value, right: right.value });
+		const result = await get(`api/compare?${query}`);
+		renderSide("side-left", result.left);
+		renderSide("side-right", result.right);
+		compared = result;
+		renderDiff();
 		byId("skill-diff").hidden = false;
 	} catch (error) {
 		byId("library-error").textContent =
@@ -663,6 +839,49 @@ async function compareSkills() {
 	}
 }
 
+// Add a model, family or role, then select it so its resolution is shown.
+function showAddFields() {
+	byId("add-profile-label").hidden = addKind.value === "role";
+	byId("add-prefixes-label").hidden = addKind.value !== "family";
+	byId("add-description-label").hidden = addKind.value !== "role";
+}
+addKind.addEventListener("change", showAddFields);
+showAddFields();
+byId("add-form").addEventListener("submit", (event) => event.preventDefault());
+byId("add-run").addEventListener("click", () => {
+	const kind = addKind.value;
+	const id = addId.value.trim();
+	if (!id) {
+		byId("status").textContent = "Enter an ID to add.";
+		return;
+	}
+	const prefixes = /** @type {HTMLInputElement} */ (byId("add-prefixes")).value
+		.split(",")
+		.map((prefix) => prefix.trim())
+		.filter(Boolean);
+	const description = /** @type {HTMLInputElement} */ (
+		byId("add-description")
+	).value.trim();
+	const select = kind === "model" ? model : kind === "family" ? family : role;
+	editConfig(
+		kind === "role"
+			? { action: "add-role", id, ...(description ? { description } : {}) }
+			: {
+					action: `add-${kind}`,
+					id,
+					profile: addProfile.value,
+					...(kind === "family" && prefixes.length ? { prefixes } : {}),
+				},
+		`${kind} ${id} added`,
+		() => {
+			select.value = id;
+			if (kind === "role") requested.clear();
+			addId.value = "";
+			update();
+		},
+	);
+});
+
 byId("library-load").addEventListener("click", () => loadLibrary());
 byId("library-filters").addEventListener("submit", (event) =>
 	event.preventDefault(),
@@ -670,12 +889,15 @@ byId("library-filters").addEventListener("submit", (event) =>
 search.addEventListener("input", () => renderCatalog());
 filter.addEventListener("change", () => renderCatalog());
 byId("compare-run").addEventListener("click", () => compareSkills());
+view.addEventListener("change", () => renderDiff());
 byId("selectors").addEventListener("submit", (event) => event.preventDefault());
 model.addEventListener("change", () => update());
 host.addEventListener("change", () => update());
 family.addEventListener("change", () => update());
 role.addEventListener("change", () => {
 	requested.clear();
+	// Add-to-role buttons name the selected role.
+	if (editing && catalog.length) renderCatalog();
 	update();
 });
 byId("refresh").addEventListener("click", () => initialize());

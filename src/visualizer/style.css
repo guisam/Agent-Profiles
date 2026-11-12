@@ -347,6 +347,25 @@ footer {
 	margin: 16px 0;
 	padding: 16px;
 }
+/* The library table fits its panel: cells wrap instead of scrolling. */
+.library-table th,
+.library-table td {
+	white-space: normal;
+	overflow-wrap: anywhere;
+	text-align: left;
+	vertical-align: top;
+}
+/* Short fixed values (digest, evidence, compare buttons) stay on one line. */
+.library-table
+	:is(th, td):is(:nth-child(3), :nth-child(5), :nth-child(6), :nth-child(7)) {
+	white-space: nowrap;
+	overflow-wrap: normal;
+}
+.entry > button {
+	margin-top: 8px;
+	padding: 6px 10px;
+	font-size: 12px;
+}
 .library td button {
 	display: block;
 	margin: 0 0 6px;
@@ -380,6 +399,58 @@ footer {
 	}
 }
 
+.side-by-side {
+	width: 100%;
+	border-collapse: collapse;
+	font-family: Consolas, "Cascadia Mono", monospace;
+	font-size: 12px;
+	table-layout: fixed;
+}
+.side-by-side td {
+	padding: 1px 8px;
+	vertical-align: top;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	border: 0;
+}
+.side-by-side .line-number {
+	width: 3.5em;
+	text-align: right;
+	color: #6b7f78;
+	user-select: none;
+}
+.side-by-side .before {
+	background: #fde8e4;
+}
+.side-by-side .after {
+	background: #e3f3e6;
+}
+.side-by-side .empty {
+	background: #f0f1ed;
+}
+.edit-panel {
+	margin: 12px 0 20px;
+}
+.edit-panel summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+.edit-panel .selectors {
+	margin-top: 12px;
+	flex-wrap: wrap;
+}
+input[type="text"] {
+	width: 100%;
+	display: block;
+	margin-top: 8px;
+	background: #f9faf7;
+	border: 1px solid #c5d1c8;
+	border-radius: 6px;
+	padding: 10px;
+	color: inherit;
+	font: inherit;
+	font-size: 14px;
+}
 [hidden] {
 	/* biome-ignore lint/complexity/noImportantStyles: [hidden] must beat component display rules */
 	display: none !important;

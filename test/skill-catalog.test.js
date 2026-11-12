@@ -1,14 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import fs from "node:fs";
 import { request } from "node:http";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
-import vm from "node:vm";
-import { stringify } from "yaml";
-import { publishPackage } from "../src/library.ts";
-import { installDependencies } from "../src/package-lock.ts";
+import { sideBySide } from "../src/content-diff.ts";
 import {
 	compareSkills,
 	parseSkillSelector,
@@ -16,98 +10,13 @@ import {
 } from "../src/skill-catalog.ts";
 import { startVisualizer } from "../src/visualize.ts";
 
-const REVIEW = "@example/security-review";
-const ALT = "@example/careful-review";
-
-function put(file, bytes) {
-	fs.mkdirSync(path.dirname(file), { recursive: true });
-	fs.writeFileSync(file, bytes);
-}
-
-function source(dir, name, version, extra = {}) {
-	const directory = path.join(
-		dir,
-		"sources",
-		name.replace(/[@/]/g, "_"),
-		version,
-	);
-	put(
-		path.join(directory, "package.yaml"),
-		stringify({
-			schema_version: 1,
-			package: { name, version, type: "skill", description: `${name} skill` },
-			entrypoint: "SKILL.md",
-			behavior: { delivery: "instruction", hosts: [], effects: [] },
-		}),
-	);
-	put(
-		path.join(directory, "SKILL.md"),
-		`---\ndescription: "${name} skill"\n---\nReview ${version}\n`,
-	);
-	put(path.join(directory, "support/note.txt"), `note ${version}\n`);
-	for (const [file, bytes] of Object.entries(extra))
-		put(path.join(directory, file), bytes);
-	return directory;
-}
-
-function digestTree(directory) {
-	const out = {};
-	const walk = (current) => {
-		for (const name of fs.readdirSync(current).sort()) {
-			const file = path.join(current, name);
-			if (fs.statSync(file).isDirectory()) walk(file);
-			else
-				out[path.relative(directory, file)] = createHash("sha256")
-					.update(fs.readFileSync(file))
-					.digest("hex");
-		}
-	};
-	walk(directory);
-	return out;
-}
-
-function fixture(t) {
-	const dir = fs.realpathSync(
-		fs.mkdtempSync(path.join(os.tmpdir(), "agent-profiles-skill-catalog-")),
-	);
-	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-	const store = path.join(dir, "store");
-	for (const directory of [
-		source(dir, REVIEW, "1.0.0"),
-		source(dir, REVIEW, "2.0.0", {
-			"support/icon.bin": Buffer.from([0, 1, 2, 255]),
-		}),
-		source(dir, ALT, "1.0.0"),
-	])
-		publishPackage({ storeRoot: store, sourceDirectory: directory });
-	const root = path.join(dir, "project");
-	put(path.join(root, ".agent-profiles/profiles/base.md"), "# Base\n");
-	put(path.join(root, ".agent-profiles/roles/reviewer.md"), "# Reviewer\n");
-	put(
-		path.join(root, ".agent-profiles/skills/testing/SKILL.md"),
-		"---\ndescription: Test carefully\n---\nReview 1.0.0\n",
-	);
-	put(
-		path.join(root, ".agent-profiles/agents.yaml"),
-		stringify({
-			version: 2,
-			default_profile: "base",
-			default_role: "reviewer",
-			models: { "fictional-large": { profile: "base" } },
-			families: {},
-			profiles: { base: { file: "profiles/base.md" } },
-			roles: {
-				reviewer: {
-					file: "roles/reviewer.md",
-					skills: { required: ["security-review"], available: ["testing"] },
-				},
-			},
-			skills: { "security-review": { package: REVIEW, version: "1.0.0" } },
-		}),
-	);
-	installDependencies({ root, storeRoot: store });
-	return { dir, store, root };
-}
+import {
+	ALT,
+	browser,
+	digestTree,
+	fixture,
+	REVIEW,
+} from "./helpers/skill-library-fixture.js";
 
 const LOCAL = "local:.agent-profiles/skills/testing/SKILL.md";
 const pick = (value) => parseSkillSelector(value);
@@ -305,74 +214,6 @@ test("the visualizer serves the catalog and comparisons read-only", async (t) =>
 	}
 });
 
-// Only the DOM operations app.js uses; text is always set through textContent.
-async function browser(url) {
-	class Node {
-		children = [];
-		textContent = "";
-		value = "";
-		hidden = false;
-		disabled = false;
-		listeners = {};
-		append(...nodes) {
-			this.children.push(...nodes);
-		}
-		replaceChildren(...nodes) {
-			this.children = nodes;
-		}
-		add(node) {
-			this.children.push(node);
-		}
-		addEventListener(name, fn) {
-			this.listeners[name] = fn;
-		}
-		setAttribute() {}
-		removeAttribute() {}
-		focus() {}
-		set innerHTML(_) {
-			throw new Error("innerHTML is not allowed");
-		}
-	}
-	class Option extends Node {
-		constructor(text, value) {
-			super();
-			this.textContent = text;
-			this.value = value;
-		}
-	}
-	const nodes = new Map();
-	const document = {
-		getElementById(id) {
-			if (!nodes.has(id)) nodes.set(id, new Node());
-			return nodes.get(id);
-		},
-		createElement: () => new Node(),
-		createTextNode: (text) => Object.assign(new Node(), { textContent: text }),
-	};
-	vm.runInContext(
-		fs.readFileSync(
-			new URL("../src/visualizer/app.js", import.meta.url),
-			"utf8",
-		),
-		vm.createContext({
-			document,
-			Option,
-			URLSearchParams,
-			fetch: (endpoint, init) => fetch(new URL(endpoint, url), init),
-		}),
-	);
-	const texts = (node) =>
-		[node.textContent, ...node.children.flatMap(texts)].join("\n");
-	const text = (id) => texts(document.getElementById(id));
-	const until = async (check) => {
-		for (let i = 0; i < 300 && !check(); i++)
-			await new Promise((resolve) => setTimeout(resolve, 10));
-		assert.ok(check(), "timed out waiting for the page");
-	};
-	await until(() => /^(Resolved|Unable)/.test(text("status")));
-	return { node: (id) => document.getElementById(id), text, texts, until };
-}
-
 test("the library panel browses, compares and previews without writing files", async (t) => {
 	const f = fixture(t);
 	const before = digestTree(f.dir);
@@ -422,4 +263,106 @@ test("the library panel browses, compares and previews without writing files", a
 	assert.equal(page.node("role").value, "reviewer");
 	assert.match(page.text("library-status"), /Pins and files are unchanged/);
 	assert.deepEqual(digestTree(f.dir), before);
+});
+
+test("side-by-side rows align every line and pair changes", () => {
+	assert.deepEqual(sideBySide("a\nb\nc", "a\nx\nc\nd"), [
+		{ kind: "same", left: [1, "a"], right: [1, "a"] },
+		{ kind: "changed", left: [2, "b"], right: [2, "x"] },
+		{ kind: "same", left: [3, "c"], right: [3, "c"] },
+		{ kind: "added", left: null, right: [4, "d"] },
+	]);
+	assert.deepEqual(sideBySide("a\nb\nc", "c"), [
+		{ kind: "removed", left: [1, "a"], right: null },
+		{ kind: "removed", left: [2, "b"], right: null },
+		{ kind: "same", left: [3, "c"], right: [1, "c"] },
+	]);
+	assert.deepEqual(sideBySide("", ""), []);
+});
+
+test("comparison aligns every file in full, unchanged files included", (t) => {
+	const f = fixture(t);
+	const result = compareSkills({
+		root: f.root,
+		storeRoot: f.store,
+		left: pick(`package:${REVIEW}@1.0.0`),
+		right: pick(`package:${ALT}@1.0.0`),
+	});
+	assert.deepEqual(
+		result.aligned.map((file) => [file.path, file.status, file.binary]),
+		[
+			["SKILL.md", "changed", false],
+			["package.yaml", "changed", false],
+			["support/note.txt", "same", false],
+		],
+	);
+	const skill = result.aligned[0].rows;
+	assert.deepEqual(skill.at(-2), {
+		kind: "same",
+		left: [4, "Review 1.0.0"],
+		right: [4, "Review 1.0.0"],
+	});
+	assert.equal(skill[1].kind, "changed");
+	assert.deepEqual(result.aligned[2].rows[0], {
+		kind: "same",
+		left: [1, "note 1.0.0"],
+		right: [1, "note 1.0.0"],
+	});
+	const binary = compareSkills({
+		root: f.root,
+		storeRoot: f.store,
+		left: pick(`package:${REVIEW}@1.0.0`),
+		right: pick(`package:${REVIEW}@2.0.0`),
+	}).aligned.find((file) => file.path === "support/icon.bin");
+	assert.deepEqual(binary, {
+		path: "support/icon.bin",
+		status: "added",
+		binary: true,
+		rows: null,
+	});
+});
+
+test("row buttons fill the compare sides and the side-by-side view shows whole files", async (t) => {
+	const f = fixture(t);
+	const app = await startVisualizer({ root: f.root, storeRoot: f.store });
+	t.after(() => new Promise((resolve) => app.server.close(resolve)));
+	const page = await browser(app.url);
+	await page.node("library-load").listeners.click();
+	page.node("library-search").value = "careful-review";
+	page.node("library-search").listeners.input();
+	const buttons = page.node("library-rows").children[0].children[5].children;
+	assert.deepEqual(
+		buttons.map((button) => button.textContent),
+		["Set as left", "Set as right"],
+	);
+	buttons[1].listeners.click();
+	assert.equal(page.node("compare-right").value, `package:${ALT}@1.0.0`);
+	assert.match(
+		page.text("library-status"),
+		/Compare right: @example\/careful-review@1\.0\.0/,
+	);
+	page.node("library-search").value = "security-review";
+	page.node("library-search").listeners.input();
+	// Rows are newest first: 2.0.0, then 1.0.0.
+	page
+		.node("library-rows")
+		.children[1].children[5].children[0].listeners.click();
+	assert.equal(page.node("compare-left").value, `package:${REVIEW}@1.0.0`);
+
+	await page.node("compare-run").listeners.click();
+	// The unified view shows changes only; the unchanged file is not listed.
+	assert.match(page.text("diff-files"), /changed · SKILL\.md/);
+	assert.doesNotMatch(page.text("diff-files"), /support\/note\.txt/);
+	page.node("compare-view").value = "side";
+	page.node("compare-view").listeners.change();
+	const side = page.text("diff-files");
+	// Side by side lists every file, unchanged ones and unchanged lines included.
+	assert.match(side, /same · support\/note\.txt/);
+	assert.match(side, /1\nnote 1\.0\.0\n1\nnote 1\.0\.0/);
+	assert.match(side, /4\nReview 1\.0\.0\n4\nReview 1\.0\.0/);
+	assert.match(side, /security-review skill[\s\S]*careful-review skill/);
+	// Switching back restores the unified view without another request.
+	page.node("compare-view").value = "unified";
+	page.node("compare-view").listeners.change();
+	assert.doesNotMatch(page.text("diff-files"), /support\/note\.txt/);
 });
