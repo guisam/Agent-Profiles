@@ -1,0 +1,4 @@
+interface:
+  display_name: "ap-status"
+  short_description: "Show loaded Agent Profiles skills and the bench"
+  default_prompt: "Use $ap-status to show my current role, loaded skill versions, and optional skills on the bench."

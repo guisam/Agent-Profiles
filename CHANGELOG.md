@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.25.0 — unreleased — skill catalog and comparison API (#119)
+## 0.26.0 — unreleased — skill catalog and comparison API (#119)
 
 - The visualizer adds read-only `api/skills` and `api/compare` endpoints. The
   catalog lists library skill packages by version with identity, digest, project
@@ -11,6 +11,29 @@
   untested, never as a recommendation.
 - The visualizer page itself is unchanged; the catalog and comparison UI follow.
   No YAML, lock or bootstrap migration. See `docs/visualize.md`.
+
+## 0.25.2 - unreleased - status-skill CI fixes
+
+- Update the protocol fixture for the installed status-skill files.
+- Isolate machine trust for both direct imports and subprocesses in package
+  smoke tests; restore exact visualizer/CLI comparison. No runtime migration.
+
+## 0.25.1 - unreleased - status guidance near the top of the README
+
+- Explain how to invoke ap-status in each agent session, including loaded
+  versions, optional skills on the bench and host/evidence limits.
+- Documentation only; no runtime or configuration migration.
+
+## 0.25.0 - unreleased - bundled ap-status skill
+
+- Ship a native ap-status skill and Codex UI metadata. Init installs it for
+  Codex and Claude Code independently of role bindings.
+- Report the last successful session resolution, required package versions and
+  optional skills on the bench without silently re-resolving or claiming execution.
+- Track installed files by digest. Refresh unchanged managed copies, reject
+  collisions before writes, and retain user edits during uninstall.
+- Upgrade the runtime and rerun init for your host; no YAML migration is needed.
+  See docs/ap-status.md for invocation and menu-verification limits.
 
 ## 0.24.1 � unreleased � refresh live files on demand
 

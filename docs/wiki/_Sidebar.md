@@ -14,6 +14,7 @@
 - [Superpowers role experiment](Superpowers-role-experiment)
 - [MCP service](https://github.com/guisam/Agent-Profiles/wiki/MCP-service)
 - [Live visualizer](Live-visualizer)
+- [Session skill status](Session-skill-status)
 - [Separate your skill workshop](Separate-your-skill-workshop)
 - [Skill library](https://github.com/guisam/Agent-Profiles/wiki/Skill-library)
 - [Use and share profiles](https://github.com/guisam/Agent-Profiles/wiki#use-and-share-profiles)

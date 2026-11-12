@@ -1,6 +1,6 @@
 # Versioning and upgrades
 
-## 0.25.0 — skill catalog and comparison API (unreleased)
+## 0.26.0 — skill catalog and comparison API (unreleased)
 
 The visualizer serves two new read-only endpoints under its session URL:
 `api/skills` lists library skill packages and project-local skills with their
@@ -11,6 +11,36 @@ untested. The browser page is unchanged in this version.
 No YAML, lock-format, store or bootstrap migration is needed. Upgrade the runtime
 that launches the visualizer and restart it to get the new endpoints. See
 [Live visualizer](Live-visualizer) and `docs/visualize.md` for selectors.
+
+## 0.25.2 - status-skill CI fixes (unreleased)
+
+Update the protocol installation fixture for the bundled skill files and isolate
+machine trust consistently in the package smoke test's CLI and in-process paths.
+This fixes test expectations and test isolation; runtime behavior is unchanged.
+No additional migration is needed. Use the newest runtime when published and
+follow the 0.25.0 status-skill installation instructions below.
+
+## 0.25.1 - prominent status instructions (unreleased)
+
+The README now introduces `ap-status` immediately after the project summary,
+with host-specific invocation and guidance to run it in the agent session being
+inspected. This documentation patch does not change runtime behavior or require
+a migration. Follow the 0.25.0 installation steps below using the newer runtime
+when published; neither version is implied to be available on npm yet.
+
+## 0.25.0 - bundled ap-status (unreleased)
+
+The implementation on `feat/bundled-ap-status` adds a native status skill for
+Codex and Claude Code. It reports the session's last successful resolution,
+required package versions and optional skills on the bench. It is not a live
+execution monitor and does not silently refresh the role.
+
+After upgrading the runtime to 0.25.0, rerun `init --agent codex` or
+`init --agent claude`. Preserve your MCP configuration. No YAML migration is
+needed. Before publication, use a built checkout or packed artifact rather than
+assuming 0.25.0 exists on npm. Unchanged managed skill files are upgraded;
+pre-existing or edited targets must be moved aside first. Uninstall retains edits.
+See [Session skill status](Session-skill-status) for paths and invocation.
 
 ## 0.24.0 — live adapter visualizer (unreleased)
 

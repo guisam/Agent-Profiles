@@ -3,6 +3,27 @@
 Different models need different instructions. Different roles need different
 skills. Agent Profiles resolves only the additional context each agent needs.
 
+## Check an agent's status
+
+In the agent session you want to inspect, use **ap-status** to see its last
+resolved host/model, profile and role, required skills with their loaded package
+versions, and optional skills still **on the bench**:
+
+- **Claude Code:** type `/ap-status`.
+- **Codex:** type `$ap-status`, or open `/skills` and select `ap-status`.
+- You can also ask that agent: **"Use ap-status to show your role, loaded skill
+  versions, and optional skills on the bench."**
+
+From **0.25.0 (unreleased)**, `init` installs this skill for Codex and Claude Code.
+After upgrading, rerun `init --agent codex` or `init --agent claude`; restart the
+host if it does not appear. For other hosts, explicitly provide the bundled
+`skills/ap-status/SKILL.md`; native menu installation is not yet supported.
+
+Run it in each agent's own session, including a subagent's session when accessible.
+It reports that session's available resolution evidence, not another agent's
+state or proof that instructions were followed. Missing history is reported as
+unknown. See [status setup and upgrade instructions](docs/ap-status.md).
+
 ## Ask your coding agent
 
 Copy this into your existing coding agent (including one used through a coding bench):

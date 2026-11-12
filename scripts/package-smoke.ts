@@ -22,6 +22,12 @@ for (const key of Object.keys(environment))
 	if (/^npm_config_/i.test(key)) delete environment[key];
 delete environment.NODE_OPTIONS;
 delete environment.AGENT_PROFILES_SKILL_SOURCES;
+// Both direct imports and subprocesses must ignore the operator's machine policy.
+const previousTrust = process.env.AGENT_PROFILES_TRUST;
+process.env.AGENT_PROFILES_TRUST = environment.AGENT_PROFILES_TRUST = path.join(
+	temporary,
+	"isolated-trust.yaml",
+);
 
 function run(command: Untyped, args: Untyped, cwd: Untyped, env = environment) {
 	const result = spawnSync(command, args, {
@@ -181,6 +187,9 @@ try {
 		"src/files.js",
 		"src/integrations.js",
 		"src/install.js",
+		"src/status-skill.js",
+		"skills/ap-status/SKILL.md",
+		"skills/ap-status/agents/openai.yaml",
 		"src/resolve.js",
 		"src/skills.js",
 		"src/discovery-diagnostics.js",
@@ -216,7 +225,7 @@ try {
 		assert.ok(files.has(file), `Missing package file: ${file}`);
 	for (const file of files) {
 		assert.ok(
-			/^(dist\/|docs\/|examples\/presets\/|\.agent-profiles\/|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(
+			/^(dist\/|docs\/|skills\/ap-status\/|examples\/presets\/|\.agent-profiles\/|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$|CONTRIBUTING\.md$)/.test(
 				file,
 			),
 			`Unexpected package file: ${file}`,
@@ -483,6 +492,13 @@ try {
 			"hermes",
 		);
 		const afterApproval = snapshot(root);
+		for (const directory of [".agents", ".claude"])
+			assert.deepEqual(
+				fs.readFileSync(
+					path.join(root, directory, "skills/ap-status/SKILL.md"),
+				),
+				fs.readFileSync(path.join(installed, "skills/ap-status/SKILL.md")),
+			);
 		assert.equal(
 			fs
 				.readFileSync(path.join(root, "AGENTS.md"), "utf8")
@@ -644,8 +660,10 @@ try {
 			"release-reviewer",
 			"Review releases.",
 			"",
+			"/code-review",
 			"1",
 			"",
+			"/testing",
 			"1",
 			"",
 			"y",
@@ -693,7 +711,9 @@ try {
 		cli("uninstall", "--root", root);
 		assert.deepEqual(
 			snapshot(path.join(root, ".agent-profiles")),
-			customized.filter(([file]) => file !== "permissions.json"),
+			customized.filter(
+				([file]) => file !== "permissions.json" && file !== "status-skill.json",
+			),
 		);
 		for (const [file, content] of Object.entries(originals))
 			assert.deepEqual(fs.readFileSync(path.join(root, file)), content);
@@ -2894,6 +2914,8 @@ try {
 		`Verified ${artifact.name}@${artifact.version}: ${files.size} package files, ${artifact.size} bytes compressed.`,
 	);
 } finally {
+	if (previousTrust === undefined) delete process.env.AGENT_PROFILES_TRUST;
+	else process.env.AGENT_PROFILES_TRUST = previousTrust;
 	// Only remove the exact temporary directory created by this script.
 	assert.equal(path.dirname(temporary), path.resolve(os.tmpdir()));
 	assert.ok(path.basename(temporary).startsWith("agent-profiles-package-"));
