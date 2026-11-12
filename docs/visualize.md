@@ -115,6 +115,7 @@ server stay read-only.
 - **Add to configuration** adds a model (with its profile), a family (with its
   profile and optional prefixes) or a role (with a starter instruction file under
   `.agent-profiles/roles/`). Hosts are built into Agent Profiles and cannot be added.
+  When the panel is open, it explains the selected kind and each of its fields.
 
 Each edit is written to the layer that owns it. Without an adapter, that is the
 project's `agents.yaml`. With an adapter:

@@ -443,6 +443,17 @@ test("the page adds and removes role skills when edits are enabled", async (t) =
 	await button("required", "Remove testing from reviewer").listeners.click();
 	assert.deepEqual(lists(f.root, "reviewer"), [["security-review"], []]);
 
+	// The help explains the chosen kind and each of its fields.
+	for (const [kind, pattern, absent] of [
+		["family", /Prefixes[\s\S]*longest matching prefix wins/, /Description/],
+		["role", /Description[\s\S]*roles\/<ID>\.md/, /Prefixes/],
+		["model", /exact model ID[\s\S]*Profile/, /Prefixes/],
+	]) {
+		page.node("add-kind").value = kind;
+		page.node("add-kind").listeners.change();
+		assert.match(page.text("add-help"), pattern);
+		assert.doesNotMatch(page.text("add-help"), absent);
+	}
 	page.node("add-kind").value = "model";
 	page.node("add-id").value = "page-model";
 	page.node("add-profile").value = "base";

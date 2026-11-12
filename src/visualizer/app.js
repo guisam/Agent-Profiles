@@ -867,10 +867,76 @@ async function compareSkills() {
 }
 
 // Add a model, family or role, then select it so its resolution is shown.
+// What each kind adds, and what each of its fields means.
+const addHelp = {
+	model: {
+		intro:
+			"A model entry gives one exact model ID its own profile. When an agent resolves with this ID, it gets that profile's instructions, before any family fallback is tried.",
+		placeholder: "claude-opus-5-5",
+		fields: [
+			[
+				"ID",
+				"The exact model ID your host reports, such as claude-opus-5-5 or gpt-6.1-sol. It must match exactly and cannot contain spaces.",
+			],
+			[
+				"Profile",
+				"The model profile this model uses: the per-model instruction layer listed under profiles.",
+			],
+		],
+	},
+	family: {
+		intro:
+			"A family gives a group of related models one profile. It applies only to models without their own exact entry: when the family is chosen as Family fallback, or when a model ID starts with one of its prefixes.",
+		placeholder: "claude-opus",
+		fields: [
+			[
+				"ID",
+				"A short name for the family: lowercase letters, digits and hyphens, such as claude-opus.",
+			],
+			["Profile", "The model profile every model in this family uses."],
+			[
+				"Prefixes",
+				"Optional. Comma-separated starts of model IDs that belong to the family, such as claude-opus-. A model whose ID starts with one is routed here automatically; the longest matching prefix wins. Leave it empty to use the family only when it is chosen explicitly.",
+			],
+		],
+	},
+	role: {
+		intro:
+			"A role is the job an agent does, such as implementer or reviewer. It adds its own instructions and decides which skills are required (always loaded) and which are on demand. A new role starts with no skills; add them from the skill library.",
+		placeholder: "security-reviewer",
+		fields: [
+			[
+				"ID",
+				"The role name agents and the Role selector use: lowercase letters, digits and hyphens.",
+			],
+			[
+				"Description",
+				"Optional. The first text of the new instruction file, .agent-profiles/roles/<ID>.md. Edit that file afterwards to write the full role instructions.",
+			],
+		],
+	},
+};
+
 function showAddFields() {
-	byId("add-profile-label").hidden = addKind.value === "role";
-	byId("add-prefixes-label").hidden = addKind.value !== "family";
-	byId("add-description-label").hidden = addKind.value !== "role";
+	const kind = /** @type {"model" | "family" | "role"} */ (
+		addKind.value in addHelp ? addKind.value : "model"
+	);
+	byId("add-profile-label").hidden = kind === "role";
+	byId("add-prefixes-label").hidden = kind !== "family";
+	byId("add-description-label").hidden = kind !== "role";
+	addId.placeholder = addHelp[kind].placeholder;
+	const list = element("dl");
+	for (const [field, text] of addHelp[kind].fields)
+		list.append(element("dt", field), element("dd", text));
+	byId("add-help").replaceChildren(
+		element("p", addHelp[kind].intro),
+		list,
+		element(
+			"p",
+			"Select Add to write it. Models and families go to the project agents.yaml, and locks are refreshed. Hosts are built into Agent Profiles and cannot be added.",
+			"muted",
+		),
+	);
 }
 addKind.addEventListener("change", showAddFields);
 showAddFields();

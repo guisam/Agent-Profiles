@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.28.2 — unreleased — instructions in the Add to configuration panel (#119)
+
+- The open panel explains what the selected kind (model, family or role) adds and
+  what each of its fields means, with example placeholders. No migration.
+
 ## 0.28.1 — unreleased — confirm removals, move role skills (#119)
 
 - In edit mode, **Remove** asks for confirmation, naming the skill and role, and

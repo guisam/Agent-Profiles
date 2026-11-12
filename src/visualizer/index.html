@@ -21,15 +21,15 @@
     </form>
     <details id="edit-panel" class="edit-panel" hidden>
       <summary>Add to configuration</summary>
+      <div id="add-help" class="add-help" aria-live="polite"></div>
       <form id="add-form" class="selectors" aria-label="Add a model, family or role">
         <label title="What to add. Hosts are built into Agent Profiles and cannot be added.">Kind<select id="add-kind"><option value="model">Model</option><option value="family">Family</option><option value="role">Role</option></select></label>
-        <label>ID<input id="add-id" type="text" autocomplete="off" spellcheck="false"></label>
+        <label>ID<input id="add-id" type="text" autocomplete="off" spellcheck="false" aria-describedby="add-help"></label>
         <label id="add-profile-label" title="The model profile this model or family uses.">Profile<select id="add-profile"></select></label>
-        <label id="add-prefixes-label" title="Optional. Comma-separated model ID prefixes this family matches, such as claude-opus-.">Prefixes<input id="add-prefixes" type="text" autocomplete="off" spellcheck="false"></label>
-        <label id="add-description-label" title="Optional. Starter text for the new role instruction file.">Description<input id="add-description" type="text" autocomplete="off"></label>
+        <label id="add-prefixes-label" title="Optional. Comma-separated model ID prefixes this family matches, such as claude-opus-.">Prefixes<input id="add-prefixes" type="text" autocomplete="off" spellcheck="false" placeholder="claude-opus-, claude-opus" aria-describedby="add-help"></label>
+        <label id="add-description-label" title="Optional. Starter text for the new role instruction file.">Description<input id="add-description" type="text" autocomplete="off" placeholder="Reviews pull requests for security issues" aria-describedby="add-help"></label>
         <button type="button" id="add-run">Add</button>
       </form>
-      <p class="muted">Models and families are written to the project agents.yaml. New roles get a starter file under .agent-profiles/roles/. Locks are refreshed after each edit.</p>
     </details>
     <p id="status" role="status" aria-live="polite">Loading configuration…</p>
     <p id="notice" role="status" aria-live="polite" hidden></p>
