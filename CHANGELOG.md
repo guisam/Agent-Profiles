@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.24.1 � unreleased � refresh live files on demand
+
+- Remove visualizer background polling. **Refresh files** rereads the composed
+  project and adapter while retaining valid selections and surfacing errors.
+- After fixing configuration, locks or approvals, click Refresh files again.
+  Host selection and direct adapter support remain unchanged. No migration needed.
+
+## 0.24.0 — unreleased — live project adapters in the visualizer
+
+- Open adapter-backed projects directly with `visualize --root <project>`.
+  Composed pickers include adapter roles and exact assignment model IDs without
+  changing profile routing. `--host` and the host selector preview host predicates.
+- Automatically reread live configuration, instructions, locks and approvals,
+  debounce related writes, retain valid selections and report removed choices.
+  Errors hide old results and recover after repair; Refresh files remains available.
+- Show package revisions and trust-withheld errors. Keep the visualizer read-only,
+  with existing loopback, same-origin and token protections.
+- No YAML or bootstrap migration. Build/use the new checkout runtime or upgrade
+  the installed runtime separately; preserve `AGENT_PROFILES_TRUST`. Running agents
+  still need to resolve again. See `docs/visualize.md`.
+
 ## 0.23.10 — unreleased — reconcile the wiki source with the live wiki
 
 - `docs/wiki/` now holds every live wiki page. Nine pages that existed only on

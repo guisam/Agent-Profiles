@@ -13,12 +13,14 @@
     <div class="intro"><p class="eyebrow">CONTEXT EXPLORER</p><h1>A clear view of every layer.</h1>
       <p>Explore what your agent receives. Model profiles and roles compose independently; skills load when needed.</p></div>
     <form id="selectors" class="selectors" aria-label="Resolution selection">
+      <label>Host<select id="host" name="host"></select></label>
       <label>Model<select id="model" name="model"></select></label>
       <label>Family fallback<select id="family" name="family"></select></label>
       <label>Role<select id="role" name="role"></select></label>
       <button type="button" id="refresh">Refresh files</button>
     </form>
     <p id="status" role="status" aria-live="polite">Loading configuration…</p>
+    <p id="notice" role="status" aria-live="polite" hidden></p>
     <div id="error" role="alert" hidden></div>
     <div id="view" hidden>
       <section class="metrics" aria-label="Context totals">

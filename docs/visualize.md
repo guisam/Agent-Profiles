@@ -4,7 +4,7 @@ From a checkout with dependencies installed:
 
 ```sh
 node bin/agent-profiles.ts visualize --root /path/to/project
-node bin/agent-profiles.ts visualize --model example-model --role reviewer --skill testing
+node bin/agent-profiles.ts visualize --host codex --model example-model --role reviewer --skill testing
 ```
 
 The installed CLI exposes the same command as `agent-profiles visualize`.
@@ -16,7 +16,12 @@ Root discovery matches the other CLI commands: nearest Git root, or `--root`.
 
 ## Explore a resolution
 
-- **Model** lists configured exact model IDs. The unspecified choice exercises
+- **Host** lists the resolver's supported host IDs, including `codex` and `claude`.
+  It starts unspecified unless `--host` is supplied. Changing only the host
+  re-resolves host-qualified assignments without changing the model or role.
+- **Model** lists configured model IDs and aliases, plus exact IDs named by adapter
+  assignments. These extra choices do not declare models or change profile-routing
+  provenance. The unspecified choice exercises
   fallback routing. An explicit CLI `--model` is also selectable, even if it is
   not configured.
 - **Family fallback** is supplied independently. Routing follows the resolver:
@@ -37,26 +42,60 @@ Root discovery matches the other CLI commands: nearest Git root, or `--root`.
 - **Pin for comparison** keeps one resolution in memory and compares its category
   byte totals with the current selection. Pin again to replace it, or clear it.
 
-The visualizer resolves without a host, so host-skill usability is shown as unknown
-and no requirement is marked unsatisfied; use `proof --host <id>` for that view.
+An unspecified host leaves host-skill usability unknown. Selecting a host previews
+that host's resolution; it does not attest to instructions delivered to an agent.
 
 Selections and pins belong to the current page session; they are not saved to
 disk or browser storage. Reloading the page returns to the launch selections.
-**Refresh files** rereads the configuration and resets temporary requests. Every
-resolution reads current instruction files. A pinned result remains a snapshot,
-so refreshing after edits can compare an earlier result with current content.
-This is not an atomic filesystem snapshot: avoid editing files mid-resolution.
+Click **Refresh files** after editing configuration or instructions. It rereads
+project and adapter configuration, the adapter reference, instruction resources,
+locks, trust policy and approvals through the existing resolver. It retains valid
+host, model, family, role and optional skill selections at the same URL.
+There is no background polling or file watching. Changing a selector also resolves
+its current selection on demand.
 
-Invalid configuration, missing references, and requests unavailable to a role
-produce an error instead of fabricated counts. Fix the files and refresh, or
-choose a valid selection. The server validates before starting as well.
+Removed choices produce a notice: host/model/family fall back to unspecified,
+role falls back to the current default, and unavailable optional requests are
+removed. A pinned result remains explicitly a snapshot for comparison.
+Individual filesystem reads are not an atomic snapshot across files.
+
+Invalid configuration, missing adapters, stale or invalid locks, and trust or
+approval failures hide the previous result and show an error. This includes the
+resolver's `withheld` skills: the browser does not present partial instructions as
+a successful current result. After repair, click **Refresh files** again to recover at the same URL.
+The server also validates before starting; a startup error must be fixed before
+launch. It never installs packages, signs approvals or regenerates locks.
+
+## Open a project with an external adapter
+
+Since 0.24.0, point `--root` at the real project containing
+`.agent-profiles/agents.local.yaml`. The visualizer uses the supported composed
+configuration and resolver, including adapter-owned role files and locks. No
+snapshot helper, copied configuration or stripped host predicates are needed.
+
+On Windows, to test a source checkout instead of an older workbench installation:
+
+```powershell
+npm run build
+node C:\workspace\Agent-Profiles\dist\bin\agent-profiles.js visualize --root C:\workspace\Agent-Profiles --host codex --model gpt-6.1-sol --role sp-implementer
+```
+
+Run with the same `AGENT_PROFILES_TRUST` value as the CLI/MCP process you are
+comparing. Preserve that policy and signing settings. Building this checkout
+does not upgrade a package installed in another workspace. Stop the old snapshot
+server and launch the new runtime once; subsequent edits need only **Refresh files**.
+Version 0.24.1 requires no YAML, lock-format or bootstrap migration. Until a package
+is published, use the built checkout or a locally packed artifact.
+
+This updates only the visualizer. Already-running agents must resolve Agent
+Profiles again to receive changed instructions.
 
 ## Package-aware selections
 
 Pass `--store <directory>` at launch, or `storeRoot` to `startVisualizer`. The server
 keeps this operational context through initial validation and later resolutions;
 HTTP queries cannot override it. Package-backed profile/role/skill rows show typed
-identity/version/digest/provenance instead of a fictitious repository file path.
+identity/version/digest/revision/provenance instead of a fictitious repository file path.
 A package's verified bytes do not establish native invocation. Required public
 resolution still refuses missing/stale/invalid package locks or backing; fix them
 through separately approved dependency operations, not this read-only view.
@@ -107,18 +146,19 @@ Under the printed session URL:
 
 | GET endpoint | Response |
 | --- | --- |
-| `api/config` | Validated `models`, `families`, `roles` arrays and initial selection |
-| `api/resolve?model=example-model&role=reviewer&skill=testing` | Existing resolver result, including loaded contents and diagnostics |
+| `api/config` | Composed `hosts`, `models`, `families`, `roles`, per-role `optionalSkills`, `defaultRole` and initial selection; required lock preflight |
+| `api/resolve?host=codex&model=example-model&role=reviewer&skill=testing` | Existing resolver result, including loaded contents and diagnostics |
 
-`model`, `family`, and `role` are optional single values; repeat `skill` to request
+`host`, `model`, `family`, and `role` are optional single values; repeat `skill` to request
 multiple skills. Omission invokes the resolver's usual defaults. Invalid input
 returns HTTP 400 with `{ "error": "..." }`. The endpoint does not accept filesystem
 paths or another repository root. Non-GET methods are rejected. No CORS access is
 granted. External applications can consume the core resolver directly without
 starting a server or knowing the YAML format.
 
-Configuration reading/validation uses `readConfiguration`; selection and accounting
-use `resolveInstructions`. There is no second YAML parser, routing engine, or size
+Configuration enumeration uses `validateConfiguration` from disk; preflight,
+selection and accounting use `resolveInstructions` from disk, preserving composition.
+There is no second YAML parser, routing engine, or size
 calculator in the browser. Imported preset roles work as ordinary roles. Inspecting
 unimported presets, editing, hosted dashboards, execution, benchmarking, and token
 estimation are outside this first visualizer.

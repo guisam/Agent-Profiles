@@ -32,6 +32,7 @@ import { configureRoles, display as displayText } from "../src/wizard.ts";
 // #98: stamps capture the composed configuration; inspect lists the adapter's files;
 // session records name the configuration they ran.
 const ADAPTER_COMMANDS = [
+	"visualize",
 	"resolve",
 	"install",
 	"doctor",
@@ -416,7 +417,7 @@ Setup inventory (works before init, including an empty/non-Git --root):
   inspect [--json] [--external] [--sources <approved-roots-json>]
 
 Visualizer:
-  visualize [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...]
+  visualize [--host <id>] [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...]
             [--port <0-65535>]  (default: an available local port)
 
 Presets:
@@ -880,10 +881,10 @@ Examples:
 			);
 		if (
 			values.host !== undefined &&
-			!["resolve", "proof", "stamp", "migrate"].includes(command)
+			!["resolve", "proof", "stamp", "migrate", "visualize"].includes(command)
 		)
 			throw new Error(
-				"--host is only supported by resolve, proof, stamp, or migrate start",
+				"--host is only supported by resolve, proof, visualize, stamp, or migrate start",
 			);
 		if (
 			values["identity-source"] !== undefined &&
@@ -1247,6 +1248,7 @@ Examples:
 		} else if (command === "visualize") {
 			const { server, url } = await startVisualizer({
 				root,
+				host: values.host,
 				storeRoot,
 				port: values.port === undefined ? 0 : Number(values.port),
 				model: values.model,
