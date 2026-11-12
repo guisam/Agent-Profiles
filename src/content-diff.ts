@@ -11,7 +11,7 @@ export type FileDiff = {
 };
 
 const decoder = new TextDecoder("utf-8", { fatal: true });
-function text(bytes: Buffer): string | null {
+export function text(bytes: Buffer): string | null {
 	if (bytes.includes(0)) return null;
 	try {
 		return decoder.decode(bytes);

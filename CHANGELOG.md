@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.26.0 — unreleased — skill catalog and comparison API (#119)
+
+- The visualizer adds read-only `api/skills` and `api/compare` endpoints. The
+  catalog lists library skill packages by version with identity, digest, project
+  pins and the roles that require or offer them, plus project-local skills.
+- Compare any two skills: two versions of one package, differently named packages
+  or a project-local skill. Supporting and binary files are shown, not only
+  `SKILL.md`. A missing version, digest or evaluation is reported as unknown or
+  untested, never as a recommendation.
+- The visualizer page itself is unchanged; the catalog and comparison UI follow.
+  No YAML, lock or bootstrap migration. See `docs/visualize.md`.
+
 ## 0.25.2 - unreleased - status-skill CI fixes
 
 - Update the protocol fixture for the installed status-skill files.

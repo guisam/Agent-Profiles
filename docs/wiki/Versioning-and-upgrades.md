@@ -1,5 +1,17 @@
 # Versioning and upgrades
 
+## 0.26.0 — skill catalog and comparison API (unreleased)
+
+The visualizer serves two new read-only endpoints under its session URL:
+`api/skills` lists library skill packages and project-local skills with their
+role usage, and `api/compare?left=…&right=…` compares any two of them file by
+file. Missing versions, digests and evaluation evidence are shown as unknown or
+untested. The browser page is unchanged in this version.
+
+No YAML, lock-format, store or bootstrap migration is needed. Upgrade the runtime
+that launches the visualizer and restart it to get the new endpoints. See
+[Live visualizer](Live-visualizer) and `docs/visualize.md` for selectors.
+
 ## 0.25.2 - status-skill CI fixes (unreleased)
 
 Update the protocol installation fixture for the bundled skill files and isolate

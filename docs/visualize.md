@@ -148,6 +148,16 @@ Under the printed session URL:
 | --- | --- |
 | `api/config` | Composed `hosts`, `models`, `families`, `roles`, per-role `optionalSkills`, `defaultRole` and initial selection; required lock preflight |
 | `api/resolve?host=codex&model=example-model&role=reviewer&skill=testing` | Existing resolver result, including loaded contents and diagnostics |
+| `api/skills` | Skill catalog: library skill packages per version (source, SHA-256, revision digest, description, project pin bindings, roles listing the bound skill as required or available, evidence row count) and discovered project-local skills (`version: null`) with role usage |
+| `api/compare?left=package:@example/review@1.0.0&right=local:.agent-profiles/skills/testing/SKILL.md` | Side-by-side comparison of two skills: identity, digest, metadata, usage, evidence (`untested` when no rows exist), each file's size, SHA-256 and binary flag, and a unified diff per changed text file (`diff: null` for binary files) |
+
+Selectors are `package:<name>@<version>` for a verified library version and
+`local:<repository path>` for a discovered project-local skill. A local selector
+must name a skill that discovery found; it cannot read other repository files.
+Local skills compare their `SKILL.md` and declared resources, with paths relative
+to the skill directory. Comparison does not change configuration, pins, locks or
+skill contents. External user or plugin skill roots are not included in this
+catalog yet.
 
 `host`, `model`, `family`, and `role` are optional single values; repeat `skill` to request
 multiple skills. Omission invokes the resolver's usual defaults. Invalid input

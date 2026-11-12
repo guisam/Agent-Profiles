@@ -38,7 +38,7 @@ import { releasedPackage } from "./revisions.ts";
 import { createStamp } from "./stamps.ts";
 
 // The verified files of one version: a promoted release (label only) or an imported package.
-function versionFiles(
+export function versionFiles(
 	storeRoot: string | undefined,
 	name: string,
 	version: string,

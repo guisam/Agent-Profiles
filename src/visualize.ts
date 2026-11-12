@@ -5,6 +5,11 @@ import { resolutionOutput } from "./diagnostics.ts";
 import { errorMessage } from "./files.ts";
 import { integrations } from "./integrations.ts";
 import { resolveInstructions, validateConfiguration } from "./resolve.ts";
+import {
+	compareSkills,
+	parseSkillSelector,
+	skillCatalog,
+} from "./skill-catalog.ts";
 
 // Only these package assets are served; repository paths never become HTTP paths.
 const assets = new Map<string, [string, string]>([
@@ -139,6 +144,23 @@ export async function startVisualizer({
 						true,
 					),
 				);
+			} else if (route === "api/skills") {
+				if ([...url.searchParams.keys()].length)
+					throw new Error("api/skills takes no parameters");
+				resolveInstructions({ root, storeRoot });
+				send(200, skillCatalog({ root, storeRoot }));
+			} else if (route === "api/compare") {
+				for (const key of url.searchParams.keys())
+					if (!["left", "right"].includes(key))
+						throw new Error(`Unknown parameter: ${key}`);
+				const [left, right] = ["left", "right"].map((key) => {
+					const values = url.searchParams.getAll(key);
+					if (values.length !== 1)
+						throw new Error(`Expected exactly one ${key} skill`);
+					return parseSkillSelector(values[0]);
+				});
+				resolveInstructions({ root, storeRoot });
+				send(200, compareSkills({ root, storeRoot, left, right }));
 			} else send(404, { error: "Not found" });
 		} catch (error) {
 			send(400, { error: errorMessage(error) });
