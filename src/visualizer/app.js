@@ -19,10 +19,6 @@ let requestNumber = 0;
 /** @type {Set<string>} */
 let requested = new Set();
 let initialized = false;
-let refreshing = false;
-let lastSnapshot = "";
-let pendingSnapshot = "";
-let disconnected = false;
 // Explicit launch values may deliberately exercise fallback routing.
 /** @type {Record<string, string>} */
 const launchFallbacks = {};
@@ -47,8 +43,6 @@ async function get(endpoint) {
 	try {
 		response = await fetch(endpoint, { cache: "no-store" });
 	} catch {
-		disconnected = true;
-		page?.clearTimeout(timer);
 		throw new Error(
 			"The visualizer server is unavailable. Restart it if needed, then use Refresh files to reconnect.",
 		);
@@ -294,15 +288,12 @@ function render(result) {
 function failure(error) {
 	current = undefined;
 	pin.disabled = true;
-	lastSnapshot = "";
-	pendingSnapshot = "";
 	byId("error").textContent =
 		error instanceof Error ? error.message : String(error);
 	byId("error").hidden = false;
 	byId("view").hidden = true;
-	byId("status").textContent = disconnected
-		? "Unable to resolve. Connection lost; automatic checks stopped. Use Refresh files to reconnect."
-		: "Unable to resolve. Fix the configuration or change the selection. Retrying automatically; Refresh files also retries.";
+	byId("status").textContent =
+		"Unable to resolve. Fix the configuration or change the selection, then use Refresh files to retry.";
 }
 
 /** @param {string} [focusId] */
@@ -340,14 +331,11 @@ async function update(focusId) {
 	}
 }
 
-async function initialize(first = false, automatic = false) {
-	if (automatic && refreshing) return;
+async function initialize(first = false) {
 	const number = ++requestNumber;
-	refreshing = true;
 	const refresh = /** @type {HTMLButtonElement} */ (byId("refresh"));
-	if (!automatic)
-		for (const control of [host, model, family, role, refresh])
-			control.disabled = true;
+	for (const control of [host, model, family, role, refresh])
+		control.disabled = true;
 	try {
 		const data = await get("api/config");
 		if (number !== requestNumber) return;
@@ -401,24 +389,6 @@ async function initialize(first = false, automatic = false) {
 		for (const skill of nextRequested) query.append("skill", skill);
 		const result = await get(`api/resolve?${query}`);
 		if (number !== requestNumber) return;
-		const snapshot = JSON.stringify([data, result]);
-		if (automatic && snapshot === lastSnapshot && !byId("view").hidden) {
-			pendingSnapshot = "";
-			return;
-		}
-		// Two consecutive equal samples coalesce editor saves and lock updates.
-		// Never label the previous successful result as current while verifying changes.
-		if (automatic && snapshot !== pendingSnapshot) {
-			pendingSnapshot = snapshot;
-			byId("view").hidden = true;
-			pin.disabled = true;
-			if (byId("error").hidden)
-				byId("status").textContent =
-					"Files changed; checking for a stable resolution…";
-			return;
-		}
-		lastSnapshot = snapshot;
-		pendingSnapshot = "";
 		initialized = true;
 		options(host, data.hosts ?? [], "Unspecified host", selection.host);
 		options(
@@ -430,20 +400,17 @@ async function initialize(first = false, automatic = false) {
 		options(family, data.families, "No family fallback", selection.family);
 		options(role, data.roles, null, selection.role);
 		requested = nextRequested;
-		if (notices.length || !automatic) {
-			byId("notice").textContent = notices.join(" ");
-			byId("notice").hidden = !notices.length;
-		}
+		byId("notice").textContent = notices.join(" ");
+		byId("notice").hidden = !notices.length;
 		render(result);
 		byId("view").hidden = false;
 		byId("error").hidden = true;
 		pin.disabled = false;
 		byId("status").textContent =
-			`Resolved ${result.role} / ${result.profile}. Live files checked automatically. Temporary skill selections do not change files.`;
+			`Resolved ${result.role} / ${result.profile}. Use Refresh files after editing configuration or instructions. Temporary skill selections do not change files.`;
 	} catch (error) {
 		if (number === requestNumber) failure(error);
 	} finally {
-		refreshing = false;
 		if (number === requestNumber)
 			for (const control of [host, model, family, role, refresh])
 				control.disabled = false;
@@ -458,12 +425,7 @@ role.addEventListener("change", () => {
 	requested.clear();
 	update();
 });
-byId("refresh").addEventListener("click", async () => {
-	const reconnect = disconnected;
-	disconnected = false;
-	await initialize();
-	if (reconnect) schedule();
-});
+byId("refresh").addEventListener("click", () => initialize());
 pin.addEventListener("click", () => {
 	pinned = current;
 	compare();
@@ -472,30 +434,4 @@ byId("clear").addEventListener("click", () => {
 	pinned = undefined;
 	compare();
 });
-// Polling reuses the resolver's dependency reads (including trust and approvals),
-// so atomic replacement and a changed adapter reference need no watcher rebinding.
-const page = document.defaultView;
-let stopped = false;
-/** @type {number | undefined} */
-let timer;
-async function poll() {
-	if (stopped) return;
-	await initialize(false, true);
-	schedule();
-}
-function schedule() {
-	page?.clearTimeout(timer);
-	if (!stopped && !disconnected) timer = page?.setTimeout(poll, 1000);
-}
-page?.addEventListener("pagehide", () => {
-	stopped = true;
-	++requestNumber;
-	page.clearTimeout(timer);
-});
-page?.addEventListener("pageshow", () => {
-	if (stopped) {
-		stopped = false;
-		schedule();
-	}
-});
-initialize(true).then(schedule);
+initialize(true);

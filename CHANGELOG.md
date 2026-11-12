@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.24.1 — unreleased — refresh live files on demand
+
+- Remove visualizer background polling. **Refresh files** rereads the composed
+  project and adapter while retaining valid selections and surfacing errors.
+- After fixing configuration, locks or approvals, click Refresh files again.
+  Host selection and direct adapter support remain unchanged. No migration needed.
+
 ## 0.24.0 â€” unreleased â€” live project adapters in the visualizer
 
 - Open adapter-backed projects directly with `visualize --root <project>`.

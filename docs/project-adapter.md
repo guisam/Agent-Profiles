@@ -113,9 +113,9 @@ Commands that compose the adapter: `resolve`, `install`, `doctor`, `notice`,
 Since 0.24.0, `visualize --root <project>` also opens the composed project directly.
 Its host selector preserves host-qualified assignments, and its model choices
 include exact adapter assignment IDs without changing routing declarations.
-The browser automatically refreshes live files, preserves valid selections and
-surfaces lock, configuration and trust failures until repaired. **Refresh files**
-is the manual fallback. No snapshot helper is needed; see the
+Click **Refresh files** to reread live files while preserving valid selections.
+Lock, configuration and trust failures are shown until repaired and refreshed.
+Since 0.24.1 there is no background polling. No snapshot helper is needed; see the
 [visualizer guide](visualize.md) for runtime upgrade and trust-policy instructions.
 
 Every other command refuses while an adapter is configured. This includes

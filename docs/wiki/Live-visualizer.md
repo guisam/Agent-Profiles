@@ -1,6 +1,6 @@
 # Live visualizer
 
-Version 0.24.0 (unreleased) opens a project with an external adapter directly:
+Version 0.24.1 (unreleased) opens a project with an external adapter directly:
 
 ```powershell
 agent-profiles visualize --root C:\workspace\Agent-Profiles --host codex --model gpt-6.1-sol --role sp-implementer
@@ -18,18 +18,18 @@ The package rows show identity, version, digest, revision when pinned, content a
 UTF-8 byte counts from the resolver. No snapshot preparation or predicate removal
 is needed.
 
-The page polls its existing read-only endpoints after each one-second pause.
-Two matching changed samples debounce saves; valid host, model, family, role and
-optional skill selections survive. Removed choices show a notice and use an
-unspecified selector or the current default role; removed optional requests clear.
-Refresh files rereads immediately. The browser URL stays the same.
+Click **Refresh files** after editing files. It reads the real project and adapter
+on demand, retaining valid host, model, family, role and optional skill selections.
+Removed choices show a notice and use an unspecified selector or the current
+default role; unavailable optional requests clear. The browser URL stays the same.
+There is no background polling or file watching.
 
 Project and adapter configuration, adapter references, instruction resources,
 locks, trust policy and approvals are reread through the resolver. Malformed YAML,
 missing adapters, stale locks and trust-withheld instructions hide old results and
-show the reason. Repair files through the normal separate workflows; the page
-recovers automatically. Startup validation errors must be fixed before launch.
-If the server stops, polling stops; Refresh files reconnects after restart if that
+show the reason. Repair files through the normal separate workflows, then click
+**Refresh files** again. Startup validation errors must be fixed before launch.
+If the connection fails, Refresh files retries when that
 same session URL is still available. A newly launched process prints a new URL.
 
 The visualizer stays read-only: it never installs, signs, regenerates locks or

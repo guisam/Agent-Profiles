@@ -47,19 +47,13 @@ that host's resolution; it does not attest to instructions delivered to an agent
 
 Selections and pins belong to the current page session; they are not saved to
 disk or browser storage. Reloading the page returns to the launch selections.
-The page polls the read-only configuration and resolution endpoints one second
-after each completed check. Two matching changed samples debounce related writes;
-updates normally appear within a few seconds. Unchanged results are not redrawn.
-Polling covers project and adapter configuration, the adapter reference,
-instruction files and declared resources, locks, trust policy and approvals through
-the existing resolver reads. Atomic file replacement works without watcher rebinding.
-There are no server watchers or background timers. Page refresh timers stop when
-the page closes and resume if browser history restores it.
-If the server becomes unreachable, polling stops and the page reports the lost
-connection. **Refresh files** retries the connection and resumes polling.
+Click **Refresh files** after editing configuration or instructions. It rereads
+project and adapter configuration, the adapter reference, instruction resources,
+locks, trust policy and approvals through the existing resolver. It retains valid
+host, model, family, role and optional skill selections at the same URL.
+There is no background polling or file watching. Changing a selector also resolves
+its current selection on demand.
 
-**Refresh files** remains an immediate manual fallback. Both refresh paths retain
-valid host, model, family, role and optional skill selections at the same URL.
 Removed choices produce a notice: host/model/family fall back to unspecified,
 role falls back to the current default, and unavailable optional requests are
 removed. A pinned result remains explicitly a snapshot for comparison.
@@ -68,7 +62,7 @@ Individual filesystem reads are not an atomic snapshot across files.
 Invalid configuration, missing adapters, stale or invalid locks, and trust or
 approval failures hide the previous result and show an error. This includes the
 resolver's `withheld` skills: the browser does not present partial instructions as
-a successful current result. After repair, the same page recovers automatically.
+a successful current result. After repair, click **Refresh files** again to recover at the same URL.
 The server also validates before starting; a startup error must be fixed before
 launch. It never installs packages, signs approvals or regenerates locks.
 
@@ -89,8 +83,8 @@ node C:\workspace\Agent-Profiles\dist\bin\agent-profiles.js visualize --root C:\
 Run with the same `AGENT_PROFILES_TRUST` value as the CLI/MCP process you are
 comparing. Preserve that policy and signing settings. Building this checkout
 does not upgrade a package installed in another workspace. Stop the old snapshot
-server and launch the new runtime once; subsequent edits need no restart.
-Version 0.24.0 requires no YAML, lock-format or bootstrap migration. Until a package
+server and launch the new runtime once; subsequent edits need only **Refresh files**.
+Version 0.24.1 requires no YAML, lock-format or bootstrap migration. Until a package
 is published, use the built checkout or a locally packed artifact.
 
 This updates only the visualizer. Already-running agents must resolve Agent

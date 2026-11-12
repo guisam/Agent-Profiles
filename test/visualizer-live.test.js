@@ -252,16 +252,18 @@ async function browser(url) {
 		timers,
 		events,
 		text: (id) => texts(document.getElementById(id)),
-		async tick() {
-			assert.ok(timers.size, "automatic refresh must schedule another read");
-			const [id, fn] = timers.entries().next().value;
-			timers.delete(id);
-			await fn();
+		async refresh() {
+			await nodes.get("refresh").listeners.click();
+			assert.equal(
+				timers.size,
+				0,
+				"manual refresh must not start background polling",
+			);
 		},
 	};
 }
 
-test("browser polls live files, preserves selections, debounces writes, surfaces errors and recovers", async (t) => {
+test("Refresh files reads live sources, preserves selections, surfaces errors and recovers", async (t) => {
 	const f = fixture(t),
 		{ url } = await serve(t, f, {
 			host: "codex",
@@ -275,18 +277,6 @@ test("browser polls live files, preserves selections, debounces writes, surfaces
 	assert.ok(app.nodes.has("host"), "host selector is initialized");
 	assert.equal(app.nodes.get("host").value, "codex");
 	assert.match(app.text("available"), /Requested, injected/);
-	// A write reverted during the debounce window must not leave the view hidden.
-	const transient = path.join(
-		f.adapter,
-		".agent-profiles/roles/sp-implementer.md",
-	);
-	put(transient, "Transient edit\n");
-	await app.tick();
-	put(transient, "Adapter implementer\n");
-	await app.tick();
-	await app.tick();
-	assert.equal(app.nodes.get("view").hidden, false, "reverted writes recover");
-	const prior = app.text("layers");
 	// Atomic replacement, as used by Windows editors.
 	const roleFile = path.join(
 		f.adapter,
@@ -294,9 +284,7 @@ test("browser polls live files, preserves selections, debounces writes, surfaces
 	);
 	put(`${roleFile}.tmp`, "Edited adapter role\n");
 	fs.renameSync(`${roleFile}.tmp`, roleFile);
-	await app.tick();
-	assert.equal(app.text("layers"), prior, "first changed sample is debounced");
-	await app.tick();
+	await app.refresh();
 	assert.match(app.text("layers"), /Edited adapter role/);
 	for (const [id, value] of Object.entries({
 		host: "codex",
@@ -315,49 +303,44 @@ test("browser polls live files, preserves selections, debounces writes, surfaces
 	};
 	put(path.join(f.adapter, ".agent-profiles/roles/auditor.md"), "Auditor\n");
 	f.save();
-	await app.tick();
+	await app.refresh();
 	assert.equal(app.nodes.get("view").hidden, true);
 	assert.match(app.text("error"), /stale-lock/);
 	f.install();
-	await app.tick();
-	await app.tick();
+	await app.refresh();
 	assert.equal(app.nodes.get("view").hidden, false);
 	assert.ok(app.nodes.get("role").children.some((n) => n.value === "auditor"));
 	put(path.join(f.adapter, CONFIG), "version: [broken");
-	await app.tick();
+	await app.refresh();
 	assert.equal(app.nodes.get("view").hidden, true);
 	f.save();
-	await app.tick();
-	await app.tick();
+	await app.refresh();
 	assert.equal(app.nodes.get("view").hidden, false);
 	put(
 		path.join(f.root, ".agent-profiles/agents.local.yaml"),
 		"adapter: ../missing\n",
 	);
-	await app.tick();
+	await app.refresh();
 	assert.match(app.text("error"), /adapter|missing/i);
 	put(
 		path.join(f.root, ".agent-profiles/agents.local.yaml"),
 		"adapter: ../adapter\n",
 	);
-	await app.tick();
-	await app.tick();
+	await app.refresh();
 	assert.equal(app.nodes.get("view").hidden, false);
 	delete f.config.roles["sp-implementer"];
 	delete f.config.assignments.sol;
 	f.save();
 	f.install();
-	await app.tick();
-	await app.tick();
+	await app.refresh();
 	assert.equal(app.nodes.get("role").value, "implementer");
 	assert.equal(app.nodes.get("model").value, "");
 	assert.match(app.text("notice"), /sp-implementer/);
 	assert.match(app.text("notice"), /optional/);
-	app.events.pagehide();
 	assert.equal(app.timers.size, 0);
 });
 
-test("live polling rechecks machine trust and adapter approval signatures without writing repairs", {
+test("Refresh files rechecks machine trust and adapter approval signatures without writing repairs", {
 	skip: noKeygen,
 }, async (t) => {
 	const f = fixture(t),
@@ -379,7 +362,7 @@ test("live polling rechecks machine trust and adapter approval signatures withou
 			require_approval: true,
 		}),
 	);
-	await app.tick();
+	await app.refresh();
 	assert.equal(app.nodes.get("view").hidden, true);
 	assert.match(app.text("error"), /trust|approv/i);
 	approvePackage({
@@ -388,8 +371,7 @@ test("live polling rechecks machine trust and adapter approval signatures withou
 		name: "@example/tdd",
 		version: "1.0.0",
 	});
-	await app.tick();
-	await app.tick();
+	await app.refresh();
 	assert.equal(app.nodes.get("view").hidden, false);
 	const approvals = path.join(
 		f.adapter,
@@ -401,14 +383,12 @@ test("live polling rechecks machine trust and adapter approval signatures withou
 	);
 	const original = fs.readFileSync(signature);
 	put(signature, "broken signature");
-	await app.tick();
+	await app.refresh();
 	assert.equal(app.nodes.get("view").hidden, true);
 	assert.equal(fs.readFileSync(signature, "utf8"), "broken signature");
 	put(signature, original);
-	await app.tick();
-	await app.tick();
+	await app.refresh();
 	assert.equal(app.nodes.get("view").hidden, false);
-	app.events.pagehide();
 });
 
 test("visualize CLI accepts adapter root and host", async (t) => {
@@ -460,7 +440,7 @@ test("visualize CLI accepts adapter root and host", async (t) => {
 	assert.equal(config.initial.role, "sp-implementer");
 });
 
-test("projects without adapters retain explicit unknown model and family across manual and automatic refresh", async (t) => {
+test("projects without adapters retain explicit unknown model and family across manual refresh", async (t) => {
 	const f = fixture(t);
 	fs.unlinkSync(path.join(f.root, ".agent-profiles/agents.local.yaml"));
 	const { url } = await serve(t, f, {
@@ -468,8 +448,7 @@ test("projects without adapters retain explicit unknown model and family across 
 		family: "unknown-cli-family",
 	});
 	const app = await browser(url);
-	await app.tick();
-	await app.tick();
+	await app.refresh();
 	assert.equal(app.nodes.get("model").value, "unknown-cli-model");
 	assert.equal(app.nodes.get("family").value, "unknown-cli-family");
 	await app.nodes.get("refresh").listeners.click();
@@ -478,13 +457,11 @@ test("projects without adapters retain explicit unknown model and family across 
 		path.join(f.root, ".agent-profiles/profiles/base.md"),
 		"Changed project profile\n",
 	);
-	await app.tick();
-	await app.tick();
+	await app.refresh();
 	assert.match(app.text("layers"), /Changed project profile/);
-	app.events.pagehide();
 });
 
-test("polling stops when the server closes and manual refresh reconnects", async (t) => {
+test("Refresh files reports connection loss and reconnects on demand", async (t) => {
 	const f = fixture(t),
 		{ url, server } = await serve(t, f);
 	const app = await browser(url);
@@ -492,7 +469,7 @@ test("polling stops when the server closes and manual refresh reconnects", async
 		server.close(resolve);
 		server.closeAllConnections();
 	});
-	await app.tick();
+	await app.refresh();
 	assert.equal(app.nodes.get("view").hidden, true);
 	assert.equal(app.timers.size, 0, "closed server leaves no refresh timer");
 	assert.match(app.text("status"), /Refresh files/);
@@ -501,19 +478,13 @@ test("polling stops when the server closes and manual refresh reconnects", async
 	);
 	await app.nodes.get("refresh").listeners.click();
 	assert.equal(app.nodes.get("view").hidden, false);
-	assert.equal(app.timers.size, 1);
-	app.events.pagehide();
+	assert.equal(app.timers.size, 0);
 });
 
-test("restoring a page during an in-flight poll keeps a single refresh timer", async (t) => {
+test("the idle visualizer does not schedule background refresh", async (t) => {
 	const f = fixture(t),
 		{ url } = await serve(t, f);
 	const app = await browser(url);
-	const polling = app.tick();
-	app.events.pagehide();
-	app.events.pageshow();
-	await polling;
-	assert.equal(app.timers.size, 1);
-	app.events.pagehide();
-	assert.equal(app.timers.size, 0);
+	assert.equal(app.timers.size, 0, "no polling after initial resolution");
+	await app.refresh();
 });

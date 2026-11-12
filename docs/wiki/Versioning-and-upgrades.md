@@ -4,9 +4,10 @@
 
 The visualizer opens the real project through `agents.local.yaml`, with composed
 roles, skills, exact adapter model choices and a host selector. Host-qualified
-assignments retain their predicates and profile routing provenance. Automatic
-refresh keeps valid selections at the same URL; errors hide old results and clear
-after configuration, lock or approval repair. Refresh files remains a fallback.
+assignments retain their predicates and profile routing provenance. **Refresh files**
+rereads live files and keeps valid selections at the same URL; errors hide old
+results and clear after repair and another refresh. Version 0.24.1 removes the
+background polling introduced in the unreleased 0.24.0 implementation.
 The visualizer never installs, signs or refreshes locks itself.
 
 Upgrade the runtime that actually launches the visualizer. Building a checkout
@@ -20,7 +21,7 @@ node C:\workspace\Agent-Profiles\dist\bin\agent-profiles.js visualize --root C:\
 
 Preserve the CLI/MCP process's `AGENT_PROFILES_TRUST` policy and signing settings.
 Stop the old snapshot server once and open the new live project's URL. Subsequent
-file changes require no restart. No YAML, lock-format, store or bootstrap migration
+file changes require only **Refresh files**, not a restart. No YAML, lock-format, store or bootstrap migration
 is needed. Already-running agents must resolve again to receive new instructions.
 See [Live visualizer](Live-visualizer) for refresh and error behavior.
 
