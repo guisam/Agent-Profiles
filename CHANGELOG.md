@@ -1,18 +1,18 @@
 # Changelog
 
-## 0.28.2 — unreleased — instructions in the Add to configuration panel (#119)
+## 0.29.2 — unreleased — instructions in the Add to configuration panel (#119)
 
 - The open panel explains what the selected kind (model, family or role) adds and
   what each of its fields means, with example placeholders. No migration.
 
-## 0.28.1 — unreleased — confirm removals, move role skills (#119)
+## 0.29.1 — unreleased — confirm removals, move role skills (#119)
 
 - In edit mode, **Remove** asks for confirmation, naming the skill and role, and
   cancelling changes nothing.
 - Required skill cards add **Move to on demand**; on-demand cards add **Move to
   required**. No YAML, lock or bootstrap migration.
 
-## 0.28.0 — unreleased — edit the configuration from the visualizer (#119)
+## 0.29.0 — unreleased — edit the configuration from the visualizer (#119)
 
 - `visualize --edit` lets the page add a skill to the selected role (required or
   available, chosen per click), remove role skills, and add models, families and
@@ -27,7 +27,7 @@
 - Binding a new library package version and the replace prompt for skills with the
   same SKILL.md name come in a follow-up. No YAML, lock or bootstrap migration.
 
-## 0.27.0 — unreleased — side-by-side skill comparison (#119)
+## 0.28.0 — unreleased — side-by-side skill comparison (#119)
 
 - Skill library rows add **Set as left** and **Set as right** buttons that fill
   the comparison sides from the filtered table.
@@ -37,7 +37,7 @@
 - `api/compare` adds an `aligned` field with side-by-side rows per file. Existing
   fields are unchanged. No YAML, lock or bootstrap migration.
 
-## 0.26.0 — unreleased — skill library panel in the visualizer (#119)
+## 0.27.0 — unreleased — skill library panel in the visualizer (#119)
 
 - The visualizer page adds a **Skill library** panel that loads on request. It
   lists library and project-local skills with version, source, abbreviated digest,
@@ -48,7 +48,7 @@
   current configuration. No configuration, pin or skill file is changed.
 - No YAML, lock or bootstrap migration. See `docs/visualize.md`.
 
-## 0.25.0 — unreleased — skill catalog and comparison API (#119)
+## 0.26.0 — unreleased — skill catalog and comparison API (#119)
 
 - The visualizer adds read-only `api/skills` and `api/compare` endpoints. The
   catalog lists library skill packages by version with identity, digest, project
@@ -59,6 +59,29 @@
   untested, never as a recommendation.
 - The visualizer page itself is unchanged; the catalog and comparison UI follow.
   No YAML, lock or bootstrap migration. See `docs/visualize.md`.
+
+## 0.25.2 - unreleased - status-skill CI fixes
+
+- Update the protocol fixture for the installed status-skill files.
+- Isolate machine trust for both direct imports and subprocesses in package
+  smoke tests; restore exact visualizer/CLI comparison. No runtime migration.
+
+## 0.25.1 - unreleased - status guidance near the top of the README
+
+- Explain how to invoke ap-status in each agent session, including loaded
+  versions, optional skills on the bench and host/evidence limits.
+- Documentation only; no runtime or configuration migration.
+
+## 0.25.0 - unreleased - bundled ap-status skill
+
+- Ship a native ap-status skill and Codex UI metadata. Init installs it for
+  Codex and Claude Code independently of role bindings.
+- Report the last successful session resolution, required package versions and
+  optional skills on the bench without silently re-resolving or claiming execution.
+- Track installed files by digest. Refresh unchanged managed copies, reject
+  collisions before writes, and retain user edits during uninstall.
+- Upgrade the runtime and rerun init for your host; no YAML migration is needed.
+  See docs/ap-status.md for invocation and menu-verification limits.
 
 ## 0.24.1 � unreleased � refresh live files on demand
 
