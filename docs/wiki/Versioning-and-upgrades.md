@@ -1,5 +1,17 @@
 # Versioning and upgrades
 
+## 0.25.0 — skill catalog and comparison API (unreleased)
+
+The visualizer serves two new read-only endpoints under its session URL:
+`api/skills` lists library skill packages and project-local skills with their
+role usage, and `api/compare?left=…&right=…` compares any two of them file by
+file. Missing versions, digests and evaluation evidence are shown as unknown or
+untested. The browser page is unchanged in this version.
+
+No YAML, lock-format, store or bootstrap migration is needed. Upgrade the runtime
+that launches the visualizer and restart it to get the new endpoints. See
+[Live visualizer](Live-visualizer) and `docs/visualize.md` for selectors.
+
 ## 0.24.0 — live adapter visualizer (unreleased)
 
 The visualizer opens the real project through `agents.local.yaml`, with composed
