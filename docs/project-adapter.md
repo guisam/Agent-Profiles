@@ -110,6 +110,13 @@ Commands that compose the adapter: `resolve`, `install`, `doctor`, `notice`,
 (including `update_preview`), and, since 0.22.0, `stamp`, `verify`, `diff`,
 `inspect` and `sessions` (see
 [Stamps, verify, diff and evidence](#stamps-verify-diff-and-evidence)).
+Since 0.24.0, `visualize --root <project>` also opens the composed project directly.
+Its host selector preserves host-qualified assignments, and its model choices
+include exact adapter assignment IDs without changing routing declarations.
+The browser automatically refreshes live files, preserves valid selections and
+surfaces lock, configuration and trust failures until repaired. **Refresh files**
+is the manual fallback. No snapshot helper is needed; see the
+[visualizer guide](visualize.md) for runtime upgrade and trust-policy instructions.
 
 Every other command refuses while an adapter is configured. This includes
 `configure`, `init`, `uninstall`, `preset`, `migrate`, `materialize` and

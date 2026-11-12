@@ -13,6 +13,7 @@
 - [Ponytail role preset](Ponytail-role-preset)
 - [Superpowers role experiment](Superpowers-role-experiment)
 - [MCP service](https://github.com/guisam/Agent-Profiles/wiki/MCP-service)
+- [Live visualizer](Live-visualizer)
 - [Separate your skill workshop](Separate-your-skill-workshop)
 - [Skill library](https://github.com/guisam/Agent-Profiles/wiki/Skill-library)
 - [Use and share profiles](https://github.com/guisam/Agent-Profiles/wiki#use-and-share-profiles)

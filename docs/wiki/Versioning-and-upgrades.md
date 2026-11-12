@@ -1,5 +1,29 @@
 # Versioning and upgrades
 
+## 0.24.0 — live adapter visualizer (unreleased)
+
+The visualizer opens the real project through `agents.local.yaml`, with composed
+roles, skills, exact adapter model choices and a host selector. Host-qualified
+assignments retain their predicates and profile routing provenance. Automatic
+refresh keeps valid selections at the same URL; errors hide old results and clear
+after configuration, lock or approval repair. Refresh files remains a fallback.
+The visualizer never installs, signs or refreshes locks itself.
+
+Upgrade the runtime that actually launches the visualizer. Building a checkout
+does not update an older package installed in a workbench. Before npm publication,
+use the built checkout or a local packed artifact:
+
+```powershell
+npm run build
+node C:\workspace\Agent-Profiles\dist\bin\agent-profiles.js visualize --root C:\workspace\Agent-Profiles --host codex --model gpt-6.1-sol --role sp-implementer
+```
+
+Preserve the CLI/MCP process's `AGENT_PROFILES_TRUST` policy and signing settings.
+Stop the old snapshot server once and open the new live project's URL. Subsequent
+file changes require no restart. No YAML, lock-format, store or bootstrap migration
+is needed. Already-running agents must resolve again to receive new instructions.
+See [Live visualizer](Live-visualizer) for refresh and error behavior.
+
 ## 0.23.10 — wiki source reconciled
 
 The repository copy under `docs/wiki/` and this wiki now match. Documentation

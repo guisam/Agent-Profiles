@@ -6,6 +6,7 @@ const byId = (id) => {
 	return node;
 };
 const model = /** @type {HTMLSelectElement} */ (byId("model"));
+const host = /** @type {HTMLSelectElement} */ (byId("host"));
 const family = /** @type {HTMLSelectElement} */ (byId("family"));
 const role = /** @type {HTMLSelectElement} */ (byId("role"));
 const pin = /** @type {HTMLButtonElement} */ (byId("pin"));
@@ -17,6 +18,14 @@ let pinned;
 let requestNumber = 0;
 /** @type {Set<string>} */
 let requested = new Set();
+let initialized = false;
+let refreshing = false;
+let lastSnapshot = "";
+let pendingSnapshot = "";
+let disconnected = false;
+// Explicit launch values may deliberately exercise fallback routing.
+/** @type {Record<string, string>} */
+const launchFallbacks = {};
 /** @param {number} value */
 const bytes = (value) => `${value.toLocaleString("en-US")} B`;
 /** @param {{bytes: number, characters: number}} entry */
@@ -34,10 +43,23 @@ function element(tag, text = "", className = "") {
 
 /** @param {string} endpoint @returns {Promise<any>} */
 async function get(endpoint) {
-	const response = await fetch(endpoint, { cache: "no-store" });
+	let response;
+	try {
+		response = await fetch(endpoint, { cache: "no-store" });
+	} catch {
+		disconnected = true;
+		page?.clearTimeout(timer);
+		throw new Error(
+			"The visualizer server is unavailable. Restart it if needed, then use Refresh files to reconnect.",
+		);
+	}
 	const data = await response.json();
 	if (!response.ok)
 		throw new Error(data.error ?? `Request failed (${response.status})`);
+	if (data.withheld?.length)
+		throw new Error(
+			`Trust policy withheld instructions: ${data.withheld.map((/** @type {any} */ entry) => `${entry.id} (${entry.package.name}@${entry.package.version}): ${entry.reason}`).join("; ")}`,
+		);
 	return data;
 }
 
@@ -62,7 +84,7 @@ function inspect(entry, provenance) {
 	// Package integrity does not establish a host-visible invocation address.
 	const host = entry.type === "host";
 	const location = entry.package
-		? `${entry.package.binding}: ${entry.package.name}@${entry.package.version} sha256:${entry.package.sha256} (${entry.package.selectedBy})${entry.binding ? ` · ${entry.backing.path}` : ""}`
+		? `${entry.package.binding}: ${entry.package.name}@${entry.package.version} sha256:${entry.package.sha256}${entry.package.revisionDigest ? ` revision:${entry.package.revisionDigest}` : ""} (${entry.package.selectedBy})${entry.binding ? ` · ${entry.backing.path}` : ""}`
 		: (entry.path ?? `${entry.host}: ${entry.hostId}`);
 	const native = entry.package
 		? `Supported hosts: ${entry.supportedHosts?.join(", ")}; host-visible address unavailable; invocation unverified · bytes not counted`
@@ -95,7 +117,7 @@ function compare() {
 	byId("comparison").hidden = !pinned;
 	if (!pinned) return;
 	const label = (/** @type {any} */ result) =>
-		`${result.model ?? "Default model"} / ${result.family ?? "no family"} / ${result.role} / ${result.profile}`;
+		`${result.host ?? "Unspecified host"} / ${result.model ?? "Default model"} / ${result.family ?? "no family"} / ${result.role} / ${result.profile}`;
 	byId("comparison-label").textContent = `${label(pinned)} → ${label(current)}`;
 	const rows = byId("comparison-rows");
 	rows.replaceChildren();
@@ -138,7 +160,7 @@ function render(result) {
 		`${managed.total.characters.toLocaleString("en-US")} characters · ${managed.total.files} instruction entries`;
 	byId("available-total").textContent = bytes(availableNotLoaded.bytes);
 	byId("routing").textContent =
-		`${result.model ?? "Unspecified model"} → ${result.profile} (matched by ${result.matchedBy}${result.matchedBy.startsWith("family") ? `: ${result.family}` : result.matchedBy === "alias" ? ` of ${result.identity.canonical}` : ""}) · Role: ${result.role}`;
+		`${result.host ?? "Unspecified host"} / ${result.model ?? "Unspecified model"} → ${result.profile} (matched by ${result.matchedBy}${result.matchedBy.startsWith("family") ? `: ${result.family}` : result.matchedBy === "alias" ? ` of ${result.identity.canonical}` : ""}) · Role: ${result.role}`;
 	const layers = byId("layers");
 	layers.replaceChildren();
 	for (const kind of ["profile", "role"]) {
@@ -270,12 +292,17 @@ function render(result) {
 
 /** @param {unknown} error */
 function failure(error) {
+	current = undefined;
+	pin.disabled = true;
+	lastSnapshot = "";
+	pendingSnapshot = "";
 	byId("error").textContent =
 		error instanceof Error ? error.message : String(error);
 	byId("error").hidden = false;
 	byId("view").hidden = true;
-	byId("status").textContent =
-		"Unable to resolve. Fix the configuration or change the selection, then refresh.";
+	byId("status").textContent = disconnected
+		? "Unable to resolve. Connection lost; automatic checks stopped. Use Refresh files to reconnect."
+		: "Unable to resolve. Fix the configuration or change the selection. Retrying automatically; Refresh files also retries.";
 }
 
 /** @param {string} [focusId] */
@@ -287,6 +314,7 @@ async function update(focusId) {
 	byId("status").textContent = "Resolving selected instructions…";
 	const query = new URLSearchParams();
 	for (const [key, value] of [
+		["host", host.value],
 		["model", model.value],
 		["family", family.value],
 		["role", role.value],
@@ -306,27 +334,93 @@ async function update(focusId) {
 		if (number === requestNumber) failure(error);
 	} finally {
 		if (number === requestNumber) {
-			pin.disabled = false;
+			pin.disabled = !current;
 			byId("view").removeAttribute("aria-busy");
 		}
 	}
 }
 
-async function initialize(first = false) {
-	++requestNumber;
+async function initialize(first = false, automatic = false) {
+	if (automatic && refreshing) return;
+	const number = ++requestNumber;
+	refreshing = true;
 	const refresh = /** @type {HTMLButtonElement} */ (byId("refresh"));
-	for (const control of [model, family, role, refresh]) control.disabled = true;
+	if (!automatic)
+		for (const control of [host, model, family, role, refresh])
+			control.disabled = true;
 	try {
 		const data = await get("api/config");
+		if (number !== requestNumber) return;
+		first = first || !initialized;
 		const selection = first
 			? data.initial
 			: {
+					host: host.value,
 					model: model.value,
 					family: family.value,
-					role: data.roles.includes(role.value)
-						? role.value
-						: data.initial.role,
+					role: role.value,
 				};
+		/** @type {string[]} */
+		const notices = [];
+		for (const [key, choices, fallback] of [
+			["host", data.hosts ?? [], ""],
+			["model", data.models, ""],
+			["family", data.families, ""],
+			["role", data.roles, data.defaultRole ?? data.roles[0]],
+		]) {
+			if (
+				first &&
+				["model", "family"].includes(key) &&
+				selection[key] &&
+				!choices.includes(selection[key])
+			)
+				launchFallbacks[key] = selection[key];
+			if (
+				selection[key] &&
+				!choices.includes(selection[key]) &&
+				selection[key] !== launchFallbacks[key]
+			) {
+				notices.push(
+					`${key} ${selection[key]} is no longer available; using ${fallback || "unspecified"}.`,
+				);
+				selection[key] = fallback;
+			}
+		}
+		const nextRequested = new Set(first ? data.initial.skills : requested);
+		const available = data.optionalSkills?.[selection.role];
+		for (const skill of nextRequested)
+			if (available && !available.includes(skill)) {
+				nextRequested.delete(skill);
+				notices.push(
+					`Optional skill ${skill} is no longer available for ${selection.role}; removed from this preview.`,
+				);
+			}
+		const query = new URLSearchParams();
+		for (const key of ["host", "model", "family", "role"])
+			if (selection[key]) query.set(key, selection[key]);
+		for (const skill of nextRequested) query.append("skill", skill);
+		const result = await get(`api/resolve?${query}`);
+		if (number !== requestNumber) return;
+		const snapshot = JSON.stringify([data, result]);
+		if (automatic && snapshot === lastSnapshot && !byId("view").hidden) {
+			pendingSnapshot = "";
+			return;
+		}
+		// Two consecutive equal samples coalesce editor saves and lock updates.
+		// Never label the previous successful result as current while verifying changes.
+		if (automatic && snapshot !== pendingSnapshot) {
+			pendingSnapshot = snapshot;
+			byId("view").hidden = true;
+			pin.disabled = true;
+			if (byId("error").hidden)
+				byId("status").textContent =
+					"Files changed; checking for a stable resolution…";
+			return;
+		}
+		lastSnapshot = snapshot;
+		pendingSnapshot = "";
+		initialized = true;
+		options(host, data.hosts ?? [], "Unspecified host", selection.host);
 		options(
 			model,
 			data.models,
@@ -335,24 +429,41 @@ async function initialize(first = false) {
 		);
 		options(family, data.families, "No family fallback", selection.family);
 		options(role, data.roles, null, selection.role);
-		requested = new Set(first ? data.initial.skills : []);
-		await update();
+		requested = nextRequested;
+		if (notices.length || !automatic) {
+			byId("notice").textContent = notices.join(" ");
+			byId("notice").hidden = !notices.length;
+		}
+		render(result);
+		byId("view").hidden = false;
+		byId("error").hidden = true;
+		pin.disabled = false;
+		byId("status").textContent =
+			`Resolved ${result.role} / ${result.profile}. Live files checked automatically. Temporary skill selections do not change files.`;
 	} catch (error) {
-		failure(error);
+		if (number === requestNumber) failure(error);
 	} finally {
-		for (const control of [model, family, role, refresh])
-			control.disabled = false;
+		refreshing = false;
+		if (number === requestNumber)
+			for (const control of [host, model, family, role, refresh])
+				control.disabled = false;
 	}
 }
 
 byId("selectors").addEventListener("submit", (event) => event.preventDefault());
 model.addEventListener("change", () => update());
+host.addEventListener("change", () => update());
 family.addEventListener("change", () => update());
 role.addEventListener("change", () => {
 	requested.clear();
 	update();
 });
-byId("refresh").addEventListener("click", () => initialize());
+byId("refresh").addEventListener("click", async () => {
+	const reconnect = disconnected;
+	disconnected = false;
+	await initialize();
+	if (reconnect) schedule();
+});
 pin.addEventListener("click", () => {
 	pinned = current;
 	compare();
@@ -361,4 +472,30 @@ byId("clear").addEventListener("click", () => {
 	pinned = undefined;
 	compare();
 });
-initialize(true);
+// Polling reuses the resolver's dependency reads (including trust and approvals),
+// so atomic replacement and a changed adapter reference need no watcher rebinding.
+const page = document.defaultView;
+let stopped = false;
+/** @type {number | undefined} */
+let timer;
+async function poll() {
+	if (stopped) return;
+	await initialize(false, true);
+	schedule();
+}
+function schedule() {
+	page?.clearTimeout(timer);
+	if (!stopped && !disconnected) timer = page?.setTimeout(poll, 1000);
+}
+page?.addEventListener("pagehide", () => {
+	stopped = true;
+	++requestNumber;
+	page.clearTimeout(timer);
+});
+page?.addEventListener("pageshow", () => {
+	if (stopped) {
+		stopped = false;
+		schedule();
+	}
+});
+initialize(true).then(schedule);

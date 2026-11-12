@@ -20,11 +20,38 @@ function repository(t) {
 		assert.ok(path.basename(root).startsWith("agent-profiles-visualize-"));
 		fs.rmSync(root, { recursive: true, force: true });
 	});
-	fs.cpSync(
-		path.join(project, ".agent-profiles"),
-		path.join(root, ".agent-profiles"),
-		{ recursive: true },
-	);
+	// Explicit disposable fixture: never copy a developer's adapter, trust or selections.
+	const files = {
+		"agents.yaml": `version: 1
+default_profile: constrained
+default_role: implementer
+models:
+  example-model: {profile: autonomous}
+families:
+  example-family: {profile: scaffolded}
+roles:
+  implementer:
+    file: roles/implementer.md
+    skills: {required: [], available: [testing]}
+  reviewer:
+    file: roles/reviewer.md
+    skills: {required: [code-review], available: [testing]}
+`,
+		"profiles/constrained.md": "Constrained profile\n",
+		"profiles/autonomous.md": "Autonomous profile\n",
+		"profiles/scaffolded.md": "Scaffolded profile\n",
+		"roles/implementer.md": "Implementer role\n",
+		"roles/reviewer.md": "Reviewer role\n",
+		"skills/testing/SKILL.md":
+			"---\ndescription: Test carefully\n---\nTesting\n",
+		"skills/code-review/SKILL.md":
+			"---\ndescription: Review code\n---\nCode review\n",
+	};
+	for (const [file, content] of Object.entries(files)) {
+		const destination = path.join(root, ".agent-profiles", file);
+		fs.mkdirSync(path.dirname(destination), { recursive: true });
+		fs.writeFileSync(destination, content);
+	}
 	return root;
 }
 async function serve(t, root, options = {}) {
