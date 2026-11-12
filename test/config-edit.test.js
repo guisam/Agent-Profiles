@@ -396,11 +396,51 @@ test("the page adds and removes role skills when edits are enabled", async (t) =
 		["security-review", "testing"],
 		[],
 	]);
-	const remove = page
+	const button = (column, text) =>
+		page
+			.node(column)
+			.children.flatMap((card) => card.children ?? [])
+			.find((node) => node.textContent === text);
+
+	// Move between the lists in both directions.
+	const toOnDemand = page
 		.node("required")
-		.children.flatMap((card) => card.children)
-		.find((node) => node.textContent === "Remove testing from reviewer");
-	await remove.listeners.click();
+		.children.filter((card) => /testing/.test(page.texts(card)))
+		.flatMap((card) => card.children)
+		.find((node) => node.textContent === "Move to on demand");
+	await toOnDemand.listeners.click();
+	assert.deepEqual(lists(f.root, "reviewer"), [
+		["security-review"],
+		["testing"],
+	]);
+	assert.match(page.text("notice"), /testing moved to on demand for reviewer/);
+	const toRequired = page
+		.node("available")
+		.children.filter((card) => /testing/.test(page.texts(card)))
+		.flatMap((card) => card.children)
+		.find((node) => node.textContent === "Move to required");
+	await toRequired.listeners.click();
+	assert.deepEqual(lists(f.root, "reviewer"), [
+		["security-review", "testing"],
+		[],
+	]);
+
+	// Removal asks first; cancelling changes nothing.
+	const configBefore = read(f.root);
+	page.dialogs.answer = false;
+	button("required", "Remove testing from reviewer").listeners.click();
+	assert.match(
+		page.dialogs.messages.at(-1),
+		/Remove testing from role reviewer\?/,
+	);
+	assert.match(page.dialogs.messages.at(-1), /edits your configuration now/);
+	assert.equal(read(f.root), configBefore);
+	assert.match(
+		page.text("status"),
+		/Kept testing in reviewer; nothing was changed/,
+	);
+	page.dialogs.answer = true;
+	await button("required", "Remove testing from reviewer").listeners.click();
 	assert.deepEqual(lists(f.root, "reviewer"), [["security-review"], []]);
 
 	page.node("add-kind").value = "model";

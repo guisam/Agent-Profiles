@@ -147,6 +147,7 @@ export async function browser(url) {
 		createElement: () => new Node(),
 		createTextNode: (text) => Object.assign(new Node(), { textContent: text }),
 	};
+	const dialogs = { messages: [], answer: true };
 	vm.runInContext(
 		fs.readFileSync(
 			new URL("../../src/visualizer/app.js", import.meta.url),
@@ -156,6 +157,11 @@ export async function browser(url) {
 			document,
 			Option,
 			URLSearchParams,
+			// Records each confirmation message and answers with dialogs.answer.
+			confirm: (message) => {
+				dialogs.messages.push(message);
+				return dialogs.answer;
+			},
 			// Browsers send Origin on POST; Node's fetch does not, so add it here.
 			fetch: (endpoint, init) =>
 				fetch(
@@ -178,5 +184,11 @@ export async function browser(url) {
 		assert.ok(check(), "timed out waiting for the page");
 	};
 	await until(() => /^(Resolved|Unable)/.test(text("status")));
-	return { node: (id) => document.getElementById(id), text, texts, until };
+	return {
+		node: (id) => document.getElementById(id),
+		text,
+		texts,
+		until,
+		dialogs,
+	};
 }

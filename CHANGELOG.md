@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.28.1 — unreleased — confirm removals, move role skills (#119)
+
+- In edit mode, **Remove** asks for confirmation, naming the skill and role, and
+  cancelling changes nothing.
+- Required skill cards add **Move to on demand**; on-demand cards add **Move to
+  required**. No YAML, lock or bootstrap migration.
+
 ## 0.28.0 — unreleased — edit the configuration from the visualizer (#119)
 
 - `visualize --edit` lets the page add a skill to the selected role (required or

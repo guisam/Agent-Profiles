@@ -108,8 +108,10 @@ server stay read-only.
   the top, as required (always loaded) or available (on demand). Adding a skill
   that the role already lists in the other list moves it. A library package can be
   added once the project binds it; binding a new package version comes next.
-- **Remove** buttons on the role's required and on-demand skill cards remove that
-  skill from the role.
+- **Move to on demand** on a required skill card, and **Move to required** on an
+  on-demand card, move the skill between the role's two lists.
+- **Remove** on a skill card removes that skill from the role. A confirmation
+  dialog names the skill and role first; cancelling changes nothing.
 - **Add to configuration** adds a model (with its profile), a family (with its
   profile and optional prefixes) or a role (with a starter instruction file under
   `.agent-profiles/roles/`). Hosts are built into Agent Profiles and cannot be added.

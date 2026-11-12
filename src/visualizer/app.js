@@ -154,19 +154,46 @@ function compare() {
 /** @type {{revision: string, profiles: string[]} | null} */
 let editing = null;
 
-/** @param {HTMLElement} card @param {string} id */
-function appendRemove(card, id) {
+/**
+ * Move and remove buttons for a skill card of the selected role.
+ * @param {HTMLElement} card @param {string} id @param {"required" | "available"} list
+ */
+function appendEditButtons(card, id, list) {
 	if (!editing || !current) return;
-	const button = element("button", `Remove ${id} from ${current.role}`);
-	/** @type {HTMLButtonElement} */ (button).type = "button";
 	const roleId = current.role;
-	button.addEventListener("click", () =>
+	const target = list === "required" ? "available" : "required";
+	const move = element(
+		"button",
+		target === "available" ? "Move to on demand" : "Move to required",
+	);
+	/** @type {HTMLButtonElement} */ (move).type = "button";
+	// Adding a skill to the other list moves it there.
+	move.addEventListener("click", () =>
 		editConfig(
-			{ action: "remove-skill", role: roleId, skill: id },
-			`${id} removed from ${roleId}`,
+			{ action: "add-skill", role: roleId, skill: id, list: target },
+			`${id} moved to ${target === "available" ? "on demand" : "required"} for ${roleId}`,
 		),
 	);
-	card.append(button);
+	const remove = element("button", `Remove ${id} from ${roleId}`);
+	/** @type {HTMLButtonElement} */ (remove).type = "button";
+	remove.addEventListener("click", () => {
+		if (
+			!confirm(
+				`Remove ${id} from role ${roleId}?
+
+This edits your configuration now and refreshes locks. The skill stays in the library and can be added again.`,
+			)
+		) {
+			byId("status").textContent =
+				`Kept ${id} in ${roleId}; nothing was changed.`;
+			return;
+		}
+		return editConfig(
+			{ action: "remove-skill", role: roleId, skill: id },
+			`${id} removed from ${roleId}`,
+		);
+	});
+	card.append(move, remove);
 }
 
 /**
@@ -259,7 +286,7 @@ function render(result) {
 	)) {
 		const card = element("div", "", "entry");
 		card.append(inspect(entry, `Required by role: ${result.role}`));
-		appendRemove(card, entry.id);
+		appendEditButtons(card, entry.id, "required");
 		required.append(card);
 	}
 	for (const entry of result.required.filter(
@@ -272,7 +299,7 @@ function render(result) {
 				`Required by role ${result.role}; ${entry.package ? "invocation unverified" : "invoked through the host"}`,
 			),
 		);
-		appendRemove(card, entry.id);
+		appendEditButtons(card, entry.id, "required");
 		required.append(card);
 	}
 	if (!result.required.length)
@@ -290,7 +317,7 @@ function render(result) {
 					`Available to role ${result.role}; ${entry.package ? "invocation unverified" : "invoked through the host"}, never injected`,
 				),
 			);
-			appendRemove(card, entry.id);
+			appendEditButtons(card, entry.id, "available");
 			available.append(card);
 			continue;
 		}
@@ -337,7 +364,7 @@ function render(result) {
 				`${injected ? "Requested for" : "Available to"} role: ${result.role}${shared ? "; shares already injected backing" : ""}`,
 			),
 		);
-		appendRemove(card, entry.id);
+		appendEditButtons(card, entry.id, "available");
 		available.append(card);
 	}
 	if (!result.available.length)
