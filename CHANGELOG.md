@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.30.0 — unreleased — bind library versions and replace variants (#119)
+
+- In `visualize --edit`, **Bind and add** binds a library version that the project
+  does not bind yet (`skills.<id>`, named after its SKILL.md `name`, with the v3
+  revision) and lists it in the selected role. The trust policy is checked first.
+- Skills sharing a SKILL.md `name` are variants. For a package skill the role
+  already lists, **Use for *role* instead of *skill*…** previews the replacement for
+  the selected host × model × role through `update`, shows the edits and evidence
+  status, and applies it after confirmation. A same-name local skill is replaced
+  after confirmation.
+- `api/skills` adds `skillName`, `sameName`, `roles` and `packageSkills`.
+  `api/edit` adds `bind-skill`, `preview-replace` and `apply-replace`. No migration.
+
 ## 0.29.2 — unreleased — instructions in the Add to configuration panel (#119)
 
 - The open panel explains what the selected kind (model, family or role) adds and

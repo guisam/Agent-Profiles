@@ -1,5 +1,18 @@
 # Versioning and upgrades
 
+## 0.30.0 — bind library versions and replace variants (unreleased)
+
+With `visualize --edit`, a library version the project does not bind yet can be
+bound and added to a role. Skills that share a SKILL.md `name` are treated as
+variants: for a package skill the role already lists, the page previews replacing
+it for the selected host × model × role (the same change as `agent-profiles update`)
+and applies it after you confirm. The trust policy is checked before anything is
+written; configuration v3 bindings pin the release revision.
+
+No YAML, lock-format, store or bootstrap migration is needed. Restart the visualizer
+from the upgraded runtime with `--edit`. Review the written `agents.yaml`, any new
+`assignments` rule and the refreshed locks like any other configuration change.
+
 ## 0.29.0 — configuration edits from the visualizer (unreleased)
 
 Start the visualizer with `--edit` to add or remove role skills and add models,

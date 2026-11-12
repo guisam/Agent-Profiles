@@ -19,7 +19,11 @@ import {
 import { versionFiles } from "./outdated.ts";
 import { inStoreSession } from "./package-store.ts";
 import type { PackageFile } from "./packages.ts";
-import { validateConfiguration } from "./resolve.ts";
+import {
+	packageReferences,
+	skillMetadata,
+	validateConfiguration,
+} from "./resolve.ts";
 import { type DiscoveredSkill, discoverSkills } from "./skills.ts";
 
 type Validated = ReturnType<typeof validateConfiguration>;
@@ -59,6 +63,34 @@ function packageUsage(validated: Validated, bindings: string[]) {
 const localSkills = (skills: DiscoveredSkill[]) =>
 	skills.filter((skill) => !skill.package && typeof skill.path === "string");
 
+/** A package version's SKILL.md frontmatter name; null when it declares none or cannot be read. */
+export function packageSkillName(
+	storeRoot: string | undefined,
+	version: { name: string; version: string; revisionDigest: string | null },
+	entrypoint: string,
+) {
+	try {
+		const bytes = versionFiles(
+			storeRoot,
+			version.name,
+			version.version,
+			version.revisionDigest,
+		).find((file) => file.path === entrypoint)?.bytes;
+		if (!bytes) return null;
+		// A missing name falls back to the directory, which means nothing inside a package.
+		const metadata = skillMetadata(
+			entrypoint,
+			`${version.name}@${version.version}`,
+			bytes,
+			entrypoint,
+			false,
+		);
+		return metadata.nameSource === "frontmatter" ? metadata.name : null;
+	} catch {
+		return null;
+	}
+}
+
 function catalogOperation({
 	root,
 	storeRoot,
@@ -80,6 +112,14 @@ function catalogOperation({
 						?.bindings ?? [];
 				return {
 					...version,
+					skillName:
+						"error" in version
+							? null
+							: packageSkillName(
+									storeRoot,
+									{ ...version, name: summary.name },
+									version.entrypoint,
+								),
 					usage: packageUsage(validated, bindings),
 					evidence: info.evidence.filter(
 						(row) => row.version === version.version,
@@ -89,9 +129,64 @@ function catalogOperation({
 		};
 	});
 	const found = discoverSkills(validated.repository, validated.config);
+	// #119: skills that share a SKILL.md name are variants of one skill. Each configured
+	// skill ID maps to every name its package references (default and rules) or its file declares.
+	const nameOf = new Map(
+		packages.flatMap((item) =>
+			item.versions.map((version) => [
+				`${item.name}@${version.version}`,
+				version.skillName,
+			]),
+		),
+	);
+	const names = new Map<string, Set<string>>();
+	const addName = (id: string, name: string | null | undefined) => {
+		if (!name) return;
+		names.set(id, (names.get(id) ?? new Set()).add(name));
+	};
+	const packageSkills: string[] = [];
+	for (const [binding, value] of validated.bindings) {
+		if (value.type !== "skill" || !binding.startsWith("skills.")) continue;
+		const id = binding.slice("skills.".length);
+		packageSkills.push(id);
+		for (const { reference } of packageReferences(binding, value))
+			addName(
+				id,
+				nameOf.get(`${reference.get("package")}@${reference.get("version")}`),
+			);
+	}
+	const local = localSkills(found.skills);
+	for (const skill of local) addName(skill.id, skill.name);
+	const sameName = (name: string | null | undefined) =>
+		name
+			? [...names]
+					.filter(([, set]) => set.has(name))
+					.map(([id]) => id)
+					.sort()
+			: [];
 	return {
-		packages,
-		local: localSkills(found.skills).map((skill) => ({
+		packages: packages.map((item) => ({
+			...item,
+			versions: item.versions.map((version) => ({
+				...version,
+				sameName: sameName(version.skillName),
+			})),
+		})),
+		/** Each role's configured skill IDs, for add and replace decisions. */
+		roles: Object.fromEntries(
+			[...validated.roleSkills].map(([id, lists]) => [
+				id,
+				{
+					required: lists.required.map((skill) => skill.id),
+					available: lists.available.map((skill) => skill.id),
+				},
+			]),
+		),
+		/** Skill IDs bound to packages; a variant of one is replaced through update. */
+		packageSkills: packageSkills.sort(),
+		local: local.map((skill) => ({
+			skillName: skill.name ?? null,
+			sameName: sameName(skill.name),
 			id: skill.id,
 			path: skill.path as string,
 			source: skill.source ?? null,

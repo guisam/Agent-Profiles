@@ -205,18 +205,7 @@ async function editConfig(edit, done, after) {
 	byId("error").hidden = true;
 	byId("status").textContent = "Saving…";
 	try {
-		const response = await fetch("api/edit", {
-			method: "POST",
-			cache: "no-store",
-			headers: {
-				"Content-Type": "application/json",
-				"X-Agent-Profiles-Edit": "1",
-			},
-			body: JSON.stringify({ revision: editing.revision, edit }),
-		});
-		const data = await response.json();
-		if (!response.ok)
-			throw new Error(data.error ?? `Edit failed (${response.status})`);
+		const data = await postEdit(edit);
 		await initialize();
 		after?.();
 		if (catalog.length) await loadLibrary();
@@ -229,6 +218,25 @@ async function editConfig(edit, done, after) {
 		byId("error").hidden = false;
 		byId("status").textContent = "The edit was not saved.";
 	}
+}
+
+/** POST one edit (or a replacement preview) and return the server's JSON. */
+/** @param {any} edit @returns {Promise<any>} */
+async function postEdit(edit) {
+	if (!editing) throw new Error("Edits are off; start visualize with --edit");
+	const response = await fetch("api/edit", {
+		method: "POST",
+		cache: "no-store",
+		headers: {
+			"Content-Type": "application/json",
+			"X-Agent-Profiles-Edit": "1",
+		},
+		body: JSON.stringify({ revision: editing.revision, edit }),
+	});
+	const data = await response.json();
+	if (!response.ok)
+		throw new Error(data.error ?? `Edit failed (${response.status})`);
+	return data;
 }
 
 /** @param {any} result */
@@ -568,6 +576,8 @@ function catalogEntries(data) {
 								/(?:^|\.)skills\.([^.]+)$/.exec(entry)?.[1],
 						)
 						.find(Boolean) ?? null,
+				skillName: version.skillName ?? null,
+				sameName: version.sameName ?? [],
 			})),
 		),
 		...data.local.map((/** @type {any} */ skill) => ({
@@ -586,6 +596,8 @@ function catalogEntries(data) {
 			selectable: true,
 			// Host-native project skills need a host reference, not a plain ID.
 			skillId: skill.host ? null : skill.id,
+			skillName: skill.skillName ?? null,
+			sameName: skill.sameName ?? [],
 		})),
 	];
 }
@@ -609,25 +621,188 @@ function preview(use) {
 		`Previewing role ${use.role} with the current configuration. Pins and files are unchanged.`;
 }
 
-/** Add-to-role buttons for the role selected at the top; required or available is chosen per click. */
+/** @type {Record<string, {required: string[], available: string[]}>} Role skill IDs from the catalog. */
+let libraryRoles = {};
+/** @type {string[]} Skill IDs bound to packages. */
+let packageSkills = [];
+
+/** A same-name skill (or this entry's own binding) that the selected role already lists. */
+/** @param {any} entry @returns {string | null} */
+function listedVariant(entry) {
+	const lists = libraryRoles[role.value];
+	if (!lists) return null;
+	const listed = [...lists.required, ...lists.available];
+	return (
+		[...entry.sameName, ...(entry.skillId ? [entry.skillId] : [])].find(
+			(/** @type {string} */ id) => listed.includes(id),
+		) ?? null
+	);
+}
+
+/** @param {unknown} error @param {string} status */
+function showError(error, status) {
+	byId("error").textContent =
+		error instanceof Error ? error.message : String(error);
+	byId("error").hidden = false;
+	byId("status").textContent = status;
+}
+
+/**
+ * Replace a package skill's selection for the selected host × model × role, through
+ * update's preview and guarded apply.
+ * @param {any} entry @param {string} skill
+ */
+async function replaceVariant(entry, skill) {
+	const roleId = role.value;
+	if (!host.value || !model.value) {
+		byId("status").textContent =
+			`Select a Host and a Model at the top first. A variant replaces ${skill} for one host × model × role, as agent-profiles update does.`;
+		return;
+	}
+	const request = {
+		binding: `skills.${skill}`,
+		target: `${entry.name}@${entry.version}`,
+		assignment: { role: roleId, model: model.value, host: host.value },
+	};
+	let plan;
+	try {
+		byId("error").hidden = true;
+		byId("status").textContent = "Previewing the replacement…";
+		plan = await postEdit({ action: "preview-replace", ...request });
+	} catch (error) {
+		showError(error, "The replacement was not previewed.");
+		return;
+	}
+	const tuple = `${roleId} × ${model.value} × ${host.value}`;
+	if (plan.status === "already-pinned") {
+		byId("status").textContent =
+			`${skill} already selects ${request.target} for ${tuple}; nothing to change.`;
+		return;
+	}
+	if (plan.trustBlockers.length) {
+		showError(
+			`The trust policy refuses ${request.target}: ${plan.trustBlockers.join("; ")}. Nothing was written.`,
+			"Replacement refused by the trust policy.",
+		);
+		return;
+	}
+	const message = [
+		`Replace ${skill} for ${tuple}?`,
+		"",
+		`Now: ${plan.before.package}@${plan.before.version}`,
+		`New: ${plan.after.package}@${plan.after.version}`,
+		"",
+		"Edits:",
+		...plan.edits.map(
+			(/** @type {any} */ item) => `- ${item.description} (${item.file})`,
+		),
+		"",
+		plan.evidence.length
+			? `Evidence: ${plan.evidence.length} recorded result(s).`
+			: "Evidence: untested for this host × model × role.",
+		"Other host × model × role selections stay unchanged. Locks are refreshed.",
+	].join("\n");
+	if (!confirm(message)) {
+		byId("status").textContent =
+			`Kept ${plan.before.package}@${plan.before.version}; nothing was changed.`;
+		return;
+	}
+	return editConfig(
+		{ action: "apply-replace", ...request, expect: plan.previewDigest },
+		`${skill} now selects ${request.target} for ${tuple}`,
+	);
+}
+
+/**
+ * Add an entry to the selected role, binding it first when needed and asking before
+ * replacing a same-name skill.
+ * @param {any} entry @param {"required" | "available"} list
+ */
+async function addToRole(entry, list) {
+	const roleId = role.value;
+	const variant = listedVariant(entry);
+	const label = entryLabel(entry);
+	if (variant && variant !== entry.skillId) {
+		if (
+			!confirm(
+				`Role ${roleId} already lists ${variant}, a skill named "${entry.skillName}". Replace ${variant} with ${label} as ${list}?\n\nThis edits your configuration now and refreshes locks.`,
+			)
+		) {
+			byId("status").textContent =
+				`Kept ${variant} in ${roleId}; nothing was changed.`;
+			return;
+		}
+		if (entry.kind === "package" && !entry.skillId)
+			return editConfig(
+				{
+					action: "bind-skill",
+					role: roleId,
+					list,
+					package: entry.name,
+					version: entry.version,
+					replace: variant,
+				},
+				`${label} replaced ${variant} in ${roleId} as ${list}`,
+			);
+		// Two edits, each validated and written on its own.
+		await editConfig(
+			{ action: "remove-skill", role: roleId, skill: variant },
+			`${variant} removed from ${roleId}`,
+		);
+		return editConfig(
+			{ action: "add-skill", role: roleId, skill: entry.skillId, list },
+			`${label} replaced ${variant} in ${roleId} as ${list}`,
+		);
+	}
+	if (entry.skillId)
+		return editConfig(
+			{ action: "add-skill", role: roleId, skill: entry.skillId, list },
+			`${entry.skillId} added to ${roleId} as ${list}`,
+		);
+	return editConfig(
+		{
+			action: "bind-skill",
+			role: roleId,
+			list,
+			package: entry.name,
+			version: entry.version,
+		},
+		`${label} bound and added to ${roleId} as ${list}`,
+	);
+}
+
+/** Add, bind or replace buttons for the role selected at the top. */
 /** @param {any} entry */
 function addCell(entry) {
 	const cell = element("td");
-	if (!entry.skillId) {
-		cell.textContent =
-			entry.kind === "package"
-				? "Not bound in this project yet"
-				: "Host skill: add through configure";
+	if (!entry.skillId && entry.kind !== "package") {
+		cell.textContent = "Host skill: add through configure";
+		return cell;
+	}
+	if (!entry.selectable) {
+		cell.textContent = "Unverified";
+		return cell;
+	}
+	const variant = listedVariant(entry);
+	// A variant of a package skill the role lists: choose it per host × model × role.
+	if (variant && entry.kind === "package" && packageSkills.includes(variant)) {
+		const button = element(
+			"button",
+			`Use for ${role.value} instead of ${variant}…`,
+		);
+		/** @type {HTMLButtonElement} */ (button).type = "button";
+		button.addEventListener("click", () => replaceVariant(entry, variant));
+		cell.append(button);
 		return cell;
 	}
 	for (const list of ["required", "available"]) {
-		const button = element("button", `Add to ${role.value} as ${list}`);
+		const button = element(
+			"button",
+			`${entry.skillId ? "Add" : "Bind and add"} to ${role.value} as ${list}`,
+		);
 		/** @type {HTMLButtonElement} */ (button).type = "button";
 		button.addEventListener("click", () =>
-			editConfig(
-				{ action: "add-skill", role: role.value, skill: entry.skillId, list },
-				`${entry.skillId} added to ${role.value} as ${list}`,
-			),
+			addToRole(entry, /** @type {"required" | "available"} */ (list)),
 		);
 		cell.append(button);
 	}
@@ -702,6 +877,8 @@ async function loadLibrary() {
 	try {
 		const data = await get("api/skills");
 		catalog = catalogEntries(data);
+		libraryRoles = data.roles ?? {};
+		packageSkills = data.packageSkills ?? [];
 		const choices = catalog.filter((entry) => entry.selectable);
 		// Keep a still-valid selection; otherwise default to the first two entries.
 		const keep = (/** @type {string} */ value, /** @type {number} */ index) =>
