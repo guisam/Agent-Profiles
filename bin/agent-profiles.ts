@@ -226,6 +226,7 @@ try {
 			json: { type: "boolean", default: false },
 			port: { type: "string" },
 			edit: { type: "boolean", default: false },
+			ui: { type: "string" },
 			external: { type: "boolean", default: false },
 			sources: { type: "string" },
 			store: { type: "string" },
@@ -421,6 +422,7 @@ Visualizer:
   visualize [--host <id>] [--model <id>] [--family <id>] [--role <id>] [--skill <id> ...]
             [--port <0-65535>]  (default: an available local port)
             [--edit]  (allow role, model, family and role-skill edits from the page)
+            [--ui auto|builtin]  (auto: serve an installed @guisam/agent-profiles-visualizer)
 
 Presets:
   preset inspect <directory> [--contents] [--role <id> ...]
@@ -980,6 +982,13 @@ Examples:
 		if (values.edit && command !== "visualize")
 			throw new Error("--edit is only supported by visualize");
 		if (
+			values.ui !== undefined &&
+			(command !== "visualize" || !["auto", "builtin"].includes(values.ui))
+		)
+			throw new Error(
+				"--ui requires auto or builtin and is only supported by visualize",
+			);
+		if (
 			values.port !== undefined &&
 			(command !== "visualize" || !/^\d+$/.test(values.port))
 		)
@@ -1250,7 +1259,7 @@ Examples:
 				values.json ? JSON.stringify(result, null, 2) : formatInventory(result),
 			);
 		} else if (command === "visualize") {
-			const { server, url } = await startVisualizer({
+			const { server, url, ui } = await startVisualizer({
 				root,
 				host: values.host,
 				storeRoot,
@@ -1260,7 +1269,15 @@ Examples:
 				role: values.role?.[0],
 				skills: values.skill,
 				allowEdits: values.edit,
+				ui: values.ui === "builtin" ? "builtin" : "auto",
 			});
+			if (ui.kind === "app") {
+				console.log(`Serving ${ui.name} ${ui.version} (${ui.directory})`);
+				if (ui.warning) console.error(`Warning: ${ui.warning}`);
+			} else
+				console.log(
+					`Serving the built-in page${ui.note ? ` (${ui.note})` : ""}`,
+				);
 			console.log(
 				`Context explorer: ${url}\nOpen this local URL in your browser. ${values.edit ? "Edits from the page write your configuration and refresh locks" : "Read-only"}; press Ctrl+C to stop.`,
 			);

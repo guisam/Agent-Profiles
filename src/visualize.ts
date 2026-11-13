@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { createServer } from "node:http";
+import { createRequire } from "node:module";
+import path from "node:path";
 import {
 	applyConfigEdit,
 	configRevision,
@@ -9,6 +11,7 @@ import {
 } from "./config-edit.ts";
 import { resolutionOutput } from "./diagnostics.ts";
 import { errorMessage } from "./files.ts";
+import { ownVersion } from "./install.ts";
 import { integrations } from "./integrations.ts";
 import { resolveInstructions, validateConfiguration } from "./resolve.ts";
 import {
@@ -24,6 +27,171 @@ const assets = new Map<string, [string, string]>([
 	["style.css", ["style.css", "text/css"]],
 ]);
 
+const builtinPolicy =
+	"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'";
+
+/** The installed visualizer app, served from the project's node_modules. */
+export const visualizerPackage = "@guisam/agent-profiles-visualizer";
+
+// The app's build may contain only these file types; anything else is a 404.
+const appTypes = new Map<string, string>([
+	[".html", "text/html; charset=utf-8"],
+	[".js", "text/javascript; charset=utf-8"],
+	[".css", "text/css; charset=utf-8"],
+	[".json", "application/json; charset=utf-8"],
+	[".svg", "image/svg+xml; charset=utf-8"],
+	[".png", "image/png"],
+	[".ico", "image/x-icon"],
+	[".woff2", "font/woff2"],
+	[".woff", "font/woff"],
+	[".ttf", "font/ttf"],
+	[".eot", "application/vnd.ms-fontobject"],
+]);
+
+/** The app may add styles only with the per-response nonce, never inline. */
+function appPolicy(nonce?: string) {
+	const styles = nonce ? `'self' 'nonce-${nonce}'` : "'self'";
+	return `default-src 'none'; script-src 'self'; style-src ${styles}; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'`;
+}
+
+export type VisualizerUi =
+	| { kind: "builtin"; note?: string }
+	| {
+			kind: "app";
+			name: string;
+			version: string;
+			directory: string;
+			warning?: string;
+	  };
+
+/**
+ * Whether `version` (x.y.z) satisfies a peer range: `||` alternatives of
+ * comparators `>=`, `>`, `<=`, `<`, `=`, `^` and `~`. Null when the range uses
+ * any other syntax.
+ */
+export function satisfiesRange(version: string, range: string) {
+	const parse = (text: string) => {
+		const match = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(text);
+		return match ? match.slice(1).map(Number) : null;
+	};
+	const compare = (a: number[], b: number[]) =>
+		a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+	const current = parse(version);
+	if (!current) return null;
+	let parsedAll = true;
+	const result = range.split("||").some((alternative) =>
+		alternative
+			.trim()
+			.split(/\s+/)
+			.every((comparator) => {
+				const match = /^(>=|<=|>|<|=|\^|~)?\s*(.+)$/.exec(comparator);
+				const bound = match && parse(match[2]);
+				if (!match || !bound) {
+					parsedAll = false;
+					return false;
+				}
+				const order = compare(current, bound);
+				switch (match[1]) {
+					case ">=":
+						return order >= 0;
+					case ">":
+						return order > 0;
+					case "<=":
+						return order <= 0;
+					case "<":
+						return order < 0;
+					case "^": {
+						// ^0.y.z stays within 0.y; ^x.y.z within x.
+						const upper =
+							bound[0] > 0 ? [bound[0] + 1, 0, 0] : [0, bound[1] + 1, 0];
+						return order >= 0 && compare(current, upper) < 0;
+					}
+					case "~":
+						return (
+							order >= 0 && compare(current, [bound[0], bound[1] + 1, 0]) < 0
+						);
+					default:
+						return order === 0;
+				}
+			}),
+	);
+	return parsedAll ? result : null;
+}
+
+/**
+ * Find the visualizer app installed in the project: its package.json resolved
+ * from `root`, and a `dist/index.html` beside it. Without one, the built-in
+ * page is served.
+ */
+export function findVisualizerApp(
+	root: string,
+	agentProfilesVersion: string,
+): VisualizerUi {
+	let manifestPath: string;
+	try {
+		manifestPath = createRequire(path.join(root, "package.json")).resolve(
+			`${visualizerPackage}/package.json`,
+		);
+	} catch {
+		return { kind: "builtin" };
+	}
+	const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+	const dist = path.join(path.dirname(manifestPath), "dist");
+	if (!existsSync(path.join(dist, "index.html")))
+		return {
+			kind: "builtin",
+			note: `${visualizerPackage} ${manifest.version} has no dist/index.html`,
+		};
+	const range = manifest.peerDependencies?.["@guisam/agent-profiles"];
+	const supported =
+		typeof range === "string"
+			? satisfiesRange(agentProfilesVersion, range)
+			: null;
+	return {
+		kind: "app",
+		name: visualizerPackage,
+		version: String(manifest.version),
+		directory: realpathSync(dist),
+		...(supported === false
+			? {
+					warning: `${visualizerPackage} ${manifest.version} supports @guisam/agent-profiles ${range}; this is ${agentProfilesVersion}`,
+				}
+			: {}),
+	};
+}
+
+/**
+ * The app file for a route, or null. Paths are decoded and checked segment by
+ * segment: no empty, dot or dotfile segments, no backslashes or colons, a known
+ * extension, and a regular file that stays inside `directory` after symlinks.
+ */
+function appFile(directory: string, route: string) {
+	let decoded: string;
+	try {
+		decoded = decodeURIComponent(route || "index.html");
+	} catch {
+		return null;
+	}
+	const segments = decoded.split("/");
+	if (
+		segments.some(
+			(segment) =>
+				!segment || segment.startsWith(".") || /[\\:\0]/.test(segment),
+		)
+	)
+		return null;
+	const type = appTypes.get(path.extname(decoded).toLowerCase());
+	if (!type) return null;
+	try {
+		const file = realpathSync(path.join(directory, ...segments));
+		if (!file.startsWith(directory + path.sep) || !statSync(file).isFile())
+			return null;
+		return { file, type, index: decoded === "index.html" };
+	} catch {
+		return null;
+	}
+}
+
 export type VisualizerOptions = {
 	root?: string;
 	port?: number;
@@ -35,6 +203,8 @@ export type VisualizerOptions = {
 	storeRoot?: string;
 	/** Accept POST api/edit configuration edits; off unless explicitly enabled. */
 	allowEdits?: boolean;
+	/** "auto" serves the installed visualizer app if any; "builtin" never does. */
+	ui?: "auto" | "builtin";
 };
 
 export async function startVisualizer({
@@ -47,9 +217,12 @@ export async function startVisualizer({
 	skills = [],
 	storeRoot,
 	allowEdits = false,
+	ui: uiChoice = "auto",
 }: VisualizerOptions = {}) {
 	if (!Number.isInteger(port) || port < 0 || port > 65535)
 		throw new Error("port must be an integer from 0 to 65535");
+	if (uiChoice !== "auto" && uiChoice !== "builtin")
+		throw new Error('ui must be "auto" or "builtin"');
 	const initial = resolveInstructions({
 		root,
 		host,
@@ -59,6 +232,10 @@ export async function startVisualizer({
 		skills,
 		storeRoot,
 	});
+	const ui: VisualizerUi =
+		uiChoice === "builtin"
+			? { kind: "builtin" }
+			: findVisualizerApp(root, ownVersion);
 	const token = randomBytes(24).toString("hex");
 	const prefix = `/${token}/`;
 	let origin = "";
@@ -68,7 +245,7 @@ export async function startVisualizer({
 		response.setHeader("Referrer-Policy", "no-referrer");
 		response.setHeader(
 			"Content-Security-Policy",
-			"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+			ui.kind === "app" ? appPolicy() : builtinPolicy,
 		);
 		const send = (status: number, data: unknown) => {
 			response.writeHead(status, {
@@ -125,8 +302,32 @@ export async function startVisualizer({
 			});
 		try {
 			if (route === null) return send(404, { error: "Not found" });
-			const asset = assets.get(route);
-			if (asset) {
+			const asset = ui.kind === "builtin" ? assets.get(route) : undefined;
+			const appAsset =
+				ui.kind === "app" && !route.startsWith("api/")
+					? appFile(ui.directory, route)
+					: null;
+			if (ui.kind === "app" && !route.startsWith("api/") && !appAsset)
+				return send(404, { error: "Not found" });
+			if (appAsset) {
+				let body: Buffer | string = readFileSync(appAsset.file);
+				if (appAsset.index) {
+					// A fresh nonce per page: Vuetify reads it from the meta element
+					// and adds it to the one <style> element it creates.
+					const nonce = randomBytes(16).toString("base64");
+					response.setHeader("Content-Security-Policy", appPolicy(nonce));
+					const meta = `<meta name="csp-nonce" content="${nonce}">`;
+					const html = body.toString("utf8");
+					const head = /<head(\s[^>]*)?>/i.exec(html);
+					body = head
+						? html.slice(0, head.index + head[0].length) +
+							meta +
+							html.slice(head.index + head[0].length)
+						: meta + html;
+				}
+				response.writeHead(200, { "Content-Type": appAsset.type });
+				response.end(body);
+			} else if (asset) {
 				const [file, type] = asset;
 				const body = readFileSync(
 					new URL(`./visualizer/${file}`, import.meta.url),
@@ -227,5 +428,5 @@ export async function startVisualizer({
 	if (!address || typeof address === "string")
 		throw new Error("Expected a TCP listener");
 	origin = `http://127.0.0.1:${address.port}`;
-	return { server, url: `${origin}${prefix}` };
+	return { server, url: `${origin}${prefix}`, ui };
 }
