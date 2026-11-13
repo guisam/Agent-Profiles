@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.31.0 — unreleased — serve the installed visualizer app (#125)
+
+- `visualize` serves `@guisam/agent-profiles-visualizer` when the project has it
+  installed with a `dist/index.html`, instead of the built-in page. Startup
+  prints which page is served and the app's version.
+- `--ui builtin` keeps the built-in page; `--ui auto` is the default. `--ui` is
+  rejected outside `visualize`.
+- App files are served only from `dist/`, under the session token, with a fixed
+  list of file types. Traversal, dotfiles, symlinks out of `dist/` and unknown
+  types return 404.
+- The app's `index.html` gets a per-response CSP nonce in
+  `<meta name="csp-nonce">`; its policy allows styles only from `'self'` and
+  that nonce. The built-in page keeps its policy.
+- An app whose `peerDependencies` range excludes the running version gets a
+  startup warning and is still served.
+- `startVisualizer` takes `ui` and returns `ui`. The API is unchanged. No
+  migration.
+
 ## 0.30.0 — unreleased — bind library versions and replace variants (#119)
 
 - In `visualize --edit`, **Bind and add** binds a library version that the project
@@ -96,7 +114,7 @@
 - Upgrade the runtime and rerun init for your host; no YAML migration is needed.
   See docs/ap-status.md for invocation and menu-verification limits.
 
-## 0.24.1 � unreleased � refresh live files on demand
+## 0.24.1 � unreleased � refresh live files on demand
 
 - Remove visualizer background polling. **Refresh files** rereads the composed
   project and adapter while retaining valid selections and surfacing errors.

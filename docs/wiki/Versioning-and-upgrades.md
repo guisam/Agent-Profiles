@@ -1,5 +1,22 @@
 # Versioning and upgrades
 
+## 0.31.0 — serve the installed visualizer app (unreleased)
+
+`visualize` serves `@guisam/agent-profiles-visualizer` instead of the built-in
+page when the project has it installed. To use it, install both packages as
+development dependencies and start `visualize` as before:
+
+```sh
+npm i -D @guisam/agent-profiles @guisam/agent-profiles-visualizer
+npx agent-profiles visualize --edit
+```
+
+Without the app installed, nothing changes. `--ui builtin` keeps the built-in
+page with the app installed. The API, session URL, edit rules and configuration
+are unchanged; no YAML, lock, store or bootstrap migration is needed. The app is
+served from the project's `node_modules`, so review it like any other
+development dependency.
+
 ## 0.30.0 — bind library versions and replace variants (unreleased)
 
 With `visualize --edit`, a library version the project does not bind yet can be

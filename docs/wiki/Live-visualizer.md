@@ -38,6 +38,15 @@ add and remove role skills and add models, families and roles from the page. Eac
 edit goes to the layer that owns it and refreshes locks; see the visualizer guide. Existing agents still need to resolve Agent Profiles
 again. A pinned comparison is explicitly a browser-session snapshot.
 
+## Visualizer app
+
+From 0.31.0, `visualize` serves the separate
+`@guisam/agent-profiles-visualizer` app when the project has it installed as a
+development dependency, and prints its version at startup. Use `--ui builtin`
+for the built-in page. The app uses the same API, session URL and `--edit`
+rules. See [docs/visualize.md](https://github.com/guisam/Agent-Profiles/blob/main/docs/visualize.md#use-the-visualizer-app)
+for what is served and the content security policy.
+
 ## Skill library
 
 From 0.27.0 (unreleased), select **Load skill library** to browse library skill

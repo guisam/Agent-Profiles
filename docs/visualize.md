@@ -189,6 +189,51 @@ from this live view. Listener/interception and stubbed UI test evidence is not a
 claim that every actual browser or live host has been qualified; those release
 gates remain separate.
 
+## Use the visualizer app
+
+[`@guisam/agent-profiles-visualizer`](https://www.npmjs.com/package/@guisam/agent-profiles-visualizer)
+is a separate Vue + Vuetify front end for the same API. Install it as a
+development dependency of the project, next to Agent Profiles:
+
+```sh
+npm i -D @guisam/agent-profiles @guisam/agent-profiles-visualizer
+npx agent-profiles visualize --edit
+```
+
+When `visualize` starts, it resolves
+`@guisam/agent-profiles-visualizer/package.json` from the project root. If the
+package has a `dist/index.html`, `visualize` serves that build instead of the
+built-in page and prints the package version and folder. Otherwise it prints
+`Serving the built-in page` and behaves as before. `--ui builtin` serves the
+built-in page even when the app is installed; `--ui auto` is the default.
+
+If the app's `peerDependencies` range for `@guisam/agent-profiles` does not
+include the running version, `visualize` prints a warning and still serves the
+app. Ranges use `>=`, `>`, `<=`, `<`, `=`, `^`, `~` and `||`; other
+syntax is not checked.
+
+The app runs on the server's own origin, so the session token, the Host,
+Origin and cross-site checks and the `--edit` rules apply unchanged. Under the
+session URL:
+
+- Only regular files inside `dist/` are served, with a fixed list of types:
+  `html`, `js`, `css`, `json`, `svg`, `png`, `ico`, `woff2`, `woff`,
+  `ttf` and `eot`. Paths with `..`, empty segments, dotfiles, backslashes or
+  colons, files that leave `dist/` through a symlink, and unknown types return
+  404. A missing file is a 404, never `index.html`: the app uses hash routes.
+- `api/` routes are the API, never files.
+- Each `index.html` response carries a new random nonce in
+  `<meta name="csp-nonce">` and the policy `default-src 'none'; script-src
+  'self'; style-src 'self' 'nonce-<nonce>'; font-src 'self'; img-src 'self'
+  data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none';
+  form-action 'none'`. The app passes the nonce to the one `<style>` element
+  it creates. Neither `'unsafe-inline'` nor `'unsafe-eval'` is allowed.
+
+The app's files come from the project's `node_modules`, so the app has the same
+trust as any installed development dependency: a compromised package could read
+the configuration through the session and, with `--edit`, change it. Use
+`--ui builtin` to avoid it.
+
 ## Accounting and privacy
 
 The view uses the [context proof contract](proof.md). Managed totals contain only
@@ -203,7 +248,8 @@ System instructions, built-in tools/skills, and other host context remain
 unobserved. Unknown is never displayed as zero or added to managed totals.
 
 There are no accounts, remote assets, telemetry, uploads, or external services.
-The server serves only three bundled UI assets and read-only JSON endpoints. With
+The server serves only three bundled UI assets, or the installed visualizer app's
+build (see [Use the visualizer app](#use-the-visualizer-app)), and read-only JSON endpoints. With
 `--edit` it also accepts `POST api/edit`, which requires the session URL, a
 same-origin `Origin` header, a JSON body, an `X-Agent-Profiles-Edit: 1` header and
 the configuration revision from `api/config`.
@@ -222,10 +268,11 @@ state; changing the model recalculates prefix routing.
 ```js
 import { startVisualizer } from './src/visualize.ts';
 
-const { server, url } = await startVisualizer({
+const { server, url, ui } = await startVisualizer({
   root: '/path/to/project', model: 'example-model', role: 'reviewer',
+  ui: 'auto', // or 'builtin'
 });
-console.log(url);
+console.log(url, ui.kind); // 'app' (with name, version, directory, warning?) or 'builtin'
 // When finished: server.close(); server.closeAllConnections();
 ```
 
